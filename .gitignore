@@ -1,0 +1,4 @@
+node_modules/
+.env
+.wwwebjs_auth/
+.wwwebjs_cache/
