@@ -1,10 +1,25 @@
 services:
   - type: web
-    name: aria-bot
-    runtime: docker
+    name: aria-rpg-bot
+    env: node
     plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: node index.js
     envVars:
-      - key: PORT
-        value: 3000
+      - key: NODE_VERSION
+        value: 18.16.0
+      - key: CHROME_PATH
+        value: /usr/bin/google-chrome-stable
+      - key: DB_HOST
+        sync: false
+      - key: DB_USER
+        value: avnadmin
+      - key: DB_PASS
+        sync: false
+      - key: DB_NAME
+        value: defaultdb
+      - key: DB_PORT
+        value: "16338"
       - key: ANNOUNCEMENT_GROUP
         sync: false
