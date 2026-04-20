@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: aria-bot
+    runtime: docker
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: ANNOUNCEMENT_GROUP
+        sync: false
