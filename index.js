@@ -28,12 +28,14 @@ const client = new Client({
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox',              // Required for Render's containerized environment
-            '--disable-setuid-sandbox',  // Required for Render's containerized environment
-            '--disable-dev-shm-usage',   // Prevents memory issues
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--disable-gpu'
-        ]
+        ],
+        // Tell Puppeteer where Chrome is installed on Render
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
     }
 });
 
