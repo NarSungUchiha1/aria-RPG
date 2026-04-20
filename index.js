@@ -84,7 +84,6 @@ const client = new Client({
     }),
     puppeteer: {
         headless: true,
-        // No need for executablePath anymore, as the CACHE_DIR handles it
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
