@@ -3,16 +3,20 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
 
 // ==================== EXPRESS SERVER ====================
 const app = express();
+// Use 0.0.0.0 to ensure Render's network can reach the container
 const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0'; 
+
 let lastQR = '';
 let lastPairingCode = '';
-let isReady = false; // Tracks actual connection state
+let isReady = false; 
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
@@ -98,21 +102,23 @@ app.get('/', async (req, res) => {
     });
 });
 
-app.listen(PORT, '0.0.0.0', () => console.log(`🌐 Server running on port ${PORT}`));
+app.listen(PORT, HOST, () => console.log(`🌐 Server running on ${HOST}:${PORT}`));
+
 // ==================== CLIENT SETUP ====================
-const path = require('path');
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
 const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './.wwebjs_auth'
     }),
-puppeteer: {
+    puppeteer: {
         headless: true,
+        // Crucial optimizations for high-memory usage on Render Free Tier
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
+            '--single-process', 
             '--no-zygote'       
         ]
     }
@@ -170,7 +176,7 @@ client.on('qr', qr => {
     lastQR = qr;
     lastPairingCode = ''; 
     isReady = false;
-    console.log("📲 New QR available on the dashboard: http://localhost:3000");
+    console.log("📲 New QR available on the dashboard");
 });
 
 client.on('ready', async () => {
@@ -179,7 +185,6 @@ client.on('ready', async () => {
     isReady = true;
     console.log("✅ ARIA READY");
     
-    // Auto-set admin if missing
     if (ADMINS.length === 0 && client.info?.wid) {
         const firstAdmin = normalizeId(client.info.wid._serialized);
         ADMINS = [firstAdmin];
@@ -187,7 +192,6 @@ client.on('ready', async () => {
         console.log("🔐 Bootstrap admin set:", firstAdmin);
     }
     
-    // Non-blocking shop restock
     console.log("🛒 Attempting initial shop restock...");
     setTimeout(async () => {
         try {
@@ -195,7 +199,7 @@ client.on('ready', async () => {
             await restockAllItems();
             console.log("🛒 Shop successfully restocked.");
         } catch (e) {
-            console.error("⚠️ Shop restock skipped: Database connection timed out. Check Aiven settings.");
+            console.error("⚠️ Shop restock skipped: Database connection issues.");
         }
     }, 2000);
 });
@@ -206,7 +210,7 @@ cron.schedule('*/5 * * * *', async () => {
         await db.query('SELECT 1');
         console.log('💓 Database heartbeat sent.');
     } catch (err) {
-        console.error('💔 Heartbeat failed. Attempting to keep pool alive:', err.message);
+        console.error('💔 Heartbeat failed:', err.message);
     }
 });
 
@@ -228,7 +232,6 @@ client.on('message_create', async msg => {
     const args = msg.body.slice(1).trim().split(/\s+/);
     const cmd = args.shift().toLowerCase();
 
-    // Death check
     if (!['respawn', 'awaken', 'register'].includes(cmd)) {
         try {
             const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
