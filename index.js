@@ -43,7 +43,7 @@ const client = new Client({
     authStrategy: new LocalAuth({ clientId: "aria" }),
     puppeteer: {
         headless: true,
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+        cacheDirectory: '/opt/render/project/src/.cache/puppeteer',
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
