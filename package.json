@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "A WhatsApp RPG bot",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+"scripts": {
+  "build": "./render-build.sh",
+  "start": "node index.js"
+},
   "dependencies": {
     "dotenv": "^16.0.3",
     "express": "^5.2.1",

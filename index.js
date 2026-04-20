@@ -84,9 +84,6 @@ const client = new Client({
     }),
     puppeteer: {
         headless: true,
-        executablePath: isLinux 
-            ? (process.env.CHROME_PATH || '/usr/bin/google-chrome-stable') 
-            : undefined,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
