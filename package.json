@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "dotenv": "^16.0.3",
+    "express": "^5.2.1",
     "mysql2": "^3.2.0",
     "puppeteer": "^24.42.0",
     "qrcode": "^1.5.4",
