@@ -4,20 +4,19 @@
   "description": "A WhatsApp RPG bot",
   "main": "index.js",
 "scripts": {
-  "build": "./render-build.sh",
   "start": "node index.js"
 },
   "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "dotenv": "^16.0.3",
     "express": "^5.2.1",
     "mysql2": "^3.2.0",
     "node-cron": "^3.0.3",
+    "pino": "^10.3.1",
     "puppeteer": "^24.42.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.6"
+    "qrcode-terminal": "^0.12.0"
   },
-
   "engines": {
     "node": "18.x"
   }

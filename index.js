@@ -1,32 +1,28 @@
 require('dotenv').config();
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const { 
+    default: makeWASocket, 
+    useMultiFileAuthState, 
+    DisconnectReason, 
+    fetchLatestBaileysVersion 
+} = require('@whiskeysockets/baileys');
+const express = require('express');
 const QRCode = require('qrcode');
+const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
 
 // ==================== EXPRESS SERVER ====================
 const app = express();
-// Use 0.0.0.0 to ensure Render's network can reach the container
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0'; 
+const isRender = process.env.RENDER === 'true';
+const HOST = '0.0.0.0';
 
 let lastQR = '';
-let lastPairingCode = '';
-let isReady = false; 
+let isReady = false;
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
-
-app.get('/status', (req, res) => {
-    res.json({
-        connected: isReady,
-        qrReady: !!lastQR,
-        pairingCode: lastPairingCode || null
-    });
-});
 
 app.get('/', async (req, res) => {
     let dbStatus = 'Checking...';
@@ -42,91 +38,36 @@ app.get('/', async (req, res) => {
             <html><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f4f7f6">
                 <div style="background:white;padding:40px;border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,0.1);text-align:center">
                     <h1 style="color:#075e54">✅ ARIA Online</h1>
-                    <p style="color:#666">The RPG Bot is currently authenticated and active.</p>
+                    <p style="color:#666">The RPG Bot is currently active.</p>
                     <div style="font-size: 12px; margin-top: 20px; padding: 5px 15px; border-radius: 20px; background: #eee; display: inline-block;">${dbStatus}</div>
                 </div>
             </body></html>
         `);
     }
 
-    if (!lastQR && !lastPairingCode) {
-        return res.send(`
-            <html>
-            <head>
-                <title>ARIA Booting...</title>
-                <meta http-equiv="refresh" content="5">
-                <style>
-                    body { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; background:#f4f7f6; margin:0; }
-                    .card { background:white; padding:40px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); text-align:center; }
-                    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #075e54; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
-                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <h2 style="color:#075e54">⏳ Initializing ARIA...</h2>
-                    <div class="loader"></div>
-                    <p style="color:#666">Starting the browser engine on Render.<br>This usually takes 30-60 seconds.</p>
-                    <p style="color:gray; font-size: 12px; margin-top: 20px;">Page will auto-refresh.</p>
-                </div>
-            </body>
-            </html>
-        `);
+    if (!lastQR) {
+        return res.send('<html><body style="text-align:center;padding-top:50px;font-family:sans-serif;"><h2>⏳ Initializing ARIA...</h2><p>Generating QR code, please wait and refresh.</p></body></html>');
     }
 
-    QRCode.toDataURL(lastQR || '', (err, url) => {
-        res.send(`
-            <html>
-            <head>
-                <title>ARIA Dashboard</title>
-                <meta http-equiv="refresh" content="10">
-                <style>
-                    body { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:sans-serif; background:#e5ddd5; margin:0; }
-                    .card { background:white; padding:30px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.15); text-align:center; width: 90%; max-width:400px; }
-                    .status-bar { font-size: 12px; margin-bottom: 20px; padding: 5px 15px; border-radius: 20px; background: #eee; display: inline-block; }
-                    .code-box { background:#f0f0f0; padding:20px; border-radius:10px; font-size:32px; font-weight:bold; letter-spacing:5px; color:#075e54; margin:20px 0; border: 2px dashed #075e54; }
-                    img { border: 10px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <div class="status-bar">DB Status: ${dbStatus}</div>
-                    <h2>🔐 Link to WhatsApp</h2>
-                    ${lastPairingCode ? `<p>Pairing Code:</p><div class="code-box">${lastPairingCode}</div>` : ''}
-                    ${lastQR && !err && url ? `<p>Scan QR:</p><img src="${url}" width="250" height="250" />` : ''}
-                    <p style="color:gray; font-size: 12px; margin-top: 20px;">Open WhatsApp > Linked Devices > Link a Device</p>
-                </div>
-            </body>
-            </html>
-        `);
-    });
+    const url = await QRCode.toDataURL(lastQR);
+    res.send(`
+        <html>
+        <head><title>ARIA Dashboard</title><meta http-equiv="refresh" content="10"></head>
+        <body style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:sans-serif;background:#e5ddd5;margin:0;">
+            <div style="background:white;padding:30px;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.15);text-align:center;">
+                <div style="font-size: 12px; margin-bottom: 20px; padding: 5px 15px; border-radius: 20px; background: #eee; display: inline-block;">DB Status: ${dbStatus}</div>
+                <h2>🔐 Link to WhatsApp</h2>
+                <img src="${url}" width="250" height="250" />
+                <p style="color:gray; font-size: 12px; margin-top: 20px;">Scan this with WhatsApp Linked Devices</p>
+            </div>
+        </body>
+        </html>
+    `);
 });
 
-app.listen(PORT, HOST, () => console.log(`🌐 Server running on ${HOST}:${PORT}`));
-
-// ==================== CLIENT SETUP ====================
-process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
-const client = new Client({
-    authStrategy: new LocalAuth({
-        dataPath: './.wwebjs_auth'
-    }),
-    puppeteer: {
-        headless: true,
-        // Crucial optimizations for high-memory usage on Render Free Tier
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--single-process', 
-            '--no-zygote'       
-        ]
-    }
-});
-
-// Resilience to prevent crashes from library bugs
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('⚠️ Unhandled Rejection:', reason);
+app.listen(PORT, HOST, () => {
+    const url = isRender ? 'Your Render URL' : `http://localhost:${PORT}`;
+    console.log(`🌐 Dashboard active! Visit: ${url}`);
 });
 
 // ==================== ADMIN SYSTEM ====================
@@ -143,19 +84,9 @@ if (fs.existsSync(ADMIN_FILE)) {
     }
 }
 
-// ==================== HELPERS ====================
 function normalizeId(id) {
     if (!id) return "";
-    return id.toString().replace(/@c\.us|@g\.us|@lid/g, "").split("@")[0];
-}
-
-function getUserId(msg) {
-    const raw = msg.author || msg.from;
-    return normalizeId(raw);
-}
-
-function isAdmin(msg) {
-    return ADMINS.includes(getUserId(msg));
+    return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid/g, "").split(":")[0].split("@")[0];
 }
 
 // ==================== COMMAND LOADER ====================
@@ -171,38 +102,84 @@ if (fs.existsSync(commandPath)) {
         });
 }
 
-// ==================== EVENTS ====================
-client.on('qr', qr => {
-    lastQR = qr;
-    lastPairingCode = ''; 
-    isReady = false;
-    console.log("📲 New QR available on the dashboard");
-});
+// ==================== BAILEYS LOGIC ====================
+async function startBot() {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+    const { version } = await fetchLatestBaileysVersion();
 
-client.on('ready', async () => {
-    lastQR = '';
-    lastPairingCode = '';
-    isReady = true;
-    console.log("✅ ARIA READY");
-    
-    if (ADMINS.length === 0 && client.info?.wid) {
-        const firstAdmin = normalizeId(client.info.wid._serialized);
-        ADMINS = [firstAdmin];
-        fs.writeFileSync(ADMIN_FILE, JSON.stringify({ admins: ADMINS }, null, 2));
-        console.log("🔐 Bootstrap admin set:", firstAdmin);
-    }
-    
-    console.log("🛒 Attempting initial shop restock...");
-    setTimeout(async () => {
-        try {
-            const { restockAllItems } = require('./src/systems/shopSystem');
-            await restockAllItems();
-            console.log("🛒 Shop successfully restocked.");
-        } catch (e) {
-            console.error("⚠️ Shop restock skipped: Database connection issues.");
+    const sock = makeWASocket({
+        version,
+        auth: state,
+        logger: pino({ level: 'silent' })
+    });
+
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        
+        if (qr) {
+            lastQR = qr;
+            isReady = false;
         }
-    }, 2000);
-});
+
+        if (connection === 'close') {
+            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('⚠️ Connection closed. Reconnecting:', shouldReconnect);
+            if (shouldReconnect) startBot();
+        } else if (connection === 'open') {
+            console.log('✅ ARIA ONLINE');
+            isReady = true;
+            lastQR = '';
+            
+            if (ADMINS.length === 0 && sock.user) {
+                const myJid = normalizeId(sock.user.id);
+                ADMINS = [myJid];
+                fs.writeFileSync(ADMIN_FILE, JSON.stringify({ admins: ADMINS }, null, 2));
+                console.log("🔐 Admin bootstrapped:", myJid);
+            }
+        }
+    });
+
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message || msg.key.fromMe) return;
+
+        const jid = msg.key.remoteJid;
+        const senderJid = msg.key.participant || jid;
+        const userId = normalizeId(senderJid);
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
+
+        if (!text.startsWith('!')) return;
+
+        const args = text.slice(1).trim().split(/\s+/);
+        const cmdName = args.shift().toLowerCase();
+
+        const command = commands.get(cmdName);
+        if (!command) return;
+
+        try {
+            // Check HP if not a bypass command
+            if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
+                const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
+                if (rows.length && rows[0].hp <= 0) {
+                    return await sock.sendMessage(jid, { text: "💀 You are dead. Use !respawn" }, { quoted: msg });
+                }
+            }
+
+            const legacyMsg = {
+                body: text,
+                from: jid,
+                author: senderJid,
+                reply: (txt) => sock.sendMessage(jid, { text: txt }, { quoted: msg })
+            };
+
+            await command.execute(legacyMsg, args, { userId, isAdmin: ADMINS.includes(userId), client: sock });
+        } catch (err) {
+            console.error("Command Error:", err);
+        }
+    });
+}
 
 // ==================== DATABASE HEARTBEAT ====================
 cron.schedule('*/5 * * * *', async () => {
@@ -210,71 +187,8 @@ cron.schedule('*/5 * * * *', async () => {
         await db.query('SELECT 1');
         console.log('💓 Database heartbeat sent.');
     } catch (err) {
-        console.error('💔 Heartbeat failed:', err.message);
+        console.log('💔 DB Heartbeat failed (Address not found). Check your DB_HOST environment variable.');
     }
 });
-
-client.on('disconnected', (reason) => {
-    console.log('⚠️ Client disconnected:', reason);
-    lastQR = '';
-    lastPairingCode = '';
-    isReady = false;
-});
-
-// ==================== MAIN HANDLER ====================
-client.on('message_create', async msg => {
-    if (!msg.body || !msg.body.startsWith('!')) return;
-    if (msg.fromMe) return;
-
-    const userId = getUserId(msg);
-    if (!userId) return;
-
-    const args = msg.body.slice(1).trim().split(/\s+/);
-    const cmd = args.shift().toLowerCase();
-
-    if (!['respawn', 'awaken', 'register'].includes(cmd)) {
-        try {
-            const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
-            if (rows.length && rows[0].hp <= 0) return msg.reply("💀 You are dead. Use !respawn");
-        } catch (err) { console.error("Death check error:", err); }
-    }
-
-    const command = commands.get(cmd);
-    if (!command) return;
-
-    try {
-        await command.execute(msg, args, { userId, isAdmin: isAdmin(msg), client });
-    } catch (err) {
-        console.error("Command Error:", err);
-        msg.reply("❌ An error occurred.");
-    }
-});
-
-// ==================== CRON JOBS ====================
-const { spawnDungeon } = require('./src/engine/dungeon');
-cron.schedule('0 */4 * * *', async () => {
-    const ranks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
-    try {
-        let targetChat = null;
-        if (process.env.ANNOUNCEMENT_GROUP) {
-            targetChat = await client.getChatById(process.env.ANNOUNCEMENT_GROUP);
-        } else if (ADMINS.length) {
-            const contact = await client.getContactById(ADMINS[0] + '@c.us');
-            targetChat = await contact.getChat();
-        }
-        if (targetChat) await spawnDungeon(rank, client, targetChat);
-    } catch (err) { console.error('Dungeon spawn failed:', err); }
-});
-
-// ==================== START ====================
-async function startBot() {
-    try {
-        console.log("🚀 Initializing ARIA...");
-        await client.initialize();
-    } catch (err) {
-        console.error("❌ Critical Startup Error:", err.message);
-    }
-}
 
 startBot();
