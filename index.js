@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, LocalAuth, NoAuth } = require('whatsapp-web.js');
+const { Client, NoAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const fs = require('fs');
@@ -15,6 +15,13 @@ let lastQR = '';
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
+app.get('/status', (req, res) => {
+    res.json({ 
+        connected: !lastQR, 
+        qrReady: !!lastQR 
+    });
+});
+
 app.get('/', (req, res) => {
     if (!lastQR) {
         return res.send(`
@@ -27,10 +34,15 @@ app.get('/', (req, res) => {
     QRCode.toDataURL(lastQR, (err, url) => {
         if (err) return res.send('Error generating QR');
         res.send(`
-            <html><body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:40px">
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="30">
+            </head>
+            <body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:40px">
                 <h2>📲 Scan with WhatsApp</h2>
                 <img src="${url}" style="width:300px;height:300px"/>
-                <p style="color:gray">Refresh if QR expires</p>
+                <p style="color:gray">Page auto-refreshes every 30 seconds for a fresh QR</p>
+                <p style="color:gray">Scan quickly or wait for the next one</p>
             </body></html>
         `);
     });
