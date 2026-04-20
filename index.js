@@ -12,12 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 let lastQR = '';
 let lastPairingCode = '';
+let isReady = false; // Tracks actual connection state
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
 app.get('/status', (req, res) => {
     res.json({
-        connected: !lastQR,
+        connected: isReady,
         qrReady: !!lastQR,
         pairingCode: lastPairingCode || null
     });
@@ -32,7 +33,7 @@ app.get('/', async (req, res) => {
         dbStatus = '🔴 Database Offline';
     }
 
-    if (!lastQR && !lastPairingCode) {
+    if (isReady) {
         return res.send(`
             <html><body style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f4f7f6">
                 <div style="background:white;padding:40px;border-radius:20px;box-shadow:0 10px 25px rgba(0,0,0,0.1);text-align:center">
@@ -44,12 +45,37 @@ app.get('/', async (req, res) => {
         `);
     }
 
+    if (!lastQR && !lastPairingCode) {
+        return res.send(`
+            <html>
+            <head>
+                <title>ARIA Booting...</title>
+                <meta http-equiv="refresh" content="5">
+                <style>
+                    body { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; font-family:sans-serif; background:#f4f7f6; margin:0; }
+                    .card { background:white; padding:40px; border-radius:20px; box-shadow:0 10px 25px rgba(0,0,0,0.1); text-align:center; }
+                    .loader { border: 4px solid #f3f3f3; border-top: 4px solid #075e54; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h2 style="color:#075e54">⏳ Initializing ARIA...</h2>
+                    <div class="loader"></div>
+                    <p style="color:#666">Starting the browser engine on Render.<br>This usually takes 30-60 seconds.</p>
+                    <p style="color:gray; font-size: 12px; margin-top: 20px;">Page will auto-refresh.</p>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+
     QRCode.toDataURL(lastQR || '', (err, url) => {
         res.send(`
             <html>
             <head>
                 <title>ARIA Dashboard</title>
-                <meta http-equiv="refresh" content="15">
+                <meta http-equiv="refresh" content="10">
                 <style>
                     body { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; font-family:sans-serif; background:#e5ddd5; margin:0; }
                     .card { background:white; padding:30px; border-radius:15px; box-shadow:0 4px 15px rgba(0,0,0,0.15); text-align:center; width: 90%; max-width:400px; }
@@ -75,7 +101,6 @@ app.get('/', async (req, res) => {
 app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
 
 // ==================== CLIENT SETUP ====================
-const isLinux = process.platform === 'linux';
 const path = require('path');
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
 const client = new Client({
@@ -144,14 +169,14 @@ if (fs.existsSync(commandPath)) {
 client.on('qr', qr => {
     lastQR = qr;
     lastPairingCode = ''; 
+    isReady = false;
     console.log("📲 New QR available on the dashboard: http://localhost:3000");
-    // STABILITY: We strictly DO NOT call requestPairingCode here.
-    // This stops the "Execution context was destroyed" loop.
 });
 
 client.on('ready', async () => {
     lastQR = '';
     lastPairingCode = '';
+    isReady = true;
     console.log("✅ ARIA READY");
     
     // Auto-set admin if missing
@@ -172,23 +197,24 @@ client.on('ready', async () => {
         } catch (e) {
             console.error("⚠️ Shop restock skipped: Database connection timed out. Check Aiven settings.");
         }
-    }, 2000); // Give the system a 2s breather after WhatsApp connects
+    }, 2000);
 });
+
 // ==================== DATABASE HEARTBEAT ====================
-// Runs every 5 minutes to prevent Aiven/Render from closing the idle connection
 cron.schedule('*/5 * * * *', async () => {
     try {
-        // A simple 'SELECT 1' is the industry standard for a heartbeat
         await db.query('SELECT 1');
         console.log('💓 Database heartbeat sent.');
     } catch (err) {
         console.error('💔 Heartbeat failed. Attempting to keep pool alive:', err.message);
     }
 });
+
 client.on('disconnected', (reason) => {
     console.log('⚠️ Client disconnected:', reason);
     lastQR = '';
     lastPairingCode = '';
+    isReady = false;
 });
 
 // ==================== MAIN HANDLER ====================
