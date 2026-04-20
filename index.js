@@ -26,10 +26,12 @@ const client = new Client({
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu'
-        ]
-        // No executablePath or cacheDirectory needed – Puppeteer auto-detects
+        ],
+        // 如果环境变量设置了，就使用它；否则让 Puppeteer 自己找（本地开发）
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
     }
 });
+        // No executablePath or cacheDirectory needed – Puppeteer auto-detects
 
 /* =========================
    🔐 ADMIN SYSTEM
