@@ -4,8 +4,7 @@
   "description": "A WhatsApp RPG bot",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer npx puppeteer browsers install chrome"
+    "start": "node index.js"
   },
   "dependencies": {
     "dotenv": "^16.0.3",

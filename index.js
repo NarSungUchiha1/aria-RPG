@@ -7,21 +7,15 @@ const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
 
-// ==================== EXPRESS SERVER (FOR KEEP-ALIVE) ====================
+// ==================== EXPRESS SERVER (KEEP-ALIVE) ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Health check endpoint for UptimeRobot
-app.get('/ping', (req, res) => {
-    res.status(200).send('OK');
-});
-
-app.listen(PORT, () => {
-    console.log(`🌐 Keep-alive server running on port ${PORT}`);
-});
+app.get('/ping', (req, res) => res.status(200).send('OK'));
+app.listen(PORT, () => console.log(`🌐 Keep-alive server running on port ${PORT}`));
 
 /* =========================
-   CLIENT SETUP (Hardened for Render)
+   CLIENT SETUP (Works on Render)
 ========================= */
 const client = new Client({
     authStrategy: new LocalAuth({ clientId: "aria" }),
@@ -31,16 +25,14 @@ const client = new Client({
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
             '--disable-gpu'
-        ],
-        // Tell Puppeteer where Chrome is installed on Render
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        ]
+        // No executablePath or cacheDirectory needed – Puppeteer auto-detects
     }
 });
 
 /* =========================
-   🔐 ADMIN SYSTEM (MULTI‑ADMIN)
+   🔐 ADMIN SYSTEM
 ========================= */
 const ADMIN_FILE = path.join(__dirname, "admin.json");
 let ADMINS = [];
@@ -48,33 +40,24 @@ let ADMINS = [];
 if (fs.existsSync(ADMIN_FILE)) {
     try {
         const data = JSON.parse(fs.readFileSync(ADMIN_FILE, "utf-8"));
-        if (Array.isArray(data.admins)) {
-            ADMINS = data.admins;
-        } else if (data.admin) {
-            ADMINS = [data.admin];
-        }
+        ADMINS = Array.isArray(data.admins) ? data.admins : [data.admin];
         console.log("🔐 Admins loaded:", ADMINS);
     } catch (err) {
         console.error("Failed to load admin.json:", err);
     }
 }
 
-/* =========================
-   🧠 HELPERS
-========================= */
 function normalizeId(id) {
     if (!id) return "";
     return id.toString().replace(/@c\.us|@g\.us|@lid/g, "").split("@")[0];
 }
 
 function getUserId(msg) {
-    const raw = msg.author || msg.from;
-    return normalizeId(raw);
+    return normalizeId(msg.author || msg.from);
 }
 
 function isAdmin(msg) {
-    const id = getUserId(msg);
-    return ADMINS.includes(id);
+    return ADMINS.includes(getUserId(msg));
 }
 
 /* =========================
@@ -87,9 +70,7 @@ fs.readdirSync(commandPath)
     .filter(f => f.endsWith(".js"))
     .forEach(file => {
         const cmd = require('./src/commands/' + file);
-        if (cmd?.name) {
-            commands.set(cmd.name, cmd);
-        }
+        if (cmd?.name) commands.set(cmd.name, cmd);
     });
 
 /* =========================
@@ -109,7 +90,6 @@ client.on('ready', async () => {
         fs.writeFileSync(ADMIN_FILE, JSON.stringify({ admins: ADMINS }, null, 2));
         console.log("🔐 Bootstrap admin set:", firstAdmin);
     }
-    // Restock shop on startup
     try {
         const { restockAllItems } = require('./src/systems/shopSystem');
         await restockAllItems();
@@ -131,7 +111,6 @@ client.on('message_create', async msg => {
 
     const args = msg.body.slice(1).trim().split(/\s+/);
     const cmd = args.shift().toLowerCase();
-
     console.log(`[CMD] ${userId} → ${cmd}`);
 
     if (!['respawn', 'awaken', 'register'].includes(cmd)) {
@@ -149,11 +128,7 @@ client.on('message_create', async msg => {
     if (!command) return;
 
     try {
-        await command.execute(msg, args, {
-            userId,
-            isAdmin: isAdmin(msg),
-            client
-        });
+        await command.execute(msg, args, { userId, isAdmin: isAdmin(msg), client });
     } catch (err) {
         console.error("Command Error:", err);
         msg.reply("❌ An error occurred.");
@@ -161,37 +136,26 @@ client.on('message_create', async msg => {
 });
 
 /* =========================
-   ⏰ SCHEDULED DUNGEON SPAWN (every 4 hours)
+   ⏰ SCHEDULERS
 ========================= */
 const { spawnDungeon } = require('./src/engine/dungeon');
-
 cron.schedule('0 */4 * * *', async () => {
     console.log('🕒 Scheduled dungeon spawn triggered.');
-    const ranks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const rank = ranks[Math.floor(Math.random() * ranks.length)];
+    const rank = ['F','E','D','C','B','A','S'][Math.floor(Math.random()*7)];
     try {
         let targetChat = null;
         if (process.env.ANNOUNCEMENT_GROUP) {
             targetChat = await client.getChatById(process.env.ANNOUNCEMENT_GROUP);
         } else if (ADMINS.length) {
-            const contact = await client.getContactById(ADMINS[0]);
-            targetChat = await contact.getChat();
+            targetChat = await (await client.getContactById(ADMINS[0])).getChat();
         }
-        if (targetChat) {
-            await spawnDungeon(rank, client, targetChat);
-        } else {
-            console.error('No target chat available for dungeon announcement.');
-        }
+        if (targetChat) await spawnDungeon(rank, client, targetChat);
     } catch (err) {
         console.error('Scheduled spawn failed:', err);
     }
 });
 
-/* =========================
-   🛒 SHOP RESTOCK (every 24 hours at midnight)
-========================= */
 const { restockAllItems } = require('./src/systems/shopSystem');
-
 cron.schedule('0 0 * * *', async () => {
     console.log('🛒 Restocking shop...');
     try {
