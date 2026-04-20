@@ -4,6 +4,5 @@ set -o errexit
 
 npm install
 
-# This command downloads and installs the necessary Chrome dependencies for Puppeteer
-# It creates a local cache so the browser is available to the bot
-npx puppeteer browsers install chrome
+# Install Chrome to a specific path that we will also tell the bot to look in
+npx puppeteer browsers install chrome --path /opt/render/project/src/.cache/puppeteer

@@ -77,22 +77,20 @@ app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
 
 // ==================== CLIENT SETUP ====================
 const isLinux = process.platform === 'linux';
-
+const path = require('path');
+process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
 const client = new Client({
     authStrategy: new LocalAuth({
-        dataPath: './.wwebjs_auth' 
+        dataPath: './.wwebjs_auth'
     }),
     puppeteer: {
         headless: true,
+        // No need for executablePath anymore, as the CACHE_DIR handles it
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--disable-gpu',
-            '--disable-session-crashed-bubble',
-            '--disable-infobars',
-            '--no-first-run'
+            '--disable-gpu'
         ]
     }
 });
