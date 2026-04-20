@@ -1,5 +1,0 @@
-2026/04/20-10:19:46.083 6af0 Creating DB C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb since it was missing.
-2026/04/20-10:19:46.095 6af0 Reusing MANIFEST C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/MANIFEST-000001
-2026/04/20-10:19:46.096 6af0 Recovering log #21
-2026/04/20-10:19:46.099 6af0 Reusing old log C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\IndexedDB\https_web.whatsapp.com_0.indexeddb.leveldb/000021.log 
-2026/04/20-10:19:46.099 6af0 Delete type=2 #23
