@@ -15,7 +15,7 @@ app.get('/ping', (req, res) => res.status(200).send('OK'));
 app.listen(PORT, () => console.log(`🌐 Keep-alive server running on port ${PORT}`));
 
 /* =========================
-   CLIENT SETUP (Works on Render)
+   CLIENT SETUP (Uses Render's built-in Chromium)
 ========================= */
 const client = new Client({
     authStrategy: new LocalAuth({ clientId: "aria" }),
@@ -27,11 +27,10 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-gpu'
         ],
-        // 如果环境变量设置了，就使用它；否则让 Puppeteer 自己找（本地开发）
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+        // Use Chromium that's already installed on Render
+        executablePath: '/usr/bin/chromium'
     }
 });
-        // No executablePath or cacheDirectory needed – Puppeteer auto-detects
 
 /* =========================
    🔐 ADMIN SYSTEM
