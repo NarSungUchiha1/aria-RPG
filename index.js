@@ -51,10 +51,13 @@ fs.readdirSync(commandPath)
         if (cmd?.name) commands.set(cmd.name, cmd);
     });
 
-client.on('qr', qr => {
-    console.clear();
-    console.log("📲 Scan QR:");
-    qrcode.generate(qr, { small: true });
+const QRCode = require('qrcode');
+
+client.on('qr', async qr => {
+    console.log("📲 Scan this QR:");
+
+    const qrImage = await QRCode.toDataURL(qr);
+    console.log(qrImage);
 });
 
 client.on('ready', () => {
