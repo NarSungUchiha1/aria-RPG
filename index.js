@@ -12,37 +12,49 @@ const db = require('./src/database/db');
 const app = express();
 const PORT = process.env.PORT || 3000;
 let lastQR = '';
+let lastPairingCode = '';
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
 app.get('/status', (req, res) => {
-    res.json({ 
-        connected: !lastQR, 
-        qrReady: !!lastQR 
+    res.json({
+        connected: !lastQR,
+        qrReady: !!lastQR,
+        pairingCode: lastPairingCode || null
     });
 });
 
 app.get('/', (req, res) => {
-    if (!lastQR) {
+    if (!lastQR && !lastPairingCode) {
         return res.send(`
             <html><body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:40px">
                 <h2>✅ ARIA is connected to WhatsApp!</h2>
-                <p>No QR needed — session is active.</p>
+                <p>Session is active.</p>
             </body></html>
         `);
     }
-    QRCode.toDataURL(lastQR, (err, url) => {
-        if (err) return res.send('Error generating QR');
+
+    QRCode.toDataURL(lastQR || '', (err, url) => {
         res.send(`
             <html>
-            <head>
-                <meta http-equiv="refresh" content="30">
-            </head>
+            <head><meta http-equiv="refresh" content="30"></head>
             <body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:40px">
-                <h2>📲 Scan with WhatsApp</h2>
-                <img src="${url}" style="width:300px;height:300px"/>
-                <p style="color:gray">Page auto-refreshes every 30 seconds for a fresh QR</p>
-                <p style="color:gray">Scan quickly or wait for the next one</p>
+                <h2>🔐 Link ARIA to WhatsApp</h2>
+
+                ${lastPairingCode ? `
+                <div style="background:#f0f0f0;padding:30px;border-radius:12px;text-align:center;margin-bottom:30px">
+                    <h3 style="margin:0 0 10px 0">📱 Pairing Code</h3>
+                    <div style="font-size:48px;font-weight:bold;letter-spacing:8px;color:#075e54">${lastPairingCode}</div>
+                    <p style="color:gray;margin-top:10px">WhatsApp → Linked Devices → Link with phone number</p>
+                </div>
+                ` : '<p style="color:gray">Waiting for pairing code...</p>'}
+
+                ${lastQR && !err && url ? `
+                <p style="color:gray">— or scan QR code —</p>
+                <img src="${url}" style="width:250px;height:250px"/>
+                ` : ''}
+
+                <p style="color:gray;font-size:12px">Page auto-refreshes every 30 seconds</p>
             </body></html>
         `);
     });
@@ -111,14 +123,23 @@ fs.readdirSync(commandPath)
     });
 
 // ==================== EVENTS ====================
-client.on('qr', qr => {
+client.on('qr', async qr => {
     lastQR = qr;
     console.log("📲 QR ready — open your Render URL to scan");
     qrcode.generate(qr, { small: true });
+
+    try {
+        const code = await client.requestPairingCode('233206963247');
+        lastPairingCode = code;
+        console.log(`📱 PAIRING CODE: ${code}`);
+    } catch (e) {
+        console.error("Pairing code error:", e.message);
+    }
 });
 
 client.on('ready', async () => {
     lastQR = '';
+    lastPairingCode = '';
     console.log("✅ ARIA READY");
     if (ADMINS.length === 0 && client.info?.wid) {
         const firstAdmin = normalizeId(client.info.wid._serialized);
@@ -138,6 +159,7 @@ client.on('ready', async () => {
 client.on('disconnected', (reason) => {
     console.log('⚠️ Client disconnected:', reason);
     lastQR = '';
+    lastPairingCode = '';
 });
 
 // ==================== MAIN HANDLER ====================
