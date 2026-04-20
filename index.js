@@ -98,8 +98,7 @@ app.get('/', async (req, res) => {
     });
 });
 
-app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
-
+app.listen(PORT, '0.0.0.0', () => console.log(`🌐 Server running on port ${PORT}`));
 // ==================== CLIENT SETUP ====================
 const path = require('path');
 process.env.PUPPETEER_CACHE_DIR = path.join(__dirname, '.cache', 'puppeteer');
@@ -107,13 +106,14 @@ const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './.wwebjs_auth'
     }),
-    puppeteer: {
+puppeteer: {
         headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--no-zygote'       
         ]
     }
 });
