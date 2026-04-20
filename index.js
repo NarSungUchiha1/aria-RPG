@@ -3,7 +3,6 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const fs = require('fs');
-const path = require('path');
 const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
