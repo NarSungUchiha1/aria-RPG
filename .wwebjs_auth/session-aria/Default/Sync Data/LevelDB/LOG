@@ -1,0 +1,4 @@
+2026/04/20-10:19:39.234 7d9c Creating DB C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\Sync Data\LevelDB since it was missing.
+2026/04/20-10:19:39.276 7d9c Reusing MANIFEST C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\Sync Data\LevelDB/MANIFEST-000001
+2026/04/20-10:19:39.277 7d9c Recovering log #3
+2026/04/20-10:19:39.278 7d9c Reusing old log C:\Users\USER\Downloads\project-aria (1)\.wwebjs_auth\session-aria\Default\Sync Data\LevelDB/000003.log 
