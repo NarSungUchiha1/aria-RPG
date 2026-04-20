@@ -15,7 +15,7 @@ app.get('/ping', (req, res) => res.status(200).send('OK'));
 app.listen(PORT, () => console.log(`🌐 Keep-alive server running on port ${PORT}`));
 
 /* =========================
-   CLIENT SETUP (Uses Render's built-in Chromium)
+   CLIENT SETUP (Puppeteer auto-detects browser)
 ========================= */
 const client = new Client({
     authStrategy: new LocalAuth({ clientId: "aria" }),
@@ -26,9 +26,8 @@ const client = new Client({
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu'
-        ],
-        // Use Chromium that's already installed on Render
-        executablePath: '/usr/bin/chromium'
+        ]
+        // No executablePath – Puppeteer finds the browser automatically
     }
 });
 
