@@ -8,6 +8,13 @@ const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
 
+// TEMPORARY - clear corrupted session
+const sessionPath = path.join(__dirname, '.wwebjs_auth');
+if (fs.existsSync(sessionPath)) {
+    fs.rmSync(sessionPath, { recursive: true, force: true });
+    console.log('🗑️ Old session cleared');
+}
+
 // ==================== EXPRESS SERVER ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
