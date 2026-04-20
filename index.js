@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, NoAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const fs = require('fs');
@@ -7,13 +7,6 @@ const path = require('path');
 const express = require('express');
 const cron = require('node-cron');
 const db = require('./src/database/db');
-
-// TEMPORARY - clear corrupted session
-const sessionPath = path.join(__dirname, '.wwebjs_auth');
-if (fs.existsSync(sessionPath)) {
-    fs.rmSync(sessionPath, { recursive: true, force: true });
-    console.log('🗑️ Old session cleared');
-}
 
 // ==================== EXPRESS SERVER ====================
 const app = express();
@@ -25,7 +18,7 @@ app.get('/ping', (req, res) => res.status(200).send('OK'));
 app.get('/', (req, res) => {
     if (!lastQR) {
         return res.send(`
-            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <html><body style="display:flex;flex-direction:column;align-items:center;font-family:sans-serif;padding:40px">
                 <h2>✅ ARIA is connected to WhatsApp!</h2>
                 <p>No QR needed — session is active.</p>
             </body></html>
@@ -47,7 +40,7 @@ app.listen(PORT, () => console.log(`🌐 Server running on port ${PORT}`));
 
 // ==================== CLIENT SETUP ====================
 const client = new Client({
-    authStrategy: new LocalAuth({ clientId: "aria" }),
+    authStrategy: new NoAuth(),
     puppeteer: {
         headless: true,
         cacheDirectory: '/opt/render/project/src/.cache/puppeteer',
