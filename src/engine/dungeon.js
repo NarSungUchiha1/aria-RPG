@@ -4,10 +4,20 @@ const { calculateMoveDamage } = require('../systems/skillSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
 
-const RAID_GROUP = '120363213735662100@g.us';
+// ✅ Read from env so you never have to touch code to change the group
+const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 const dungeonLocks = new Map();
 const autoStartTimers = new Map();
+
+// ✅ Local normalizeId — strips device suffix so we can match against group participants
+function normalizeId(id) {
+    if (!id) return '';
+    return id.toString()
+        .replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, '')
+        .split(':')[0]
+        .split('@')[0];
+}
 
 // =======================
 //  SPAWN DUNGEON
@@ -37,8 +47,16 @@ async function spawnDungeon(rank, client = null) {
 }
 
 async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
+    // ✅ Fixed: rank is a string so SQL string comparison is wrong.
+    // We query all eligible ranks explicitly using the correct game order.
+    const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+    const minIdx = rankOrder.indexOf(rank);
+    const eligibleRanks = minIdx >= 0 ? rankOrder.slice(minIdx) : rankOrder;
+    const placeholders = eligibleRanks.map(() => '?').join(',');
+
     const [players] = await db.execute(
-        "SELECT id FROM players WHERE `rank` >= ?", [rank]
+        `SELECT id FROM players WHERE \`rank\` IN (${placeholders})`,
+        eligibleRanks
     );
 
     const mentions = players.map(p => `${p.id}@s.whatsapp.net`);
@@ -65,13 +83,20 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 // =======================
 //  PROMOTE / DEMOTE RAIDERS
 // =======================
+
+// ✅ Fixed: fetch group metadata to get the exact Baileys JID (may include :device suffix)
+//    Constructing ${userId}@s.whatsapp.net manually fails for multi-device accounts.
 async function promoteRaider(client, userId) {
     try {
-        await client.groupParticipantsUpdate(
-            RAID_GROUP,
-            [`${userId}@s.whatsapp.net`],
-            'promote'
+        const metadata = await client.groupMetadata(RAID_GROUP);
+        const participant = metadata.participants.find(
+            p => normalizeId(p.id) === userId
         );
+        if (!participant) {
+            console.error(`⚠️ Promote failed: ${userId} not found in dungeon group`);
+            return;
+        }
+        await client.groupParticipantsUpdate(RAID_GROUP, [participant.id], 'promote');
         console.log(`👑 Promoted ${userId} to admin`);
     } catch (e) {
         console.error(`Failed to promote ${userId}:`, e.message);
@@ -80,11 +105,15 @@ async function promoteRaider(client, userId) {
 
 async function demoteRaider(client, userId) {
     try {
-        await client.groupParticipantsUpdate(
-            RAID_GROUP,
-            [`${userId}@s.whatsapp.net`],
-            'demote'
+        const metadata = await client.groupMetadata(RAID_GROUP);
+        const participant = metadata.participants.find(
+            p => normalizeId(p.id) === userId
         );
+        if (!participant) {
+            // Not in group anymore — nothing to demote
+            return;
+        }
+        await client.groupParticipantsUpdate(RAID_GROUP, [participant.id], 'demote');
         console.log(`👇 Demoted ${userId} from admin`);
     } catch (e) {
         console.error(`Failed to demote ${userId}:`, e.message);
@@ -426,7 +455,6 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
         [dungeonId]
     );
     if (rows[0].cnt === 0) {
-        // Demote all raiders before closing
         if (client) await demoteAllRaiders(client, dungeonId);
 
         await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeonId]);
@@ -511,7 +539,7 @@ async function getDungeonStatusText(dungeonId) {
             text += `┃◆   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
         });
     }
-    text += `┃◆────────────\n┃◆ 🧭 !attack • !skill <name>\n╰═══════════════════════╯`;
+    text += `┃◆────────────\n┃◆ 🧭 !skill <move> [target]\n╰═══════════════════════╯`;
     return text;
 }
 

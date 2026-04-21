@@ -98,6 +98,22 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
+// ==================== CHANNEL CONFIG ====================
+// Commands that ONLY work inside the dungeon group chat
+const DUNGEON_GC_ONLY = new Set([
+    'skill', 'attack', 'dungeon', 'begin', 'onward',
+    'clear', 'closedungeon', 'spawn', 'attackboss', 'worldboss'
+]);
+
+// Commands that ONLY work in DMs with the bot
+const DM_ONLY = new Set(['enter']);
+
+// Commands that work ANYWHERE (no restriction)
+// Everything else falls here: help, me, stats, shop, buy, inventory,
+// equip, unequip, repair, upgradeweapon, use, duel, accept, decline,
+// register, awaken, rankup, convert, upgrade, pay, transfer, trade,
+// quests, claim, give, erase, promote, demote, restock, update, getgroupid, etc.
+
 // ==================== COMMAND LOADER ====================
 const commands = new Map();
 const commandPath = path.join(__dirname, "src/commands");
@@ -116,7 +132,6 @@ console.log(`📦 Loaded ${commands.size} commands`);
 async function useMySQLAuthState() {
     const SESSION_ID = 'aria-bot';
 
-    // Ensure table exists
     await db.execute(`
         CREATE TABLE IF NOT EXISTS wa_sessions (
             id VARCHAR(50) PRIMARY KEY,
@@ -213,7 +228,13 @@ async function startBot() {
                 setTimeout(async () => {
                     try {
                         if (sock?.user) return;
-                        const code = await sock.requestPairingCode('233206963247');
+                        // ✅ Phone number from env — add BOT_PHONE_NUMBER to your .env
+                        const phoneNumber = process.env.BOT_PHONE_NUMBER;
+                        if (!phoneNumber) {
+                            console.warn("⚠️ BOT_PHONE_NUMBER not set in .env — skipping pairing code");
+                            return;
+                        }
+                        const code = await sock.requestPairingCode(phoneNumber);
                         lastPairingCode = code;
                         console.log(`📱 PAIRING CODE: ${code}`);
                     } catch (e) {
@@ -229,7 +250,7 @@ async function startBot() {
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log(`⚠️ Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
                 if (shouldReconnect) {
-                    setTimeout(() => startBot(), 5000); // wait 5s before reconnecting
+                    setTimeout(() => startBot(), 5000);
                 }
             } else if (connection === 'open') {
                 console.log('✅ ARIA ONLINE');
@@ -275,7 +296,32 @@ async function startBot() {
             const command = commands.get(cmdName);
             if (!command) return;
 
-            console.log(`[CMD] ${userId} → ${cmdName}`);
+            // ==================== CHANNEL ROUTING ====================
+            const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const isDM = !jid.endsWith('@g.us');
+            const isRaidGroup = jid === RAID_GROUP;
+
+            if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
+                // Only tell them where to go if they're in a GC — silent ignore in other GCs
+                if (isDM) {
+                    await sock.sendMessage(jid,
+                        { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` },
+                        { quoted: msg }
+                    );
+                }
+                return;
+            }
+
+            if (DM_ONLY.has(cmdName) && !isDM) {
+                await sock.sendMessage(jid,
+                    { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` },
+                    { quoted: msg }
+                );
+                return;
+            }
+            // =========================================================
+
+            console.log(`[CMD] ${userId} → ${cmdName} (from: ${isRaidGroup ? 'RaidGC' : isDM ? 'DM' : 'OtherGC'})`);
 
             const fakeMsg = {
                 body: text,
@@ -343,24 +389,7 @@ async function startBot() {
             const ranks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
             const rank = ranks[Math.floor(Math.random() * ranks.length)];
             try {
-                let targetChat = null;
-                if (process.env.ANNOUNCEMENT_GROUP) {
-                    targetChat = {
-                        id: { _serialized: process.env.ANNOUNCEMENT_GROUP },
-                        sendMessage: async (content, options) => {
-                            return await sock.sendMessage(process.env.ANNOUNCEMENT_GROUP, { text: content }, options);
-                        }
-                    };
-                } else if (ADMINS.length) {
-                    const adminJid = ADMINS[0] + '@s.whatsapp.net';
-                    targetChat = {
-                        id: { _serialized: adminJid },
-                        sendMessage: async (content, options) => {
-                            return await sock.sendMessage(adminJid, { text: content }, options);
-                        }
-                    };
-                }
-                if (targetChat) await spawnDungeon(rank, sock, targetChat);
+                await spawnDungeon(rank, sock);
             } catch (err) {
                 console.error('Scheduled spawn failed:', err);
             }

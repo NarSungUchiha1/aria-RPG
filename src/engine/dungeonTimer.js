@@ -1,4 +1,12 @@
-const timers = new Map(); // dungeonId -> { stageTimeout, stageWarning, overallTimeout, overallWarning }
+// dungeonId -> { stageTimeout, stageWarning, overallTimeout, overallWarning }
+const timers = new Map();
+
+// ── TIMING CONFIG ────────────────────────────────────────
+const STAGE_WARN_MS    = 3  * 60 * 1000;  //  3 min  → warning fires (2 min left)
+const STAGE_LIMIT_MS   = 5  * 60 * 1000;  //  5 min  → stage fails
+const OVERALL_WARN_MS  = 20 * 60 * 1000;  // 20 min  → warning fires (5 min left)
+const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min  → dungeon collapses
+// ─────────────────────────────────────────────────────────
 
 function clearDungeonTimers(dungeonId) {
     const entry = timers.get(dungeonId);
@@ -13,74 +21,83 @@ function clearDungeonTimers(dungeonId) {
 
 /**
  * Start both stage timer and overall timer (called when dungeon begins).
- * @param {number} dungeonId
- * @param {object} client - WhatsApp client
- * @param {object} targetChat - Chat to send messages
- * @param {function} onFail - Callback when any timer expires
+ * @param {number}   dungeonId
+ * @param {object}   client      - Baileys socket
+ * @param {object}   targetChat  - Chat to send messages to (the dungeon GC)
+ * @param {function} onFail      - Callback(type) when any timer expires
  */
 function startDungeonTimers(dungeonId, client, targetChat, onFail) {
     clearDungeonTimers(dungeonId);
-    
-    // ----- Stage Timer (5 min, warn at 3 min) -----
+
+    // ── Stage Warning (3 min in → 2 min left) ──────────────
     const stageWarning = setTimeout(async () => {
         try {
             await targetChat.sendMessage(
-                `══〘 ⏳ STAGE WARNING 〙══╮\n┃◆ The enemies are calling for reinforcements!\n┃◆ You have 2 minutes left to clear this stage.\n╰═══════════════════════╯`
+                `══〘 ⏳ STAGE WARNING 〙══╮\n` +
+                `┃◆ The enemies are calling for reinforcements!\n` +
+                `┃◆ ⚠️ 2 minutes left to clear this stage.\n` +
+                `┃◆ Fail = instant death for ALL raiders.\n` +
+                `┃◆ Use !dungeon to see remaining enemies.\n` +
+                `╰═══════════════════════╯`
             );
         } catch (e) {}
-    }, 180000); // 3 minutes
-    
+    }, STAGE_WARN_MS);
+
+    // ── Stage Timeout (5 min) ──────────────────────────────
     const stageTimeout = setTimeout(async () => {
-        try {
-            await onFail('stage');
-        } catch (e) {}
-    }, 300000); // 5 minutes
-    
-    // ----- Overall Timer (30 min, warn at 25 min) -----
+        try { await onFail('stage'); } catch (e) {}
+    }, STAGE_LIMIT_MS);
+
+    // ── Overall Warning (20 min in → 5 min left) ──────────
     const overallWarning = setTimeout(async () => {
         try {
             await targetChat.sendMessage(
-                `══〘 ⏳ DUNGEON WARNING 〙══╮\n┃◆ The dungeon's energy is fading!\n┃◆ You have 5 minutes before it collapses.\n╰═══════════════════════╯`
+                `══〘 ⏳ DUNGEON COLLAPSING 〙══╮\n` +
+                `┃◆ The dungeon's energy is destabilizing!\n` +
+                `┃◆ ⚠️ 5 minutes before total collapse.\n` +
+                `┃◆ Fail = instant death + dungeon lost.\n` +
+                `┃◆ Push through — clear remaining stages!\n` +
+                `╰═══════════════════════╯`
             );
         } catch (e) {}
-    }, 1500000); // 25 minutes = 25 * 60 * 1000
-    
+    }, OVERALL_WARN_MS);
+
+    // ── Overall Timeout (25 min) ───────────────────────────
     const overallTimeout = setTimeout(async () => {
-        try {
-            await onFail('overall');
-        } catch (e) {}
-    }, 1800000); // 30 minutes = 30 * 60 * 1000
-    
+        try { await onFail('overall'); } catch (e) {}
+    }, OVERALL_LIMIT_MS);
+
     timers.set(dungeonId, { stageTimeout, stageWarning, overallTimeout, overallWarning });
 }
 
 /**
- * Reset only the stage timer (call on stage advance). Overall timer keeps running.
+ * Reset only the stage timer when advancing a stage.
+ * Overall timer keeps running from where it started.
  */
 function resetStageTimer(dungeonId, client, targetChat, onFail) {
     const entry = timers.get(dungeonId);
     if (!entry) return;
-    
-    // Clear old stage timers
+
     clearTimeout(entry.stageTimeout);
     clearTimeout(entry.stageWarning);
-    
-    // Create new stage timers
+
     const stageWarning = setTimeout(async () => {
         try {
             await targetChat.sendMessage(
-                `══〘 ⏳ STAGE WARNING 〙══╮\n┃◆ The enemies are calling for reinforcements!\n┃◆ You have 2 minutes left to clear this stage.\n╰═══════════════════════╯`
+                `══〘 ⏳ STAGE WARNING 〙══╮\n` +
+                `┃◆ The enemies are calling for reinforcements!\n` +
+                `┃◆ ⚠️ 2 minutes left to clear this stage.\n` +
+                `┃◆ Fail = instant death for ALL raiders.\n` +
+                `┃◆ Use !dungeon to see remaining enemies.\n` +
+                `╰═══════════════════════╯`
             );
         } catch (e) {}
-    }, 180000);
-    
+    }, STAGE_WARN_MS);
+
     const stageTimeout = setTimeout(async () => {
-        try {
-            await onFail('stage');
-        } catch (e) {}
-    }, 300000);
-    
-    // Update entry
+        try { await onFail('stage'); } catch (e) {}
+    }, STAGE_LIMIT_MS);
+
     entry.stageWarning = stageWarning;
     entry.stageTimeout = stageTimeout;
     timers.set(dungeonId, entry);

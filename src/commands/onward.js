@@ -1,6 +1,12 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
-const { getActiveDungeon, isPlayerInDungeon, advanceStage, removePlayerFromDungeon, getMaxStageForDungeon, getDungeonStatusText } = require('../engine/dungeon');
+const {
+    getActiveDungeon,
+    isPlayerInDungeon,
+    advanceStage,
+    getMaxStageForDungeon,
+    getDungeonStatusText,
+    demoteAllRaiders
+} = require('../engine/dungeon');
 const { resetStageTimer, clearDungeonTimers } = require('../engine/dungeonTimer');
 
 module.exports = {
@@ -20,8 +26,8 @@ module.exports = {
             }
 
             const maxStage = await getMaxStageForDungeon(dungeon.id);
-            
-            // Dungeon cleared
+
+            // ── DUNGEON CLEARED ──
             if (dungeon.stage >= maxStage) {
                 const [participants] = await db.execute(
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
@@ -29,16 +35,20 @@ module.exports = {
                 );
                 const rewardGold = Math.floor(Math.random() * 300) + 200;
                 const rewardXp = Math.floor(Math.random() * 200) + 100;
-                
+
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]);
-                    await removePlayerFromDungeon(p.player_id, dungeon.id);
                 }
-                
-                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [dungeon.id]);
+
+                // ✅ Demote all raiders before closing
+                await demoteAllRaiders(client, dungeon.id);
+
+                // Bulk-remove players and close dungeon
+                await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
+                await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                 clearDungeonTimers(dungeon.id);
-                
+
                 return msg.reply(`══〘 👑 DUNGEON CLEARED 〙══╮
 ┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.
 ┃◆ Each survivor feels the dungeon's gratitude:
@@ -47,27 +57,37 @@ module.exports = {
 ╰═══════════════════════╯`);
             }
 
-            // Advance to next stage
+            // ── ADVANCE STAGE ──
             const next = dungeon.stage + 1;
             await advanceStage(dungeon.id, next);
 
-            // Reset ONLY the stage timer (overall timer continues)
+            // targetChat is the dungeon GC (onward is restricted there by index.js routing)
             const targetChat = await msg.getChat();
+
             const failCallback = async () => {
-                const [players] = await db.execute(
-                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
-                    [dungeon.id]
-                );
-                for (const p of players) {
-                    // Death penalty: HP = 0
-                    await db.execute("UPDATE players SET hp = 0 WHERE id=?", [p.player_id]);
-                    await removePlayerFromDungeon(p.player_id, dungeon.id);
+                try {
+                    const [players] = await db.execute(
+                        "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                        [dungeon.id]
+                    );
+                    for (const p of players) {
+                        await db.execute("UPDATE players SET hp = 0 WHERE id=?", [p.player_id]);
+                    }
+
+                    // ✅ Demote all raiders before closing
+                    await demoteAllRaiders(client, dungeon.id);
+
+                    await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
+                    await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
+                    clearDungeonTimers(dungeon.id);
+
+                    await targetChat.sendMessage(`══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯`);
+                } catch (err) {
+                    console.error("Onward failCallback error:", err);
                 }
-                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [dungeon.id]);
-                clearDungeonTimers(dungeon.id);
-                await targetChat.sendMessage(`══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯`);
             };
-            
+
+            // Reset stage timer only — overall timer keeps running from begin/auto-start
             await resetStageTimer(dungeon.id, client, targetChat, failCallback);
 
             await msg.reply(`══〘 🧭 STAGE ${next}/${maxStage} 〙══╮
