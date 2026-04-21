@@ -3,8 +3,7 @@ const {
     default: makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason, 
-    fetchLatestBaileysVersion,
-    makeInMemoryStore
+    fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const express = require('express');
 const QRCode = require('qrcode');
@@ -17,8 +16,6 @@ const db = require('./src/database/db');
 // ==================== EXPRESS SERVER ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
-const HOST = '0.0.0.0';
-
 let lastQR = '';
 let lastPairingCode = '';
 let isReady = false;
@@ -75,7 +72,7 @@ app.get('/', async (req, res) => {
     `);
 });
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Dashboard active! Visit: http://localhost:${PORT}`);
 });
 
@@ -121,17 +118,12 @@ async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
     const { version } = await fetchLatestBaileysVersion();
 
-    const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
-    store.bind(state);
-
     const sock = makeWASocket({
         version,
         auth: state,
         logger: pino({ level: 'silent' }),
         getMessage: async () => ({ conversation: '' })
     });
-
-    store.bind(sock.ev);
 
     sock.ev.on('creds.update', saveCreds);
 
@@ -141,20 +133,16 @@ async function startBot() {
         if (qr) {
             lastQR = qr;
             isReady = false;
-            // Generate pairing code if phone number is available
-            (async () => {
+            setTimeout(async () => {
                 try {
                     if (sock?.user) return;
-                    // Wait a bit for connection to stabilize
-                    setTimeout(async () => {
-                        try {
-                            const code = await sock.requestPairingCode('233206963247'); // Replace with your phone number
-                            lastPairingCode = code;
-                            console.log(`📱 PAIRING CODE: ${code}`);
-                        } catch (e) {}
-                    }, 3000);
-                } catch (e) {}
-            })();
+                    const code = await sock.requestPairingCode('233206963247');
+                    lastPairingCode = code;
+                    console.log(`📱 PAIRING CODE: ${code}`);
+                } catch (e) {
+                    console.error("Pairing code error:", e.message);
+                }
+            }, 3000);
         }
 
         if (connection === 'close') {
@@ -174,7 +162,6 @@ async function startBot() {
                 console.log("🔐 Admin bootstrapped:", myJid);
             }
 
-            // Restock shop on startup
             try {
                 const { restockAllItems } = require('./src/systems/shopSystem');
                 await restockAllItems();
@@ -206,7 +193,6 @@ async function startBot() {
         const command = commands.get(cmdName);
         if (!command) return;
 
-        // ========== COMPATIBILITY LAYER: Make Baileys msg look like whatsapp-web.js ==========
         const fakeMsg = {
             body: text,
             from: jid,
@@ -226,7 +212,7 @@ async function startBot() {
             },
             
             reply: async (content, _, options) => {
-                let finalMentions = options?.mentions || [];
+                const finalMentions = options?.mentions || [];
                 const messageContent = typeof content === 'string' 
                     ? { text: content, mentions: finalMentions }
                     : content;
@@ -238,19 +224,16 @@ async function startBot() {
                 return entities.map(e => normalizeId(e));
             },
             
-            getChat: async () => {
-                return {
-                    id: { _serialized: jid },
-                    isGroup: jid.endsWith('@g.us'),
-                    sendMessage: async (content, options) => {
-                        return await sock.sendMessage(jid, { text: content }, options);
-                    }
-                };
-            }
+            getChat: async () => ({
+                id: { _serialized: jid },
+                isGroup: jid.endsWith('@g.us'),
+                sendMessage: async (content, options) => {
+                    return await sock.sendMessage(jid, { text: content }, options);
+                }
+            })
         };
 
         try {
-            // Death check
             if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
                 const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
                 if (rows.length && rows[0].hp <= 0) {
@@ -278,10 +261,12 @@ async function startBot() {
         try {
             let targetChat = null;
             if (process.env.ANNOUNCEMENT_GROUP) {
-                targetChat = await sock.groupMetadata(process.env.ANNOUNCEMENT_GROUP).catch(() => null);
-                if (targetChat) targetChat = { id: { _serialized: process.env.ANNOUNCEMENT_GROUP }, sendMessage: async (content, options) => {
-                    return await sock.sendMessage(process.env.ANNOUNCEMENT_GROUP, { text: content }, options);
-                }};
+                targetChat = {
+                    id: { _serialized: process.env.ANNOUNCEMENT_GROUP },
+                    sendMessage: async (content, options) => {
+                        return await sock.sendMessage(process.env.ANNOUNCEMENT_GROUP, { text: content }, options);
+                    }
+                };
             } else if (ADMINS.length) {
                 const adminJid = ADMINS[0] + '@s.whatsapp.net';
                 targetChat = {
@@ -319,6 +304,16 @@ cron.schedule('*/5 * * * *', async () => {
     } catch (err) {
         console.log('💔 DB Heartbeat failed. Check DB_HOST.');
     }
+});
+
+// ==================== ERROR HANDLING ====================
+process.on('uncaughtException', (err) => {
+    console.error('💥 UNCAUGHT EXCEPTION:', err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason) => {
+    console.error('💥 UNHANDLED REJECTION:', reason);
 });
 
 startBot();
