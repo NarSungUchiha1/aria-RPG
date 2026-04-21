@@ -44,21 +44,37 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage, targetJid) 
     );
 
     // Build mention JIDs for Baileys
-    const mentionJids = players.map(p => `${p.id}@s.whatsapp.net`);
-
-    const announceMsg = `══〘 📢 ANNOUNCEMENT 〙══╮
-┃◆
-┃◆ *A DUNGEON HAS APPEARED!*
-┃◆
-┃◆ Rank: ${rank}
-┃◆ Max Stage: ${maxStage}
-┃◆ Boss: ${boss}
-┃◆
-┃◆ Challenging all adventurers of rank ${rank} and above to test their might!
-┃◆ Use !enter to join the raid!
-┃
-╰══════════════════════════╯`;
-
+async function sendDungeonAnnouncement(sock, rank, boss, maxStage, targetJid) {
+    const [players] = await db.execute(
+        "SELECT id, nickname FROM players WHERE `rank` >= ?",
+        [rank]
+    );
+    
+    // Build mentions array with proper JIDs
+    const mentions = players.map(p => `${p.id}@s.whatsapp.net`);
+    
+    const announceMsg = `╭══〘 📢 ANNOUNCEMENT 〙══╮
+┃◆ 
+┃◆   *DUNGEON HAS OPENED*
+┃◆ 
+┃◆   Rank: ${rank}
+┃◆   Max Stage: ${maxStage}
+┃◆   Boss: ${boss}
+┃◆ 
+┃◆   Use !enter to join the raid!
+┃◆ 
+╰═══════════════════════════╯`;
+    
+    try {
+        await sock.sendMessage(targetJid, { 
+            text: announceMsg, 
+            mentions 
+        });
+        console.log(`✅ Announcement sent to ${targetJid}`);
+    } catch (e) {
+        console.error("Failed to send dungeon announcement:", e);
+    }
+}
     try {
         await client.sendMessage(targetJid, {
             text: announceMsg,
