@@ -113,9 +113,41 @@ if (fs.existsSync(commandPath)) {
         });
 }
 
+// ==================== MYSQL AUTH STATE (SESSION PERSISTENCE) ====================
+async function useMySQLAuthState() {
+    const id = 'aria-bot';
+
+    const readFromDB = async () => {
+        const [rows] = await db.execute('SELECT creds, `keys` FROM wa_sessions WHERE id = ?', [id]);
+        if (rows.length) {
+            return {
+                creds: JSON.parse(rows[0].creds),
+                keys: JSON.parse(rows[0].keys)
+            };
+        }
+        return null;
+    };
+
+    const writeToDB = async (creds, keys) => {
+        await db.execute(
+            'INSERT INTO wa_sessions (id, creds, `keys`) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE creds = ?, `keys` = ?',
+            [id, JSON.stringify(creds), JSON.stringify(keys), JSON.stringify(creds), JSON.stringify(keys)]
+        );
+    };
+
+    let stored = await readFromDB();
+    let state = stored ? { creds: stored.creds, keys: stored.keys } : { creds: {}, keys: {} };
+
+    const saveCreds = async () => {
+        await writeToDB(state.creds, state.keys);
+    };
+
+    return { state, saveCreds };
+}
+
 // ==================== BAILEYS LOGIC ====================
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+    const { state, saveCreds } = await useMySQLAuthState();
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
