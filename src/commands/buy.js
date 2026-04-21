@@ -14,6 +14,15 @@ module.exports = {
             const [player] = await db.execute("SELECT role, `rank` FROM players WHERE id=?", [userId]);
             if (!player.length) return msg.reply("❌ Not registered.");
 
+            // ❌ Block purchase if player is inside an active dungeon
+            const [inDungeon] = await db.execute(
+                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
+                [userId]
+            );
+            if (inDungeon.length) {
+                return msg.reply("❌ You cannot access the shop while inside a dungeon.");
+            }
+
             const shop = await getPlayerShop(userId, player[0].role, player[0].rank);
             const item = shop.find(i => i.id === choice);
             if (!item) return msg.reply("❌ Item not found.");
@@ -28,7 +37,7 @@ module.exports = {
             }
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
-            
+
             const itemType = item.name.includes('Potion') ? 'consumable' : item.stat;
             const [result] = await db.execute(
                 "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES (?, ?, ?, 1, 0)",
@@ -62,7 +71,6 @@ module.exports = {
             }
 
             await decreaseStock(item.name);
-            // Clear the shop cache for this role+rank so next !shop shows updated stock
             clearShopCacheForRoleRank(player[0].role, player[0].rank);
 
             return msg.reply(`══〘 ✅ PURCHASE SUCCESS 〙══╮

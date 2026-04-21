@@ -6,6 +6,9 @@ const { clearDungeonTimers } = require('./dungeonTimer');
 
 const dungeonLocks = new Map();
 
+// Auto-start timers (used by enter.js)
+const autoStartTimers = new Map();
+
 // =======================
 //  SPAWN DUNGEON
 // =======================
@@ -420,6 +423,13 @@ async function checkAndCloseEmptyDungeon(dungeonId) {
         await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeonId]);
         dungeonLocks.delete(dungeonId);
         clearDungeonTimers(dungeonId);
+        
+        // Clean up any pending auto-start timer
+        if (autoStartTimers.has(dungeonId)) {
+            clearTimeout(autoStartTimers.get(dungeonId));
+            autoStartTimers.delete(dungeonId);
+        }
+        
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         return true;
     }
@@ -517,5 +527,6 @@ module.exports = {
     checkAndCloseEmptyDungeon,
     isPlayerInAnyDungeon,
     addDamageContribution,
-    distributeEnemyRewards
+    distributeEnemyRewards,
+    autoStartTimers   // Export so enter.js can use it
 };

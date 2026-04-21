@@ -11,6 +11,16 @@ module.exports = {
             if (!rows.length) return msg.reply("❌ Not registered.");
 
             const player = rows[0];
+
+            // ❌ Block shop view if player is inside an active dungeon
+            const [inDungeon] = await db.execute(
+                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
+                [userId]
+            );
+            if (inDungeon.length) {
+                return msg.reply("❌ You cannot view the shop while inside a dungeon.");
+            }
+
             const shopItems = await getPlayerShop(userId, player.role, player.rank);
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
