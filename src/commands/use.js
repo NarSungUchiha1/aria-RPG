@@ -171,6 +171,12 @@ module.exports = {
 
             // ✅ Use DB's item_name for lookup — preserves correct casing
             // regardless of how the user typed it (e.g. "mana potion" vs "Mana Potion")
+            // ✅ Track consumable use for quests
+            try {
+                const { updateQuestProgress } = require('../systems/questSystem');
+                await updateQuestProgress(userId, 'item_use', 1);
+            } catch (e) {}
+
             const def = CONSUMABLES[item.item_name];
             if (!def) return msg.reply(`❌ ${itemName} cannot be used with !use.`);
 

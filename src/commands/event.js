@@ -70,6 +70,12 @@ async function handleShardDrop(dungeonId, client) {
             [event.id, s.player_id]
         );
 
+        // ✅ Track for quests
+        try {
+            const { updateQuestProgress } = require('./questSystem');
+            await updateQuestProgress(s.player_id, 'shard_collect', 1, client);
+        } catch (e) {}
+
         const [progress] = await db.execute(
             "SELECT shards, completed FROM event_progress WHERE event_id=? AND player_id=?",
             [event.id, s.player_id]

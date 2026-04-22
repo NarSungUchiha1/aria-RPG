@@ -36,13 +36,20 @@ async function checkAndGrantTitle(playerId) {
     if (!rows.length) return null;
     const wins = rows[0].pvp_wins || 0;
     const currentTitle = rows[0].title;
-    // Grant title at 5 wins, and then every 5 additional wins upgrade (optional)
     if (wins >= 5 && (!currentTitle || wins % 5 === 0)) {
         const newTitle = coolTitles[Math.floor(Math.random() * coolTitles.length)];
         await db.execute("UPDATE players SET title = ? WHERE id=?", [newTitle, playerId]);
         return newTitle;
     }
     return null;
+}
+
+// ✅ Track PvP win for quests
+async function trackPvPWin(winnerId, chat) {
+    try {
+        const { updateQuestProgress } = require('./questSystem');
+        await updateQuestProgress(winnerId, 'pvp_win', 1, { sendMessage: async () => {} });
+    } catch (e) {}
 }
 
 async function startPvPDuel(player1Id, player2Id, betAmount, client, msg) {
@@ -59,22 +66,20 @@ async function startPvPDuel(player1Id, player2Id, betAmount, client, msg) {
     const player1 = p1[0];
     const player2 = p2[0];
 
-    const [items1] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [player1Id]);
-    const [items2] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [player2Id]);
-
     let currentTurn = (player1.agility >= player2.agility) ? player1Id : player2Id;
-    let otherPlayer = currentTurn === player1Id ? player2Id : player1Id;
 
     const chat = await msg.getChat();
     setDuelActive(player1Id, player2Id, chat);
 
     const turnMsg = narrate('pvpTurn', { player: currentTurn === player1Id ? player1.nickname : player2.nickname });
-    await chat.sendMessage(`══〘 ⚔️ PVP DUEL START 〙══╮
-┃◆ ${player1.nickname} vs ${player2.nickname}
-┃◆ Bet: ${betAmount} gold
-┃◆ ${turnMsg}
-┃◆ Use !attack <move> on your turn.
-╰═══════════════════════╯`);
+    await chat.sendMessage(
+        `══〘 ⚔️ PVP DUEL START 〙══╮\n` +
+        `┃◆ ${player1.nickname} vs ${player2.nickname}\n` +
+        `┃◆ Bet: ${betAmount} gold\n` +
+        `┃◆ ${turnMsg}\n` +
+        `┃◆ Use !attack <move> on your turn.\n` +
+        `╰═══════════════════════╯`
+    );
 
     return { active: true, player1, player2, currentTurn };
 }
@@ -97,8 +102,8 @@ async function handlePvPAttack(attackerId) {
     items.forEach(item => weaponBonus += Number(item.attack_bonus || 0) + Number(item.strength_bonus || 0));
 
     const baseDamage = Number(attacker[0].strength) + Math.floor(weaponBonus * 0.5);
-    const defense = Number(defender[0].stamina) || 0;
-    const damage = Math.max(1, Math.floor(baseDamage - defense / 2));
+    const defense    = Number(defender[0].stamina) || 0;
+    const damage     = Math.max(1, Math.floor(baseDamage - defense / 2));
 
     await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [damage, opponentId]);
 
@@ -114,6 +119,8 @@ async function handlePvPAttack(attackerId) {
         clearDuelActive(attackerId, opponentId);
         await db.execute("UPDATE players SET pvp_wins = pvp_wins + 1 WHERE id=?", [attackerId]);
         await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [opponentId]);
+        // ✅ Quest tracking
+        await trackPvPWin(attackerId, chat);
         const newTitle = await checkAndGrantTitle(attackerId);
         if (newTitle) {
             message += `\n🏆 ${attacker[0].nickname} has earned the title: **${newTitle}**!`;
@@ -143,8 +150,9 @@ async function handlePvPSkill(attackerId, move, targetId) {
     if (!attacker.length || !defender.length) return { error: "Player not found." };
 
     const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [attackerId]);
-    
+
     let resultMessage = "";
+
     if (move.type === 'damage') {
         if (targetId && targetId !== opponentId) return { error: "You can only target your opponent in a duel." };
         const damage = calculateMoveDamage(attacker[0], move, defender[0], items);
@@ -159,6 +167,8 @@ async function handlePvPSkill(attackerId, move, targetId) {
             clearDuelActive(attackerId, opponentId);
             await db.execute("UPDATE players SET pvp_wins = pvp_wins + 1 WHERE id=?", [attackerId]);
             await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [opponentId]);
+            // ✅ Quest tracking
+            await trackPvPWin(attackerId, chat);
             const newTitle = await checkAndGrantTitle(attackerId);
             if (newTitle) {
                 resultMessage += `\n🏆 ${attacker[0].nickname} has earned the title: **${newTitle}**!`;

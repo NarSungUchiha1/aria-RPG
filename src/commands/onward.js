@@ -14,11 +14,17 @@ module.exports = {
     async execute(msg, args, { userId, client }) {
         try {
             const dungeon = await getActiveDungeon();
-            if (!dungeon) return msg.reply("❌ No active dungeon.");
-            if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started yet. Wait for the auto-start or ask an admin to force-start it.");
+            if (!dungeon) return msg.reply(
+                `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ No active dungeon.\n╰═══════════════════════╯`
+            );
+            if (!dungeon.locked) return msg.reply(
+                `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Dungeon hasn't started yet.\n┃◆ Wait for auto-start or ask an admin.\n╰═══════════════════════╯`
+            );
 
             if (!(await isPlayerInDungeon(userId, dungeon.id))) {
-                return msg.reply("❌ You are not inside the dungeon.");
+                return msg.reply(
+                    `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ You are not inside the dungeon.\n╰═══════════════════════╯`
+                );
             }
 
             if (!dungeon.stage_cleared) {
@@ -39,6 +45,17 @@ module.exports = {
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]);
+
+                    // ✅ Quest tracking — dungeon clear and survive
+                    try {
+                        const { updateQuestProgress } = require('../systems/questSystem');
+                        await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
+                        await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
+                        await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
+                        if (dungeon.dungeon_rank === 'S') {
+                            await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
+                        }
+                    } catch (e) {}
                 }
 
                 // ✅ Roll for Void Shard drops (event only, per survivor)
@@ -66,6 +83,18 @@ module.exports = {
             // ── ADVANCE STAGE ──
             const next = dungeon.stage + 1;
             await advanceStage(dungeon.id, next);
+
+            // ✅ Track stage clear for all alive players
+            try {
+                const { updateQuestProgress } = require('../systems/questSystem');
+                const [alive] = await db.execute(
+                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                    [dungeon.id]
+                );
+                for (const p of alive) {
+                    await updateQuestProgress(p.player_id, 'stage_clear', 1, client);
+                }
+            } catch (e) {}
 
             // targetChat is the dungeon GC (onward is restricted there by index.js routing)
             const targetChat = await msg.getChat();
@@ -104,7 +133,7 @@ module.exports = {
             return msg.reply(statusText);
         } catch (err) {
             console.error(err);
-            msg.reply("❌ Onward failed.");
+            msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Onward failed.\n╰═══════════════════════╯`);
         }
     }
 };
