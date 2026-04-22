@@ -422,21 +422,48 @@ async function startBot() {
 
         // ==================== SCHEDULED DUNGEON SPAWN ====================
         const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
+
+        // Regular spawn — every 4 hours, skipped during active event
         cron.schedule('0 */4 * * *', async () => {
             console.log('🕒 Scheduled dungeon spawn triggered.');
             try {
-                // ✅ Don't spawn if a dungeon is already active and has players
-                const active = await getActiveDungeon();
-                if (active) {
-                    console.log(`⏭️ Skipping scheduled spawn — dungeon ${active.id} already active.`);
+                const [eventRows] = await db.execute(
+                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                );
+                if (eventRows.length) {
+                    console.log('⏭️ Regular spawn skipped — event active (20min cron handles it).');
                     return;
                 }
-                // ✅ Use rank weighted by current player population
+                const active = await getActiveDungeon();
+                if (active) {
+                    console.log(`⏭️ Skipping — dungeon ${active.id} already active.`);
+                    return;
+                }
                 const rank = await getWeightedDungeonRank();
                 console.log(`🎲 Weighted rank selected: ${rank}`);
                 await spawnDungeon(rank, sock);
             } catch (err) {
                 console.error('Scheduled spawn failed:', err);
+            }
+        });
+
+        // ⚡ Event spawn — every 20 minutes, only fires during active event
+        cron.schedule('*/20 * * * *', async () => {
+            try {
+                const [eventRows] = await db.execute(
+                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                );
+                if (!eventRows.length) return; // No active event
+                const active = await getActiveDungeon();
+                if (active) {
+                    console.log(`⏭️ Event spawn skipped — dungeon ${active.id} still active.`);
+                    return;
+                }
+                const rank = await getWeightedDungeonRank();
+                console.log(`💠 Event dungeon spawn: ${rank}`);
+                await spawnDungeon(rank, sock);
+            } catch (err) {
+                console.error('Event spawn failed:', err);
             }
         });
 

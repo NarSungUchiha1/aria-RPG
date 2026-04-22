@@ -207,22 +207,29 @@ module.exports = {
                 clearTimeout(pending.timer);
                 pendingConfirms.delete(userId);
 
-                // ✅ Daily entry limit check
+                // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
-                const [entryLog] = await db.execute(
-                    "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
-                    [userId, today]
+                const [eventCheck] = await db.execute(
+                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
                 );
-                const todayCount = entryLog[0]?.count || 0;
-                const remaining  = 3 - todayCount;
-                if (todayCount >= 3) {
-                    return msg.reply(
-                        `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
-                        `┃◆ ❌ Daily limit reached.\n` +
-                        `┃◆ You can only enter 3 dungeons\n` +
-                        `┃◆ per day. Come back tomorrow!\n` +
-                        `╰═══════════════════════╯`
+                const isEvent = eventCheck.length > 0;
+
+                if (!isEvent) {
+                    const [entryLog] = await db.execute(
+                        "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
+                        [userId, today]
                     );
+                    const todayCount = entryLog[0]?.count || 0;
+                    const remaining  = 3 - todayCount;
+                    if (todayCount >= 3) {
+                        return msg.reply(
+                            `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
+                            `┃◆ ❌ Daily limit reached.\n` +
+                            `┃◆ You can only enter 3 dungeons\n` +
+                            `┃◆ per day. Come back tomorrow!\n` +
+                            `╰═══════════════════════╯`
+                        );
+                    }
                 }
 
                 // Add to dungeon
@@ -280,12 +287,23 @@ module.exports = {
 
             // ── STEP 1: Ask to confirm ──
             const today = new Date().toISOString().split('T')[0];
-            const [entryLog] = await db.execute(
-                "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
-                [userId, today]
+            const [eventRows] = await db.execute(
+                "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
             );
-            const todayCount  = entryLog[0]?.count || 0;
-            const remaining   = 3 - todayCount;
+            const isEventActive = eventRows.length > 0;
+
+            let entryLine = '';
+            if (isEventActive) {
+                entryLine = `┃◆ ♾️ EVENT MODE — No entry limit!\n`;
+            } else {
+                const [entryLog] = await db.execute(
+                    "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
+                    [userId, today]
+                );
+                const todayCount = entryLog[0]?.count || 0;
+                const remaining  = 3 - todayCount;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/3\n`;
+            }
 
             const confirmTimer = setTimeout(() => {
                 pendingConfirms.delete(userId);
@@ -297,7 +315,7 @@ module.exports = {
                 `╭══〘 🏰 DUNGEON ALERT 〙══╮\n` +
                 `┃◆ Rank: ${dungeon.dungeon_rank}\n` +
                 `┃◆ Raiders: ${currentPlayers}/5\n` +
-                `┃◆ 📅 Entries left today: ${remaining}/3\n` +
+                `${entryLine}` +
                 `┃◆────────────\n` +
                 `┃◆ ⚠️ Are you ready to enter?\n` +
                 `┃◆ Type !enter again to confirm.\n` +

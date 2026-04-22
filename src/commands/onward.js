@@ -15,7 +15,7 @@ module.exports = {
         try {
             const dungeon = await getActiveDungeon();
             if (!dungeon) return msg.reply("❌ No active dungeon.");
-            if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started. Use !begin");
+            if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started yet. Wait for the auto-start or ask an admin to force-start it.");
 
             if (!(await isPlayerInDungeon(userId, dungeon.id))) {
                 return msg.reply("❌ You are not inside the dungeon.");
@@ -40,6 +40,12 @@ module.exports = {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]);
                 }
+
+                // ✅ Roll for Void Shard drops (event only, per survivor)
+                try {
+                    const { handleShardDrop } = require('./event');
+                    await handleShardDrop(dungeon.id, client);
+                } catch (e) {}
 
                 // ✅ Demote all raiders before closing
                 await demoteAllRaiders(client, dungeon.id);

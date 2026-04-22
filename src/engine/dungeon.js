@@ -277,16 +277,38 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     const data = enemiesData[rank];
     if (!data) return;
 
+    // Check if event is active for boosted spawns
+    const [eventRows] = await db.execute(
+        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+    ).catch(() => [[]]);
+    const isEvent = eventRows.length > 0;
+
     const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];
 
     if (isBoss) {
-        enemiesToSpawn = [data.boss];
+        const boss = { ...data.boss };
+        if (isEvent) {
+            // Empowered boss during event
+            boss.hp  = Math.floor(boss.hp  * 2.0);
+            boss.atk = Math.floor(boss.atk * 1.5);
+            boss.exp  = Math.floor(boss.exp  * 1.5);
+            boss.gold = Math.floor(boss.gold * 1.5);
+            boss.name = `Void-Touched ${boss.name}`;
+        }
+        enemiesToSpawn = [boss];
     } else {
-        const count = Math.floor(Math.random() * 2) + 1;
+        // Normal: 1–2 enemies. Event: 5–7 enemies
+        const count = isEvent
+            ? Math.floor(Math.random() * 3) + 5
+            : Math.floor(Math.random() * 2) + 1;
         for (let i = 0; i < count; i++) {
-            const template = data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)];
-            enemiesToSpawn.push({ ...template });
+            const template = { ...data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)] };
+            if (isEvent) {
+                template.hp  = Math.floor(template.hp  * 1.3);
+                template.atk = Math.floor(template.atk * 1.2);
+            }
+            enemiesToSpawn.push(template);
         }
     }
 
