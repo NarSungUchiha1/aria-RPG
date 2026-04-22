@@ -7,7 +7,6 @@ const {
     spawnStageEnemies,
     promoteRaider,
     demoteAllRaiders,
-    removePlayerFromDungeon,
     getDungeonEnemyRevealText,
     autoStartTimers,
     RAID_GROUP
@@ -76,7 +75,7 @@ async function beginDungeon(dungeonId, client) {
         // ── Message 1: Dungeon begins ──
         await client.sendMessage(RAID_GROUP, {
             text:
-                `╭══〘 ⚔️ DUNGEON HAS BEGUN 〙══╮\n` +
+                `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ 🚪 The gates slam shut.\n` +
                 `┃◆ No one enters. No one leaves.\n` +
@@ -120,25 +119,61 @@ module.exports = {
         try {
             // Must be used in DM only (also enforced by index.js routing)
             if (msg.from === RAID_GROUP) {
-                return msg.reply("⚠️ Use !enter in the bot's DM, not in the group.");
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ ⚠️ Use !enter in the bot's DM,\n` +
+                    `┃◆ not in the group.\n` +
+                    `╰═══════════════════════╯`
+                );
             }
 
             const [player] = await db.execute(
                 "SELECT nickname, hp, max_hp FROM players WHERE id=?",
                 [userId]
             );
-            if (!player.length) return msg.reply("❌ Not registered. Use !awaken");
-            if (player[0].hp <= 0) return msg.reply("💀 You are dead. Use !respawn first.");
+            if (!player.length) {
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ ❌ Not registered.\n` +
+                    `┃◆ Use !awaken to get started.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+            if (player[0].hp <= 0) {
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ 💀 You are dead.\n` +
+                    `┃◆ Use !respawn to revive first.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
             const dungeon = await getActiveDungeon();
-            if (!dungeon) return msg.reply("❌ No active dungeon right now. Watch the group for announcements.");
+            if (!dungeon) {
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ ❌ No active dungeon right now.\n` +
+                    `┃◆ Watch the group for announcements.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
             if (dungeon.locked) {
-                return msg.reply("🔒 Dungeon has already begun. Wait for the next one.");
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ 🔒 Dungeon has already begun.\n` +
+                    `┃◆ Wait for the next one.\n` +
+                    `╰═══════════════════════╯`
+                );
             }
 
             if (await isPlayerInDungeon(userId, dungeon.id)) {
-                return msg.reply("⚠️ You are already inside the dungeon.");
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ ⚠️ You are already inside\n` +
+                    `┃◆ the dungeon.\n` +
+                    `╰═══════════════════════╯`
+                );
             }
 
             const [count] = await db.execute(
@@ -146,7 +181,14 @@ module.exports = {
                 [dungeon.id]
             );
             const currentPlayers = count[0].cnt;
-            if (currentPlayers >= 5) return msg.reply("❌ Dungeon is full (5/5).");
+            if (currentPlayers >= 5) {
+                return msg.reply(
+                    `══〘 🏰 ENTER 〙══╮\n` +
+                    `┃◆ ❌ Dungeon is full (5/5).\n` +
+                    `┃◆ Wait for the next one.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
             // ── STEP 2: Confirmation ──
             if (pendingConfirms.has(userId)) {
@@ -154,13 +196,45 @@ module.exports = {
 
                 if (pending.dungeonId !== dungeon.id) {
                     pendingConfirms.delete(userId);
-                    return msg.reply("❌ Dungeon changed. Use !enter again.");
+                    return msg.reply(
+                        `══〘 🏰 ENTER 〙══╮\n` +
+                        `┃◆ ❌ Dungeon changed.\n` +
+                        `┃◆ Use !enter again.\n` +
+                        `╰═══════════════════════╯`
+                    );
                 }
 
                 clearTimeout(pending.timer);
                 pendingConfirms.delete(userId);
 
+                // ✅ Daily entry limit check
+                const today = new Date().toISOString().split('T')[0];
+                const [entryLog] = await db.execute(
+                    "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
+                    [userId, today]
+                );
+                const todayCount = entryLog[0]?.count || 0;
+                const remaining  = 3 - todayCount;
+                if (todayCount >= 3) {
+                    return msg.reply(
+                        `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
+                        `┃◆ ❌ Daily limit reached.\n` +
+                        `┃◆ You can only enter 3 dungeons\n` +
+                        `┃◆ per day. Come back tomorrow!\n` +
+                        `╰═══════════════════════╯`
+                    );
+                }
+
+                // Add to dungeon
                 await addPlayerToDungeon(userId, dungeon.id);
+
+                // ✅ Log the entry
+                await db.execute(
+                    `INSERT INTO dungeon_entry_log (player_id, entry_date, count)
+                     VALUES (?, ?, 1)
+                     ON DUPLICATE KEY UPDATE count = count + 1`,
+                    [userId, today]
+                );
                 const newCount = currentPlayers + 1;
                 const isFirstPlayer = newCount === 1;
 
@@ -179,7 +253,7 @@ module.exports = {
                 // Announce in group
                 await client.sendMessage(RAID_GROUP, {
                     text:
-                        `╭══〘 ⚔️ PLAYER JOINED 〙══╮\n` +
+                        `╭══〘 ⚔️ RAIDER JOINED 〙══╮\n` +
                         `┃◆ \n` +
                         `┃◆ 👤 ${player[0].nickname} has entered the dungeon!\n` +
                         `┃◆ 👥 Raiders: ${newCount}/5\n` +
@@ -192,15 +266,27 @@ module.exports = {
 
                 // Reply in DM
                 return msg.reply(
-                    `✅ You have entered the dungeon!\n\n` +
-                    `⚔️ Rank: ${dungeon.dungeon_rank}\n` +
-                    `👥 Raiders: ${newCount}/5\n\n` +
-                    `Get ready — stock up and equip your gear!\n` +
-                    `🛒 !shop • 📦 !equip`
+                    `══〘 🏰 DUNGEON ENTERED 〙══╮\n` +
+                    `┃◆ ✅ You have entered!\n` +
+                    `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
+                    `┃◆ 👥 Raiders: ${newCount}/5\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/3\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ Get ready before it starts!\n` +
+                    `┃◆ 🛒 !shop  •  📦 !equip\n` +
+                    `╰═══════════════════════╯`
                 );
             }
 
             // ── STEP 1: Ask to confirm ──
+            const today = new Date().toISOString().split('T')[0];
+            const [entryLog] = await db.execute(
+                "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
+                [userId, today]
+            );
+            const todayCount  = entryLog[0]?.count || 0;
+            const remaining   = 3 - todayCount;
+
             const confirmTimer = setTimeout(() => {
                 pendingConfirms.delete(userId);
             }, 30000);
@@ -211,19 +297,24 @@ module.exports = {
                 `╭══〘 🏰 DUNGEON ALERT 〙══╮\n` +
                 `┃◆ Rank: ${dungeon.dungeon_rank}\n` +
                 `┃◆ Raiders: ${currentPlayers}/5\n` +
+                `┃◆ 📅 Entries left today: ${remaining}/3\n` +
                 `┃◆────────────\n` +
                 `┃◆ ⚠️ Are you ready to enter?\n` +
                 `┃◆ Type !enter again to confirm.\n` +
                 `┃◆ (Expires in 30 seconds)\n` +
                 `┃◆────────────\n` +
-                `┃◆ 🛒 Stock up cause Shop will be out of reach\n` +
-                `┃◆ 📦 Equip gear your gear beacuse Inventory will be out of reach\n` +
+                `┃◆ 🛒 Stock up: !shop\n` +
+                `┃◆ 📦 Equip gear: !equip\n` +
                 `╰═══════════════════════╯`
             );
 
         } catch (err) {
             console.error("Enter command error:", err);
-            msg.reply("❌ Failed to enter dungeon.");
+            msg.reply(
+                `══〘 🏰 ENTER 〙══╮\n` +
+                `┃◆ ❌ Failed to enter dungeon.\n` +
+                `╰═══════════════════════╯`
+            );
         }
     }
 };
