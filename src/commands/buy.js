@@ -26,7 +26,10 @@ module.exports = {
                 [userId]
             );
             if (inDungeon.length) {
-                return msg.reply("❌ You cannot access the shop while inside a dungeon.");
+                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
+                text += ` ┃◆ ❌ You cannot buy items while inside a dungeon.\n`;
+                text += ` ┃◆ You disobedient mortal you should have read before you entered\n`;
+                return msg.reply(text);
             }
 
             const shop = await getPlayerShop(userId, player[0].role, player[0].rank);
@@ -35,11 +38,18 @@ module.exports = {
 
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
-            if (gold < item.price) return msg.reply("❌ Not enough gold.");
+            if (gold < item.price) {
+                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
+                text += ` ┃◆ ❌ YOU ARE TOO POOR TO PURCHASE.\n`;
+                return msg.reply(text);
+            }
 
             const [stockRow] = await db.execute("SELECT stock FROM shop_stock WHERE item_name = ?", [item.name]);
             if (!stockRow.length || stockRow[0].stock <= 0) {
-                return msg.reply("❌ This item is out of stock.");
+                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
+                text += ` ┃◆ ❌ The item you selected is out of stock.\n`;
+                text += ` ┃◆ Restocks in: ${getRestockTimeRemaining()}\n`;
+                return msg.reply(text);
             }
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
