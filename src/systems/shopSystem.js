@@ -147,17 +147,11 @@ function getSpecialItemForRank(playerRank, randFn = Math.random) {
     return eligible[Math.floor(randomValue * eligible.length)].name;
 }
 
-// ========== GLOBAL RESTOCK SEED ==========
-let cachedRestockTimestamp = null;
-let cachedRestockSeed = null;
-
-async function getGlobalRestockSeed() {
-    const [rows] = await db.execute("SELECT MAX(last_restock) as last_restock FROM shop_stock");
-    const timestamp = rows[0]?.last_restock ? new Date(rows[0].last_restock).getTime() : Date.now();
-    if (cachedRestockTimestamp === timestamp) return cachedRestockSeed;
-    cachedRestockTimestamp = timestamp;
-    cachedRestockSeed = timestamp;
-    return timestamp;
+// ── Daily seed — shop looks identical all day, resets at midnight ──
+// Using YYYYMMDD as an integer (e.g. 20241115) — always fits in 32-bit.
+function getDailySeed() {
+    const now = new Date();
+    return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
 async function getItemStock(itemName) {
@@ -170,11 +164,9 @@ async function getItemStock(itemName) {
     }
     const maxStock = getMaxStockForItem(itemName);
     const initialStock = Math.floor(Math.random() * maxStock) + 1;
-    const seed = await getGlobalRestockSeed();
-    const now = new Date(seed);
     await db.execute(
-        "INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock) VALUES (?, ?, ?, ?, ?)",
-        [itemName, initialStock, maxStock, initialStock, now]
+        "INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock) VALUES (?, ?, ?, ?, NOW())",
+        [itemName, initialStock, maxStock, initialStock]
     );
     return { stock: initialStock, restockedAmount: initialStock };
 }
@@ -199,18 +191,15 @@ async function restockAllItems() {
             [item, newStock, maxStock, newStock, now, newStock, maxStock, newStock, now]
         );
     }
-    cachedRestockTimestamp = null;
-    cachedRestockSeed = null;
-    console.log("🛒 Shop restocked – seed reset.");
+    shopCache.clear();
+    console.log("🛒 Shop restocked.");
 }
 
-async function getRestockTimeRemaining() {
-    const [rows] = await db.execute("SELECT MAX(last_restock) as last_restock FROM shop_stock");
-    if (!rows[0]?.last_restock) return "23h 59m";
-    const last = new Date(rows[0].last_restock);
-    const next = new Date(last.getTime() + 24 * 60 * 60 * 1000);
-    const diff = next - Date.now();
-    if (diff <= 0) return "0h 0m";
+function getRestockTimeRemaining() {
+    const now   = new Date();
+    const midnight = new Date(now);
+    midnight.setHours(24, 0, 0, 0);
+    const diff    = midnight - now;
     const hours   = Math.floor(diff / (60 * 60 * 1000));
     const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
     return `${hours}h ${minutes}m`;
@@ -256,7 +245,7 @@ async function generateShopItems(role, playerRank, seed) {
 const shopCache = new Map();
 
 async function getPlayerShop(playerId, role, playerRank) {
-    const seed = await getGlobalRestockSeed();
+    const seed = getDailySeed();
     const cacheKey = `${role}_${playerRank}_${seed}`;
     if (shopCache.has(cacheKey)) return shopCache.get(cacheKey);
     const items = await generateShopItems(role, playerRank, seed);

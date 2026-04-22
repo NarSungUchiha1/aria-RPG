@@ -12,7 +12,6 @@ module.exports = {
 
             const player = rows[0];
 
-            // ❌ Block shop view if player is inside an active dungeon
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
                 [userId]
@@ -24,7 +23,7 @@ module.exports = {
             const shopItems = await getPlayerShop(userId, player.role, player.rank);
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
-            const restockTime = await getRestockTimeRemaining();
+            const restockTime = getRestockTimeRemaining(); // ✅ no longer async
 
             if (shopItems.length === 0) {
                 return msg.reply(`══〘 🛒 SHOP 〙══╮\n┃◆ The shop is currently empty. Check back later!\n┃◆ Restocks in: ${restockTime}\n╰═══════════════════════╯`);
