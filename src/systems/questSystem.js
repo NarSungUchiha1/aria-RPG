@@ -1,13 +1,14 @@
 const db = require('../database/db');
-const { RAID_GROUP } = require('../engine/dungeon');
+
+const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 // ── Table Setup ───────────────────────────────────────────────────────────────
 async function ensureTables() {
-    // Core quest pool
     await db.execute(`
         CREATE TABLE IF NOT EXISTS quests (
             id               INT AUTO_INCREMENT PRIMARY KEY,
             quest_type       ENUM('daily','achievement','party') NOT NULL,
+            role             VARCHAR(20) NULL,
             title            VARCHAR(100) NOT NULL,
             description      TEXT,
             objective_type   VARCHAR(50) NOT NULL,
@@ -21,7 +22,9 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
-    // Player quest progress (daily + party)
+    // Add role column if missing (for existing tables)
+    await db.execute(`ALTER TABLE quests ADD COLUMN IF NOT EXISTS role VARCHAR(20) NULL`).catch(() => {});
+
     await db.execute(`
         CREATE TABLE IF NOT EXISTS player_quests (
             id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,7 +38,6 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
-    // Permanent achievement tracking
     await db.execute(`
         CREATE TABLE IF NOT EXISTS player_achievements (
             id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -49,7 +51,6 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
-    // Weekly party quest progress
     await db.execute(`
         CREATE TABLE IF NOT EXISTS party_quest_progress (
             id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,45 +69,77 @@ async function ensureTables() {
 // ── Seed Quest Pool ───────────────────────────────────────────────────────────
 async function seedQuests() {
     const [existing] = await db.execute("SELECT COUNT(*) as cnt FROM quests");
-    if (existing[0].cnt > 0) return; // Already seeded
+    if (existing[0].cnt > 0) return;
 
+    // Columns: quest_type, role, title, description, objective_type, objective_target, objective_count, reward_xp, reward_gold, reward_sp, reward_title
     const quests = [
-        // ── DAILY ───────────────────────────────────────────────────────────
-        ['daily', 'Slayer',          'Defeat 10 enemies in dungeons',           'enemy_kill',      null,      10,  200,  150, 0, null],
-        ['daily', 'Stage Clearer',   'Clear 3 dungeon stages',                  'stage_clear',     null,       3,  150,  100, 0, null],
-        ['daily', 'Damage Dealer',   'Deal 500 total damage in dungeons',       'damage_dealt',    null,     500,  100,  200, 0, null],
-        ['daily', 'Skill User',      'Use 15 skills in combat',                 'skill_use',       null,      15,  120,  100, 0, null],
-        ['daily', 'Dungeon Runner',  'Complete 1 full dungeon run',             'dungeon_clear',   null,       1,  300,  300, 0, null],
-        ['daily', 'The Grinder',     'Defeat 25 enemies in dungeons',           'enemy_kill',      null,      25,  400,  300, 0, null],
-        ['daily', 'Survivor',        'Complete a dungeon without dying',        'dungeon_survive',  null,      1,  250,  200, 0, null],
-        ['daily', 'Duel Ready',      'Win 1 PvP duel',                          'pvp_win',         null,       1,  200,  250, 0, null],
-        ['daily', 'Potion Sipper',   'Use 3 consumable items',                  'item_use',        null,       3,  100,   80, 0, null],
-        ['daily', 'Boss Hunter',     'Defeat 2 dungeon bosses',                 'boss_kill',       null,       2,  500,  400, 0, null],
 
-        // ── ACHIEVEMENTS ─────────────────────────────────────────────────────
-        ['achievement', 'First Blood',       'Win your first PvP duel',              'pvp_win',       null,    1,  500,  500,  3, 'Duelist'],
-        ['achievement', 'Dungeon Veteran',   'Complete 10 full dungeon runs',        'dungeon_clear', null,   10, 1000, 1000,  5, 'Veteran'],
-        ['achievement', 'Rank Up',           'Reach Rank C',                         'rank_reached',  'C',    1,  800,  800,  5, 'Rising Star'],
-        ['achievement', 'Elite Hunter',      'Reach Rank A',                         'rank_reached',  'A',    1, 2000, 2000, 10, 'Elite'],
-        ['achievement', 'Legend',            'Reach Rank S',                         'rank_reached',  'S',    1, 5000, 5000, 20, 'Legend'],
-        ['achievement', 'Void Hunter',       'Collect 1 Void Shard',                 'shard_collect', null,   1, 1000, 1000,  8, 'Void Hunter'],
-        ['achievement', 'Void Collector',    'Collect all 5 Void Shards',            'shard_collect', null,   5, 5000, 5000, 20, 'Void Keeper'],
-        ['achievement', 'Obliterator',       'Deal 50,000 total damage',             'damage_dealt',  null,50000, 2000, 2000, 10, 'Obliterator'],
-        ['achievement', 'Unstoppable',       'Win 10 PvP duels',                     'pvp_win',       null,   10, 1500, 1500,  8, 'Champion'],
-        ['achievement', 'Boss Slayer',       'Defeat 20 dungeon bosses',             'boss_kill',     null,   20, 3000, 3000, 15, 'Boss Slayer'],
-        ['achievement', 'S-Rank Conqueror',  'Clear an S-rank dungeon',              'srank_clear',   null,    1, 5000, 5000, 20, 'S-Rank Conqueror'],
-        ['achievement', 'Centurion',         'Enter 100 dungeons',                   'dungeon_enter', null,  100, 3000, 3000, 15, 'Centurion'],
+        // ══ DAILY — UNIVERSAL (role = null, 1 assigned per day) ══════════════
+        ['daily', null, 'Into the Depths',   'Enter a dungeon',                           'dungeon_enter',  null,  1,  100,  100, 0, null],
+        ['daily', null, 'First Step',        'Clear 1 dungeon stage',                     'stage_clear',    null,  1,  120,  100, 0, null],
+        ['daily', null, 'The Challenger',    'Win 1 PvP duel',                            'pvp_win',        null,  1,  200,  250, 0, null],
+        ['daily', null, 'Loot Run',          'Complete 1 full dungeon run',               'dungeon_clear',  null,  1,  300,  300, 0, null],
+        ['daily', null, 'Potion Duty',       'Use 3 consumable items',                    'item_use',       null,  3,  100,   80, 0, null],
 
-        // ── PARTY ────────────────────────────────────────────────────────────
-        ['party', 'Party Grind',     'Party clears 10 dungeons this week',      'dungeon_clear',  null,   10, 1000, 1000,  5, null],
-        ['party', 'Boss Rush',       'Party defeats 5 bosses this week',        'boss_kill',      null,    5, 1500, 1500,  8, null],
-        ['party', 'Void Seekers',    'Party collects 3 Void Shards this week',  'shard_collect',  null,    3, 2000, 2000, 10, null],
+        // ══ DAILY — TANK ═════════════════════════════════════════════════════
+        ['daily', 'Tank', 'Iron Wall',       'Complete a dungeon without dying',          'dungeon_survive', null, 1,  300,  200, 0, null],
+        ['daily', 'Tank', 'Guardian Duty',   'Clear 3 dungeon stages',                   'stage_clear',     null, 3,  200,  150, 0, null],
+        ['daily', 'Tank', 'Damage Sponge',   'Deal 400 damage in dungeons',              'damage_dealt',    null, 400, 150, 200, 0, null],
+        ['daily', 'Tank', 'Shield Up',       'Use 10 skills in combat',                  'skill_use',       null, 10, 150,  100, 0, null],
+        ['daily', 'Tank', 'Boss Blocker',    'Defeat 2 dungeon bosses',                  'boss_kill',       null, 2,  500,  400, 0, null],
+
+        // ══ DAILY — ASSASSIN ═════════════════════════════════════════════════
+        ['daily', 'Assassin', 'Shadow Work', 'Defeat 15 enemies in dungeons',            'enemy_kill',      null, 15, 250,  200, 0, null],
+        ['daily', 'Assassin', 'Blade Dance', 'Use 12 skills in combat',                  'skill_use',       null, 12, 150,  120, 0, null],
+        ['daily', 'Assassin', 'Lethal Edge', 'Deal 800 damage in dungeons',              'damage_dealt',    null, 800, 200, 250, 0, null],
+        ['daily', 'Assassin', 'Phantom Run', 'Complete a dungeon without dying',         'dungeon_survive', null, 1,  300,  200, 0, null],
+        ['daily', 'Assassin', 'Duel Master', 'Win 1 PvP duel',                           'pvp_win',         null, 1,  250,  300, 0, null],
+
+        // ══ DAILY — MAGE ══════════════════════════════════════════════════════
+        ['daily', 'Mage', 'Arcane Fury',    'Deal 1000 damage using magic',              'damage_dealt',    null, 1000, 250, 200, 0, null],
+        ['daily', 'Mage', 'Mana Surge',     'Use 15 skills in combat',                  'skill_use',       null, 15,  200,  150, 0, null],
+        ['daily', 'Mage', 'Spell Runner',   'Complete 1 full dungeon run',               'dungeon_clear',   null, 1,   300,  300, 0, null],
+        ['daily', 'Mage', 'Monster Study',  'Defeat 10 enemies in dungeons',             'enemy_kill',      null, 10,  200,  150, 0, null],
+        ['daily', 'Mage', 'Boss Melt',      'Defeat 2 dungeon bosses',                   'boss_kill',       null, 2,   500,  400, 0, null],
+
+        // ══ DAILY — HEALER ════════════════════════════════════════════════════
+        ['daily', 'Healer', 'Life Bringer', 'Use 5 consumable items',                   'item_use',        null, 5,  150,  120, 0, null],
+        ['daily', 'Healer', 'Holy Run',     'Complete 1 dungeon without dying',          'dungeon_survive', null, 1,  350,  250, 0, null],
+        ['daily', 'Healer', 'Restoration',  'Use 12 skills in combat',                  'skill_use',       null, 12, 180,  140, 0, null],
+        ['daily', 'Healer', 'Stage Keeper', 'Clear 3 dungeon stages',                   'stage_clear',     null, 3,  200,  150, 0, null],
+        ['daily', 'Healer', 'Boss Support', 'Defeat 2 dungeon bosses',                  'boss_kill',       null, 2,  500,  400, 0, null],
+
+        // ══ DAILY — BERSERKER ════════════════════════════════════════════════
+        ['daily', 'Berserker', 'Bloodthirst', 'Defeat 20 enemies in dungeons',          'enemy_kill',      null, 20,  300,  250, 0, null],
+        ['daily', 'Berserker', 'Rampage',     'Deal 1200 damage in dungeons',           'damage_dealt',    null, 1200, 300, 250, 0, null],
+        ['daily', 'Berserker', 'Destroyer',   'Defeat 2 dungeon bosses',                'boss_kill',       null, 2,   500,  400, 0, null],
+        ['daily', 'Berserker', 'Rage Mode',   'Use 10 skills in combat',                'skill_use',       null, 10,  150,  100, 0, null],
+        ['daily', 'Berserker', 'No Retreat',  'Complete a dungeon without dying',        'dungeon_survive', null, 1,   300,  200, 0, null],
+
+        // ══ ACHIEVEMENTS (universal) ══════════════════════════════════════════
+        ['achievement', null, 'First Blood',      'Win your first PvP duel',             'pvp_win',        null,  1,   500,  500,  3, 'Duelist'],
+        ['achievement', null, 'Veteran',          'Complete 10 full dungeon runs',        'dungeon_clear',  null,  10, 1000, 1000,  5, 'Veteran'],
+        ['achievement', null, 'Rising Star',      'Reach Rank C',                         'rank_reached',   'C',   1,   800,  800,  5, 'Rising Star'],
+        ['achievement', null, 'Elite',            'Reach Rank A',                         'rank_reached',   'A',   1,  2000, 2000, 10, 'Elite'],
+        ['achievement', null, 'Legend',           'Reach Rank S',                         'rank_reached',   'S',   1,  5000, 5000, 20, 'Legend'],
+        ['achievement', null, 'Void Hunter',      'Collect your first Void Shard',        'shard_collect',  null,  1,  1000, 1000,  8, 'Void Hunter'],
+        ['achievement', null, 'Void Keeper',      'Collect all 5 Void Shards',            'shard_collect',  null,  5,  5000, 5000, 20, 'Void Keeper'],
+        ['achievement', null, 'Obliterator',      'Deal 50,000 total damage',             'damage_dealt',   null, 50000, 2000, 2000, 10, 'Obliterator'],
+        ['achievement', null, 'Champion',         'Win 10 PvP duels',                     'pvp_win',        null,  10, 1500, 1500,  8, 'Champion'],
+        ['achievement', null, 'Boss Slayer',      'Defeat 20 dungeon bosses',             'boss_kill',      null,  20, 3000, 3000, 15, 'Boss Slayer'],
+        ['achievement', null, 'S-Rank Conqueror', 'Clear an S-rank dungeon',              'srank_clear',    null,  1,  5000, 5000, 20, 'S-Rank Conqueror'],
+        ['achievement', null, 'Centurion',        'Enter 100 dungeons',                   'dungeon_enter',  null, 100, 3000, 3000, 15, 'Centurion'],
+
+        // ══ PARTY (weekly) ═══════════════════════════════════════════════════
+        ['party', null, 'Party Grind',     'Clear 10 dungeons together this week',       'dungeon_clear',  null,  10, 1000, 1000,  5, null],
+        ['party', null, 'Boss Rush',       'Defeat 5 bosses together this week',         'boss_kill',      null,   5, 1500, 1500,  8, null],
+        ['party', null, 'Void Seekers',    'Collect 3 Void Shards together this week',   'shard_collect',  null,   3, 2000, 2000, 10, null],
     ];
 
     for (const q of quests) {
         await db.execute(
-            `INSERT INTO quests (quest_type, title, description, objective_type, objective_target,
-             objective_count, reward_xp, reward_gold, reward_sp, reward_title) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+            `INSERT INTO quests (quest_type, role, title, description, objective_type, objective_target,
+             objective_count, reward_xp, reward_gold, reward_sp, reward_title) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
             q
         );
     }
@@ -117,15 +150,28 @@ async function seedQuests() {
 async function assignDailyQuests(playerId) {
     const today = new Date().toISOString().split('T')[0];
     const [existing] = await db.execute(
-        "SELECT * FROM player_quests WHERE player_id=? AND assigned_date=?",
+        "SELECT COUNT(*) as cnt FROM player_quests WHERE player_id=? AND assigned_date=?",
         [playerId, today]
     );
-    if (existing.length >= 3) return;
+    if (existing[0].cnt >= 3) return;
 
-    const [quests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND is_active=1 ORDER BY RAND() LIMIT 3"
+    // Get player's role
+    const [playerRow] = await db.execute("SELECT role FROM players WHERE id=?", [playerId]);
+    const role = playerRow[0]?.role || null;
+
+    // 2 role-specific quests
+    const [roleQuests] = await db.execute(
+        "SELECT * FROM quests WHERE quest_type='daily' AND role=? AND is_active=1 ORDER BY RAND() LIMIT 2",
+        [role]
     );
-    for (const q of quests) {
+
+    // 1 universal quest
+    const [universalQuests] = await db.execute(
+        "SELECT * FROM quests WHERE quest_type='daily' AND role IS NULL AND is_active=1 ORDER BY RAND() LIMIT 1"
+    );
+
+    const toAssign = [...roleQuests, ...universalQuests];
+    for (const q of toAssign) {
         await db.execute(
             `INSERT IGNORE INTO player_quests (player_id, quest_id, progress, completed, claimed, assigned_date)
              VALUES (?, ?, 0, 0, 0, ?)`,
