@@ -1,4 +1,4 @@
-const { pendingRoleChanges } = require('./setrole');
+const { pendingRoleChanges } = require('./setRole');
 
 module.exports = {
     name: 'cancelrole',

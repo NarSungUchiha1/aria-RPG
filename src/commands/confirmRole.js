@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { pendingRoleChanges, calcStatsForRoleAndRank, RANK_ORDER, RANK_MANA } = require('./setrole');
+const { pendingRoleChanges, calcStatsForRoleAndRank, RANK_ORDER, RANK_MANA } = require('./setRole');
 const { roleIcon } = require('../utils/styles');
 
 module.exports = {
