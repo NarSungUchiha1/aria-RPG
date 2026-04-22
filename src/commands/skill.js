@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const getUserId = require('../utils/getUserId');
 const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
-const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
+const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution, demoteRaider, RAID_GROUP } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { narrate } = require('../utils/narrator');
@@ -20,15 +20,13 @@ module.exports = {
 
         if (args.length < 1) return msg.reply("❌ Use: !skill <move> [target]");
 
-        let potentialName = args.join(' ');
-        let targetArg = '';
-
         const [playerRows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
         if (!playerRows.length) return msg.reply("❌ Not registered.");
         const player = playerRows[0];
         const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
         const moves = getAllMoves(player, items);
 
+        // Match move name (supports multi-word moves)
         let matchedMove = null;
         let remainingArgs = '';
         for (let i = args.length; i > 0; i--) {
@@ -44,7 +42,7 @@ module.exports = {
         if (!matchedMove) return msg.reply("❌ You don't know that move. Use !moveset");
 
         const move = matchedMove;
-        targetArg = remainingArgs;
+        const targetArg = remainingArgs;
 
         const cd = getMoveCooldown(userId, move.name);
         if (cd > 0) return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
@@ -61,19 +59,16 @@ module.exports = {
 
         const dungeon = await getActiveDungeon();
 
-        async function resolvePlayerTarget(targetArg) {
-            if (!targetArg) return player;
-            if (targetArg.startsWith('@')) {
-                const number = targetArg.substring(1).replace(/\D/g, '');
+        async function resolvePlayerTarget(arg) {
+            if (!arg) return player;
+            if (arg.startsWith('@')) {
+                const number = arg.substring(1).replace(/\D/g, '');
                 const [rows] = await db.execute("SELECT * FROM players WHERE id LIKE ?", [`%${number}%`]);
                 return rows[0] || null;
             } else {
-                if (dungeon) {
-                    return await findPlayerTarget(dungeon.id, targetArg, client);
-                } else {
-                    const [rows] = await db.execute("SELECT * FROM players WHERE nickname=?", [targetArg]);
-                    return rows[0] || null;
-                }
+                if (dungeon) return await findPlayerTarget(dungeon.id, arg, client);
+                const [rows] = await db.execute("SELECT * FROM players WHERE nickname=?", [arg]);
+                return rows[0] || null;
             }
         }
 
@@ -87,7 +82,7 @@ module.exports = {
                 if (targetDungeon) {
                     const casterDungeon = await isPlayerInAnyDungeon(player.id);
                     if (casterDungeon !== targetDungeon) {
-                        return msg.reply("❌ That player is inside a dungeon and cannot be affected from outside.");
+                        return msg.reply("❌ That player is inside a dungeon and cannot be healed from outside.");
                     }
                 }
             }
@@ -95,7 +90,6 @@ module.exports = {
             const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
@@ -109,9 +103,7 @@ module.exports = {
                 "SELECT * FROM dungeon_players WHERE player_id=? AND dungeon_id=? AND is_alive=1",
                 [userId, dungeon.id]
             );
-            if (!inDungeon.length) {
-                return msg.reply("❌ You are not inside the dungeon.");
-            }
+            if (!inDungeon.length) return msg.reply("❌ You are not inside the dungeon.");
 
             const enemies = await getCurrentEnemies(dungeon.id);
             if (enemies.length === 0) return msg.reply("✅ No enemies. Use !onward.");
@@ -125,6 +117,7 @@ module.exports = {
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
+            // Weapon durability
             const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
             let weaponBroke = false;
             if (weapon.length) {
@@ -137,43 +130,61 @@ module.exports = {
                 }
             }
 
+            // Build reply
             let reply = `══〘 ⚔️ SKILL 〙══╮\n`;
-            
             if (result.evaded) {
-                const evadeMsg = narrate('evasion', { target: targetEnemy.name });
-                reply += `┃◆ ${evadeMsg}\n`;
+                reply += `┃◆ ${narrate('evasion', { target: targetEnemy.name })}\n`;
             } else {
-                const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
-                reply += `┃◆ ${skillMsg}\n`;
+                reply += `┃◆ ${narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage })}\n`;
             }
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
             if (targetEnemy.def > 0) {
-                const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
-                reply += `┃◆ 🛡️ ${defenseMsg}\n`;
+                reply += `┃◆ 🛡️ ${narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) })}\n`;
             }
 
             if (result.defeated) {
-                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
-                reply += `┃◆ ${defeatMsg}\n`;
-                if (result.rewardDistribution) {
+                reply += `┃◆ ${narrate('enemyDefeat', { enemy: targetEnemy.name })}\n`;
+                if (result.rewardDistribution?.contributors?.length) {
                     reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
                     result.rewardDistribution.contributors.forEach(c => {
-                        reply += `┃◆   ${c.nickname} absorbs lingering essence: +${c.exp} XP, +${c.gold} Gold\n`;
+                        reply += `┃◆   ${c.nickname}: +${c.exp} XP, +${c.gold} Gold\n`;
                     });
                 }
             } else {
                 reply += `┃◆ ${targetEnemy.name} HP: ${result.enemyHp}/${result.enemyMaxHp}\n`;
             }
 
-            if (weaponBroke) reply += `┃◆ ⚠️ Your weapon cracks under the strain!\n`;
+            if (weaponBroke) reply += `┃◆ ⚠️ Your weapon breaks!\n`;
 
             if (result.retaliationMessage) {
                 reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
-                reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
+                reply += `┃◆ ${player.nickname} HP: ${result.playerHp}/${player.max_hp}\n`;
             }
 
             reply += `┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`;
-            return msg.reply(reply);
+            await msg.reply(reply);
+
+            // ✅ Handle player death from retaliation
+            if (result.playerDied) {
+                try {
+                    // Demote from dungeon GC
+                    await demoteRaider(client, userId);
+                    // Announce death in dungeon GC
+                    await client.sendMessage(RAID_GROUP, {
+                        text:
+                            `══〘 💀 RAIDER FALLEN 〙══╮\n` +
+                            `┃◆ ${player.nickname} has been slain!\n` +
+                            `┃◆ Struck down by ${targetEnemy.name}.\n` +
+                            `┃◆ ☠️ They have been removed from the raid.\n` +
+                            `┃◆ Use !respawn to revive (penalties apply).\n` +
+                            `╰═══════════════════════╯`
+                    });
+                } catch (e) {
+                    console.error("Death handling error:", e.message);
+                }
+            }
+
+            return;
         }
 
         // ==================== BUFF / SHIELD / CLEANSE ====================
@@ -195,34 +206,18 @@ module.exports = {
             if (move.type === 'cleanse') {
                 clearBuffs('player', targetPlayer.id);
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-                const cleanseMsg = narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
-                return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${cleanseMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
-
             if (move.type === 'shield') {
                 const shieldValue = move.value || 30;
-                applyBuff('player', targetPlayer.id, {
-                    type: 'shield',
-                    stat: 'shield',
-                    value: shieldValue,
-                    duration: move.duration || 3
-                });
+                applyBuff('player', targetPlayer.id, { type: 'shield', stat: 'shield', value: shieldValue, duration: move.duration || 3 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
-                return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
-
             if (move.type === 'buff') {
-                const statName = move.effect.toLowerCase();
-                applyBuff('player', targetPlayer.id, {
-                    type: 'buff',
-                    stat: statName,
-                    value: move.value,
-                    duration: move.duration || 3
-                });
+                applyBuff('player', targetPlayer.id, { type: 'buff', stat: move.effect.toLowerCase(), value: move.value, duration: move.duration || 3 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
-                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
 
@@ -235,17 +230,9 @@ module.exports = {
             let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
             if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
-            const statName = move.effect.toLowerCase();
-            applyBuff('enemy', targetEnemy.id, {
-                type: 'debuff',
-                stat: statName,
-                value: -move.value,
-                duration: move.duration || 2
-            });
+            applyBuff('enemy', targetEnemy.id, { type: 'debuff', stat: move.effect.toLowerCase(), value: -move.value, duration: move.duration || 2 });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-
-            const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
-            return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+            return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
         return msg.reply("❌ Unknown move type.");
