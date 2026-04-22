@@ -219,6 +219,8 @@ function getWeekStart() {
 
 // ── Update Quest Progress ─────────────────────────────────────────────────────
 async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
+    // ✅ Auto-assign today's quests if not yet assigned — player doesn't need to open !quests first
+    await assignDailyQuests(playerId);
     await ensureAchievements(playerId);
     await ensurePartyQuests();
 
