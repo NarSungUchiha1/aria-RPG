@@ -169,7 +169,9 @@ module.exports = {
             if (!items.length) return msg.reply(`❌ You don't have a ${itemName}.`);
             const item = items[0];
 
-            const def = CONSUMABLES[itemName];
+            // ✅ Use DB's item_name for lookup — preserves correct casing
+            // regardless of how the user typed it (e.g. "mana potion" vs "Mana Potion")
+            const def = CONSUMABLES[item.item_name];
             if (!def) return msg.reply(`❌ ${itemName} cannot be used with !use.`);
 
             const grade = item.grade || 'F';
