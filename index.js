@@ -101,7 +101,7 @@ function normalizeId(id) {
 // ==================== CHANNEL CONFIG ====================
 // Commands that ONLY work inside the dungeon group chat
 const DUNGEON_GC_ONLY = new Set([
-    'skill', 'attack', 'dungeon', 'begin', 'onward',
+    'dungeon', 'begin', 'onward',
     'clear', 'closedungeon', 'spawn', 'attackboss', 'worldboss'
 ]);
 
