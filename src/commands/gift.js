@@ -1,57 +1,71 @@
 const db = require('../database/db');
 const itemStats = require('../data/itemStats');
 
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
+
 module.exports = {
     name: 'gift',
     async execute(msg, args, { isAdmin }) {
-        if (!isAdmin) return msg.reply("❌ Admin only.");
-
-        // Usage: !gift @user <item name>
-        if (args.length < 2) {
+        if (!isAdmin) {
             return msg.reply(
-                `❌ Use: !gift @user <item name>\n` +
-                `Example: !gift @player Mana Potion\n` +
-                `Example: !gift @player Shadow Dagger`
+                `══〘 🎁 GIFT 〙══╮\n` +
+                `┃◆ ❌ Admin only.\n` +
+                `╰═══════════════════════╯`
             );
         }
 
-        const mentioned = msg.mentionedIds;
-        if (!mentioned.length) return msg.reply("❌ Mention a player.");
-        const targetId = mentioned[0];
+        if (args.length < 2 || !msg.mentionedIds.length) {
+            return msg.reply(
+                `══〘 🎁 GIFT 〙══╮\n` +
+                `┃◆ ❌ Usage: !gift @user <item name>\n` +
+                `┃◆ Example: !gift @player Mana Potion\n` +
+                `╰═══════════════════════╯`
+            );
+        }
 
-        // Item name is everything after the mention
-        // args[0] is the mention itself so item name starts at args[1]
+        const targetId = msg.mentionedIds[0];
         const itemName = args.slice(1).join(' ').trim();
-        if (!itemName) return msg.reply("❌ Provide an item name.");
+        if (!itemName) {
+            return msg.reply(
+                `══〘 🎁 GIFT 〙══╮\n` +
+                `┃◆ ❌ Provide an item name.\n` +
+                `╰═══════════════════════╯`
+            );
+        }
 
         try {
-            const [target] = await db.execute(
-                "SELECT nickname FROM players WHERE id=?",
-                [targetId]
-            );
-            if (!target.length) return msg.reply("❌ Player not registered.");
+            const [target] = await db.execute("SELECT nickname FROM players WHERE id=?", [targetId]);
+            if (!target.length) {
+                return msg.reply(
+                    `══〘 🎁 GIFT 〙══╮\n` +
+                    `┃◆ ❌ Player not registered.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
-            // Look up item data for correct type and bonuses
-            const data = itemStats[itemName];
-            const itemType = data?.primaryStat || 'consumable';
+            const data     = itemStats[itemName];
+            const itemType = CONSUMABLES.has(itemName) ? 'consumable' : (data?.primaryStat || 'misc');
 
-            // Insert the item
             const [result] = await db.execute(
                 `INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped, grade, durability, max_durability)
                  VALUES (?, ?, ?, 1, 0, 'F', 100, 100)`,
                 [targetId, itemName, itemType]
             );
 
-            // If item has base stats, apply them
             if (data?.base) {
                 await db.execute(
                     `UPDATE inventory SET
-                        strength_bonus    = ?,
-                        agility_bonus     = ?,
-                        intelligence_bonus= ?,
-                        stamina_bonus     = ?,
-                        attack_bonus      = ?,
-                        defense_bonus     = ?
+                        strength_bonus     = ?,
+                        agility_bonus      = ?,
+                        intelligence_bonus = ?,
+                        stamina_bonus      = ?,
+                        attack_bonus       = ?,
+                        defense_bonus      = ?
                      WHERE id = ?`,
                     [
                         data.base.strength     || 0,
@@ -66,16 +80,20 @@ module.exports = {
             }
 
             return msg.reply(
-                `╭══〘 🎁 ITEM GIFTED 〙══╮\n` +
+                `══〘 🎁 GIFT SENT 〙══╮\n` +
                 `┃◆ Item: ${itemName}\n` +
                 `┃◆ Type: ${itemType.toUpperCase()}\n` +
-                `┃◆ To: ${target[0].nickname}\n` +
+                `┃◆ To:   ${target[0].nickname}\n` +
                 `┃◆ Grade: F\n` +
                 `╰═══════════════════════╯`
             );
         } catch (err) {
             console.error(err);
-            msg.reply("❌ Gift failed.");
+            msg.reply(
+                `══〘 🎁 GIFT 〙══╮\n` +
+                `┃◆ ❌ Gift failed.\n` +
+                `╰═══════════════════════╯`
+            );
         }
     }
 };

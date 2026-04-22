@@ -258,6 +258,16 @@ async function startBot() {
                 lastQR = '';
                 lastPairingCode = '';
 
+                // ✅ Ensure dungeon entry tracking table exists
+                await db.execute(`
+                    CREATE TABLE IF NOT EXISTS dungeon_entry_log (
+                        player_id   VARCHAR(50) NOT NULL,
+                        entry_date  DATE        NOT NULL,
+                        count       INT         NOT NULL DEFAULT 0,
+                        PRIMARY KEY (player_id, entry_date)
+                    )
+                `).catch(() => {});
+
                 // ✅ Clean up any stale dungeon state from previous crash/restart
                 // In-memory timers and locks are gone on restart, so close any
                 // unlocked (lobby) dungeons and wipe orphaned player/enemy records
@@ -388,7 +398,14 @@ async function startBot() {
                 if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
                     const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
                     if (rows.length && rows[0].hp <= 0) {
-                        return await sock.sendMessage(jid, { text: "💀 You are dead. Use !respawn" }, { quoted: msg });
+                        return await sock.sendMessage(jid, {
+                            text:
+                                `══〘 💀 YOU ARE DEAD 〙══╮\n` +
+                                `┃◆ Your HP has reached 0.\n` +
+                                `┃◆ Use !respawn to revive.\n` +
+                                `┃◆ (Penalties apply on revival)\n` +
+                                `╰═══════════════════════╯`
+                        }, { quoted: msg });
                     }
                 }
 
