@@ -3,6 +3,13 @@ const getUserId = require('../utils/getUserId');
 const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank } = require('../systems/shopSystem');
 const itemStats = require('../data/itemStats');
 
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
+
 module.exports = {
     name: 'buy',
     async execute(msg, args, { userId }) {
@@ -14,7 +21,6 @@ module.exports = {
             const [player] = await db.execute("SELECT role, `rank` FROM players WHERE id=?", [userId]);
             if (!player.length) return msg.reply("❌ Not registered.");
 
-            // ❌ Block purchase if player is inside an active dungeon
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
                 [userId]
@@ -38,7 +44,8 @@ module.exports = {
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
 
-            const itemType = item.name.includes('Potion') ? 'consumable' : item.stat;
+            // ✅ Consumables always stored as 'consumable', gear uses its stat type
+            const itemType = CONSUMABLES.has(item.name) ? 'consumable' : item.stat;
             const [result] = await db.execute(
                 "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES (?, ?, ?, 1, 0)",
                 [userId, item.name, itemType]
@@ -47,7 +54,7 @@ module.exports = {
             const itemData = itemStats[item.name];
             if (itemData) {
                 await db.execute(
-                    `UPDATE inventory SET 
+                    `UPDATE inventory SET
                         grade = 'F',
                         strength_bonus = ?,
                         agility_bonus = ?,

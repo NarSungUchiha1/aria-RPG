@@ -1,6 +1,13 @@
 const db = require('../database/db');
 const itemStats = require('../data/itemStats');
 
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
+
 module.exports = {
     name: 'give',
     async execute(msg, args, { isAdmin }) {
@@ -68,7 +75,7 @@ module.exports = {
                 if (qty > 99) return msg.reply("❌ Max quantity is 99 per gift.");
 
                 const data = itemStats[itemName];
-                const itemType = data?.primaryStat || 'misc';
+                const itemType = CONSUMABLES.has(itemName) ? 'consumable' : (data?.primaryStat || 'misc');
 
                 for (let i = 0; i < qty; i++) {
                     const [result] = await db.execute(
