@@ -7,10 +7,17 @@ const { clearDungeonTimers } = require('./dungeonTimer');
 // ✅ Read from env so you never have to touch code to change the group
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
-const dungeonLocks = new Map();
+const dungeonLocks    = new Map();
 const autoStartTimers = new Map();
 
-// ✅ Local normalizeId — strips device suffix so we can match against group participants
+// ── LOBBY TIMER CONFIG ───────────────────────────────────
+// After a dungeon spawns, players have this long to enter before it disappears.
+const LOBBY_WARN_MS  = 8  * 60 * 1000; //  8 min → warning fires (2 min left to join)
+const LOBBY_CLOSE_MS = 10 * 60 * 1000; // 10 min → lobby closes if dungeon never locked
+const lobbyTimers = new Map(); // dungeonId -> { warning, timeout }
+// ─────────────────────────────────────────────────────────
+
+// ✅ Local normalizeId — strips device suffix for group participant matching
 function normalizeId(id) {
     if (!id) return '';
     return id.toString()
@@ -19,13 +26,74 @@ function normalizeId(id) {
         .split('@')[0];
 }
 
+function clearLobbyTimer(dungeonId) {
+    const t = lobbyTimers.get(dungeonId);
+    if (t) {
+        clearTimeout(t.warning);
+        clearTimeout(t.timeout);
+        lobbyTimers.delete(dungeonId);
+    }
+}
+
 // =======================
 //  SPAWN DUNGEON
 // =======================
-async function spawnDungeon(rank, client = null) {
-    await db.execute("UPDATE dungeon SET is_active=0, locked=0");
+// ✅ Weighted rank: higher population ranks spawn more frequently
+async function getWeightedDungeonRank() {
+    const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+    const [rows] = await db.execute(
+        "SELECT `rank`, COUNT(*) as cnt FROM players GROUP BY `rank`"
+    );
+    if (!rows.length) return 'F';
 
-    const boss = enemiesData[rank]?.boss?.name || "Unknown Boss";
+    const total = rows.reduce((sum, r) => sum + Number(r.cnt), 0);
+    const weights = {};
+    rankOrder.forEach(r => { weights[r] = 0; });
+
+    for (const row of rows) {
+        const idx  = rankOrder.indexOf(row.rank);
+        const base = Number(row.cnt) / total;
+        weights[row.rank]                      += base * 0.6;
+        if (idx > 0)                    weights[rankOrder[idx - 1]] += base * 0.2;
+        if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
+    }
+
+    let cumulative = 0;
+    const roll = Math.random();
+    for (const rank of rankOrder) {
+        cumulative += weights[rank] || 0;
+        if (roll <= cumulative) return rank;
+    }
+    return 'F';
+}
+
+async function spawnDungeon(rank, client = null) {
+    // ── Tear down any existing active dungeon first ──────────
+    const [existing] = await db.execute(
+        "SELECT id FROM dungeon WHERE is_active=1 LIMIT 1"
+    );
+    if (existing.length) {
+        const oldId = existing[0].id;
+        // Demote all raiders from old dungeon
+        if (client) await demoteAllRaiders(client, oldId);
+        // Clear all timers for old dungeon
+        clearDungeonTimers(oldId);
+        clearLobbyTimer(oldId);
+        // Cancel auto-start timer if any
+        if (autoStartTimers.has(oldId)) {
+            clearTimeout(autoStartTimers.get(oldId));
+            autoStartTimers.delete(oldId);
+        }
+        dungeonLocks.delete(oldId);
+        console.log(`🧹 Closed previous dungeon ${oldId} before spawning new one.`);
+    }
+    // ─────────────────────────────────────────────────────────
+
+    await db.execute("UPDATE dungeon SET is_active=0, locked=0");
+    await db.execute("DELETE FROM dungeon_players");
+    await db.execute("DELETE FROM dungeon_enemies");
+
+    const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
     const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10 }[rank] || 3;
 
     const [result] = await db.execute(
@@ -34,23 +102,73 @@ async function spawnDungeon(rank, client = null) {
         [rank, maxStage, boss]
     );
 
-    await db.execute("DELETE FROM dungeon_players");
-    await db.execute("DELETE FROM dungeon_enemies");
-
-    console.log(`🏰 Dungeon ${rank} spawned.`);
+    const dungeonId = result.insertId;
+    console.log(`🏰 Dungeon ${rank} spawned (id: ${dungeonId}).`);
 
     if (client) {
         await sendDungeonAnnouncement(client, rank, boss, maxStage);
+        startLobbyTimer(dungeonId, client);
     }
 
-    return { id: result.insertId, rank, maxStage, boss };
+    return { id: dungeonId, rank, maxStage, boss };
+}
+
+// ── LOBBY TIMER ──────────────────────────────────────────
+// Warns at 8 min (2 min left), closes at 10 min if dungeon never locked.
+function startLobbyTimer(dungeonId, client) {
+    clearLobbyTimer(dungeonId);
+
+    const warning = setTimeout(async () => {
+        try {
+            await client.sendMessage(RAID_GROUP, {
+                text:
+                    `══〘 ⚠️ DUNGEON CLOSING SOON 〙══╮\n` +
+                    `┃◆ The dungeon portal is destabilizing!\n` +
+                    `┃◆ ⏳ 2 minutes left to enter.\n` +
+                    `┃◆ DM the bot !enter now or miss out!\n` +
+                    `┃◆ No entry = no rewards.\n` +
+                    `╰═══════════════════════╯`
+            });
+        } catch (e) {}
+    }, LOBBY_WARN_MS);
+
+    const timeout = setTimeout(async () => {
+        try {
+            // Only close if dungeon hasn't started yet
+            const [rows] = await db.execute(
+                "SELECT id FROM dungeon WHERE id=? AND is_active=1 AND locked=0 ORDER BY id DESC LIMIT 1",
+                [dungeonId]
+            );
+            if (rows.length) {
+                // Cancel auto-start timer if one was running
+                if (autoStartTimers.has(dungeonId)) {
+                    clearTimeout(autoStartTimers.get(dungeonId));
+                    autoStartTimers.delete(dungeonId);
+                }
+                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [dungeonId]);
+                await client.sendMessage(RAID_GROUP, {
+                    text:
+                        `══〘 🚪 DUNGEON EXPIRED 〙══╮\n` +
+                        `┃◆ The dungeon portal has collapsed.\n` +
+                        `┃◆ No raid was formed in time.\n` +
+                        `┃◆ Watch for the next announcement!\n` +
+                        `╰═══════════════════════╯`
+                });
+                console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
+            }
+        } catch (e) {
+            console.error("Lobby timeout error:", e.message);
+        }
+        lobbyTimers.delete(dungeonId);
+    }, LOBBY_CLOSE_MS);
+
+    lobbyTimers.set(dungeonId, { warning, timeout });
 }
 
 async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
-    // ✅ Fixed: rank is a string so SQL string comparison is wrong.
-    // We query all eligible ranks explicitly using the correct game order.
-    const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const minIdx = rankOrder.indexOf(rank);
+    // ✅ Fixed: rank strings compare wrong with SQL >=, use explicit IN list
+    const rankOrder    = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+    const minIdx       = rankOrder.indexOf(rank);
     const eligibleRanks = minIdx >= 0 ? rankOrder.slice(minIdx) : rankOrder;
     const placeholders = eligibleRanks.map(() => '?').join(',');
 
@@ -61,16 +179,18 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 
     const mentions = players.map(p => `${p.id}@s.whatsapp.net`);
 
-    const announceMsg = `╭══〘 📢 DUNGEON OPENED 〙══╮
-┃◆ 
-┃◆   Rank: ${rank}
-┃◆   Max Stage: ${maxStage}
-┃◆   Boss: ${boss}
-┃◆   Max Raiders: 5
-┃◆ 
-┃◆   DM the bot: !enter to join!
-┃◆ 
-╰═══════════════════════════╯`;
+    const announceMsg =
+        `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
+        `┃◆ \n` +
+        `┃◆   Rank: ${rank}\n` +
+        `┃◆   Max Stage: ${maxStage}\n` +
+        `┃◆   Boss: ${boss}\n` +
+        `┃◆   Max Raiders: 5\n` +
+        `┃◆ \n` +
+        `┃◆   DM the bot: !enter to join!\n` +
+        `┃◆   ⏳ Portal closes in 10 minutes.\n` +
+        `┃◆ \n` +
+        `╰═══════════════════════════╯`;
 
     try {
         await client.sendMessage(RAID_GROUP, { text: announceMsg, mentions });
@@ -84,14 +204,11 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 //  PROMOTE / DEMOTE RAIDERS
 // =======================
 
-// ✅ Fixed: fetch group metadata to get the exact Baileys JID (may include :device suffix)
-//    Constructing ${userId}@s.whatsapp.net manually fails for multi-device accounts.
+// ✅ Fixed: fetch group metadata to get exact Baileys JID (includes :device suffix)
 async function promoteRaider(client, userId) {
     try {
-        const metadata = await client.groupMetadata(RAID_GROUP);
-        const participant = metadata.participants.find(
-            p => normalizeId(p.id) === userId
-        );
+        const metadata    = await client.groupMetadata(RAID_GROUP);
+        const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
         if (!participant) {
             console.error(`⚠️ Promote failed: ${userId} not found in dungeon group`);
             return;
@@ -105,14 +222,9 @@ async function promoteRaider(client, userId) {
 
 async function demoteRaider(client, userId) {
     try {
-        const metadata = await client.groupMetadata(RAID_GROUP);
-        const participant = metadata.participants.find(
-            p => normalizeId(p.id) === userId
-        );
-        if (!participant) {
-            // Not in group anymore — nothing to demote
-            return;
-        }
+        const metadata    = await client.groupMetadata(RAID_GROUP);
+        const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
+        if (!participant) return;
         await client.groupParticipantsUpdate(RAID_GROUP, [participant.id], 'demote');
         console.log(`👇 Demoted ${userId} from admin`);
     } catch (e) {
@@ -139,7 +251,7 @@ async function demoteAllRaiders(client, dungeonId) {
 //  ACTIVE DUNGEON
 // =======================
 async function getActiveDungeon() {
-    const [rows] = await db.execute("SELECT * FROM dungeon WHERE is_active=1 LIMIT 1");
+    const [rows] = await db.execute("SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1");
     return rows[0] || null;
 }
 
@@ -149,6 +261,7 @@ function isDungeonLocked(dungeonId) {
 
 async function lockDungeon(dungeonId) {
     dungeonLocks.set(dungeonId, true);
+    clearLobbyTimer(dungeonId); // ✅ dungeon started — cancel the lobby expiry
     await db.execute("UPDATE dungeon SET locked=1 WHERE id=?", [dungeonId]);
 }
 
@@ -178,13 +291,15 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     }
 
     for (const e of enemiesToSpawn) {
-        const name = e.name || 'Unknown Enemy';
-        const hp = Number(e.hp) || 50;
-        const atk = Number(e.atk) || 5;
-        const def = Number(e.def) || 2;
-        const exp = Number(e.exp) || 10;
-        const gold = Number(e.gold) || 5;
-        const moves = e.moves ? JSON.stringify(e.moves) : JSON.stringify([{ name: 'Attack', damage: 1.0 }]);
+        const name  = e.name  || 'Unknown Enemy';
+        const hp    = Number(e.hp)   || 50;
+        const atk   = Number(e.atk)  || 5;
+        const def   = Number(e.def)  || 2;
+        const exp   = Number(e.exp)  || 10;
+        const gold  = Number(e.gold) || 5;
+        const moves = e.moves
+            ? JSON.stringify(e.moves)
+            : JSON.stringify([{ name: 'Attack', damage: 1.0 }]);
 
         await db.execute(
             `INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, moves)
@@ -206,29 +321,28 @@ async function getCurrentEnemies(dungeonId) {
 //  COMBAT CALCULATIONS
 // =======================
 function calculatePlayerDamage(player, enemy, weaponBonus = 0) {
-    const enemyDef = Number(enemy.def) || 0;
-    const reduction = Math.min(0.5, enemyDef / 100);
+    const enemyDef   = Number(enemy.def) || 0;
+    const reduction  = Math.min(0.5, enemyDef / 100);
     const baseAttack = (Number(player.strength) || 0) + Math.floor((Number(weaponBonus) || 0) * 0.5);
-    let damage = Math.floor(baseAttack * (1 - reduction));
-    return Math.max(1, damage);
+    return Math.max(1, Math.floor(baseAttack * (1 - reduction)));
 }
 
 function calculateEnemyRetaliation(enemy, player) {
     let buffMods = { defense: 0, shield: 0 };
     try {
-        if (player && player.id) {
+        if (player?.id) {
             const mods = getBuffModifiers('player', player.id);
             if (mods) buffMods = mods;
         }
     } catch (e) {}
 
-    const playerDef = Number(buffMods.defense) || 0;
-    const reduction = Math.min(0.5, playerDef / 100);
-    const rawDamage = Number(enemy.atk) || 0;
-    let damage = Math.floor(rawDamage * (1 - reduction));
-
+    const playerDef    = Number(buffMods.defense) || 0;
+    const reduction    = Math.min(0.5, playerDef / 100);
+    const rawDamage    = Number(enemy.atk) || 0;
+    let damage         = Math.floor(rawDamage * (1 - reduction));
     const playerShield = Number(buffMods.shield) || 0;
     let shieldAbsorbed = 0;
+
     if (playerShield > 0) {
         shieldAbsorbed = Math.min(damage, playerShield);
         damage -= shieldAbsorbed;
@@ -247,16 +361,13 @@ function evasionCheck(player, enemy) {
 // =======================
 async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     const [player] = await db.execute("SELECT * FROM players WHERE id=?", [playerId]);
-    const [enemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
+    const [enemy]  = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const p = player[0];
     const e = enemy[0];
 
     let evaded = false;
     let damage = calculatePlayerDamage(p, e, weaponBonus);
-    if (evasionCheck(p, e)) {
-        damage = Math.floor(damage * 0.5);
-        evaded = true;
-    }
+    if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
@@ -266,32 +377,38 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     if (defeated) {
         const result = await distributeEnemyRewards(dungeonId, enemyId);
         rewardDistribution = result;
-        exp = result.contributors.find(c => c.playerId === playerId)?.exp || 0;
+        exp  = result.contributors.find(c => c.playerId === playerId)?.exp  || 0;
         gold = result.contributors.find(c => c.playerId === playerId)?.gold || 0;
     }
 
     let retaliation = 0, playerHp = Number(p.hp), retaliationMessage = '';
     let shieldAbsorbed = 0, defenseBlocked = 0;
     if (!defeated) {
-        const retResult = calculateEnemyRetaliation(e, p);
-        retaliation = retResult.damage;
-        shieldAbsorbed = retResult.shieldAbsorbed;
-        defenseBlocked = retResult.defenseBlocked;
+        const ret = calculateEnemyRetaliation(e, p);
+        retaliation    = ret.damage;
+        shieldAbsorbed = ret.shieldAbsorbed;
+        defenseBlocked = ret.defenseBlocked;
         if (shieldAbsorbed > 0) consumeShield('player', playerId, shieldAbsorbed);
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, playerId]);
-        const [pUpdated] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
-        playerHp = Number(pUpdated[0].hp);
+        const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
+        playerHp = Number(pUp[0].hp);
         retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
-        if (defenseBlocked > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
-        if (shieldAbsorbed > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
+        if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
+        if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
     }
 
-    const [remaining] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM dungeon_enemies WHERE dungeon_id=? AND current_hp > 0",
-        [dungeonId]
+    const [rem] = await db.execute(
+        "SELECT COUNT(*) as cnt FROM dungeon_enemies WHERE dungeon_id=? AND current_hp > 0", [dungeonId]
     );
-    if (remaining[0].cnt === 0) {
-        await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeonId]);
+    if (rem[0].cnt === 0) await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeonId]);
+
+    // ✅ If player died from retaliation, mark them dead in dungeon
+    const playerDied = playerHp <= 0;
+    if (playerDied) {
+        await db.execute(
+            "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
+            [playerId, dungeonId]
+        );
     }
 
     tickBuffs('player', playerId);
@@ -300,7 +417,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         enemyDefeated: defeated,
         enemyHp: defeated ? 0 : Number(updatedEnemy[0].current_hp),
         damage, exp, gold, rewardDistribution,
-        retaliation, playerHp, retaliationMessage,
+        retaliation, playerHp, playerDied, retaliationMessage,
         enemyName: e.name, enemyMaxHp: Number(e.max_hp), evaded
     };
 }
@@ -312,11 +429,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 
     let evaded = false;
     let damage = calculateMoveDamage(p, move, e, equippedItems);
-
-    if (move.stat !== 'intelligence' && evasionCheck(p, e)) {
-        damage = Math.floor(damage * 0.5);
-        evaded = true;
-    }
+    if (move.stat !== 'intelligence' && evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
@@ -326,39 +439,45 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     if (defeated) {
         const result = await distributeEnemyRewards(dungeonId, enemyId);
         rewardDistribution = result;
-        exp = result.contributors.find(c => c.playerId === playerId)?.exp || 0;
+        exp  = result.contributors.find(c => c.playerId === playerId)?.exp  || 0;
         gold = result.contributors.find(c => c.playerId === playerId)?.gold || 0;
     }
 
     let retaliation = 0, playerHp = Number(p.hp), retaliationMessage = '';
     let shieldAbsorbed = 0, defenseBlocked = 0;
     if (!defeated) {
-        const retResult = calculateEnemyRetaliation(e, p);
-        retaliation = retResult.damage;
-        shieldAbsorbed = retResult.shieldAbsorbed;
-        defenseBlocked = retResult.defenseBlocked;
+        const ret = calculateEnemyRetaliation(e, p);
+        retaliation    = ret.damage;
+        shieldAbsorbed = ret.shieldAbsorbed;
+        defenseBlocked = ret.defenseBlocked;
         if (shieldAbsorbed > 0) consumeShield('player', playerId, shieldAbsorbed);
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, playerId]);
-        const [pUpdated] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
-        playerHp = Number(pUpdated[0].hp);
+        const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
+        playerHp = Number(pUp[0].hp);
         retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
-        if (defenseBlocked > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
-        if (shieldAbsorbed > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
+        if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
+        if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
     }
 
-    const [remaining] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM dungeon_enemies WHERE dungeon_id=? AND current_hp > 0",
-        [dungeonId]
+    const [rem] = await db.execute(
+        "SELECT COUNT(*) as cnt FROM dungeon_enemies WHERE dungeon_id=? AND current_hp > 0", [dungeonId]
     );
-    if (remaining[0].cnt === 0) {
-        await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeonId]);
+    if (rem[0].cnt === 0) await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeonId]);
+
+    // ✅ If player died from retaliation, mark them dead in dungeon
+    const playerDied = playerHp <= 0;
+    if (playerDied) {
+        await db.execute(
+            "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
+            [playerId, dungeonId]
+        );
     }
 
     tickBuffs('player', playerId);
 
     return {
         damage, defeated, exp, gold, rewardDistribution,
-        retaliation, playerHp, retaliationMessage,
+        retaliation, playerHp, playerDied, retaliationMessage,
         enemyHp: defeated ? 0 : Number(updatedEnemy[0].current_hp),
         enemyMaxHp: Number(e.max_hp), enemyName: e.name, evaded
     };
@@ -371,7 +490,7 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     const [enemy] = await db.execute("SELECT exp, gold, name FROM dungeon_enemies WHERE id=?", [enemyId]);
     if (!enemy.length) return { contributors: [] };
 
-    const totalExp = Number(enemy[0].exp);
+    const totalExp  = Number(enemy[0].exp);
     const totalGold = Number(enemy[0].gold);
 
     const [contributors] = await db.execute(
@@ -384,20 +503,20 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     const rewards = [];
 
     for (const c of contributors) {
-        const share = totalDamage > 0 ? Number(c.damage_dealt) / totalDamage : 0;
-        const expEarned = Math.floor(totalExp * share);
+        const share      = totalDamage > 0 ? Number(c.damage_dealt) / totalDamage : 0;
+        const expEarned  = Math.floor(totalExp  * share);
         const goldEarned = Math.floor(totalGold * share);
 
-        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [expEarned, c.player_id]);
+        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",          [expEarned,  c.player_id]);
         await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [goldEarned, c.player_id]);
 
-        const [player] = await db.execute("SELECT nickname FROM players WHERE id=?", [c.player_id]);
+        const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [c.player_id]);
         rewards.push({
             playerId: c.player_id,
-            nickname: player[0].nickname,
-            damage: Number(c.damage_dealt),
-            exp: expEarned,
-            gold: goldEarned
+            nickname: pl[0].nickname,
+            damage:   Number(c.damage_dealt),
+            exp:      expEarned,
+            gold:     goldEarned
         });
     }
 
@@ -456,16 +575,14 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
     );
     if (rows[0].cnt === 0) {
         if (client) await demoteAllRaiders(client, dungeonId);
-
         await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeonId]);
         dungeonLocks.delete(dungeonId);
         clearDungeonTimers(dungeonId);
-
+        clearLobbyTimer(dungeonId);
         if (autoStartTimers.has(dungeonId)) {
             clearTimeout(autoStartTimers.get(dungeonId));
             autoStartTimers.delete(dungeonId);
         }
-
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         return true;
     }
@@ -521,6 +638,42 @@ async function findPlayerTarget(dungeonId, targetArg) {
 // =======================
 //  STATUS DISPLAY
 // =======================
+
+// Sent as the SECOND message when combat begins — shows full enemy stats
+async function getDungeonEnemyRevealText(dungeonId) {
+    const [dungeon] = await db.execute("SELECT * FROM dungeon WHERE id=?", [dungeonId]);
+    if (!dungeon.length) return null;
+    const d = dungeon[0];
+    const enemies = await getCurrentEnemies(dungeonId);
+
+    let text = `══〘 👾 ENEMIES REVEALED 〙══╮\n`;
+    text += `┃◆ Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
+    text += `┃◆────────────\n`;
+
+    enemies.forEach((e, i) => {
+        // Parse moves JSON safely
+        let moveNames = '—';
+        try {
+            const parsed = typeof e.moves === 'string' ? JSON.parse(e.moves) : e.moves;
+            if (Array.isArray(parsed) && parsed.length) {
+                moveNames = parsed.map(m => m.name).join(', ');
+            }
+        } catch (_) {}
+
+        text += `┃◆ ${i + 1}. ${e.name}\n`;
+        text += `┃◆    ❤️ HP:  ${e.current_hp}/${e.max_hp}\n`;
+        text += `┃◆    ⚔️ ATK: ${e.atk}\n`;
+        text += `┃◆    🛡️ DEF: ${e.def}\n`;
+        text += `┃◆    🗡️ Moves: ${moveNames}\n`;
+        if (i < enemies.length - 1) text += `┃◆────────────\n`;
+    });
+
+    text += `┃◆────────────\n`;
+    text += `┃◆ 🧭 !skill <move> [enemy #]\n`;
+    text += `╰═══════════════════════╯`;
+    return text;
+}
+
 async function getDungeonStatusText(dungeonId) {
     const [dungeon] = await db.execute("SELECT * FROM dungeon WHERE id=?", [dungeonId]);
     if (!dungeon.length) return "Dungeon not found.";
@@ -546,6 +699,7 @@ async function getDungeonStatusText(dungeonId) {
 module.exports = {
     RAID_GROUP,
     spawnDungeon,
+    getWeightedDungeonRank,
     getActiveDungeon,
     isPlayerInDungeon,
     addPlayerToDungeon,
@@ -561,6 +715,7 @@ module.exports = {
     findEnemyTarget,
     findPlayerTarget,
     getDungeonStatusText,
+    getDungeonEnemyRevealText,
     checkAndCloseEmptyDungeon,
     isPlayerInAnyDungeon,
     addDamageContribution,

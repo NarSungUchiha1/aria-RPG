@@ -102,7 +102,7 @@ function normalizeId(id) {
 // Commands that ONLY work inside the dungeon group chat
 const DUNGEON_GC_ONLY = new Set([
     'dungeon', 'begin', 'onward',
-    'clear', 'closedungeon', 'spawn', 'attackboss', 'worldboss'
+    'clear', 'closedungeon', 'attackboss', 'worldboss'
 ]);
 
 // Commands that ONLY work in DMs with the bot
@@ -258,6 +258,27 @@ async function startBot() {
                 lastQR = '';
                 lastPairingCode = '';
 
+                // ✅ Clean up any stale dungeon state from previous crash/restart
+                // In-memory timers and locks are gone on restart, so close any
+                // unlocked (lobby) dungeons and wipe orphaned player/enemy records
+                try {
+                    // Close any dungeons that were in lobby (not yet started) — timers are gone
+                    await db.execute(
+                        "UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0"
+                    );
+                    // Wipe players/enemies from any dungeon no longer active
+                    const [activeDungeons] = await db.execute(
+                        "SELECT id FROM dungeon WHERE is_active=1"
+                    );
+                    if (!activeDungeons.length) {
+                        await db.execute("DELETE FROM dungeon_players");
+                        await db.execute("DELETE FROM dungeon_enemies");
+                    }
+                    console.log('🧹 Stale dungeon state cleared on startup.');
+                } catch (e) {
+                    console.error('Startup dungeon cleanup error:', e.message);
+                }
+
                 if (ADMINS.length === 0 && sock.user) {
                     const myJid = normalizeId(sock.user.id);
                     ADMINS = [myJid];
@@ -383,12 +404,19 @@ async function startBot() {
         });
 
         // ==================== SCHEDULED DUNGEON SPAWN ====================
-        const { spawnDungeon } = require('./src/engine/dungeon');
+        const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
         cron.schedule('0 */4 * * *', async () => {
             console.log('🕒 Scheduled dungeon spawn triggered.');
-            const ranks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-            const rank = ranks[Math.floor(Math.random() * ranks.length)];
             try {
+                // ✅ Don't spawn if a dungeon is already active and has players
+                const active = await getActiveDungeon();
+                if (active) {
+                    console.log(`⏭️ Skipping scheduled spawn — dungeon ${active.id} already active.`);
+                    return;
+                }
+                // ✅ Use rank weighted by current player population
+                const rank = await getWeightedDungeonRank();
+                console.log(`🎲 Weighted rank selected: ${rank}`);
                 await spawnDungeon(rank, sock);
             } catch (err) {
                 console.error('Scheduled spawn failed:', err);
