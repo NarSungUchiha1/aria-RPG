@@ -64,7 +64,7 @@ module.exports = {
 
             // ── Message 1: Dungeon begins ──
             await msg.reply(
-                `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮\n` +
+                `╭══〘 ⚔️ DUNGEON HAS BEGUN 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ 🚪 The gates slam shut.\n` +
                 `┃◆ No one enters. No one leaves.\n` +
