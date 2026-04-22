@@ -427,10 +427,14 @@ async function startBot() {
         cron.schedule('0 */4 * * *', async () => {
             console.log('🕒 Scheduled dungeon spawn triggered.');
             try {
-                const [eventRows] = await db.execute(
-                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-                );
-                if (eventRows.length) {
+                let isEventRunning = false;
+                try {
+                    const [eventRows] = await db.execute(
+                        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                    );
+                    isEventRunning = eventRows.length > 0;
+                } catch (e) { isEventRunning = false; }
+                if (isEventRunning) {
                     console.log('⏭️ Regular spawn skipped — event active (20min cron handles it).');
                     return;
                 }
@@ -450,10 +454,14 @@ async function startBot() {
         // ⚡ Event spawn — every 20 minutes, only fires during active event
         cron.schedule('*/20 * * * *', async () => {
             try {
-                const [eventRows] = await db.execute(
-                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-                );
-                if (!eventRows.length) return; // No active event
+                let hasActiveEvent = false;
+                try {
+                    const [eventRows] = await db.execute(
+                        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                    );
+                    hasActiveEvent = eventRows.length > 0;
+                } catch (e) { hasActiveEvent = false; }
+                if (!hasActiveEvent) return;
                 const active = await getActiveDungeon();
                 if (active) {
                     console.log(`⏭️ Event spawn skipped — dungeon ${active.id} still active.`);

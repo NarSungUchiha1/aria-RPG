@@ -278,10 +278,13 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     if (!data) return;
 
     // Check if event is active for boosted spawns
-    const [eventRows] = await db.execute(
-        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-    ).catch(() => [[]]);
-    const isEvent = eventRows.length > 0;
+    let isEvent = false;
+    try {
+        const [eventRows] = await db.execute(
+            "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+        );
+        isEvent = eventRows.length > 0;
+    } catch (e) { isEvent = false; }
 
     const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];

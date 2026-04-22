@@ -209,10 +209,13 @@ module.exports = {
 
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
-                const [eventCheck] = await db.execute(
-                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-                );
-                const isEvent = eventCheck.length > 0;
+                let isEvent = false;
+                try {
+                    const [eventCheck] = await db.execute(
+                        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                    );
+                    isEvent = eventCheck.length > 0;
+                } catch (e) { isEvent = false; }
 
                 if (!isEvent) {
                     const [entryLog] = await db.execute(
@@ -291,10 +294,13 @@ module.exports = {
 
             // ── STEP 1: Ask to confirm ──
             const today = new Date().toISOString().split('T')[0];
-            const [eventRows] = await db.execute(
-                "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-            );
-            const isEventActive = eventRows.length > 0;
+            let isEventActive = false;
+            try {
+                const [eventRows] = await db.execute(
+                    "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+                );
+                isEventActive = eventRows.length > 0;
+            } catch (e) { isEventActive = false; }
 
             let entryLine = '';
             if (isEventActive) {
