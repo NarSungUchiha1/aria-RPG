@@ -16,8 +16,11 @@ module.exports = {
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
                 [userId]
             );
-            if (inDungeon.length) {
-                return msg.reply("❌ You cannot view the shop while inside a dungeon.");
+             if (inDungeon.length) {
+                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
+                text += ` ┃◆ ❌ You cannot buy items while inside a dungeon.\n`;
+                text += ` ┃◆ Disobedient mortal you should have read before you entered\n`;
+                return msg.reply(text);
             }
 
             const shopItems = await getPlayerShop(userId, player.role, player.rank);
