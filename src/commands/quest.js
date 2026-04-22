@@ -1,72 +1,92 @@
 const { getPlayerQuests, progressBar, ensureTables } = require('../systems/questSystem');
+const db = require('../database/db');
 
 module.exports = {
     name: 'quests',
     async execute(msg, args, { userId }) {
         try {
             await ensureTables();
+
+            // Get player role for display
+            const [playerRow] = await db.execute("SELECT role, nickname FROM players WHERE id=?", [userId]);
+            if (!playerRow.length) return msg.reply(
+                `══〘 📜 QUESTS 〙══╮\n┃◆ ❌ Not registered.\n╰═══════════════════════╯`
+            );
+            const role = playerRow[0].role;
+
             const { daily, achievements, party } = await getPlayerQuests(userId);
 
             let text = `══〘 📜 QUESTS 〙══╮\n`;
+            text += `┃◆ 🎭 ${role} — ${playerRow[0].nickname}\n`;
+            text += `┃◆━━━━━━━━━━━━\n`;
 
-            // ── Daily ──────────────────────────────────────────────
-            text += `┃◆ ── 📅 DAILY ──\n`;
+            // ── Daily (3 quests, sequential 1-3) ──────────────────────────
+            text += `┃◆ 📅 DAILY QUESTS\n`;
             if (!daily.length) {
-                text += `┃◆ No daily quests assigned.\n`;
+                text += `┃◆   No daily quests yet.\n`;
             } else {
-                for (const q of daily) {
-                    const status = q.claimed    ? '✅ CLAIMED'
-                                 : q.completed  ? '🎁 CLAIM: !claim ' + q.id
-                                 : '🔄 IN PROGRESS';
-                    text += `┃◆ [#${q.id}] ${q.title}\n`;
-                    text += `┃◆   ${progressBar(q.progress, q.objective_count)}\n`;
-                    text += `┃◆   ${status}\n`;
-                    text += `┃◆────────────\n`;
-                }
+                daily.forEach((q, i) => {
+                    const bar    = progressBar(q.progress, q.objective_count);
+                    const status = q.claimed   ? `✅ Claimed`
+                                 : q.completed ? `🎁 !claim ${q.id}`
+                                 : `🔄 ${bar}`;
+                    text += `┃◆ ${i + 1}. *${q.title}*\n`;
+                    text += `┃◆    ${q.description}\n`;
+                    text += `┃◆    ${status}\n`;
+                    if (i < daily.length - 1) text += `┃◆   ──\n`;
+                });
             }
 
-            // ── Achievements (top 5 most relevant) ────────────────
-            text += `┃◆ ── 🏆 ACHIEVEMENTS ──\n`;
+            text += `┃◆━━━━━━━━━━━━\n`;
+
+            // ── Achievements (top 4 most relevant) ────────────────────────
+            text += `┃◆ 🏆 ACHIEVEMENTS\n`;
             if (!achievements.length) {
-                text += `┃◆ No achievements yet.\n`;
+                text += `┃◆   None unlocked yet.\n`;
             } else {
-                for (const a of achievements) {
-                    const status = a.claimed    ? '✅ CLAIMED'
-                                 : a.completed  ? '🎁 CLAIM: !claim ' + a.id
-                                 : '🔄 IN PROGRESS';
-                    text += `┃◆ [#${a.id}] ${a.title}\n`;
-                    if (a.reward_title) text += `┃◆   🎖️ Unlocks: "${a.reward_title}"\n`;
-                    text += `┃◆   ${progressBar(a.progress, a.objective_count)}\n`;
-                    text += `┃◆   ${status}\n`;
-                    text += `┃◆────────────\n`;
-                }
+                achievements.forEach((a, i) => {
+                    const bar    = progressBar(a.progress, a.objective_count);
+                    const status = a.claimed   ? `✅ Claimed`
+                                 : a.completed ? `🎁 !claim ${a.id}`
+                                 : `🔄 ${bar}`;
+                    text += `┃◆ ${i + 1}. *${a.title}*\n`;
+                    text += `┃◆    ${a.description}\n`;
+                    if (a.reward_title) text += `┃◆    🎖️ Unlocks title: "${a.reward_title}"\n`;
+                    text += `┃◆    ${status}\n`;
+                    if (i < achievements.length - 1) text += `┃◆   ──\n`;
+                });
             }
 
-            // ── Party (weekly) ─────────────────────────────────────
-            text += `┃◆ ── 👥 PARTY (WEEKLY) ──\n`;
+            text += `┃◆━━━━━━━━━━━━\n`;
+
+            // ── Party (weekly) ─────────────────────────────────────────────
+            text += `┃◆ 👥 PARTY QUEST (WEEKLY)\n`;
             if (!party.length) {
-                text += `┃◆ No party quests this week.\n`;
+                text += `┃◆   No party quests this week.\n`;
             } else {
-                for (const p of party) {
-                    const status = p.claimed    ? '✅ CLAIMED'
-                                 : p.completed  ? '🎁 CLAIM: !claim ' + p.id
-                                 : '🔄 IN PROGRESS';
-                    text += `┃◆ [#${p.id}] ${p.title}\n`;
-                    text += `┃◆   ${progressBar(p.progress, p.objective_count)}\n`;
-                    text += `┃◆   ${status}\n`;
-                    text += `┃◆────────────\n`;
-                }
+                party.forEach((p, i) => {
+                    const bar    = progressBar(p.progress, p.objective_count);
+                    const status = p.claimed   ? `✅ Claimed`
+                                 : p.completed ? `🎁 !claim ${p.id}`
+                                 : `🔄 ${bar}`;
+                    text += `┃◆ ${i + 1}. *${p.title}*\n`;
+                    text += `┃◆    ${p.description}\n`;
+                    text += `┃◆    ${status}\n`;
+                    if (i < party.length - 1) text += `┃◆   ──\n`;
+                });
             }
 
-            text += `┃◆ Use !claim <#> to collect rewards\n`;
+            text += `┃◆━━━━━━━━━━━━\n`;
+            text += `┃◆ Use !claim <id> to collect rewards\n`;
             text += `╰═══════════════════════╯`;
 
             return msg.reply(text);
         } catch (err) {
-            console.error(err);
+            console.error('Quest load error:', err);
             msg.reply(
                 `══〘 📜 QUESTS 〙══╮\n` +
                 `┃◆ ❌ Could not load quests.\n` +
+                `┃◆ ${err.message}\n` +
                 `╰═══════════════════════╯`
             );
         }
