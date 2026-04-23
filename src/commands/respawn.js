@@ -1,31 +1,37 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
-const { applyEffect } = require('../systems/buffSystem');
-const { removePlayerFromDungeon, getActiveDungeon } = require('../engine/dungeon');
+const { applyBuff } = require('../systems/activeBuffs');
+const { removePlayerFromDungeon, getActiveDungeon, demoteRaider } = require('../engine/dungeon');
 
 module.exports = {
     name: 'respawn',
-    async execute(msg, args, { userId }) {
+    async execute(msg, args, { userId, client }) {
         try {
             const [rows] = await db.execute("SELECT hp, max_hp FROM players WHERE id=?", [userId]);
-            if (!rows.length) return msg.reply("❌ You are not registered.");
-            if (rows[0].hp > 0) return msg.reply("⚡ You are already alive.");
+            if (!rows.length) return msg.reply(
+                `══〘 💀 RESPAWN 〙══╮\n┃◆ ❌ Not registered.\n╰═══════════════════════╯`
+            );
+            if (rows[0].hp > 0) return msg.reply(
+                `══〘 💀 RESPAWN 〙══╮\n┃◆ ⚡ You are still alive!\n╰═══════════════════════╯`
+            );
 
-            // Gold penalty (20%)
+            // ── Gold penalty (20%) ───────────────────────────────────────────
             const [goldRow] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const currentGold = goldRow[0]?.gold || 0;
-            const goldLoss = Math.floor(currentGold * 0.2);
+            const goldLoss    = Math.floor(currentGold * 0.2);
             await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [goldLoss, userId]);
 
-            // XP penalty (10%)
+            // ── XP penalty (10%) ─────────────────────────────────────────────
             const [xpRow] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
             const currentXp = xpRow[0]?.xp || 0;
-            const xpLoss = Math.floor(currentXp * 0.1);
+            const xpLoss    = Math.floor(currentXp * 0.1);
             await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [xpLoss, userId]);
 
-            // Durability loss on equipped items (20 points each)
-            const [equipped] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
-            let brokenItems = [];
+            // ── Durability loss on equipped items ────────────────────────────
+            const [equipped] = await db.execute(
+                "SELECT * FROM inventory WHERE player_id=? AND equipped=1",
+                [userId]
+            );
+            const brokenItems = [];
             for (const item of equipped) {
                 const newDur = Math.max(0, (item.durability || 100) - 20);
                 if (newDur <= 0) {
@@ -36,7 +42,7 @@ module.exports = {
                 }
             }
 
-            // Remove from dungeon if inside
+            // ── Remove from dungeon if inside ────────────────────────────────
             const dungeon = await getActiveDungeon();
             let removedFromDungeon = false;
             if (dungeon) {
@@ -46,38 +52,49 @@ module.exports = {
                 );
                 if (inDungeon.length) {
                     await removePlayerFromDungeon(userId, dungeon.id);
+                    try { await demoteRaider(client, userId); } catch (e) {}
                     removedFromDungeon = true;
                 }
             }
 
-            // Revive at 50% HP
-            await db.execute("UPDATE players SET hp = max_hp / 2 WHERE id=?", [userId]);
+            // ── Revive at 50% HP ─────────────────────────────────────────────
+            const reviveHp = Math.floor(rows[0].max_hp / 2);
+            await db.execute("UPDATE players SET hp=? WHERE id=?", [reviveHp, userId]);
 
-            // Apply "Weakened" debuff (5 minutes)
-            await applyEffect('player', userId, 'Weakened', 
-                { str_penalty: 0.2, agi_penalty: 0.2, int_penalty: 0.2, sta_penalty: 0.2 }, 
-                300, null);
+            // ── ✅ Weakened debuff via activeBuffs (in-memory, read by combat) ──
+            // Previous version used buffSystem.js (DB-based) which combat never reads.
+            // activeBuffs.js is what skillSystem.js and dungeon.js actually check.
+            applyBuff('player', userId, { type: 'debuff', stat: 'strength',     value: -10, duration: 5 });
+            applyBuff('player', userId, { type: 'debuff', stat: 'agility',      value: -10, duration: 5 });
+            applyBuff('player', userId, { type: 'debuff', stat: 'intelligence', value: -10, duration: 5 });
+            applyBuff('player', userId, { type: 'debuff', stat: 'stamina',      value: -10, duration: 5 });
 
-            let reply = `══〘 💀 RESPAWN 〙══╮
-┃◆ You have been revived at 50% HP.
-┃◆────────────
-┃◆ 💰 Gold lost: ${goldLoss}
-┃◆ ⭐ XP lost: ${xpLoss}
-`;
+            let reply =
+                `══〘 💀 RESPAWN 〙══╮\n` +
+                `┃◆ ✅ Revived at ${reviveHp}/${rows[0].max_hp} HP\n` +
+                `┃◆━━━━━━━━━━━━\n` +
+                `┃◆ ── PENALTIES ──\n` +
+                `┃◆ 💰 Gold lost:  -${goldLoss}\n` +
+                `┃◆ ⭐ XP lost:    -${xpLoss}\n`;
+
             if (brokenItems.length) {
-                reply += `┃◆ 💔 Items broken: ${brokenItems.join(', ')}\n`;
+                reply += `┃◆ 💔 Broken: ${brokenItems.join(', ')}\n`;
             } else if (equipped.length) {
-                reply += `┃◆ 🛠️ Equipped items lost 20 durability\n`;
+                reply += `┃◆ 🔧 Equipped items: -20 durability\n`;
             }
             if (removedFromDungeon) {
                 reply += `┃◆ 🏰 Removed from active dungeon\n`;
             }
-            reply += `┃◆ ⚠️ Debuff: Weakened (5 min) -20% all stats\n`;
-            reply += `╰═══════════════════════╯`;
+            reply +=
+                `┃◆━━━━━━━━━━━━\n` +
+                `┃◆ ⚠️ WEAKENED — -10 all stats\n` +
+                `┃◆    for 5 combat turns\n` +
+                `╰═══════════════════════╯`;
+
             return msg.reply(reply);
         } catch (err) {
             console.error(err);
-            msg.reply("❌ Respawn failed.");
+            msg.reply(`══〘 💀 RESPAWN 〙══╮\n┃◆ ❌ Respawn failed.\n╰═══════════════════════╯`);
         }
     }
 };
