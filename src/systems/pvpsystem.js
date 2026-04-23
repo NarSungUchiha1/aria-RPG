@@ -8,11 +8,70 @@ const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 // duelPool:    duelKey  -> { hp, bet, round, p1Id, p2Id }
 const activeDuels = new Map();
 const duelPool    = new Map();
+const turnTimers  = new Map(); // duelKey -> timeout
 
-const DUEL_HP = 700;
+const DUEL_HP       = 700;
+const TURN_LIMIT_MS = 10000; // 10 seconds per turn
 
 function getDuelKey(p1, p2) {
     return [p1, p2].sort().join('_vs_');
+}
+
+function clearTurnTimer(duelKey) {
+    if (turnTimers.has(duelKey)) {
+        clearTimeout(turnTimers.get(duelKey));
+        turnTimers.delete(duelKey);
+    }
+}
+
+async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
+    clearTurnTimer(duelKey);
+
+    const timer = setTimeout(async () => {
+        // Check duel still active and it's still the same player's turn
+        const duel = activeDuels.get(currentTurnId);
+        if (!duel || duel.turn !== currentTurnId) return;
+
+        const data = duelPool.get(duelKey);
+        if (!data) return;
+
+        try {
+            const [pRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [currentTurnId]);
+            const [oRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [opponentId]);
+            const pNick = pRows[0]?.nickname || currentTurnId;
+            const oNick = oRows[0]?.nickname || opponentId;
+
+            // Time out = forfeit, opponent wins
+            clearDuelActive(currentTurnId, opponentId);
+
+            // Return bets if any
+            if (data.bet > 0) {
+                await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [data.bet, currentTurnId]);
+                await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [data.bet, opponentId]);
+            }
+
+            await chat.sendMessage(
+                `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
+                `┃◆ \n` +
+                `┃◆ *${pNick}* ran out of time!\n` +
+                `┃◆ They had 10 seconds to act.\n` +
+                `┃◆ \n` +
+                `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
+                `┃◆ 🏆 *${oNick}* wins by default!\n` +
+                `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.\n' : ''}` +
+                `┃◆ \n` +
+                `╰═══════════════════════╯`
+            );
+
+            await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [currentTurnId]);
+            await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [opponentId]);
+            await trackPvPWin(opponentId);
+        } catch (e) {
+            console.error("Turn timer error:", e.message);
+        }
+    }, TURN_LIMIT_MS);
+
+    turnTimers.set(duelKey, timer);
 }
 
 function setDuelActive(p1Id, p2Id, chat, betAmount) {
@@ -29,6 +88,7 @@ function setDuelActive(p1Id, p2Id, chat, betAmount) {
 
 function clearDuelActive(p1Id, p2Id) {
     const key = getDuelKey(p1Id, p2Id);
+    clearTurnTimer(key);
     duelPool.delete(key);
     activeDuels.delete(p1Id);
     activeDuels.delete(p2Id);
@@ -101,6 +161,11 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
     setDuelActive(p1Id, p2Id, chat, betAmount);
     setTurn(p1Id, p2Id, firstTurn);
 
+    const secondTurn = firstTurn === p1Id ? p2Id : p1Id;
+
+    // Start 10-second turn timer for first player
+    await startTurnTimer(getDuelKey(p1Id, p2Id), firstTurn, secondTurn, chat, 1);
+
     const betLine = betAmount > 0
         ? `┃◆ 💰 Bet: ${betAmount} Gold each (pot: ${betAmount * 2})\n`
         : `┃◆ 💰 No bet — honour duel\n`;
@@ -125,6 +190,8 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
         `${betLine}` +
         `┃◆ ━━━━━━━━━━━━\n` +
         `┃◆ ⚡ ${firstNick} goes first!\n` +
+        `┃◆ ⏰ Each turn: 10 seconds to act\n` +
+        `┃◆ Miss your turn = forfeit the duel!\n` +
         `┃◆ Use !attack <move> to fight.\n` +
         `┃◆ \n` +
         `╰═══════════════════════════╯`
@@ -135,6 +202,7 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
 
 // ── Victory Handler ───────────────────────────────────────────────────────────
 async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, loserNick, winnerHp) {
+    clearTurnTimer(getDuelKey(winnerId, loserId));
     clearDuelActive(winnerId, loserId);
 
     await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [winnerId]);
@@ -181,7 +249,7 @@ async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, dam
         `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${DUEL_HP}\n` +
         `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${DUEL_HP}\n` +
         `┃◆────────────\n` +
-        `┃◆ ⚡ ${nextTurnNick}'s turn! Use !attack <move>\n` +
+        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 10 seconds!\n` +
         `╰═══════════════════════╯`
     );
 }
@@ -232,6 +300,8 @@ async function handlePvPSkill(attackerId, move, targetId) {
             attacker.nickname, defender.nickname, move.name, damage,
             attackerHp, newDefenderHp, defender.nickname, round
         );
+        // ✅ Start timer for opponent's turn
+        await startTurnTimer(duel.duelKey, opponentId, attackerId, chat, data.round);
         return { success: true, nextTurn: opponentId };
     }
 
@@ -251,9 +321,11 @@ async function handlePvPSkill(attackerId, move, targetId) {
             `┃◆ ❤️ ${attacker.nickname}: ${newHp}/${DUEL_HP}\n` +
             `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${defender.nickname}'s turn! Use !attack <move>\n` +
+            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 10 seconds!\n` +
             `╰═══════════════════════╯`
         );
+        // ✅ Start timer for opponent's turn
+        await startTurnTimer(duel.duelKey, opponentId, attackerId, chat, data.round);
         return { success: true, nextTurn: opponentId };
     }
 
@@ -271,9 +343,11 @@ async function handlePvPSkill(attackerId, move, targetId) {
             `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${DUEL_HP}\n` +
             `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${defender.nickname}'s turn! Use !attack <move>\n` +
+            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 10 seconds!\n` +
             `╰═══════════════════════╯`
         );
+        // ✅ Start timer for opponent's turn
+        await startTurnTimer(duel.duelKey, opponentId, attackerId, chat, data.round);
         return { success: true, nextTurn: opponentId };
     }
 
@@ -320,6 +394,8 @@ async function handlePvPAttack(attackerId) {
         attacker.nickname, defender.nickname, 'Basic Attack', damage,
         attackerHp, newDefHp, defender.nickname, round
     );
+    // ✅ Start timer for opponent's turn
+    await startTurnTimer(duel.duelKey, opponentId, attackerId, chat, data.round);
     return { success: true, nextTurn: opponentId };
 }
 
