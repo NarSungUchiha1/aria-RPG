@@ -6,7 +6,7 @@ const itemStats = require('../data/itemStats');
 const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 
 const rankRequirements = {
-    E: 500, D: 1200, C: 2500, B: 5000, A: 10000, S: 20000
+    E: 1000, D: 3000, C: 7000, B: 15000, A: 30000, S: 60000
 };
 
 const rankStatIncreases = {

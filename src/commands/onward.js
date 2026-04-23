@@ -40,7 +40,7 @@ module.exports = {
                     [dungeon.id]
                 );
                 const rewardGold = Math.floor(Math.random() * 300) + 200;
-                const rewardXp = Math.floor(Math.random() * 200) + 100;
+                const rewardXp = Math.floor(Math.random() * 120) + 60; // -40% from original
 
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);

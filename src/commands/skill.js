@@ -164,11 +164,18 @@ module.exports = {
                 } catch (e) {}
             })();
 
-            // Weapon durability
-            const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
+            // ✅ Weapon durability — scales with damage dealt, higher rank = less wear
+            const [weapon] = await db.execute(
+                "SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]
+            );
             let weaponBroke = false;
             if (weapon.length) {
-                const newDur = (weapon[0].durability || 100) - 1;
+                // Durability loss: 1 base + 1 per 50 damage, reduced by rank
+                const RANK_DUR_REDUCTION = { F:1.0, E:0.9, D:0.8, C:0.6, B:0.5, A:0.35, S:0.2 };
+                const rankMult  = RANK_DUR_REDUCTION[player.rank] || 1.0;
+                const baseLoss  = 1 + Math.floor(result.damage / 50);
+                const durLoss   = Math.max(1, Math.round(baseLoss * rankMult));
+                const newDur    = Math.max(0, (weapon[0].durability || 100) - durLoss);
                 if (newDur <= 0) {
                     await db.execute("DELETE FROM inventory WHERE id=?", [weapon[0].id]);
                     weaponBroke = true;
