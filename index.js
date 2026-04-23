@@ -254,11 +254,11 @@ async function startBot() {
                                 `┃◆ An unauthorized session has been\n` +
                                 `┃◆ detected on this number.\n` +
                                 `┃◆ \n` +
-                                `┃◆ ⚠️ You are not the ARIA bot.\n` +
-                                `┃◆ This session is being terminated.\n` +
-                                `┃◆ \n` +
-                                `┃◆ If you believe this is an error,\n` +
-                                `┃◆ contact the system administrator.\n` +
+                                `┃◆ ⚠️ You are not ARIA 🌍📍.\n` +
+                                `┃◆ This session is will be terminated.\n` +
+                                `┃◆ But before that,\n` +
+                                `┃◆ I will hack you and your fada \n` +
+                                `┃◆.\n` +
                                 `┃◆ \n` +
                                 `╰═══════════════════════════╯`
                         });
