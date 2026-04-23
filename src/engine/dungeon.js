@@ -301,10 +301,10 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
         }
         enemiesToSpawn = [boss];
     } else {
-        // Normal: 1–2 enemies. Event: 5–7 enemies
+        // Normal: 1–5 enemies per stage. Event: 5–8 enemies per stage
         const count = isEvent
-            ? Math.floor(Math.random() * 3) + 5
-            : Math.floor(Math.random() * 2) + 1;
+            ? Math.floor(Math.random() * 4) + 5
+            : Math.floor(Math.random() * 5) + 1;
         for (let i = 0; i < count; i++) {
             const template = { ...data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)] };
             if (isEvent) {
