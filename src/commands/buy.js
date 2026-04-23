@@ -26,10 +26,7 @@ module.exports = {
                 [userId]
             );
             if (inDungeon.length) {
-                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
-                text += ` ┃◆ ❌ You cannot buy items while inside a dungeon.\n`;
-                text += ` ┃◆ You disobedient mortal you should have read before you entered\n`;
-                return msg.reply(text);
+                return msg.reply("❌ You cannot access the shop while inside a dungeon.");
             }
 
             const shop = await getPlayerShop(userId, player[0].role, player[0].rank);
@@ -38,18 +35,11 @@ module.exports = {
 
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
-            if (gold < item.price) {
-                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
-                text += ` ┃◆ ❌ YOU ARE TOO POOR TO PURCHASE.\n`;
-                return msg.reply(text);
-            }
+            if (gold < item.price) return msg.reply("❌ Not enough gold.");
 
             const [stockRow] = await db.execute("SELECT stock FROM shop_stock WHERE item_name = ?", [item.name]);
             if (!stockRow.length || stockRow[0].stock <= 0) {
-                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
-                text += ` ┃◆ ❌ The item you selected is out of stock.\n`;
-                text += ` ┃◆ Restocks in: ${getRestockTimeRemaining()}\n`;
-                return msg.reply(text);
+                return msg.reply("❌ This item is out of stock.");
             }
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
@@ -63,26 +53,34 @@ module.exports = {
 
             const itemData = itemStats[item.name];
             if (itemData) {
+                // ✅ Apply bonuses matching player's current rank — item comes pre-upgraded to rank grade
+                const RANK_ORDER = ['F','E','D','C','B','A','S'];
+                const { getGradeIncrementCount, durabilityValues } = require('../data/weaponGrades');
+                const playerRank     = player[0].rank || 'F';
+                const incrementCount = getGradeIncrementCount(playerRank);
+                const dur            = durabilityValues[playerRank] || 100;
+
                 await db.execute(
                     `UPDATE inventory SET
-                        grade = 'F',
-                        strength_bonus = ?,
-                        agility_bonus = ?,
+                        grade              = ?,
+                        strength_bonus     = ?,
+                        agility_bonus      = ?,
                         intelligence_bonus = ?,
-                        stamina_bonus = ?,
-                        attack_bonus = ?,
-                        defense_bonus = ?,
-                        durability = 100,
-                        max_durability = 100
+                        stamina_bonus      = ?,
+                        attack_bonus       = ?,
+                        defense_bonus      = ?,
+                        durability         = ?,
+                        max_durability     = ?
                      WHERE id = ?`,
                     [
-                        itemData.base?.strength || 0,
-                        itemData.base?.agility || 0,
-                        itemData.base?.intelligence || 0,
-                        itemData.base?.stamina || 0,
-                        itemData.base?.attack || 0,
-                        itemData.base?.defense || 0,
-                        result.insertId
+                        playerRank,
+                        (itemData.base?.strength     || 0) + (itemData.increment?.strength     || 0) * incrementCount,
+                        (itemData.base?.agility       || 0) + (itemData.increment?.agility      || 0) * incrementCount,
+                        (itemData.base?.intelligence  || 0) + (itemData.increment?.intelligence || 0) * incrementCount,
+                        (itemData.base?.stamina        || 0) + (itemData.increment?.stamina      || 0) * incrementCount,
+                        (itemData.base?.attack         || 0) + (itemData.increment?.attack       || 0) * incrementCount,
+                        (itemData.base?.defense        || 0) + (itemData.increment?.defense      || 0) * incrementCount,
+                        dur, dur, result.insertId
                     ]
                 );
             }
