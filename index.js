@@ -232,47 +232,40 @@ async function startBot() {
 
         sock.ev.on('creds.update', async () => {
             await saveCreds();
-            // ✅ Guard: if registrationId doesn't match our known bot session, reject it
-            const KNOWN_REG_ID = 581496701;
-            if (state.creds?.registrationId && state.creds.registrationId !== KNOWN_REG_ID) {
+
+            // ✅ Learn registrationId on first pair, then guard against intruders
+            if (!state.creds?.registrationId) return;
+
+            const KNOWN_REG_ID = process.env.KNOWN_REG_ID
+                ? parseInt(process.env.KNOWN_REG_ID)
+                : null;
+
+            if (!KNOWN_REG_ID) {
+                // First time pairing — log the ID so admin can set it in env
+                console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
+                console.log(`   Add to Render env: KNOWN_REG_ID=${state.creds.registrationId}`);
+                return;
+            }
+
+            if (state.creds.registrationId !== KNOWN_REG_ID) {
                 console.error(`🚨 INTRUDER DETECTED — registrationId mismatch!`);
-                console.error(`   Expected: ${KNOWN_REG_ID}`);
-                console.error(`   Got:      ${state.creds.registrationId}`);
-
-                // ✅ Warn the intruder before kicking them
+                console.error(`   Expected: ${KNOWN_REG_ID}, Got: ${state.creds.registrationId}`);
                 try {
-                    const adminId = process.env.BOT_PHONE_NUMBER
-                        ? `${process.env.BOT_PHONE_NUMBER}@s.whatsapp.net`
-                        : null;
-
-                    // Message them directly on their own session before we wipe it
-                    if (adminId) {
-                        await sock.sendMessage(adminId, {
-                            text:
-                                `╭══〘 🚨 ARIA SYSTEM ALERT 〙══╮\n` +
-                                `┃◆ \n` +
-                                `┃◆ An unauthorized session has been\n` +
-                                `┃◆ detected on this number.\n` +
-                                `┃◆ \n` +
-                                `┃◆ ⚠️ You are not ARIA 🌍📍.\n` +
-                                `┃◆ This session is will be terminated.\n` +
-                                `┃◆ But before that,\n` +
-                                `┃◆ I will hack you and your fada \n` +
-                                `┃◆.\n` +
-                                `┃◆ \n` +
-                                `╰═══════════════════════════╯`
-                        });
-                    }
-                } catch (e) {
-                    console.error("Could not send intruder warning:", e.message);
-                }
-
-                console.error(`   Wiping session and forcing fresh pair...`);
+                    await sock.sendMessage(`${process.env.BOT_PHONE_NUMBER}@s.whatsapp.net`, {
+                        text:
+                            `╭══〘 🚨 ARIA SYSTEM ALERT 〙══╮\n` +
+                            `┃◆ \n` +
+                            `┃◆ An unauthorized session detected.\n` +
+                            `┃◆ ⚠️ You are not the ARIA bot.\n` +
+                            `┃◆ This session is being terminated.\n` +
+                            `┃◆ \n` +
+                            `╰═══════════════════════════╯`
+                    });
+                } catch (e) {}
                 await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
                 isBotRunning = false;
                 sock.end();
                 setTimeout(() => startBot(), 5000);
-                return;
             }
         });
 
