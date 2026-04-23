@@ -122,8 +122,16 @@ if (fs.existsSync(commandPath)) {
     fs.readdirSync(commandPath)
         .filter(f => f.endsWith(".js"))
         .forEach(file => {
-            const cmd = require('./src/commands/' + file);
-            if (cmd?.name) commands.set(cmd.name, cmd);
+            try {
+                const cmd = require('./src/commands/' + file);
+                if (cmd?.name) {
+                    commands.set(cmd.name, cmd);
+                } else {
+                    console.warn(`⚠️ Command file ${file} has no name export — skipped.`);
+                }
+            } catch (err) {
+                console.error(`❌ Failed to load command ${file}:`, err.message);
+            }
         });
 }
 console.log(`📦 Loaded ${commands.size} commands`);
