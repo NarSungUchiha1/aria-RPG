@@ -5,7 +5,7 @@ const { RAID_GROUP } = require('../engine/dungeon');
 const EVENT_NAME      = 'The Void Fracture';
 const EVENT_ITEM      = 'Void Shard';
 const REQUIRED_SHARDS = 5;
-const DROP_CHANCE     = 0.05;  // 5/100 — one shard per ~20 cleared dungeons
+const DROP_CHANCE     = 0.10;  // 10/100 — one shard per ~20 cleared dungeons
 const EVENT_HOURS     = 24;
 
 // ── DB Setup ──────────────────────────────────────────────────────────────────
@@ -43,12 +43,17 @@ async function getActiveEvent() {
 
 /**
  * Called from onward.js when a dungeon is FULLY cleared (boss stage done).
- * Each surviving player rolls independently for a Void Shard.
+ * One roll for the whole dungeon — if it hits, every surviving player gets a shard.
  */
 async function handleShardDrop(dungeonId, client) {
     const event = await getActiveEvent();
     if (!event) return;
 
+    // ✅ One roll for the entire dungeon
+    const roll = Math.random();
+    if (roll > DROP_CHANCE) return; // No shard this run
+
+    // Get all surviving players in this dungeon
     const [survivors] = await db.execute(
         `SELECT dp.player_id, p.nickname
          FROM dungeon_players dp
@@ -58,11 +63,10 @@ async function handleShardDrop(dungeonId, client) {
     );
     if (!survivors.length) return;
 
-    for (const s of survivors) {
-        const roll = Math.random();
-        if (roll > DROP_CHANCE) continue; // No shard this run
+    const names = survivors.map(s => `*${s.nickname}*`).join(', ');
 
-        // Give shard
+    // Give every survivor a shard
+    for (const s of survivors) {
         await db.execute(
             `INSERT INTO event_progress (event_id, player_id, shards)
              VALUES (?, ?, 1)
@@ -70,63 +74,66 @@ async function handleShardDrop(dungeonId, client) {
             [event.id, s.player_id]
         );
 
-        // ✅ Track for quests
-        try {
-            const { updateQuestProgress } = require('./questSystem');
-            await updateQuestProgress(s.player_id, 'shard_collect', 1, client);
-        } catch (e) {}
+                // ✅ Track for quests — fire and forget
+                (async () => {
+                    try {
+                        const { updateQuestProgress } = require('./questSystem');
+                        await updateQuestProgress(s.player_id, 'shard_collect', 1, client);
+                    } catch (e) {}
+                })();
 
+        // Check if this player just completed the event
         const [progress] = await db.execute(
             "SELECT shards, completed FROM event_progress WHERE event_id=? AND player_id=?",
             [event.id, s.player_id]
         );
         const current   = progress[0]?.shards || 0;
         const completed = progress[0]?.completed || 0;
-        const remaining = Math.max(0, REQUIRED_SHARDS - current);
 
         if (current >= REQUIRED_SHARDS && !completed) {
-            // Mark completed
             await db.execute(
                 "UPDATE event_progress SET completed=1, completed_at=NOW() WHERE event_id=? AND player_id=?",
                 [event.id, s.player_id]
             );
 
-            // Announce in GC
+            // Announce individual completion in GC
             await client.sendMessage(RAID_GROUP, {
                 text:
-                    `╭══〘 💠 VOID FRACTURE EVENT 〙══╮\n` +
+                    `╭══〘 💠 VOID FRACTURE — COMPLETE 〙══╮\n` +
                     `┃◆ \n` +
-                    `┃◆ ⚡ ${s.nickname} has gathered\n` +
+                    `┃◆ ⚡ *${s.nickname}* has gathered\n` +
                     `┃◆ all ${REQUIRED_SHARDS} Void Shards!\n` +
                     `┃◆ \n` +
-                    `┃◆ The void trembles at their\n` +
-                    `┃◆ resolve. A true hunter.\n` +
+                    `┃◆ The void trembles at their resolve.\n` +
+                    `┃◆ A true adventurer emerges.\n` +
                     `┃◆ \n` +
                     `┃◆ 🏆 Awaiting the final reckoning.\n` +
                     `┃◆ \n` +
                     `╰═══════════════════════════╯`
             });
-        } else {
-            // Notify player in DM
-            try {
-                await client.sendMessage(`${s.player_id}@s.whatsapp.net`, {
-                    text:
-                        `══〘 💠 VOID SHARD FOUND 〙══╮\n` +
-                        `┃◆ \n` +
-                        `┃◆ ✨ A Void Shard tears free\n` +
-                        `┃◆ from the defeated enemies!\n` +
-                        `┃◆ \n` +
-                        `┃◆ 💠 Shards: ${current}/${REQUIRED_SHARDS}\n` +
-                        `┃◆ 🎯 Still need: ${remaining}\n` +
-                        `┃◆ \n` +
-                        `┃◆ The void does not yield easily.\n` +
-                        `┃◆ Keep hunting.\n` +
-                        `┃◆ \n` +
-                        `╰═══════════════════════╯`
-                });
-            } catch (e) {}
         }
     }
+
+    // ✅ Announce shard found to the whole group — team discovery
+    const teamSize = survivors.length;
+    await client.sendMessage(RAID_GROUP, {
+        text:
+            `══〘 💠 VOID SHARD FOUND 〙══╮\n` +
+            `┃◆ \n` +
+            `┃◆ ✨ A Void Shard tears free from\n` +
+            `┃◆ the defeated enemies!\n` +
+            `┃◆ \n` +
+            `┃◆ The whole party stumbled upon it.\n` +
+            `┃◆ ${teamSize > 1 ? `All ${teamSize} raiders claim it!` : `${survivors[0].nickname} claims it!`}\n` +
+            `┃◆ \n` +
+            `┃◆ 👥 ${names}\n` +
+            `┃◆ each gain 💠 +1 Void Shard\n` +
+            `┃◆ \n` +
+            `┃◆ The void does not yield easily.\n` +
+            `┃◆ Keep hunting.\n` +
+            `┃◆ \n` +
+            `╰═══════════════════════╯`
+    });
 }
 
 // ── Main Command ──────────────────────────────────────────────────────────────
@@ -186,12 +193,12 @@ module.exports = {
                 `┃◆ \n` +
                 `┃◆ ════ LORE ════\n` +
                 `┃◆ \n` +
-                `┃◆ Long before the first hunter\n` +
+                `┃◆ Long before the first adventurer\n` +
                 `┃◆ ever awakened, a god fell.\n` +
                 `┃◆ \n` +
                 `┃◆ The Void Weaver — an ancient\n` +
                 `┃◆ entity that consumed entire\n` +
-                `┃◆ dimensions — was shattered by\n` +
+                `┃◆ dimensions ,was shattered by\n` +
                 `┃◆ a force even ARIA cannot name.\n` +
                 `┃◆ Its remains drifted across the\n` +
                 `┃◆ rift between worlds, crystallising\n` +
@@ -202,7 +209,7 @@ module.exports = {
                 `┃◆ The shards are bleeding into\n` +
                 `┃◆ every dungeon realm at once.\n` +
                 `┃◆ The monsters have absorbed\n` +
-                `┃◆ their energy — stronger, faster,\n` +
+                `┃◆ their energy stronger, faster,\n` +
                 `┃◆ more numerous than ever before.\n` +
                 `┃◆ \n` +
                 `┃◆ Whoever gathers these shards\n` +

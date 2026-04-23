@@ -150,18 +150,19 @@ module.exports = {
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
-            // ✅ Quest tracking
-            try {
-                const { updateQuestProgress } = require('../systems/questSystem');
-                await updateQuestProgress(userId, 'skill_use', 1, client);
-                await updateQuestProgress(userId, 'damage_dealt', result.damage, client);
-                if (result.defeated) {
-                    const isBoss = targetEnemy.name.toLowerCase().includes('void-touched') ||
-                        (dungeon.stage === dungeon.max_stage);
-                    await updateQuestProgress(userId, 'enemy_kill', 1, client);
-                    if (isBoss) await updateQuestProgress(userId, 'boss_kill', 1, client);
-                }
-            } catch (e) {}
+            // ✅ Quest tracking — fire and forget, don't block combat response
+            (async () => {
+                try {
+                    const { updateQuestProgress } = require('../systems/questSystem');
+                    await updateQuestProgress(userId, 'skill_use', 1, client);
+                    await updateQuestProgress(userId, 'damage_dealt', result.damage, client);
+                    if (result.defeated) {
+                        const isBoss = dungeon.stage === dungeon.max_stage;
+                        await updateQuestProgress(userId, 'enemy_kill', 1, client);
+                        if (isBoss) await updateQuestProgress(userId, 'boss_kill', 1, client);
+                    }
+                } catch (e) {}
+            })();
 
             // Weapon durability
             const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);

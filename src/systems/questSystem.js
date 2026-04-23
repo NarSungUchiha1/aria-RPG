@@ -162,7 +162,19 @@ async function seedQuests() {
     console.log('📜 Quest pool seeded.');
 }
 
-// ── Assign Daily Quests ───────────────────────────────────────────────────────
+// ── In-memory cache — tracks which players have been set up today ─────────────
+// Avoids 6+ DB queries on every skill use, kill, etc.
+const questSetupCache = new Map(); // playerId -> 'YYYY-MM-DD'
+
+function isQuestSetupCached(playerId) {
+    const today = new Date().toISOString().split('T')[0];
+    return questSetupCache.get(playerId) === today;
+}
+
+function markQuestSetup(playerId) {
+    const today = new Date().toISOString().split('T')[0];
+    questSetupCache.set(playerId, today);
+}
 async function assignDailyQuests(playerId) {
     const today = new Date().toISOString().split('T')[0];
     const [existing] = await db.execute(
@@ -234,10 +246,13 @@ function getWeekStart() {
 
 // ── Update Quest Progress ─────────────────────────────────────────────────────
 async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
-    // ✅ Auto-assign today's quests if not yet assigned — player doesn't need to open !quests first
-    await assignDailyQuests(playerId);
-    await ensureAchievements(playerId);
-    await ensurePartyQuests();
+    // ✅ Only run setup queries once per player per day — cached in memory
+    if (!isQuestSetupCached(playerId)) {
+        await assignDailyQuests(playerId);
+        await ensureAchievements(playerId);
+        await ensurePartyQuests();
+        markQuestSetup(playerId);
+    }
 
     // ── Daily quests ─────────────────────────────────────────────
     const today = new Date().toISOString().split('T')[0];

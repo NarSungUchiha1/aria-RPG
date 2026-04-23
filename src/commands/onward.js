@@ -47,15 +47,18 @@ module.exports = {
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]);
 
                     // ✅ Quest tracking — dungeon clear and survive
-                    try {
-                        const { updateQuestProgress } = require('../systems/questSystem');
-                        await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
-                        await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
-                        await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
-                        if (dungeon.dungeon_rank === 'S') {
-                            await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
-                        }
-                    } catch (e) {}
+                    // ✅ Quest tracking — fire and forget
+                    (async () => {
+                        try {
+                            const { updateQuestProgress } = require('../systems/questSystem');
+                            await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
+                            await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
+                            await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
+                            if (dungeon.dungeon_rank === 'S') {
+                                await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
+                            }
+                        } catch (e) {}
+                    })();
                 }
 
                 // ✅ Roll for Void Shard drops (event only, per survivor)
@@ -84,17 +87,19 @@ module.exports = {
             const next = dungeon.stage + 1;
             await advanceStage(dungeon.id, next);
 
-            // ✅ Track stage clear for all alive players
-            try {
-                const { updateQuestProgress } = require('../systems/questSystem');
-                const [alive] = await db.execute(
-                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
-                    [dungeon.id]
-                );
-                for (const p of alive) {
-                    await updateQuestProgress(p.player_id, 'stage_clear', 1, client);
-                }
-            } catch (e) {}
+            // ✅ Track stage clear — fire and forget
+            (async () => {
+                try {
+                    const { updateQuestProgress } = require('../systems/questSystem');
+                    const [alive] = await db.execute(
+                        "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                        [dungeon.id]
+                    );
+                    for (const p of alive) {
+                        await updateQuestProgress(p.player_id, 'stage_clear', 1, client);
+                    }
+                } catch (e) {}
+            })();
 
             // targetChat is the dungeon GC (onward is restricted there by index.js routing)
             const targetChat = await msg.getChat();

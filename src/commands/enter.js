@@ -238,17 +238,19 @@ module.exports = {
                 // Add to dungeon
                 await addPlayerToDungeon(userId, dungeon.id);
 
-                // ✅ Log the entry + track quest
+                // ✅ Log the entry + track quest — fire and forget
                 await db.execute(
                     `INSERT INTO dungeon_entry_log (player_id, entry_date, count)
                      VALUES (?, ?, 1)
                      ON DUPLICATE KEY UPDATE count = count + 1`,
                     [userId, today]
                 );
-                try {
-                    const { updateQuestProgress } = require('../systems/questSystem');
-                    await updateQuestProgress(userId, 'dungeon_enter', 1);
-                } catch (e) {}
+                (async () => {
+                    try {
+                        const { updateQuestProgress } = require('../systems/questSystem');
+                        await updateQuestProgress(userId, 'dungeon_enter', 1);
+                    } catch (e) {}
+                })();
                 const newCount = currentPlayers + 1;
                 const isFirstPlayer = newCount === 1;
 
