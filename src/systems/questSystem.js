@@ -68,72 +68,88 @@ async function ensureTables() {
 
 // ── Seed Quest Pool ───────────────────────────────────────────────────────────
 async function seedQuests() {
-    const [existing] = await db.execute("SELECT COUNT(*) as cnt FROM quests");
-    if (existing[0].cnt > 0) return;
+    const [roleCheck] = await db.execute(
+        "SELECT COUNT(*) as cnt FROM quests WHERE quest_type='daily' AND role IS NOT NULL"
+    );
+    if (roleCheck[0].cnt > 0) return;
 
-    // Columns: quest_type, role, title, description, objective_type, objective_target, objective_count, reward_xp, reward_gold, reward_sp, reward_title
+    // Columns: quest_type, role, title, description, objective_type, objective_target,
+    //          objective_count, reward_xp, reward_gold, reward_sp, reward_title
+    //
+    // BALANCING NOTES (with 1-5 enemies per stage, 3 dungeons/day limit):
+    //   Avg enemies per dungeon run : ~9  (3 stages × avg 3 enemies)
+    //   Avg skills used per run     : ~20 (2-3 per enemy)
+    //   Avg stages per day          : ~12 (3 dungeons × avg 4 stages)
+    //   Boss kills per day max      : 3  (1 per completed dungeon)
+    //   All damage targets are mid-rank friendly — achievable in 2-3 runs.
+
     const quests = [
 
-        // ══ DAILY — UNIVERSAL (role = null, 1 assigned per day) ══════════════
-        ['daily', null, 'Into the Depths',   'Enter a dungeon',                           'dungeon_enter',  null,  1,  100,  100, 0, null],
-        ['daily', null, 'First Step',        'Clear 1 dungeon stage',                     'stage_clear',    null,  1,  120,  100, 0, null],
-        ['daily', null, 'The Challenger',    'Win 1 PvP duel',                            'pvp_win',        null,  1,  200,  250, 0, null],
-        ['daily', null, 'Loot Run',          'Complete 1 full dungeon run',               'dungeon_clear',  null,  1,  300,  300, 0, null],
-        ['daily', null, 'Potion Duty',       'Use 3 consumable items',                    'item_use',       null,  3,  100,   80, 0, null],
+        // ══ DAILY — UNIVERSAL (2 assigned per day from pool of 5) ════════════
+        ['daily', null, 'Into the Depths',  'Enter a dungeon today',                    'dungeon_enter',   null,  1,  100,  100, 0, null],
+        ['daily', null, 'First Step',       'Clear 2 dungeon stages',                   'stage_clear',     null,  2,  130,  100, 0, null],
+        ['daily', null, 'The Challenger',   'Win 1 PvP duel',                           'pvp_win',         null,  1,  200,  250, 0, null],
+        ['daily', null, 'Loot Run',         'Complete 1 full dungeon run',              'dungeon_clear',   null,  1,  280,  280, 0, null],
+        ['daily', null, 'Potion Duty',      'Use 2 consumable items',                   'item_use',        null,  2,  100,   80, 0, null],
 
-        // ══ DAILY — TANK ═════════════════════════════════════════════════════
-        ['daily', 'Tank', 'Iron Wall',       'Complete a dungeon without dying',          'dungeon_survive', null, 1,  300,  200, 0, null],
-        ['daily', 'Tank', 'Guardian Duty',   'Clear 3 dungeon stages',                   'stage_clear',     null, 3,  200,  150, 0, null],
-        ['daily', 'Tank', 'Damage Sponge',   'Deal 400 damage in dungeons',              'damage_dealt',    null, 400, 150, 200, 0, null],
-        ['daily', 'Tank', 'Shield Up',       'Use 10 skills in combat',                  'skill_use',       null, 10, 150,  100, 0, null],
-        ['daily', 'Tank', 'Boss Blocker',    'Defeat 2 dungeon bosses',                  'boss_kill',       null, 2,  500,  400, 0, null],
+        // ══ DAILY — TANK (3 assigned per day from pool of 5) ═════════════════
+        // Tanks hit for less — damage targets are lower. Survival is their strength.
+        ['daily', 'Tank', 'Iron Wall',      'Complete a dungeon without dying',         'dungeon_survive', null,  1,  300,  220, 0, null],
+        ['daily', 'Tank', 'Guardian Duty',  'Clear 5 dungeon stages',                  'stage_clear',     null,  5,  220,  160, 0, null],
+        ['daily', 'Tank', 'Damage Sponge',  'Deal 250 total damage in dungeons',       'damage_dealt',    null, 250, 160,  180, 0, null],
+        ['daily', 'Tank', 'Shield Up',      'Use 8 skills in combat',                  'skill_use',       null,  8,  150,  120, 0, null],
+        ['daily', 'Tank', 'Boss Blocker',   'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  360, 0, null],
 
-        // ══ DAILY — ASSASSIN ═════════════════════════════════════════════════
-        ['daily', 'Assassin', 'Shadow Work', 'Defeat 15 enemies in dungeons',            'enemy_kill',      null, 15, 250,  200, 0, null],
-        ['daily', 'Assassin', 'Blade Dance', 'Use 12 skills in combat',                  'skill_use',       null, 12, 150,  120, 0, null],
-        ['daily', 'Assassin', 'Lethal Edge', 'Deal 800 damage in dungeons',              'damage_dealt',    null, 800, 200, 250, 0, null],
-        ['daily', 'Assassin', 'Phantom Run', 'Complete a dungeon without dying',         'dungeon_survive', null, 1,  300,  200, 0, null],
-        ['daily', 'Assassin', 'Duel Master', 'Win 1 PvP duel',                           'pvp_win',         null, 1,  250,  300, 0, null],
+        // ══ DAILY — ASSASSIN (pool of 5) ══════════════════════════════════════
+        // High kill count and damage — AGI-based damage scales well even at low rank.
+        ['daily', 'Assassin', 'Shadow Work',  'Defeat 10 enemies in dungeons',         'enemy_kill',      null, 10,  250,  200, 0, null],
+        ['daily', 'Assassin', 'Blade Dance',  'Use 10 skills in combat',               'skill_use',       null, 10,  160,  130, 0, null],
+        ['daily', 'Assassin', 'Lethal Edge',  'Deal 500 total damage in dungeons',     'damage_dealt',    null, 500, 210,  230, 0, null],
+        ['daily', 'Assassin', 'Phantom Run',  'Complete a dungeon without dying',      'dungeon_survive', null,  1,  300,  220, 0, null],
+        ['daily', 'Assassin', 'Duel Master',  'Win 1 PvP duel',                        'pvp_win',         null,  1,  250,  300, 0, null],
 
-        // ══ DAILY — MAGE ══════════════════════════════════════════════════════
-        ['daily', 'Mage', 'Arcane Fury',    'Deal 1000 damage using magic',              'damage_dealt',    null, 1000, 250, 200, 0, null],
-        ['daily', 'Mage', 'Mana Surge',     'Use 15 skills in combat',                  'skill_use',       null, 15,  200,  150, 0, null],
-        ['daily', 'Mage', 'Spell Runner',   'Complete 1 full dungeon run',               'dungeon_clear',   null, 1,   300,  300, 0, null],
-        ['daily', 'Mage', 'Monster Study',  'Defeat 10 enemies in dungeons',             'enemy_kill',      null, 10,  200,  150, 0, null],
-        ['daily', 'Mage', 'Boss Melt',      'Defeat 2 dungeon bosses',                   'boss_kill',       null, 2,   500,  400, 0, null],
+        // ══ DAILY — MAGE (pool of 5) ══════════════════════════════════════════
+        // INT-based damage. Lower kill count, higher skill use — cast-focused gameplay.
+        ['daily', 'Mage', 'Arcane Fury',    'Deal 500 total damage in dungeons',       'damage_dealt',    null, 500, 240,  210, 0, null],
+        ['daily', 'Mage', 'Mana Surge',     'Use 12 skills in combat',                 'skill_use',       null, 12,  200,  160, 0, null],
+        ['daily', 'Mage', 'Spell Runner',   'Complete 1 full dungeon run',             'dungeon_clear',   null,  1,  280,  280, 0, null],
+        ['daily', 'Mage', 'Monster Study',  'Defeat 8 enemies in dungeons',            'enemy_kill',      null,  8,  190,  160, 0, null],
+        ['daily', 'Mage', 'Boss Melt',      'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  380, 0, null],
 
-        // ══ DAILY — HEALER ════════════════════════════════════════════════════
-        ['daily', 'Healer', 'Life Bringer', 'Use 5 consumable items',                   'item_use',        null, 5,  150,  120, 0, null],
-        ['daily', 'Healer', 'Holy Run',     'Complete 1 dungeon without dying',          'dungeon_survive', null, 1,  350,  250, 0, null],
-        ['daily', 'Healer', 'Restoration',  'Use 12 skills in combat',                  'skill_use',       null, 12, 180,  140, 0, null],
-        ['daily', 'Healer', 'Stage Keeper', 'Clear 3 dungeon stages',                   'stage_clear',     null, 3,  200,  150, 0, null],
-        ['daily', 'Healer', 'Boss Support', 'Defeat 2 dungeon bosses',                  'boss_kill',       null, 2,  500,  400, 0, null],
+        // ══ DAILY — HEALER (pool of 5) ════════════════════════════════════════
+        // Support role — consumable use, survival, stage progression over raw damage.
+        ['daily', 'Healer', 'Life Bringer', 'Use 3 consumable items',                  'item_use',        null,  3,  150,  130, 0, null],
+        ['daily', 'Healer', 'Holy Run',     'Complete 1 dungeon without dying',        'dungeon_survive', null,  1,  350,  260, 0, null],
+        ['daily', 'Healer', 'Restoration',  'Use 10 skills in combat',                 'skill_use',       null, 10,  180,  150, 0, null],
+        ['daily', 'Healer', 'Stage Keeper', 'Clear 4 dungeon stages',                  'stage_clear',     null,  4,  200,  160, 0, null],
+        ['daily', 'Healer', 'Boss Support', 'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  380, 0, null],
 
-        // ══ DAILY — BERSERKER ════════════════════════════════════════════════
-        ['daily', 'Berserker', 'Bloodthirst', 'Defeat 20 enemies in dungeons',          'enemy_kill',      null, 20,  300,  250, 0, null],
-        ['daily', 'Berserker', 'Rampage',     'Deal 1200 damage in dungeons',           'damage_dealt',    null, 1200, 300, 250, 0, null],
-        ['daily', 'Berserker', 'Destroyer',   'Defeat 2 dungeon bosses',                'boss_kill',       null, 2,   500,  400, 0, null],
-        ['daily', 'Berserker', 'Rage Mode',   'Use 10 skills in combat',                'skill_use',       null, 10,  150,  100, 0, null],
-        ['daily', 'Berserker', 'No Retreat',  'Complete a dungeon without dying',        'dungeon_survive', null, 1,   300,  200, 0, null],
+        // ══ DAILY — BERSERKER (pool of 5) ════════════════════════════════════
+        // Highest raw damage and kill count. STR scaling means damage targets are higher.
+        ['daily', 'Berserker', 'Bloodthirst', 'Defeat 12 enemies in dungeons',        'enemy_kill',      null, 12,  280,  240, 0, null],
+        ['daily', 'Berserker', 'Rampage',     'Deal 700 total damage in dungeons',    'damage_dealt',    null, 700, 310,  270, 0, null],
+        ['daily', 'Berserker', 'Destroyer',   'Defeat 1 dungeon boss',                'boss_kill',       null,  1,  420,  380, 0, null],
+        ['daily', 'Berserker', 'Rage Mode',   'Use 8 skills in combat',               'skill_use',       null,  8,  150,  120, 0, null],
+        ['daily', 'Berserker', 'No Retreat',  'Complete a dungeon without dying',     'dungeon_survive', null,  1,  320,  230, 0, null],
 
-        // ══ ACHIEVEMENTS (universal) ══════════════════════════════════════════
-        ['achievement', null, 'First Blood',      'Win your first PvP duel',             'pvp_win',        null,  1,   500,  500,  3, 'Duelist'],
-        ['achievement', null, 'Veteran',          'Complete 10 full dungeon runs',        'dungeon_clear',  null,  10, 1000, 1000,  5, 'Veteran'],
-        ['achievement', null, 'Rising Star',      'Reach Rank C',                         'rank_reached',   'C',   1,   800,  800,  5, 'Rising Star'],
-        ['achievement', null, 'Elite',            'Reach Rank A',                         'rank_reached',   'A',   1,  2000, 2000, 10, 'Elite'],
-        ['achievement', null, 'Legend',           'Reach Rank S',                         'rank_reached',   'S',   1,  5000, 5000, 20, 'Legend'],
-        ['achievement', null, 'Void Hunter',      'Collect your first Void Shard',        'shard_collect',  null,  1,  1000, 1000,  8, 'Void Hunter'],
-        ['achievement', null, 'Void Keeper',      'Collect all 5 Void Shards',            'shard_collect',  null,  5,  5000, 5000, 20, 'Void Keeper'],
-        ['achievement', null, 'Obliterator',      'Deal 50,000 total damage',             'damage_dealt',   null, 50000, 2000, 2000, 10, 'Obliterator'],
-        ['achievement', null, 'Champion',         'Win 10 PvP duels',                     'pvp_win',        null,  10, 1500, 1500,  8, 'Champion'],
-        ['achievement', null, 'Boss Slayer',      'Defeat 20 dungeon bosses',             'boss_kill',      null,  20, 3000, 3000, 15, 'Boss Slayer'],
-        ['achievement', null, 'S-Rank Conqueror', 'Clear an S-rank dungeon',              'srank_clear',    null,  1,  5000, 5000, 20, 'S-Rank Conqueror'],
-        ['achievement', null, 'Centurion',        'Enter 100 dungeons',                   'dungeon_enter',  null, 100, 3000, 3000, 15, 'Centurion'],
+        // ══ ACHIEVEMENTS (universal, permanent milestones) ═══════════════════
+        ['achievement', null, 'First Blood',       'Win your first PvP duel',          'pvp_win',        null,    1,   500,   500,  3, 'Duelist'],
+        ['achievement', null, 'Veteran',           'Complete 10 full dungeon runs',    'dungeon_clear',  null,   10,  1000,  1000,  5, 'Veteran'],
+        ['achievement', null, 'Rising Star',       'Reach Rank C',                     'rank_reached',   'C',     1,   800,   800,  5, 'Rising Star'],
+        ['achievement', null, 'Elite',             'Reach Rank A',                     'rank_reached',   'A',     1,  2000,  2000, 10, 'Elite'],
+        ['achievement', null, 'Legend',            'Reach Rank S',                     'rank_reached',   'S',     1,  5000,  5000, 20, 'Legend'],
+        ['achievement', null, 'Void Hunter',       'Collect your first Void Shard',    'shard_collect',  null,    1,  1000,  1000,  8, 'Void Hunter'],
+        ['achievement', null, 'Void Keeper',       'Collect all 5 Void Shards',        'shard_collect',  null,    5,  5000,  5000, 20, 'Void Keeper'],
+        ['achievement', null, 'Obliterator',       'Deal 50,000 total damage',         'damage_dealt',   null, 50000, 2000,  2000, 10, 'Obliterator'],
+        ['achievement', null, 'Champion',          'Win 10 PvP duels',                 'pvp_win',        null,   10,  1500,  1500,  8, 'Champion'],
+        ['achievement', null, 'Boss Slayer',       'Defeat 20 dungeon bosses',         'boss_kill',      null,   20,  3000,  3000, 15, 'Boss Slayer'],
+        ['achievement', null, 'S-Rank Conqueror',  'Clear an S-rank dungeon',          'srank_clear',    null,    1,  5000,  5000, 20, 'S-Rank Conqueror'],
+        ['achievement', null, 'Centurion',         'Enter 100 dungeons',               'dungeon_enter',  null,  100,  3000,  3000, 15, 'Centurion'],
 
-        // ══ PARTY (weekly) ═══════════════════════════════════════════════════
-        ['party', null, 'Party Grind',     'Clear 10 dungeons together this week',       'dungeon_clear',  null,  10, 1000, 1000,  5, null],
-        ['party', null, 'Boss Rush',       'Defeat 5 bosses together this week',         'boss_kill',      null,   5, 1500, 1500,  8, null],
-        ['party', null, 'Void Seekers',    'Collect 3 Void Shards together this week',   'shard_collect',  null,   3, 2000, 2000, 10, null],
+        // ══ PARTY (weekly, shared group progress) ════════════════════════════
+        ['party', null, 'Party Grind',   'Clear 10 dungeons as a group this week',     'dungeon_clear',  null,  10, 1000, 1000,  5, null],
+        ['party', null, 'Boss Rush',     'Defeat 5 bosses as a group this week',       'boss_kill',      null,   5, 1500, 1500,  8, null],
+        ['party', null, 'Void Seekers',  'Collect 3 Void Shards as a group this week', 'shard_collect',  null,   3, 2000, 2000, 10, null],
     ];
 
     for (const q of quests) {
@@ -153,21 +169,20 @@ async function assignDailyQuests(playerId) {
         "SELECT COUNT(*) as cnt FROM player_quests WHERE player_id=? AND assigned_date=?",
         [playerId, today]
     );
-    if (existing[0].cnt >= 3) return;
+    if (existing[0].cnt >= 5) return;
 
-    // Get player's role
     const [playerRow] = await db.execute("SELECT role FROM players WHERE id=?", [playerId]);
     const role = playerRow[0]?.role || null;
 
-    // 2 role-specific quests
+    // 3 role-specific quests
     const [roleQuests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND role=? AND is_active=1 ORDER BY RAND() LIMIT 2",
+        "SELECT * FROM quests WHERE quest_type='daily' AND role=? AND is_active=1 ORDER BY RAND() LIMIT 3",
         [role]
     );
 
-    // 1 universal quest
+    // 2 universal quests
     const [universalQuests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND role IS NULL AND is_active=1 ORDER BY RAND() LIMIT 1"
+        "SELECT * FROM quests WHERE quest_type='daily' AND role IS NULL AND is_active=1 ORDER BY RAND() LIMIT 2"
     );
 
     const toAssign = [...roleQuests, ...universalQuests];
