@@ -6,39 +6,40 @@ module.exports = {
 ┃
 ┃  🌌 AWAKENING & PROFILE
 ┃  ◆ !awaken → Register prompt
-┃  ◆ !register <name> → Create character
-┃  ◆ !me → View full stats (base + equipment)
-┃  ◆ !stats → Combat record & PvP wins/losses
+┃  ◆ !register <name> → Create your character
+┃  ◆ !me → View stats, rank & equipment
+┃  ◆ !stats → Combat record & PvP history
 ┃
 ┃  🏰 DUNGEON SYSTEM
-┃  ◆ !enter → DM the bot to join active dungeon
-┃  ◆ !dungeon → View enemies & stage status [GC]
-┃  ◆ !skill <move> [target] → Use a move [GC]
-┃  ◆ !onward → Advance to next stage [GC]
+┃  ◆ !enter → DM the bot to join a dungeon
+┃  ◆      (3 entries per day, unlimited during events)
+┃  ◆ !dungeon → View enemies & stage [GC only]
+┃  ◆ !skill <move> [target] → Use a move [GC only]
+┃  ◆ !onward → Advance to next stage [GC only]
 ┃  ◆ !respawn → Revive after death (penalties apply)
-┃  ◆ [GC] = Dungeon Group Chat only
 ┃
 ┃  ⚔️ COMBAT & MOVES
-┃  ◆ !moveset → Show all your available moves
+┃  ◆ !moveset → See all your available moves
 ┃  ◆ Healers can heal anywhere: !skill Heal @user
-┃  ◆ Every role has a free Strike move
+┃  ◆ All roles have a free Strike move
 ┃
 ┃  🛡️ PVP DUELS
 ┃  ◆ !duel @user [bet] → Challenge a player
-┃  ◆ !accept @user → Accept a challenge
-┃  ◆ !decline @user → Decline a challenge
-┃  ◆ !attack <move> → Use a move in a duel
-┃  ◆ Bet gold goes to the winner
+┃  ◆ !accept @nickname → Accept a challenge
+┃  ◆ !decline @nickname → Decline a challenge
+┃  ◆ !attack <move> → Use a move in your duel
+┃  ◆ Both players fight at 700 HP (main HP unaffected)
+┃  ◆ Winner takes the full pot
 ┃
 ┃  🛒 SHOP & INVENTORY
-┃  ◆ !shop → View your role's shop (restocks daily)
-┃  ◆ !buy <number> → Purchase item
-┃  ◆ !inventory → List your items (grouped)
-┃  ◆ !inspect <number> → View item details & bonuses
-┃  ◆ !equip <number> → Equip item
-┃  ◆ !unequip <number> → Unequip item
+┃  ◆ !shop → Your role's shop (restocks daily)
+┃  ◆ !buy <number> → Purchase an item
+┃  ◆ !inventory → View your items
+┃  ◆ !inspect <number> → View item stats & bonuses
+┃  ◆ !equip <number> → Equip an item
+┃  ◆ !unequip <number> → Unequip an item
 ┃  ◆ !repair <number> → Repair item durability
-┃  ◆ !upgradeweapon <number> → Upgrade item grade (F→S)
+┃  ◆ !upgradeweapon <number> → Upgrade grade (F→S)
 ┃  ◆ !use <item name> → Use a consumable
 ┃
 ┃  💰 ECONOMY & TRADING
@@ -47,50 +48,57 @@ module.exports = {
 ┃  ◆ !trade @user <item #> → Give an item
 ┃
 ┃  ✨ PROGRESSION
-┃  ◆ !rankup → Increase rank (costs XP)
-┃  ◆ !convert <xp> → Convert XP to SP (20 XP = 1 SP)
+┃  ◆ !rankup → Rank up (costs XP)
+┃  ◆ !convert <xp> → 250 XP = 1 SP
 ┃  ◆ !upgrade <stat> <points> → Spend SP on stats
 ┃
 ┃  🔄 ROLE CHANGE
 ┃  ◆ !confirmrole → Accept a role change offer
 ┃  ◆ !cancelrole → Decline a role change offer
-┃  ◆ Offers expire after 2 minutes
 ┃  ◆ Penalties: -2 ranks, -50% gold, gear wiped
 ┃
 ┃  🌍 WORLD BOSS
-┃  ◆ !worldboss → View active world boss [GC]
-┃  ◆ !attackboss → Attack the world boss [GC]
+┃  ◆ !worldboss → View active world boss [GC only]
+┃  ◆ !attackboss → Attack the world boss [GC only]
 ┃
 ┃  📜 QUESTS
-┃  ◆ !quests → View your active quests
-┃  ◆ !claim <quest_id> → Claim completed rewards
+┃  ◆ !quests → View daily, achievement & party quests
+┃  ◆ !claim <id> → Claim a completed quest reward
+┃  ◆ Daily quests are role-specific, reset at midnight
+┃  ◆ Achievements grant titles & SP rewards
+┃
+┃  💠 EVENTS
+┃  ◆ Events are announced in the group
+┃  ◆ During events: no daily entry limit
+┃  ◆ Void Shards drop from cleared dungeons (5% chance)
+┃  ◆ Collect 5 Void Shards to complete the event
 ┃
 `;
 
         if (isAdmin) {
             text +=
 `┃  🔐 ADMIN COMMANDS
-┃  ◆ !spawn <rank> → Spawn a dungeon (F–S) [GC]
-┃  ◆ !begin → Force-start the dungeon [GC]
-┃  ◆ !clear → Force-clear the current stage [GC]
-┃  ◆ !closedungeon → Force-close active dungeon [GC]
+┃  ◆ !spawn [rank] → Spawn dungeon (F–S or auto)
+┃  ◆ !begin → Force-start dungeon [GC only]
+┃  ◆ !clear → Force-clear current stage [GC only]
+┃  ◆ !closedungeon → Force-close dungeon [GC only]
 ┃  ◆ !give @user gold <amt> → Grant gold
 ┃  ◆ !give @user xp <amt> → Grant XP
-┃  ◆ !give @user item <name> [x<qty>] → Grant item(s)
-┃  ◆ !gift @user <item name> → Quick single item gift
-┃  ◆ !setrole @user <role> → Offer a role change
+┃  ◆ !give @user item <name> [x<qty>] → Grant items
+┃  ◆ !gift @user <item name> → Quick item gift
+┃  ◆ !setrole @user <role> → Offer role change
+┃  ◆ !event → Start a Void Fracture event
 ┃  ◆ !restock → Refill shop stock
 ┃  ◆ !promote @user → Grant bot admin
 ┃  ◆ !demote @user → Remove bot admin
 ┃  ◆ !erase @user → Delete player data
-┃  ◆ !update → Trigger a Render redeploy
-┃  ◆ !getgroupid → Get current group's JID
+┃  ◆ !update → Trigger Render redeploy
+┃  ◆ !getgroupid → Get current group JID
 ┃
 `;
         }
 
         text += `╰══════════════════════════════╯`;
-
         return msg.reply(text);
     }
 };
