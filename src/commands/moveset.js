@@ -39,25 +39,33 @@ module.exports = {
             const totalInt = Number(p.intelligence) + intBonus;
             const totalSta = Number(p.stamina)      + staBonus;
 
+            const styledName = stylize(p.nickname.toUpperCase());
+            const badge      = rankBadge(p.rank);
+            const icon       = roleIcon(p.role);
+
             let reply =
                 `══〘 👤 PLAYER STATUS 〙══╮\n` +
-                `┃◆ ${rankBadge(p.rank)} *${p.nickname.toUpperCase()}*\n` +
-                `┃◆ ${roleIcon(p.role)} ${p.role}  •  ${p.title || 'No Title'}\n` +
+                `┃◆ 👤 Name: ${badge} ${styledName}\n` +
+                `┃◆ 🎭 Role: ${icon} ${p.role}\n` +
+                `┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}\n` +
                 `┃◆────────────\n` +
-                `┃◆ 💪 STR: ${totalStr}${strBonus > 0 ? ` (+${strBonus})` : ''}\n` +
-                `┃◆ ⚡ AGI: ${totalAgi}${agiBonus > 0 ? ` (+${agiBonus})` : ''}\n` +
-                `┃◆ 🧠 INT: ${totalInt}${intBonus > 0 ? ` (+${intBonus})` : ''}\n` +
-                `┃◆ 🛡️ STA: ${totalSta}${staBonus > 0 ? ` (+${staBonus})` : ''}\n` +
+                `┃◆ 💪 Strength:     ${totalStr}${strBonus > 0 ? ` (+${strBonus})` : ''}\n` +
+                `┃◆ ⚡ Agility:      ${totalAgi}${agiBonus > 0 ? ` (+${agiBonus})` : ''}\n` +
+                `┃◆ 🧠 Intelligence: ${totalInt}${intBonus > 0 ? ` (+${intBonus})` : ''}\n` +
+                `┃◆ 🛡️ Stamina:      ${totalSta}${staBonus > 0 ? ` (+${staBonus})` : ''}\n` +
                 `┃◆────────────\n` +
-                `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}\n`;
+                `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}`;
 
             if (p.role === 'Mage' || p.role === 'Healer') {
-                reply += `┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}\n`;
+                reply += `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`;
             }
 
             reply +=
-                `┃◆ ✨ SP: ${p.sp || 0}  •  💰 ${gold}  •  ⭐ ${xp}\n` +
-                `╰═══════════════════════╯`;
+                `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}` +
+                `\n┃◆ ✨ SP: ${p.sp || 0}` +
+                `\n┃◆ 💰 Gold: ${gold}` +
+                `\n┃◆ ⭐ XP: ${xp}` +
+                `\n╰═══════════════════════╯`;
 
             return msg.reply(reply);
         } catch (err) {

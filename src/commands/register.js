@@ -2,22 +2,22 @@ const db = require('../database/db');
 const { rankBadge, roleIcon } = require('../utils/styles');
 const roles = ["Tank","Assassin","Mage","Healer","Berserker"];
 
-// In-memory set of players who have typed !awaken and are allowed to register
+// In-memory — players who typed !awaken are added here by awaken.js
 const awakenedSessions = new Set();
 
-// Export so awaken.js can mark a player as ready
 module.exports = {
     name: 'register',
     allowRegister: (userId) => awakenedSessions.add(userId),
 
     async execute(msg, args, { userId }) {
-        // ✅ Must go through !awaken first
         if (!awakenedSessions.has(userId)) {
             return msg.reply(
                 `══〘 🌌 REGISTER 〙══╮\n` +
-                `┃◆ ❌ You must use !awaken first.\n` +
+                `┃◆ ⚠️ Use !awaken first.\n` +
+                `┃◆ Type !awaken to begin.\n` +
                 `╰═══════════════════════╯`
             );
+        }
         const nickname = args.join(' ');
         if (!nickname) return msg.reply(
             `══〘 🌌 REGISTER 〙══╮\n┃◆ ❌ Use: !register <your name>\n╰═══════════════════════╯`
@@ -43,6 +43,7 @@ module.exports = {
             await db.execute("INSERT IGNORE INTO currency (player_id, gold) VALUES (?, 500)", [userId]);
             await db.execute("INSERT IGNORE INTO xp (player_id, xp) VALUES (?, 0)", [userId]);
             await db.execute("INSERT IGNORE INTO combat (player_id) VALUES (?)", [userId]);
+            awakenedSessions.delete(userId);
             const contact = await msg.getContact();
             return msg.reply(
                 `══〘 🌌 AWAKENING COMPLETE 〙══╮\n` +
@@ -62,7 +63,7 @@ module.exports = {
             );
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return msg.reply(
-                `══〘 🌌 REGISTER 〙══╮\n┃◆ ❌ That name is already taken.\n╰═══════════════════════╯`
+                `══〘 🌌 REGISTER 〙══╮\n┃◆ ❌ Name already taken.\n╰═══════════════════════╯`
             );
             console.error(err);
             msg.reply(`══〘 🌌 REGISTER 〙══╮\n┃◆ ❌ Registration failed.\n╰═══════════════════════╯`);

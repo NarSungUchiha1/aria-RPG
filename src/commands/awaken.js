@@ -1,5 +1,4 @@
 const db = require('../database/db');
-const { rankBadge, roleIcon } = require('../utils/styles');
 
 module.exports = {
     name: 'awaken',
@@ -7,10 +6,13 @@ module.exports = {
         try {
             const [rows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
             if (!rows.length) {
-                // ✅ Mark this player as allowed to register
+                // ✅ Mark player as allowed to !register — safe, no circular require
+                // register.js exports allowRegister which adds userId to its Set
                 try {
                     const registerCmd = require('./register');
-                    if (registerCmd.allowRegister) registerCmd.allowRegister(userId);
+                    if (typeof registerCmd.allowRegister === 'function') {
+                        registerCmd.allowRegister(userId);
+                    }
                 } catch (e) {}
 
                 return msg.reply(
@@ -58,9 +60,7 @@ module.exports = {
             );
         } catch (err) {
             console.error(err);
-            msg.reply(
-                `══〘 🌌 AWAKEN 〙══╮\n┃◆ ❌ System error.\n╰═══════════════════════╯`
-            );
+            msg.reply(`══〘 🌌 AWAKEN 〙══╮\n┃◆ ❌ System error.\n╰═══════════════════════╯`);
         }
     }
 };

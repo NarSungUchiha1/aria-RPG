@@ -1,5 +1,4 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
 const { stylize, rankBadge, roleIcon } = require('../utils/styles');
 
 module.exports = {
@@ -11,10 +10,12 @@ module.exports = {
                  FROM players WHERE id=?`,
                 [userId]
             );
-            if (!rows.length) return msg.reply("❌ You are not registered. Use !awaken");
+            if (!rows.length) return msg.reply(
+                `══〘 👤 PROFILE 〙══╮\n┃◆ ❌ Not registered. Use !awaken\n╰═══════════════════════╯`
+            );
 
             const p = rows[0];
-            
+
             const [equipped] = await db.execute(
                 `SELECT COALESCE(SUM(strength_bonus),0) as str_bonus,
                         COALESCE(SUM(agility_bonus),0) as agi_bonus,
@@ -30,48 +31,49 @@ module.exports = {
             const agiBonus = Number(b.agi_bonus);
             const intBonus = Number(b.int_bonus);
             const staBonus = Number(b.sta_bonus);
-            
-            const totalStr = Number(p.strength) + strBonus;
-            const totalAgi = Number(p.agility) + agiBonus;
+
+            const totalStr = Number(p.strength)     + strBonus;
+            const totalAgi = Number(p.agility)      + agiBonus;
             const totalInt = Number(p.intelligence) + intBonus;
-            const totalSta = Number(p.stamina) + staBonus;
-            
+            const totalSta = Number(p.stamina)      + staBonus;
+
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
             const [xpRow] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
             const xp = xpRow[0]?.xp || 0;
 
             const styledName = stylize(p.nickname.toUpperCase());
-            const badge = rankBadge(p.rank);
-            const icon = roleIcon(p.role);
+            const badge      = rankBadge(p.rank);
+            const icon       = roleIcon(p.role);
 
-            let reply = `══〘 👤 PLAYER STATUS 〙══╮
-┃◆ 👤 Name: ${badge} ${styledName}
-┃◆ 🎭 Role: ${icon} ${p.role}
-┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}
-┃◆────────────
-┃◆ 💪 Strength: ${totalStr}
-┃◆ ⚡ Agility: ${totalAgi}
-┃◆ 🧠 Intelligence: ${totalInt}
-┃◆ 🛡️ Stamina: ${totalSta}
-┃◆────────────
-┃◆ ❤️ HP: ${p.hp}/${p.max_hp}`;
+            let reply =
+                `══〘 👤 PLAYER STATUS 〙══╮\n` +
+                `┃◆ 👤 Name: ${badge} ${styledName}\n` +
+                `┃◆ 🎭 Role: ${icon} ${p.role}\n` +
+                `┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}\n` +
+                `┃◆────────────\n` +
+                `┃◆ 💪 Strength:     ${totalStr}${strBonus > 0 ? ` (+${strBonus})` : ''}\n` +
+                `┃◆ ⚡ Agility:      ${totalAgi}${agiBonus > 0 ? ` (+${agiBonus})` : ''}\n` +
+                `┃◆ 🧠 Intelligence: ${totalInt}${intBonus > 0 ? ` (+${intBonus})` : ''}\n` +
+                `┃◆ 🛡️ Stamina:      ${totalSta}${staBonus > 0 ? ` (+${staBonus})` : ''}\n` +
+                `┃◆────────────\n` +
+                `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}`;
 
             if (p.role === 'Mage' || p.role === 'Healer') {
                 reply += `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`;
             }
 
-            reply += `
-┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}
-┃◆ ✨ SP: ${p.sp || 0}
-┃◆ 💰 Gold: ${gold}
-┃◆ ⭐ XP: ${xp}
-╰═══════════════════════╯`;
+            reply +=
+                `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}` +
+                `\n┃◆ ✨ SP: ${p.sp || 0}` +
+                `\n┃◆ 💰 Gold: ${gold}` +
+                `\n┃◆ ⭐ XP: ${xp}` +
+                `\n╰═══════════════════════╯`;
 
             return msg.reply(reply);
         } catch (err) {
             console.error(err);
-            msg.reply("❌ Could not fetch profile.");
+            msg.reply(`══〘 👤 PROFILE 〙══╮\n┃◆ ❌ Could not fetch profile.\n╰═══════════════════════╯`);
         }
     }
 };
