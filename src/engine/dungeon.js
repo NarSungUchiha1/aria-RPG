@@ -259,6 +259,18 @@ function isDungeonLocked(dungeonId) {
     return dungeonLocks.get(dungeonId) || false;
 }
 
+// ✅ DB-backed version used by enter.js — reliable across restarts
+async function isDungeonLockedDB(dungeonId) {
+    if (dungeonLocks.get(dungeonId)) return true;
+    const [rows] = await db.execute(
+        "SELECT locked FROM dungeon WHERE id=? AND is_active=1",
+        [dungeonId]
+    );
+    const locked = rows[0]?.locked === 1;
+    if (locked) dungeonLocks.set(dungeonId, true); // Restore to memory
+    return locked;
+}
+
 async function lockDungeon(dungeonId) {
     dungeonLocks.set(dungeonId, true);
     clearLobbyTimer(dungeonId); // ✅ dungeon started — cancel the lobby expiry
@@ -731,6 +743,7 @@ module.exports = {
     removePlayerFromDungeon,
     lockDungeon,
     isDungeonLocked,
+    isDungeonLockedDB,
     spawnStageEnemies,
     getCurrentEnemies,
     playerAttack,
