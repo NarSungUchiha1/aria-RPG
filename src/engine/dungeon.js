@@ -166,18 +166,8 @@ function startLobbyTimer(dungeonId, client) {
 }
 
 async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
-    // ✅ Fixed: rank strings compare wrong with SQL >=, use explicit IN list
-    const rankOrder    = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const minIdx       = rankOrder.indexOf(rank);
-    const eligibleRanks = minIdx >= 0 ? rankOrder.slice(minIdx) : rankOrder;
-    const placeholders = eligibleRanks.map(() => '?').join(',');
-
-    const [players] = await db.execute(
-        `SELECT id FROM players WHERE \`rank\` IN (${placeholders})`,
-        eligibleRanks
-    );
-
-    const mentions = players.map(p => `${p.id}@s.whatsapp.net`);
+    const { tagAll } = require('../utils/tagAll');
+    const { mentions, tagText } = await tagAll(client);
 
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
@@ -190,6 +180,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `┃◆   DM the bot: !enter to join!\n` +
         `┃◆   ⏳ Portal closes in 10 minutes.\n` +
         `┃◆ \n` +
+        `${tagText}\n` +
         `╰═══════════════════════════╯`;
 
     try {

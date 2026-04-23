@@ -537,6 +537,21 @@ async function startBot() {
             }
         });
 
+        // ==================== EVENT AUTO-END ====================
+        cron.schedule('*/10 * * * *', async () => {
+            try {
+                const [expired] = await db.execute(
+                    "SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1"
+                );
+                if (!expired.length) return;
+                console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
+                const { endEvent } = require('./src/commands/event');
+                await endEvent(expired[0].id, sock);
+            } catch (e) {
+                console.error('Event auto-end error:', e.message);
+            }
+        });
+
         // ==================== SHOP RESTOCK ====================
         const { restockAllItems } = require('./src/systems/shopSystem');
         cron.schedule('0 0 * * *', async () => {

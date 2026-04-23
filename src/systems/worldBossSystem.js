@@ -132,6 +132,9 @@ async function spawnWorldBoss(client) {
     console.log(`🌍 World Boss spawned: ${boss.name}`);
 
     if (client) {
+        const { tagAll } = require('../utils/tagAll');
+        const { mentions, tagText } = await tagAll(client);
+
         await client.sendMessage(RAID_GROUP, {
             text:
                 `╭══〘 ⚠️ WORLD BOSS ALERT 〙══╮\n` +
@@ -149,12 +152,12 @@ async function spawnWorldBoss(client) {
                 `┃◆   ❤️ HP: ${boss.hp.toLocaleString()}\n` +
                 `┃◆   ⚔️ ATK: ${boss.atk}  🛡️ DEF: ${boss.def}\n` +
                 `┃◆ \n` +
-                `┃◆ 🏆 Rewards distributed by\n` +
-                `┃◆    damage contribution.\n` +
-                `┃◆ \n` +
+                `┃◆ 🏆 Rewards by damage contribution.\n` +
                 `┃◆ Use !attackboss to fight.\n` +
                 `┃◆ \n` +
-                `╰═══════════════════════════╯`
+                `${tagText}\n` +
+                `╰═══════════════════════════╯`,
+            mentions
         });
     }
 

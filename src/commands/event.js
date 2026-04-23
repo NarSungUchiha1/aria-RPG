@@ -1,12 +1,20 @@
 const db = require('../database/db');
 const { RAID_GROUP } = require('../engine/dungeon');
+const { tagAll } = require('../utils/tagAll');
 
-// ── Event Config ──────────────────────────────────────────────────────────────
 const EVENT_NAME      = 'The Void Fracture';
 const EVENT_ITEM      = 'Void Shard';
 const REQUIRED_SHARDS = 5;
-const DROP_CHANCE     = 0.10;  // 10/100 — one shard per ~20 cleared dungeons
+const DROP_CHANCE     = 0.05;
 const EVENT_HOURS     = 24;
+
+// ── Rewards by placement ──────────────────────────────────────────────────────
+const PLACEMENT_REWARDS = [
+    { gold: 10000, xp: 5000, sp: 25, title: 'Void Keeper' },  // 1st
+    { gold:  6000, xp: 3000, sp: 15, title: 'Shard Hunter' }, // 2nd
+    { gold:  3000, xp: 1500, sp: 10, title: 'Void Walker' },  // 3rd
+    { gold:  1000, xp:  500, sp:  5, title: null },            // 4th+
+];
 
 // ── DB Setup ──────────────────────────────────────────────────────────────────
 async function ensureTables() {
@@ -19,7 +27,6 @@ async function ensureTables() {
             created_at DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
-
     await db.execute(`
         CREATE TABLE IF NOT EXISTS event_progress (
             id           INT AUTO_INCREMENT PRIMARY KEY,
@@ -33,7 +40,7 @@ async function ensureTables() {
     `).catch(() => {});
 }
 
-// ── Helpers (exported for other files) ───────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 async function getActiveEvent() {
     const [rows] = await db.execute(
         "SELECT * FROM events WHERE is_active=1 AND ends_at > NOW() ORDER BY id DESC LIMIT 1"
@@ -41,31 +48,91 @@ async function getActiveEvent() {
     return rows[0] || null;
 }
 
-/**
- * Called from onward.js when a dungeon is FULLY cleared (boss stage done).
- * One roll for the whole dungeon — if it hits, every surviving player gets a shard.
- */
+// ── End Event — leaderboard + rewards ─────────────────────────────────────────
+async function endEvent(eventId, client) {
+    await db.execute("UPDATE events SET is_active=0 WHERE id=?", [eventId]);
+
+    const [leaderboard] = await db.execute(
+        `SELECT ep.player_id, ep.shards, p.nickname
+         FROM event_progress ep
+         JOIN players p ON p.id = ep.player_id
+         WHERE ep.event_id = ?
+         ORDER BY ep.shards DESC`,
+        [eventId]
+    );
+
+    if (!leaderboard.length) {
+        await client.sendMessage(RAID_GROUP, {
+            text:
+                `══〘 💠 VOID FRACTURE — ENDED 〙══╮\n` +
+                `┃◆ The rift has sealed.\n` +
+                `┃◆ No Void Shards were collected.\n` +
+                `┃◆ The void retreats... for now.\n` +
+                `╰═══════════════════════════╯`
+        });
+        return;
+    }
+
+    // Distribute rewards
+    for (let i = 0; i < leaderboard.length; i++) {
+        const entry   = leaderboard[i];
+        const rewards = PLACEMENT_REWARDS[Math.min(i, PLACEMENT_REWARDS.length - 1)];
+        await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewards.gold, entry.player_id]);
+        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",          [rewards.xp,   entry.player_id]);
+        if (rewards.sp)    await db.execute("UPDATE players SET sp = sp + ? WHERE id=?",    [rewards.sp,    entry.player_id]);
+        if (rewards.title) await db.execute("UPDATE players SET title=? WHERE id=?",        [rewards.title, entry.player_id]);
+    }
+
+    // Build leaderboard announcement
+    const { mentions, tagText } = await tagAll(client);
+
+    let text =
+        `╭══〘 💠 VOID FRACTURE — CLOSED 〙══╮\n` +
+        `┃◆ \n` +
+        `┃◆ The rift seals. The void recedes.\n` +
+        `┃◆ Those who hunted in the dark\n` +
+        `┃◆ now claim their power.\n` +
+        `┃◆ \n` +
+        `┃◆ ━━ 🏆 FINAL LEADERBOARD ━━\n`;
+
+    leaderboard.forEach((entry, i) => {
+        const medal   = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+        const rewards = PLACEMENT_REWARDS[Math.min(i, PLACEMENT_REWARDS.length - 1)];
+        text +=
+            `┃◆ ${medal} ${entry.nickname}\n` +
+            `┃◆    💠 ${entry.shards}/${REQUIRED_SHARDS} Shards\n` +
+            `┃◆    💰 +${rewards.gold}  ⭐ +${rewards.xp}  ✨ +${rewards.sp} SP\n`;
+        if (rewards.title) text += `┃◆    🎖️ Title: "${rewards.title}"\n`;
+    });
+
+    text +=
+        `┃◆ \n` +
+        `${tagText}\n` +
+        `╰═══════════════════════════╯`;
+
+    await client.sendMessage(RAID_GROUP, { text, mentions });
+}
+
+// ── Shard Drop ────────────────────────────────────────────────────────────────
 async function handleShardDrop(dungeonId, client) {
     const event = await getActiveEvent();
     if (!event) return;
 
-    // ✅ One roll for the entire dungeon
     const roll = Math.random();
-    if (roll > DROP_CHANCE) return; // No shard this run
+    if (roll > DROP_CHANCE) return;
 
-    // Get all surviving players in this dungeon
     const [survivors] = await db.execute(
         `SELECT dp.player_id, p.nickname
          FROM dungeon_players dp
          JOIN players p ON p.id = dp.player_id
-         WHERE dp.dungeon_id = ? AND dp.is_alive = 1`,
+         WHERE dp.dungeon_id=? AND dp.is_alive=1`,
         [dungeonId]
     );
     if (!survivors.length) return;
 
-    const names = survivors.map(s => `*${s.nickname}*`).join(', ');
+    const names    = survivors.map(s => `*${s.nickname}*`).join(', ');
+    const teamSize = survivors.length;
 
-    // Give every survivor a shard
     for (const s of survivors) {
         await db.execute(
             `INSERT INTO event_progress (event_id, player_id, shards)
@@ -74,15 +141,13 @@ async function handleShardDrop(dungeonId, client) {
             [event.id, s.player_id]
         );
 
-                // ✅ Track for quests — fire and forget
-                (async () => {
-                    try {
-                        const { updateQuestProgress } = require('./questSystem');
-                        await updateQuestProgress(s.player_id, 'shard_collect', 1, client);
-                    } catch (e) {}
-                })();
+        (async () => {
+            try {
+                const { updateQuestProgress } = require('../systems/questSystem');
+                await updateQuestProgress(s.player_id, 'shard_collect', 1, client);
+            } catch (e) {}
+        })();
 
-        // Check if this player just completed the event
         const [progress] = await db.execute(
             "SELECT shards, completed FROM event_progress WHERE event_id=? AND player_id=?",
             [event.id, s.player_id]
@@ -95,8 +160,6 @@ async function handleShardDrop(dungeonId, client) {
                 "UPDATE event_progress SET completed=1, completed_at=NOW() WHERE event_id=? AND player_id=?",
                 [event.id, s.player_id]
             );
-
-            // Announce individual completion in GC
             await client.sendMessage(RAID_GROUP, {
                 text:
                     `╭══〘 💠 VOID FRACTURE — COMPLETE 〙══╮\n` +
@@ -105,8 +168,6 @@ async function handleShardDrop(dungeonId, client) {
                     `┃◆ all ${REQUIRED_SHARDS} Void Shards!\n` +
                     `┃◆ \n` +
                     `┃◆ The void trembles at their resolve.\n` +
-                    `┃◆ A true adventurer emerges.\n` +
-                    `┃◆ \n` +
                     `┃◆ 🏆 Awaiting the final reckoning.\n` +
                     `┃◆ \n` +
                     `╰═══════════════════════════╯`
@@ -114,23 +175,16 @@ async function handleShardDrop(dungeonId, client) {
         }
     }
 
-    // ✅ Announce shard found to the whole group — team discovery
-    const teamSize = survivors.length;
+    // Team shard found announcement
     await client.sendMessage(RAID_GROUP, {
         text:
             `══〘 💠 VOID SHARD FOUND 〙══╮\n` +
             `┃◆ \n` +
-            `┃◆ ✨ A Void Shard tears free from\n` +
-            `┃◆ the defeated enemies!\n` +
+            `┃◆ ✨ A Void Shard tears free!\n` +
             `┃◆ \n` +
-            `┃◆ The whole party stumbled upon it.\n` +
             `┃◆ ${teamSize > 1 ? `All ${teamSize} raiders claim it!` : `${survivors[0].nickname} claims it!`}\n` +
-            `┃◆ \n` +
             `┃◆ 👥 ${names}\n` +
             `┃◆ each gain 💠 +1 Void Shard\n` +
-            `┃◆ \n` +
-            `┃◆ The void does not yield easily.\n` +
-            `┃◆ Keep hunting.\n` +
             `┃◆ \n` +
             `╰═══════════════════════╯`
     });
@@ -141,6 +195,7 @@ module.exports = {
     name: 'event',
     getActiveEvent,
     handleShardDrop,
+    endEvent,
     EVENT_ITEM,
     REQUIRED_SHARDS,
     DROP_CHANCE,
@@ -150,13 +205,26 @@ module.exports = {
 
         if (!isAdmin) {
             return msg.reply(
-                `══〘 💠 EVENT 〙══╮\n` +
-                `┃◆ ❌ Admin only.\n` +
-                `╰═══════════════════════╯`
+                `══〘 💠 EVENT 〙══╮\n┃◆ ❌ Admin only.\n╰═══════════════════════╯`
             );
         }
 
-        // Block if already running
+        const sub = (args[0] || '').toLowerCase();
+
+        // ── !event end ────────────────────────────────────────────────────────
+        if (sub === 'end') {
+            const existing = await getActiveEvent();
+            if (!existing) return msg.reply(
+                `══〘 💠 EVENT 〙══╮\n┃◆ ❌ No active event to end.\n╰═══════════════════════╯`
+            );
+            await msg.reply(
+                `══〘 💠 EVENT 〙══╮\n┃◆ ✅ Ending event...\n┃◆ Leaderboard being sent to group.\n╰═══════════════════════╯`
+            );
+            await endEvent(existing.id, client);
+            return;
+        }
+
+        // ── !event start ──────────────────────────────────────────────────────
         const existing = await getActiveEvent();
         if (existing) {
             const timeLeft = Math.max(0, new Date(existing.ends_at) - Date.now());
@@ -167,11 +235,11 @@ module.exports = {
                 `┃◆ ⚠️ Event already active.\n` +
                 `┃◆ "${existing.name}"\n` +
                 `┃◆ ⏳ Ends in: ${hours}h ${minutes}m\n` +
+                `┃◆ Use !event end to close early.\n` +
                 `╰═══════════════════════╯`
             );
         }
 
-        // Create event
         const endsAt = new Date(Date.now() + EVENT_HOURS * 60 * 60 * 1000);
         await db.execute(
             "INSERT INTO events (name, is_active, ends_at) VALUES (?, 1, ?)",
@@ -182,38 +250,31 @@ module.exports = {
             `══〘 💠 EVENT LAUNCHED 〙══╮\n` +
             `┃◆ ✅ ${EVENT_NAME} is now live.\n` +
             `┃◆ ⏳ Duration: ${EVENT_HOURS} hours\n` +
-            `┃◆ Announcement sent to the group.\n` +
+            `┃◆ Auto-ends with leaderboard.\n` +
+            `┃◆ Announcement sent to group.\n` +
             `╰═══════════════════════╯`
         );
 
-        // ── Grand announcement ────────────────────────────────────────────────
+        const { mentions, tagText } = await tagAll(client);
+
         await client.sendMessage(RAID_GROUP, {
             text:
                 `╭══〘 ⚡ SYSTEM ALERT — ARIA 〙══╮\n` +
                 `┃◆ \n` +
-                `┃◆ ════ LORE ════\n` +
-                `┃◆ \n` +
-                `┃◆ Long before the first adventurer\n` +
+                `┃◆ Long before the first hunter\n` +
                 `┃◆ ever awakened, a god fell.\n` +
                 `┃◆ \n` +
                 `┃◆ The Void Weaver — an ancient\n` +
                 `┃◆ entity that consumed entire\n` +
-                `┃◆ dimensions ,was shattered by\n` +
-                `┃◆ a force even ARIA cannot name.\n` +
-                `┃◆ Its remains drifted across the\n` +
-                `┃◆ rift between worlds, crystallising\n` +
-                `┃◆ into fragments of pure void\n` +
-                `┃◆ energy — the Void Shards.\n` +
+                `┃◆ dimensions — was shattered.\n` +
+                `┃◆ Its remains crystallised into\n` +
+                `┃◆ fragments of pure void energy.\n` +
+                `┃◆ The Void Shards.\n` +
                 `┃◆ \n` +
                 `┃◆ Today, the rift cracks open.\n` +
-                `┃◆ The shards are bleeding into\n` +
-                `┃◆ every dungeon realm at once.\n` +
                 `┃◆ The monsters have absorbed\n` +
-                `┃◆ their energy stronger, faster,\n` +
-                `┃◆ more numerous than ever before.\n` +
-                `┃◆ \n` +
-                `┃◆ Whoever gathers these shards\n` +
-                `┃◆ claims a piece of a fallen god.\n` +
+                `┃◆ their energy — stronger than\n` +
+                `┃◆ ever before.\n` +
                 `┃◆ \n` +
                 `┃◆ ════ 💠 THE VOID FRACTURE ════\n` +
                 `┃◆ \n` +
@@ -222,21 +283,22 @@ module.exports = {
                 `┃◆ 🎲 ${DROP_CHANCE * 100}/100 drop chance\n` +
                 `┃◆    per dungeon fully cleared\n` +
                 `┃◆ ♾️ No daily entry limit\n` +
-                `┃◆ ⚔️ 5+ enemies per stage\n` +
-                `┃◆ 👹 Bosses are empowered\n` +
-                `┃◆ 🏰 Dungeons spawn every 20 min\n` +
+                `┃◆ ⚔️ 5–8 enemies per stage\n` +
+                `┃◆ 👹 Bosses empowered\n` +
+                `┃◆ 🏰 Dungeons every 20 min\n` +
                 `┃◆ ⏳ Event ends in ${EVENT_HOURS} hours\n` +
                 `┃◆ \n` +
                 `┃◆ ━━ 🏆 REWARDS ━━\n` +
-                `┃◆ Massive gold, XP & SP for all\n` +
-                `┃◆ who complete the hunt.\n` +
-                `┃◆ A ranked leaderboard drops\n` +
-                `┃◆ when the event closes.\n` +
+                `┃◆ 🥇 10,000 Gold • 5,000 XP • Title\n` +
+                `┃◆ 🥈  6,000 Gold • 3,000 XP • Title\n` +
+                `┃◆ 🥉  3,000 Gold • 1,500 XP • Title\n` +
                 `┃◆ \n` +
                 `┃◆ The void does not wait.\n` +
                 `┃◆ Use !enter. Start hunting.\n` +
                 `┃◆ \n` +
-                `╰═══════════════════════════╯`
+                `${tagText}\n` +
+                `╰═══════════════════════════╯`,
+            mentions
         });
     }
 };
