@@ -1,5 +1,4 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
 
 module.exports = {
     name: 'decline',
@@ -10,18 +9,20 @@ module.exports = {
         } else if (args[0]) {
             challengerId = args[0];
         } else {
-            return msg.reply("❌ Use: !decline @challenger");
+            return msg.reply(
+                `══〘 ⚔️ DECLINE 〙══╮\n┃◆ ❌ Use: !decline @challenger\n╰═══════════════════════╯`
+            );
         }
-
         const [challenge] = await db.execute(
             "SELECT * FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending'",
             [challengerId, userId]
         );
-        if (!challenge.length) {
-            return msg.reply("❌ No pending challenge from that player.");
-        }
-
+        if (!challenge.length) return msg.reply(
+            `══〘 ⚔️ DECLINE 〙══╮\n┃◆ ❌ No pending challenge from that player.\n╰═══════════════════════╯`
+        );
         await db.execute("UPDATE pvp_challenges SET status='declined' WHERE id=?", [challenge[0].id]);
-        return msg.reply(`✅ Challenge declined.`);
+        return msg.reply(
+            `══〘 ⚔️ DECLINE 〙══╮\n┃◆ ✅ Challenge declined.\n╰═══════════════════════╯`
+        );
     }
 };
