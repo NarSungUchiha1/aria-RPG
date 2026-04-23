@@ -206,6 +206,18 @@ async function startBot() {
     isBotRunning = true;
 
     try {
+        // ✅ Clean up any duplicate/stale sessions before connecting
+        // Keeps only the most recent creds row, removes orphaned key rows
+        try {
+            const [credRows] = await db.execute(
+                "SELECT data_key FROM wa_sessions WHERE id='aria-bot' AND data_key='creds' LIMIT 1"
+            );
+            if (!credRows.length) {
+                // No creds at all — wipe everything and start fresh
+                await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
+                console.log('🧹 No creds found — session wiped for fresh start.');
+            }
+        } catch (e) {}
         const { state, saveCreds } = await useMySQLAuthState();
         const { version } = await fetchLatestBaileysVersion();
 
@@ -213,10 +225,56 @@ async function startBot() {
             version,
             auth: state,
             logger: pino({ level: 'silent' }),
-            getMessage: async () => ({ conversation: '' })
+            getMessage: async () => ({ conversation: '' }),
+            // Suppress verbose session management logs
+            printQRInTerminal: false
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        sock.ev.on('creds.update', async () => {
+            await saveCreds();
+            // ✅ Guard: if registrationId doesn't match our known bot session, reject it
+            const KNOWN_REG_ID = 581496701;
+            if (state.creds?.registrationId && state.creds.registrationId !== KNOWN_REG_ID) {
+                console.error(`🚨 INTRUDER DETECTED — registrationId mismatch!`);
+                console.error(`   Expected: ${KNOWN_REG_ID}`);
+                console.error(`   Got:      ${state.creds.registrationId}`);
+
+                // ✅ Warn the intruder before kicking them
+                try {
+                    const adminId = process.env.BOT_PHONE_NUMBER
+                        ? `${process.env.BOT_PHONE_NUMBER}@s.whatsapp.net`
+                        : null;
+
+                    // Message them directly on their own session before we wipe it
+                    if (adminId) {
+                        await sock.sendMessage(adminId, {
+                            text:
+                                `╭══〘 🚨 ARIA SYSTEM ALERT 〙══╮\n` +
+                                `┃◆ \n` +
+                                `┃◆ An unauthorized session has been\n` +
+                                `┃◆ detected on this number.\n` +
+                                `┃◆ \n` +
+                                `┃◆ ⚠️ You are not the ARIA bot.\n` +
+                                `┃◆ This session is being terminated.\n` +
+                                `┃◆ \n` +
+                                `┃◆ If you believe this is an error,\n` +
+                                `┃◆ contact the system administrator.\n` +
+                                `┃◆ \n` +
+                                `╰═══════════════════════════╯`
+                        });
+                    }
+                } catch (e) {
+                    console.error("Could not send intruder warning:", e.message);
+                }
+
+                console.error(`   Wiping session and forcing fresh pair...`);
+                await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
+                isBotRunning = false;
+                sock.end();
+                setTimeout(() => startBot(), 5000);
+                return;
+            }
+        });
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
@@ -250,7 +308,12 @@ async function startBot() {
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log(`⚠️ Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
                 if (shouldReconnect) {
-                    setTimeout(() => startBot(), 5000);
+                    // Code 440 = session conflict — wait longer to let WhatsApp clear the old session
+                    const delay = statusCode === 440
+                        ? 15000 + Math.floor(Math.random() * 10000)  // 15-25s for conflicts
+                        : 5000  + Math.floor(Math.random() * 5000);  // 5-10s for other errors
+                    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
+                    setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
                 console.log('✅ ARIA ONLINE');
@@ -297,9 +360,7 @@ async function startBot() {
                 }
 
                 try {
-                    const { restockAllItems } = require('./src/systems/shopSystem');
-                    await restockAllItems();
-                    console.log("🛒 Shop initially stocked.");
+                    // Shop restocks daily via cron — no need to force restock on every restart
                 } catch (e) {
                     console.error("Initial shop restock failed:", e);
                 }
