@@ -210,6 +210,7 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
+                let remaining = 3;
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -223,7 +224,7 @@ module.exports = {
                         [userId, today]
                     );
                     const todayCount = entryLog[0]?.count || 0;
-                    const remaining  = 3 - todayCount;
+                    remaining = 3 - todayCount;
                     if (todayCount >= 3) {
                         return msg.reply(
                             `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
