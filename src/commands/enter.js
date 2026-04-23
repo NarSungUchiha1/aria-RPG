@@ -8,6 +8,7 @@ const {
     promoteRaider,
     demoteAllRaiders,
     getDungeonEnemyRevealText,
+    isDungeonLockedDB,
     autoStartTimers,
     RAID_GROUP
 } = require('../engine/dungeon');
@@ -158,7 +159,7 @@ module.exports = {
                 );
             }
 
-            if (dungeon.locked) {
+            if (await isDungeonLockedDB(dungeon.id)) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
                     `┃◆ 🔒 Dungeon has already begun.\n` +
@@ -289,8 +290,7 @@ module.exports = {
                     `┃◆ 👥 Raiders: ${newCount}/5\n` +
                     `┃◆ 📅 Entries left today: ${remaining}/3\n` +
                     `┃◆────────────\n` +
-                    `┃◆ Get ready before it starts!\n` +
-                    `┃◆ 🛒 !shop  •  📦 !equip\n` +
+                    `┃◆ You cannot access the shop🛒 nor your inventory 📦 !\n` +
                     `╰═══════════════════════╯`
                 );
             }
