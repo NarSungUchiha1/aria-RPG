@@ -1,10 +1,23 @@
 const db = require('../database/db');
-const { stylize, rankBadge, roleIcon } = require('../utils/styles');
+const { rankBadge, roleIcon } = require('../utils/styles');
 const roles = ["Tank","Assassin","Mage","Healer","Berserker"];
 
+// In-memory set of players who have typed !awaken and are allowed to register
+const awakenedSessions = new Set();
+
+// Export so awaken.js can mark a player as ready
 module.exports = {
     name: 'register',
+    allowRegister: (userId) => awakenedSessions.add(userId),
+
     async execute(msg, args, { userId }) {
+        // ✅ Must go through !awaken first
+        if (!awakenedSessions.has(userId)) {
+            return msg.reply(
+                `══〘 🌌 REGISTER 〙══╮\n` +
+                `┃◆ ❌ You must use !awaken first.\n` +
+                `╰═══════════════════════╯`
+            );
         const nickname = args.join(' ');
         if (!nickname) return msg.reply(
             `══〘 🌌 REGISTER 〙══╮\n┃◆ ❌ Use: !register <your name>\n╰═══════════════════════╯`

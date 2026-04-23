@@ -11,7 +11,7 @@ const duelPool    = new Map();
 const turnTimers  = new Map(); // duelKey -> timeout
 
 const DUEL_HP       = 700;
-const TURN_LIMIT_MS = 10000; // 10 seconds per turn
+const TURN_LIMIT_MS = 20000; // 20 seconds per turn
 
 function getDuelKey(p1, p2) {
     return [p1, p2].sort().join('_vs_');
@@ -54,7 +54,7 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
                 `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ *${pNick}* ran out of time!\n` +
-                `┃◆ They had 10 seconds to act.\n` +
+                `┃◆ They had 20 seconds to act.\n` +
                 `┃◆ \n` +
                 `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
                 `┃◆ 🏆 *${oNick}* wins by default!\n` +
@@ -190,7 +190,7 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
         `${betLine}` +
         `┃◆ ━━━━━━━━━━━━\n` +
         `┃◆ ⚡ ${firstNick} goes first!\n` +
-        `┃◆ ⏰ Each turn: 10 seconds to act\n` +
+        `┃◆ ⏰ Each turn: 20 seconds to act\n` +
         `┃◆ Miss your turn = forfeit the duel!\n` +
         `┃◆ Use !attack <move> to fight.\n` +
         `┃◆ \n` +
@@ -249,7 +249,7 @@ async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, dam
         `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${DUEL_HP}\n` +
         `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${DUEL_HP}\n` +
         `┃◆────────────\n` +
-        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 10 seconds!\n` +
+        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 20 seconds!\n` +
         `╰═══════════════════════╯`
     );
 }
@@ -321,7 +321,7 @@ async function handlePvPSkill(attackerId, move, targetId) {
             `┃◆ ❤️ ${attacker.nickname}: ${newHp}/${DUEL_HP}\n` +
             `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 10 seconds!\n` +
+            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 20 seconds!\n` +
             `╰═══════════════════════╯`
         );
         // ✅ Start timer for opponent's turn
@@ -343,7 +343,7 @@ async function handlePvPSkill(attackerId, move, targetId) {
             `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${DUEL_HP}\n` +
             `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 10 seconds!\n` +
+            `┃◆ ⚡ ${defender.nickname}'s turn! ⏰ 20 seconds!\n` +
             `╰═══════════════════════╯`
         );
         // ✅ Start timer for opponent's turn

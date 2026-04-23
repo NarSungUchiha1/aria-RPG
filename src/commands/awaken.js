@@ -1,6 +1,5 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
-const { stylize, rankBadge, roleIcon } = require('../utils/styles');
+const { rankBadge, roleIcon } = require('../utils/styles');
 
 module.exports = {
     name: 'awaken',
@@ -8,44 +7,60 @@ module.exports = {
         try {
             const [rows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
             if (!rows.length) {
-                return msg.reply(`╭══〘 🌌 SYSTEM INITIALIZATION 〙══╮
-┃◆ ✦ New Entity Detected...
-┃◆━━━━━━━━━━━━
-┃◆ ⚡ WELCOME TO ARIA
-┃◆━━━━━━━━━━━━
-┃◆ ◈ Status: UNREGISTERED
-┃◆ ◈ Action Required
-┃◆━━━━━━━━━━━━
-┃◆ 🧭 Command: !register <name>
-┃◆━━━━━━━━━━━━
-┃◆ ❖ Survive. Evolve. Dominate.
-╰══════════════════════════╯`);
+                // ✅ Mark this player as allowed to register
+                try {
+                    const registerCmd = require('./register');
+                    if (registerCmd.allowRegister) registerCmd.allowRegister(userId);
+                } catch (e) {}
+
+                return msg.reply(
+                    `╭══〘 🌌 SYSTEM INITIALIZATION 〙══╮\n` +
+                    `┃◆ ✦ New Entity Detected...\n` +
+                    `┃◆━━━━━━━━━━━━\n` +
+                    `┃◆ ⚡ WELCOME TO ARIA\n` +
+                    `┃◆━━━━━━━━━━━━\n` +
+                    `┃◆ ◈ Status: UNREGISTERED\n` +
+                    `┃◆ ◈ Action Required\n` +
+                    `┃◆━━━━━━━━━━━━\n` +
+                    `┃◆ 🧭 Command: !register <name>\n` +
+                    `┃◆━━━━━━━━━━━━\n` +
+                    `┃◆ ❖ Survive. Evolve. Dominate.\n` +
+                    `╰══════════════════════════╯`
+                );
             }
 
             const player = rows[0];
             if (player.awakened) {
                 const contact = await msg.getContact();
-                return msg.reply(`╭══〘 🌌 SYSTEM STATUS 〙══╮
-┃◆ 👤 ${player.nickname}
-┃◆ 🎭 ${player.role}
-┃◆━━━━━━━━━━━━
-┃◆ ⚡ Status: ALREADY AWAKENED
-┃◆ 🧭 Use !me to view stats
-╰══════════════════════╯`, undefined, { mentions: [contact] });
+                return msg.reply(
+                    `╭══〘 🌌 SYSTEM STATUS 〙══╮\n` +
+                    `┃◆ 👤 ${player.nickname}\n` +
+                    `┃◆ 🎭 ${player.role}\n` +
+                    `┃◆━━━━━━━━━━━━\n` +
+                    `┃◆ ⚡ Status: ALREADY AWAKENED\n` +
+                    `┃◆ 🧭 Use !me to view stats\n` +
+                    `╰══════════════════════╯`,
+                    undefined, { mentions: [contact] }
+                );
             }
 
             await db.execute("UPDATE players SET awakened=1 WHERE id=?", [userId]);
             const contact = await msg.getContact();
-            return msg.reply(`╭══〘 🌌 AWAKENING COMPLETE 〙══╮
-┃◆ 👤 ${player.nickname}
-┃◆━━━━━━━━━━━━
-┃◆ ⚡ Status: AWAKENED
-┃◆ 🧬 Your soul has synced with the system
-┃◆ 🧭 Use !me to view stats
-╰══════════════════════╯`, undefined, { mentions: [contact] });
+            return msg.reply(
+                `╭══〘 🌌 AWAKENING COMPLETE 〙══╮\n` +
+                `┃◆ 👤 ${player.nickname}\n` +
+                `┃◆━━━━━━━━━━━━\n` +
+                `┃◆ ⚡ Status: AWAKENED\n` +
+                `┃◆ 🧬 Your soul has synced with the system\n` +
+                `┃◆ 🧭 Use !me to view stats\n` +
+                `╰══════════════════════╯`,
+                undefined, { mentions: [contact] }
+            );
         } catch (err) {
             console.error(err);
-            msg.reply('❌ System error.');
+            msg.reply(
+                `══〘 🌌 AWAKEN 〙══╮\n┃◆ ❌ System error.\n╰═══════════════════════╯`
+            );
         }
     }
 };
