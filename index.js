@@ -248,6 +248,11 @@ async function startBot() {
             markOnlineOnConnect: false,
         });
 
+        // 🔥 BLOCK noisy internal events that leak session objects
+sock.ev.on('messaging-history.set', () => {});
+sock.ev.on('chats.set', () => {});
+sock.ev.on('contacts.set', () => {});
+
         // ✅ Silence internal libsignal session logs removed — caused performance issues
 
         sock.ev.on('creds.update', async () => {
