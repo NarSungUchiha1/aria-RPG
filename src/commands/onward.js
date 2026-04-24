@@ -39,8 +39,8 @@ module.exports = {
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
-                const rewardGold = Math.floor(Math.random() * 300) + 200;
-                const rewardXp = Math.floor(Math.random() * 120) + 60; // -40% from original
+                const rewardGold = Math.floor(Math.random() * 20) + 90; // 90-110 gold
+                const rewardXp = Math.floor(Math.random() * 15) + 82; // 82-97 XP
 
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
