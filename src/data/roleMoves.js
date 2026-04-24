@@ -25,18 +25,18 @@ module.exports = {
     ],
     Healer: [
         { name: "Strike",            type: "damage",  stat: "strength",     multiplier: 1.0, cooldown: 1,   cost: 0  },
-        { name: "Heal",              type: "heal",    stat: "intelligence", multiplier: 4.0, baseHeal: 40,  cooldown: 2,   cost: 8  },
+        { name: "Heal",              type: "heal",    stat: "intelligence", multiplier: 4.0, baseHeal: 20,  cooldown: 20,   cost: 8  },
         { name: "Blessing",          type: "buff",    effect: "stamina",    value: 15, duration: 3, cooldown: 150, cost: 12 },
         { name: "Cleanse",           type: "cleanse", cooldown: 3, cost: 5 },
-        { name: "Holy Light",        type: "heal",    stat: "intelligence", multiplier: 6.0, baseHeal: 80,  cooldown: 4,   cost: 14 },
+        { name: "Holy Light",        type: "heal",    stat: "intelligence", multiplier: 4.0, baseHeal: 30,  cooldown: 60,   cost: 14 },
         { name: "Divine Protection", type: "shield",  value: 60, duration: 2, cooldown: 150, cost: 10 }
     ],
     Berserker: [
         { name: "Strike",      type: "damage", stat: "strength", multiplier: 1.0, cooldown: 1,   cost: 0  },
-        { name: "Rage Slash",  type: "damage", stat: "strength", multiplier: 1.8, cooldown: 2,   cost: 0  },
+        { name: "Rage Slash",  type: "damage", stat: "strength", multiplier: 1.8, cooldown: 10,   cost: 0  },
         { name: "Bloodlust",   type: "buff",   effect: "strength", value: 30, duration: 3, cooldown: 150, cost: 10 },
-        { name: "Smash",       type: "damage", stat: "strength", multiplier: 2.0, stun: true, cooldown: 4, cost: 12 },
-        { name: "Frenzy",      type: "damage", stat: "strength", multiplier: 1.4, hits: 3, cooldown: 3, cost: 15 },
+        { name: "Smash",       type: "damage", stat: "strength", multiplier: 2.0, stun: true, cooldown: 10, cost: 12 },
+        { name: "Frenzy",      type: "damage", stat: "strength", multiplier: 1.4, hits: 3, cooldown: 10, cost: 15 },
         { name: "Intimidate",  type: "debuff", effect: "defense", value: -15, duration: 2, cooldown: 150, cost: 8 }
     ]
 };

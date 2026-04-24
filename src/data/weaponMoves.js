@@ -12,9 +12,9 @@ module.exports = {
         { name: "Execute", type: "damage", stat: "strength", multiplier: 2.5, condition: "enemy_hp_below_30", cooldown: 5, cost: 20 }
     ],
     "Rage Blade": [
-        { name: "Rending Slash", type: "damage", stat: "strength", multiplier: 1.6, bleed: true, cooldown: 3, cost: 12 },
-        { name: "Overpower", type: "damage", stat: "strength", multiplier: 1.8, ignore_defense: 0.3, cooldown: 4, cost: 15 },
-        { name: "Annihilate", type: "damage", stat: "strength", multiplier: 2.2, cooldown: 5, cost: 18 }
+        { name: "Rending Slash", type: "damage", stat: "strength", multiplier: 1.6, bleed: true, cooldown: 10, cost: 12 },
+        { name: "Overpower", type: "damage", stat: "strength", multiplier: 1.8, ignore_defense: 0.3, cooldown: 10, cost: 15 },
+        { name: "Annihilate", type: "damage", stat: "strength", multiplier: 2.2, cooldown: 30, cost: 18 }
     ],
     "Warhammer": [
         { name: "Crushing Blow", type: "damage", stat: "strength", multiplier: 1.7, def_reduction: 10, cooldown: 3, cost: 12 },
