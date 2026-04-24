@@ -59,6 +59,7 @@ module.exports = {
 ┃  🌍 WORLD BOSS
 ┃  ◆ !worldboss → View active world boss [GC]
 ┃  ◆ !attackboss → Attack the world boss [GC]
+┃  ◆ !referral → Get your invite link (+20 XP per referral)
 ┃
 ┃  📜 QUESTS
 ┃  ◆ !quests → Daily, achievement & party quests

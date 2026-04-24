@@ -593,7 +593,77 @@ async function startBot() {
             }
         });
 
-        // ==================== SHOP RESTOCK ====================
+        // ==================== REFERRAL TRACKING ====================
+        sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
+            if (id !== RAID_GROUP) return;
+            if (action !== 'add') return;
+
+            try {
+                const { ensureTable, REFERRAL_XP_REFERRER, REFERRAL_GOLD_NEW } = require('./src/commands/referral');
+                await ensureTable();
+
+                // author = JID of who added/invited them (null for invite link joins)
+                // For invite link joins, author is the link creator's JID in some Baileys versions
+                if (!author) return;
+
+                const referrerId = author.split('@')[0];
+
+                // Check referrer is a registered player
+                const [referrer] = await db.execute(
+                    "SELECT nickname FROM players WHERE id=?", [referrerId]
+                );
+                if (!referrer.length) return;
+
+                for (const participantJid of participants) {
+                    const newUserId = participantJid.split('@')[0];
+                    if (newUserId === referrerId) continue;
+
+                    // Avoid double-rewarding
+                    const [existing] = await db.execute(
+                        "SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?",
+                        [referrerId, newUserId]
+                    );
+                    if (existing.length) continue;
+
+                    // Log referral
+                    await db.execute(
+                        "INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)",
+                        [referrerId, newUserId, REFERRAL_XP_REFERRER]
+                    );
+
+                    // Reward referrer
+                    await db.execute(
+                        "UPDATE xp SET xp = xp + ? WHERE player_id=?",
+                        [REFERRAL_XP_REFERRER, referrerId]
+                    );
+
+                    // Bonus gold for new player — stored, applied when they register
+                    // Store pending bonus in DB so register.js can pick it up
+                    await db.execute(
+                        `INSERT INTO referral_pending_bonus (player_id, gold)
+                         VALUES (?, ?)
+                         ON DUPLICATE KEY UPDATE gold = gold + ?`,
+                        [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
+                    ).catch(() => {});
+
+                    // Announce in GC
+                    await sock.sendMessage(RAID_GROUP, {
+                        text:
+                            `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
+                            `┃◆ @${newUserId} just joined!\n` +
+                            `┃◆ Invited by: *${referrer[0].nickname}*\n` +
+                            `┃◆ \n` +
+                            `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
+                            `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
+                            `┃◆ \n` +
+                            `╰═══════════════════════╯`,
+                        mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
+                    });
+                }
+            } catch (e) {
+                console.error('Referral tracking error:', e.message);
+            }
+        });
         const { restockAllItems } = require('./src/systems/shopSystem');
         cron.schedule('0 0 * * *', async () => {
             console.log('🛒 Restocking shop...');

@@ -43,6 +43,26 @@ module.exports = {
             await db.execute("INSERT IGNORE INTO currency (player_id, gold) VALUES (?, 500)", [userId]);
             await db.execute("INSERT IGNORE INTO xp (player_id, xp) VALUES (?, 0)", [userId]);
             await db.execute("INSERT IGNORE INTO combat (player_id) VALUES (?)", [userId]);
+
+            // ✅ Apply referral bonus gold if they were invited
+            let bonusGold = 0;
+            try {
+                await db.execute(`
+                    CREATE TABLE IF NOT EXISTS referral_pending_bonus (
+                        player_id VARCHAR(50) PRIMARY KEY,
+                        gold INT DEFAULT 0
+                    )
+                `);
+                const [bonus] = await db.execute(
+                    "SELECT gold FROM referral_pending_bonus WHERE player_id=?", [userId]
+                );
+                if (bonus.length && bonus[0].gold > 0) {
+                    bonusGold = bonus[0].gold;
+                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [bonusGold, userId]);
+                    await db.execute("DELETE FROM referral_pending_bonus WHERE player_id=?", [userId]);
+                }
+            } catch (e) {}
+
             awakenedSessions.delete(userId);
             const contact = await msg.getContact();
             return msg.reply(
@@ -55,7 +75,7 @@ module.exports = {
                 `┃◆ 🧠 INT: ${stats.intelligence}\n` +
                 `┃◆ 🛡️ STA: ${stats.stamina}\n` +
                 `┃◆ ❤️ HP:  ${stats.hp}/${stats.max_hp}\n` +
-                `┃◆ 💰 Gold: 500 (starter)\n` +
+                `┃◆ 💰 Gold: 500 (starter)${bonusGold > 0 ? ` +${bonusGold} (referral bonus!)` : ''}\n` +
                 `┃◆━━━━━━━━━━━━\n` +
                 `┃◆ ⚡ Status: AWAKENED\n` +
                 `╰═══════════════════════╯`,
