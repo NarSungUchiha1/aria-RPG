@@ -350,17 +350,26 @@ async function startBot() {
                 // In-memory timers and locks are gone on restart, so close any
                 // unlocked (lobby) dungeons and wipe orphaned player/enemy records
                 try {
-                    // Close any dungeons that were in lobby (not yet started) — timers are gone
+                    // Close lobby dungeons (not yet started) — timers gone on restart
                     await db.execute(
                         "UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0"
                     );
-                    // Wipe players/enemies from any dungeon no longer active
+                    // Wipe players/enemies only for inactive dungeons
                     const [activeDungeons] = await db.execute(
                         "SELECT id FROM dungeon WHERE is_active=1"
                     );
                     if (!activeDungeons.length) {
-                        await db.execute("DELETE FROM dungeon_players");
-                        await db.execute("DELETE FROM dungeon_enemies");
+                        await db.execute("DELETE FROM dungeon_players WHERE id > 0");
+                        await db.execute("DELETE FROM dungeon_enemies WHERE id > 0");
+                    } else {
+                        // Remove players from dungeons that are no longer active
+                        const activeIds = activeDungeons.map(d => d.id);
+                        await db.execute(
+                            `DELETE FROM dungeon_players WHERE dungeon_id NOT IN (${activeIds.join(',')})`
+                        );
+                        await db.execute(
+                            `DELETE FROM dungeon_enemies WHERE dungeon_id NOT IN (${activeIds.join(',')})`
+                        );
                     }
                     console.log('🧹 Stale dungeon state cleared on startup.');
                 } catch (e) {

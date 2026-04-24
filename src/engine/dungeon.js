@@ -70,11 +70,10 @@ async function getWeightedDungeonRank() {
 async function spawnDungeon(rank, client = null) {
     // ── Safety check — never overwrite a dungeon with alive players ──────────
     const [existing] = await db.execute(
-        "SELECT id FROM dungeon WHERE is_active=1 LIMIT 1"
+        "SELECT id FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
     );
     if (existing.length) {
         const oldId = existing[0].id;
-        // Check if anyone is still alive inside
         const [alive] = await db.execute(
             "SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
             [oldId]
@@ -83,7 +82,6 @@ async function spawnDungeon(rank, client = null) {
             console.log(`⚠️ Spawn blocked — dungeon ${oldId} still has ${alive[0].cnt} alive players.`);
             return null;
         }
-        // Safe to close — no alive players
         if (client) await demoteAllRaiders(client, oldId);
         clearDungeonTimers(oldId);
         clearLobbyTimer(oldId);
@@ -92,13 +90,15 @@ async function spawnDungeon(rank, client = null) {
             autoStartTimers.delete(oldId);
         }
         dungeonLocks.delete(oldId);
-        console.log(`🧹 Closed empty dungeon ${oldId} before spawning new one.`);
+        // ✅ Scoped DELETE — only wipe players/enemies for the OLD dungeon
+        await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [oldId]);
+        await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [oldId]);
+        await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=?", [oldId]);
+        console.log(`🧹 Closed dungeon ${oldId}.`);
     }
-    // ─────────────────────────────────────────────────────────
 
-    await db.execute("UPDATE dungeon SET is_active=0, locked=0");
-    await db.execute("DELETE FROM dungeon_players");
-    await db.execute("DELETE FROM dungeon_enemies");
+    // Also close any other stale active dungeons (shouldn't exist but safety net)
+    await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE is_active=1");
 
     const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
     const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10 }[rank] || 3;
