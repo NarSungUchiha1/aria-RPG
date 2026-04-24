@@ -237,21 +237,18 @@ async function startBot() {
         const { state, saveCreds } = await useMySQLAuthState();
         const { version } = await fetchLatestBaileysVersion();
 
+        const noop = () => {};
+        const silentLogger = { trace:noop, debug:noop, info:noop, warn:noop, error:noop, fatal:noop, child:() => silentLogger };
+
         const sock = makeWASocket({
             version,
             auth: state,
-            logger: pino({ level: 'silent' }),
+            logger: silentLogger,
             getMessage: async () => ({ conversation: '' }),
             printQRInTerminal: false,
-            // ✅ Suppress session ratchet noise
             syncFullHistory: false,
             markOnlineOnConnect: false,
         });
-
-        // 🔥 BLOCK noisy internal events that leak session objects
-sock.ev.on('messaging-history.set', () => {});
-sock.ev.on('chats.set', () => {});
-sock.ev.on('contacts.set', () => {});
 
         // ✅ Silence internal libsignal session logs removed — caused performance issues
 
@@ -296,10 +293,6 @@ sock.ev.on('contacts.set', () => {});
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
-            // 🔥 BLOCK noisy internal events that may leak session objects
-sock.ev.on('messaging-history.set', () => {});
-sock.ev.on('chats.set', () => {});
-sock.ev.on('contacts.set', () => {});
 
             if (qr) {
                 lastQR = qr;
@@ -321,7 +314,6 @@ sock.ev.on('contacts.set', () => {});
                         console.error("Pairing code error:", e.message);
                     }
                 }, 3000);
-                
             }
 
             if (connection === 'close') {
