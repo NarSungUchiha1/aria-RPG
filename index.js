@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const { 
     default: makeWASocket, 
     useMultiFileAuthState, 
@@ -247,21 +248,7 @@ async function startBot() {
             markOnlineOnConnect: false,
         });
 
-        // ✅ Silence internal libsignal session logs
-        const _origLog   = console.log;
-        const _origWarn  = console.warn;
-        const _origError = console.error;
-
-        const SUPPRESS = ['Closing session', 'Removing old closed session', 'Failed to decrypt', 'Session error', 'MessageCounterError', 'pendingPreKey', 'registrationId', 'ephemeralKeyPair', 'lastRemoteEphemeralKey', 'previousCounter', 'rootKey', 'indexInfo', 'baseKey', 'privKey', 'pubKey', 'remoteIdentityKey', '_chains', 'chainKey', 'chainType', 'messageKeys'];
-
-        const shouldSuppress = (args) => {
-            const msg = String(args[0] || '');
-            return SUPPRESS.some(s => msg.includes(s));
-        };
-
-        console.log   = (...args) => { if (!shouldSuppress(args)) _origLog(...args); };
-        console.warn  = (...args) => { if (!shouldSuppress(args)) _origWarn(...args); };
-        console.error = (...args) => { if (!shouldSuppress(args)) _origError(...args); };
+        // ✅ Silence internal libsignal session logs removed — caused performance issues
 
         sock.ev.on('creds.update', async () => {
             await saveCreds();
@@ -330,10 +317,6 @@ async function startBot() {
             if (connection === 'close') {
                 isReady = false;
                 isBotRunning = false;
-                // Restore real console before reconnecting
-                console.log   = _origLog;
-                console.warn  = _origWarn;
-                console.error = _origError;
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log(`⚠️ Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
