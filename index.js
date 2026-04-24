@@ -291,6 +291,10 @@ async function startBot() {
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
+            // 🔥 BLOCK noisy internal events that may leak session objects
+sock.ev.on('messaging-history.set', () => {});
+sock.ev.on('chats.set', () => {});
+sock.ev.on('contacts.set', () => {});
 
             if (qr) {
                 lastQR = qr;
@@ -312,6 +316,7 @@ async function startBot() {
                         console.error("Pairing code error:", e.message);
                     }
                 }, 3000);
+                
             }
 
             if (connection === 'close') {
