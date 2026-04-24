@@ -437,9 +437,7 @@ async function startBot() {
             const HEALER_GC    = '120363427051780444@g.us';
             const isDM         = !jid.endsWith('@g.us');
             const isRaidGroup  = jid === RAID_GROUP;
-            const isHealerGC   = jid === HEALER_GC;
-
-            const HEALER_GC_ONLY = new Set(['heallist', 'healers', 'hire', 'contracts']);
+            const isHealerGC   = jid === HEALER_GC_JID;
 
             if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
                 // Only tell them where to go if they're in a GC — silent ignore in other GCs

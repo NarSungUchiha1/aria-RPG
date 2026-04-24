@@ -5,8 +5,6 @@ module.exports = {
     name: 'listservice',
     async execute(msg, args, { userId, client }) {
         // Only works in the healer GC
-        const chat = await msg.getChat();
-        if (chat.id._serialized !== HEALER_GC) return;
 
         await ensureTables();
 

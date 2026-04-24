@@ -4,8 +4,6 @@ const { ensureTables, HEALER_GC } = require('../systems/healerMarket');
 module.exports = {
     name: 'healers',
     async execute(msg, args, { userId }) {
-        const chat = await msg.getChat();
-        if (chat.id._serialized !== HEALER_GC) return;
 
         await ensureTables();
 
