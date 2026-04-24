@@ -110,6 +110,7 @@ module.exports = {
 ┃  ◆ !promote @user → Grant bot admin
 ┃  ◆ !demote @user → Remove bot admin
 ┃  ◆ !erase @user → Delete player data
+┃  ◆ !lockdown → Toggle maintenance mode (admin only)
 ┃  ◆ !update → Trigger Render redeploy
 ┃  ◆ !getgroupid → Get current group JID
 ┃

@@ -82,6 +82,7 @@ app.listen(PORT, '0.0.0.0', () => {
 // ==================== ADMIN SYSTEM ====================
 const ADMIN_FILE = path.join(__dirname, "admin.json");
 let ADMINS = [];
+global.isLockdown = false; // ✅ Lockdown mode — accessible by lockdown.js
 
 if (fs.existsSync(ADMIN_FILE)) {
     try {
@@ -417,6 +418,20 @@ async function startBot() {
             const command = commands.get(cmdName);
             if (!command) return;
 
+            const isAdmin = ADMINS.includes(userId);
+
+            // ✅ Lockdown mode — only admins can use any command
+            if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
+                await sock.sendMessage(jid, {
+                    text:
+                        `══〘 🌍 ARIA 〙══╮\n` +
+                        `┃◆ 🔒 ARIA is currently under maintenance.\n` +
+                        `┃◆ We'll be back shortly.\n` +
+                        `╰═══════════════════════╯`
+                }, { quoted: msg });
+                return;
+            }
+
             // ==================== CHANNEL ROUTING ====================
             const RAID_GROUP   = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
             const HEALER_GC    = '120363427051780444@g.us';
@@ -514,7 +529,7 @@ async function startBot() {
 
                 await command.execute(fakeMsg, args, {
                     userId,
-                    isAdmin: ADMINS.includes(userId),
+                    isAdmin,
                     client: sock
                 });
             } catch (err) {
