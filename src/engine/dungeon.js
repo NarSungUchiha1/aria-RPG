@@ -758,5 +758,7 @@ module.exports = {
     promoteRaider,
     demoteRaider,
     demoteAllRaiders,
-    autoStartTimers
+    autoStartTimers,
+    clearLobbyTimer,
+    dungeonLocks
 };

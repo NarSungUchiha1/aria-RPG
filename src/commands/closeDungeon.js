@@ -1,18 +1,58 @@
 const db = require('../database/db');
+const {
+    demoteAllRaiders,
+    getActiveDungeon,
+    clearLobbyTimer,
+    dungeonLocks,
+    autoStartTimers
+} = require('../engine/dungeon');
+const { clearDungeonTimers } = require('../engine/dungeonTimer');
 
 module.exports = {
     name: 'closedungeon',
-    async execute(msg, args, { isAdmin }) {
+    async execute(msg, args, { isAdmin, client }) {
         if (!isAdmin) return msg.reply(
             `══〘 🔒 CLOSE DUNGEON 〙══╮\n┃◆ ❌ Admin only.\n╰═══════════════════════╯`
         );
         try {
-            const [result] = await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE is_active=1");
-            if (result.affectedRows === 0) return msg.reply(
-                `══〘 🔒 CLOSE DUNGEON 〙══╮\n┃◆ ❌ No active dungeon to close.\n╰═══════════════════════╯`
+            // Check DB first
+            const dungeon = await getActiveDungeon();
+
+            // Also check if any dungeon is active in DB regardless of memory state
+            const [anyActive] = await db.execute(
+                "SELECT id FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
             );
+
+            const dungeonId = dungeon?.id || anyActive[0]?.id;
+
+            if (!dungeonId) return msg.reply(
+                `══〘 🔒 CLOSE DUNGEON 〙══╮\n┃◆ ❌ No active dungeon found.\n╰═══════════════════════╯`
+            );
+
+            // ✅ Clear ALL in-memory state
+            clearDungeonTimers(dungeonId);
+            clearLobbyTimer(dungeonId);
+
+            if (autoStartTimers.has(dungeonId)) {
+                clearTimeout(autoStartTimers.get(dungeonId));
+                autoStartTimers.delete(dungeonId);
+            }
+
+            dungeonLocks.delete(dungeonId);
+
+            // Demote raiders from GC
+            try { await demoteAllRaiders(client, dungeonId); } catch (e) {}
+
+            // ✅ Close in DB + clean up players/enemies
+            await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeonId]);
+            await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeonId]);
+            await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=?", [dungeonId]);
+
             return msg.reply(
-                `══〘 🔒 CLOSE DUNGEON 〙══╮\n┃◆ ✅ Dungeon forcefully closed.\n╰═══════════════════════╯`
+                `══〘 🔒 CLOSE DUNGEON 〙══╮\n` +
+                `┃◆ ✅ Dungeon ${dungeonId} closed.\n` +
+                `┃◆ Timers cleared. Raiders demoted.\n` +
+                `╰═══════════════════════╯`
             );
         } catch (err) {
             console.error(err);
