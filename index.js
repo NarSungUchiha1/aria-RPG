@@ -556,8 +556,12 @@ async function startBot() {
                 }
                 const active = await getActiveDungeon();
                 if (active) {
-                    console.log(`⏭️ Skipping — dungeon ${active.id} already active.`);
-                    return;
+                    const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
+                    if (pc[0].cnt > 0 || active.locked === 1) {
+                        console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`);
+                        return;
+                    }
+                    console.log(`🧹 Closing stale dungeon ${active.id}.`);
                 }
                 const rank = await getWeightedDungeonRank();
                 console.log(`🎲 Weighted rank selected: ${rank}`);
@@ -580,8 +584,12 @@ async function startBot() {
                 if (!hasActiveEvent) return;
                 const active = await getActiveDungeon();
                 if (active) {
-                    console.log(`⏭️ Event spawn skipped — dungeon ${active.id} still active.`);
-                    return;
+                    const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
+                    if (pc[0].cnt > 0 || active.locked === 1) {
+                        console.log(`⏭️ Event spawn skipped — dungeon ${active.id} has ${pc[0].cnt} players.`);
+                        return;
+                    }
+                    console.log(`🧹 Closing stale event dungeon ${active.id}.`);
                 }
                 const rank = await getWeightedDungeonRank();
                 console.log(`💠 Event dungeon spawn: ${rank}`);

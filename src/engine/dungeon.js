@@ -68,24 +68,31 @@ async function getWeightedDungeonRank() {
 }
 
 async function spawnDungeon(rank, client = null) {
-    // ── Tear down any existing active dungeon first ──────────
+    // ── Safety check — never overwrite a dungeon with alive players ──────────
     const [existing] = await db.execute(
         "SELECT id FROM dungeon WHERE is_active=1 LIMIT 1"
     );
     if (existing.length) {
         const oldId = existing[0].id;
-        // Demote all raiders from old dungeon
+        // Check if anyone is still alive inside
+        const [alive] = await db.execute(
+            "SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+            [oldId]
+        );
+        if (alive[0].cnt > 0) {
+            console.log(`⚠️ Spawn blocked — dungeon ${oldId} still has ${alive[0].cnt} alive players.`);
+            return null;
+        }
+        // Safe to close — no alive players
         if (client) await demoteAllRaiders(client, oldId);
-        // Clear all timers for old dungeon
         clearDungeonTimers(oldId);
         clearLobbyTimer(oldId);
-        // Cancel auto-start timer if any
         if (autoStartTimers.has(oldId)) {
             clearTimeout(autoStartTimers.get(oldId));
             autoStartTimers.delete(oldId);
         }
         dungeonLocks.delete(oldId);
-        console.log(`🧹 Closed previous dungeon ${oldId} before spawning new one.`);
+        console.log(`🧹 Closed empty dungeon ${oldId} before spawning new one.`);
     }
     // ─────────────────────────────────────────────────────────
 
