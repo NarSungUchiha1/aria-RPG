@@ -133,7 +133,7 @@ async function spawnWorldBoss(client) {
 
     if (client) {
         const { tagAll } = require('../utils/tagAll');
-        const { mentions, tagText } = await tagAll(client);
+        const { mentions } = await tagAll(client);
 
         await client.sendMessage(RAID_GROUP, {
             text:
@@ -155,7 +155,6 @@ async function spawnWorldBoss(client) {
                 `┃◆ 🏆 Rewards by damage contribution.\n` +
                 `┃◆ Use !attackboss to fight.\n` +
                 `┃◆ \n` +
-                `${tagText}\n` +
                 `╰═══════════════════════════╯`,
             mentions
         });

@@ -14,14 +14,13 @@ module.exports = {
         );
 
         try {
-            const { mentions, tagText } = await tagAll(client);
+            const { mentions } = await tagAll(client);
 
             const text =
                 `╭══〘 📢 ANNOUNCEMENT 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ ${message}\n` +
                 `┃◆ \n` +
-                `${tagText}\n` +
                 `╰═══════════════════════════╯`;
 
             await client.sendMessage(RAID_GROUP, { text, mentions });

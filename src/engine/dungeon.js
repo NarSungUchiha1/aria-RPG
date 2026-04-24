@@ -167,7 +167,7 @@ function startLobbyTimer(dungeonId, client) {
 
 async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
     const { tagAll } = require('../utils/tagAll');
-    const { mentions, tagText } = await tagAll(client);
+    const { mentions } = await tagAll(client);
 
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
@@ -180,7 +180,6 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `┃◆   DM the bot: !enter to join!\n` +
         `┃◆   ⏳ Portal closes in 10 minutes.\n` +
         `┃◆ \n` +
-        `${tagText}\n` +
         `╰═══════════════════════════╯`;
 
     try {

@@ -84,7 +84,7 @@ async function endEvent(eventId, client) {
     }
 
     // Build leaderboard announcement
-    const { mentions, tagText } = await tagAll(client);
+    const { mentions } = await tagAll(client);
 
     let text =
         `╭══〘 💠 VOID FRACTURE — CLOSED 〙══╮\n` +
@@ -107,7 +107,6 @@ async function endEvent(eventId, client) {
 
     text +=
         `┃◆ \n` +
-        `${tagText}\n` +
         `╰═══════════════════════════╯`;
 
     await client.sendMessage(RAID_GROUP, { text, mentions });
@@ -255,7 +254,7 @@ module.exports = {
             `╰═══════════════════════╯`
         );
 
-        const { mentions, tagText } = await tagAll(client);
+        const { mentions } = await tagAll(client);
 
         await client.sendMessage(RAID_GROUP, {
             text:
@@ -296,7 +295,6 @@ module.exports = {
                 `┃◆ The void does not wait.\n` +
                 `┃◆ Use !enter. Start hunting.\n` +
                 `┃◆ \n` +
-                `${tagText}\n` +
                 `╰═══════════════════════════╯`,
             mentions
         });
