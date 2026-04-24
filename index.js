@@ -105,6 +105,12 @@ const DUNGEON_GC_ONLY = new Set([
     'clear', 'closedungeon', 'attackboss', 'worldboss'
 ]);
 
+const HEALER_GC_ONLY = new Set([
+    'healers', 'listservice', 'removelisting', 'hire', 'contracts'
+]);
+
+const HEALER_GC_JID = '120363427051780444@g.us';
+
 // Commands that ONLY work in DMs with the bot
 const DM_ONLY = new Set(['enter']);
 
@@ -390,9 +396,13 @@ async function startBot() {
             if (!command) return;
 
             // ==================== CHANNEL ROUTING ====================
-            const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const isDM = !jid.endsWith('@g.us');
-            const isRaidGroup = jid === RAID_GROUP;
+            const RAID_GROUP   = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const HEALER_GC    = '120363427051780444@g.us';
+            const isDM         = !jid.endsWith('@g.us');
+            const isRaidGroup  = jid === RAID_GROUP;
+            const isHealerGC   = jid === HEALER_GC;
+
+            const HEALER_GC_ONLY = new Set(['heallist', 'healers', 'hire', 'contracts']);
 
             if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
                 // Only tell them where to go if they're in a GC — silent ignore in other GCs
@@ -402,6 +412,15 @@ async function startBot() {
                         { quoted: msg }
                     );
                 }
+                return;
+            }
+
+            // ✅ Healer marketplace — only works in the healer GC
+            if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
+                await sock.sendMessage(jid,
+                    { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` },
+                    { quoted: msg }
+                );
                 return;
             }
 
