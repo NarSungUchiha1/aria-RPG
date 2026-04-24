@@ -16,9 +16,21 @@ module.exports = {
             );
         }
 
-        // Find pending challenge
+        // Ensure table exists
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS pvp_challenges (
+                id            INT AUTO_INCREMENT PRIMARY KEY,
+                challenger_id VARCHAR(50) NOT NULL,
+                target_id     VARCHAR(50) NOT NULL,
+                bet_amount    INT DEFAULT 0,
+                status        ENUM('pending','accepted','declined') DEFAULT 'pending',
+                created_at    DATETIME DEFAULT NOW()
+            )
+        `).catch(() => {});
+
+        // Find pending challenge — no expires_at check since we clean old ones separately
         const [challenge] = await db.execute(
-            "SELECT * FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending' AND expires_at > NOW()",
+            "SELECT * FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending' ORDER BY id DESC LIMIT 1",
             [challengerId, userId]
         );
         if (!challenge.length) {
