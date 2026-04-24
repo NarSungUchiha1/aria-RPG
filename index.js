@@ -16,7 +16,6 @@ const path = require('path');
 const cron = require('node-cron');
 const db = require('./src/database/db');
 
-// ==================== EXPRESS SERVER ====================
 const app = express();
 const PORT = process.env.PORT || 3000;
 let lastQR = '';
@@ -80,10 +79,9 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Dashboard active on port ${PORT}`);
 });
 
-// ==================== ADMIN SYSTEM ====================
 const ADMIN_FILE = path.join(__dirname, "admin.json");
 let ADMINS = [];
-global.isLockdown = false; // ✅ Lockdown mode — accessible by lockdown.js
+global.isLockdown = false;
 
 if (fs.existsSync(ADMIN_FILE)) {
     try {
@@ -100,8 +98,6 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
-// ==================== CHANNEL CONFIG ====================
-// Commands that ONLY work inside the dungeon group chat
 const DUNGEON_GC_ONLY = new Set([
     'dungeon', 'begin', 'onward',
     'clear', 'closedungeon', 'attackboss', 'worldboss'
@@ -112,17 +108,8 @@ const HEALER_GC_ONLY = new Set([
 ]);
 
 const HEALER_GC_JID = '120363427051780444@g.us';
-
-// Commands that ONLY work in DMs with the bot
 const DM_ONLY = new Set(['enter']);
 
-// Commands that work ANYWHERE (no restriction)
-// Everything else falls here: help, me, stats, shop, buy, inventory,
-// equip, unequip, repair, upgradeweapon, use, duel, accept, decline,
-// register, awaken, rankup, convert, upgrade, pay, transfer, trade,
-// quests, claim, give, erase, promote, demote, restock, update, getgroupid, etc.
-
-// ==================== COMMAND LOADER ====================
 const commands = new Map();
 const commandPath = path.join(__dirname, "src/commands");
 
@@ -144,7 +131,6 @@ if (fs.existsSync(commandPath)) {
 }
 console.log(`📦 Loaded ${commands.size} commands`);
 
-// ==================== MYSQL AUTH STATE ====================
 async function useMySQLAuthState() {
     const SESSION_ID = 'aria-bot';
 
@@ -170,9 +156,7 @@ async function useMySQLAuthState() {
             'SELECT data_value FROM wa_sessions WHERE id = ? AND data_key = ?',
             [SESSION_ID, key]
         );
-        if (rows.length) {
-            return JSON.parse(rows[0].data_value, BufferJSON.reviver);
-        }
+        if (rows.length) return JSON.parse(rows[0].data_value, BufferJSON.reviver);
         return null;
     };
 
@@ -216,24 +200,21 @@ async function useMySQLAuthState() {
     };
 }
 
-// ==================== BAILEYS LOGIC ====================
 async function startBot() {
     if (isBotRunning) return;
     isBotRunning = true;
 
     try {
-        // ✅ Clean up any duplicate/stale sessions before connecting
-        // Keeps only the most recent creds row, removes orphaned key rows
         try {
             const [credRows] = await db.execute(
                 "SELECT data_key FROM wa_sessions WHERE id='aria-bot' AND data_key='creds' LIMIT 1"
             );
             if (!credRows.length) {
-                // No creds at all — wipe everything and start fresh
                 await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
                 console.log('🧹 No creds found — session wiped for fresh start.');
             }
         } catch (e) {}
+
         const { state, saveCreds } = await useMySQLAuthState();
         const { version } = await fetchLatestBaileysVersion();
 
@@ -250,20 +231,13 @@ async function startBot() {
             markOnlineOnConnect: false,
         });
 
-        // ✅ Silence internal libsignal session logs removed — caused performance issues
-
         sock.ev.on('creds.update', async () => {
             await saveCreds();
-
-            // ✅ Learn registrationId on first pair, then guard against intruders
             if (!state.creds?.registrationId) return;
 
-            const KNOWN_REG_ID = process.env.KNOWN_REG_ID
-                ? parseInt(process.env.KNOWN_REG_ID)
-                : null;
+            const KNOWN_REG_ID = process.env.KNOWN_REG_ID ? parseInt(process.env.KNOWN_REG_ID) : null;
 
             if (!KNOWN_REG_ID) {
-                // First time pairing — log the ID so admin can set it in env
                 console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
                 console.log(`   Add to Render env: KNOWN_REG_ID=${state.creds.registrationId}`);
                 return;
@@ -301,7 +275,6 @@ async function startBot() {
                 setTimeout(async () => {
                     try {
                         if (sock?.user) return;
-                        // ✅ Phone number from env — add BOT_PHONE_NUMBER to your .env
                         const phoneNumber = process.env.BOT_PHONE_NUMBER;
                         if (!phoneNumber) {
                             console.warn("⚠️ BOT_PHONE_NUMBER not set in .env — skipping pairing code");
@@ -323,10 +296,9 @@ async function startBot() {
                 const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
                 console.log(`⚠️ Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
                 if (shouldReconnect) {
-                    // Code 440 = session conflict — wait longer to let WhatsApp clear the old session
                     const delay = statusCode === 440
-                        ? 15000 + Math.floor(Math.random() * 10000)  // 15-25s for conflicts
-                        : 5000  + Math.floor(Math.random() * 5000);  // 5-10s for other errors
+                        ? 15000 + Math.floor(Math.random() * 10000)
+                        : 5000  + Math.floor(Math.random() * 5000);
                     console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
                     setTimeout(() => startBot(), delay);
                 }
@@ -336,7 +308,6 @@ async function startBot() {
                 lastQR = '';
                 lastPairingCode = '';
 
-                // ✅ Ensure dungeon entry tracking table exists
                 await db.execute(`
                     CREATE TABLE IF NOT EXISTS dungeon_entry_log (
                         player_id   VARCHAR(50) NOT NULL,
@@ -346,30 +317,17 @@ async function startBot() {
                     )
                 `).catch(() => {});
 
-                // ✅ Clean up any stale dungeon state from previous crash/restart
-                // In-memory timers and locks are gone on restart, so close any
-                // unlocked (lobby) dungeons and wipe orphaned player/enemy records
+                // ✅ Startup dungeon cleanup — scoped, no global deletes
                 try {
-                    // Close lobby dungeons (not yet started) — timers gone on restart
-                    await db.execute(
-                        "UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0"
-                    );
-                    // Wipe players/enemies only for inactive dungeons
-                    const [activeDungeons] = await db.execute(
-                        "SELECT id FROM dungeon WHERE is_active=1"
-                    );
+                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0");
+                    const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
                     if (!activeDungeons.length) {
-                        await db.execute("DELETE FROM dungeon_players WHERE id > 0");
-                        await db.execute("DELETE FROM dungeon_enemies WHERE id > 0");
+                        await db.execute("DELETE FROM dungeon_players WHERE player_id IS NOT NULL");
+                        await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id IS NOT NULL");
                     } else {
-                        // Remove players from dungeons that are no longer active
                         const activeIds = activeDungeons.map(d => d.id);
-                        await db.execute(
-                            `DELETE FROM dungeon_players WHERE dungeon_id NOT IN (${activeIds.join(',')})`
-                        );
-                        await db.execute(
-                            `DELETE FROM dungeon_enemies WHERE dungeon_id NOT IN (${activeIds.join(',')})`
-                        );
+                        await db.execute(`DELETE FROM dungeon_players WHERE dungeon_id NOT IN (${activeIds.join(',')})`);
+                        await db.execute(`DELETE FROM dungeon_enemies WHERE dungeon_id NOT IN (${activeIds.join(',')})`);
                     }
                     console.log('🧹 Stale dungeon state cleared on startup.');
                 } catch (e) {
@@ -381,12 +339,6 @@ async function startBot() {
                     ADMINS = [myJid];
                     fs.writeFileSync(ADMIN_FILE, JSON.stringify({ admins: ADMINS }, null, 2));
                     console.log("🔐 Admin bootstrapped:", myJid);
-                }
-
-                try {
-                    // Shop restocks daily via cron — no need to force restock on every restart
-                } catch (e) {
-                    console.error("Initial shop restock failed:", e);
                 }
             }
         });
@@ -401,8 +353,7 @@ async function startBot() {
 
             const text = msg.message.conversation ||
                          msg.message.extendedTextMessage?.text ||
-                         msg.message.imageMessage?.caption ||
-                         "";
+                         msg.message.imageMessage?.caption || "";
 
             if (!text.startsWith('!')) return;
 
@@ -414,7 +365,6 @@ async function startBot() {
 
             const isAdmin = ADMINS.includes(userId);
 
-            // ✅ Lockdown mode — only admins can use any command
             if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
                 await sock.sendMessage(jid, {
                     text:
@@ -426,41 +376,24 @@ async function startBot() {
                 return;
             }
 
-            // ==================== CHANNEL ROUTING ====================
-            const RAID_GROUP   = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const HEALER_GC    = '120363427051780444@g.us';
-            const isDM         = !jid.endsWith('@g.us');
-            const isRaidGroup  = jid === RAID_GROUP;
-            const isHealerGC   = jid === HEALER_GC_JID;
+            const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const isDM        = !jid.endsWith('@g.us');
+            const isRaidGroup = jid === RAID_GROUP;
 
             if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
-                // Only tell them where to go if they're in a GC — silent ignore in other GCs
-                if (isDM) {
-                    await sock.sendMessage(jid,
-                        { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` },
-                        { quoted: msg }
-                    );
-                }
+                if (isDM) await sock.sendMessage(jid, { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` }, { quoted: msg });
                 return;
             }
 
-            // ✅ Healer marketplace — only works in the healer GC
             if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
-                await sock.sendMessage(jid,
-                    { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` },
-                    { quoted: msg }
-                );
+                await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` }, { quoted: msg });
                 return;
             }
 
             if (DM_ONLY.has(cmdName) && !isDM) {
-                await sock.sendMessage(jid,
-                    { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` },
-                    { quoted: msg }
-                );
+                await sock.sendMessage(jid, { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` }, { quoted: msg });
                 return;
             }
-            // =========================================================
 
             console.log(`[CMD] ${userId} → ${cmdName} (from: ${isRaidGroup ? 'RaidGC' : isDM ? 'DM' : 'OtherGC'})`);
 
@@ -519,11 +452,7 @@ async function startBot() {
                     }
                 }
 
-                await command.execute(fakeMsg, args, {
-                    userId,
-                    isAdmin,
-                    client: sock
-                });
+                await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
             } catch (err) {
                 console.error("Command Error:", err);
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
@@ -533,28 +462,20 @@ async function startBot() {
         // ==================== SCHEDULED DUNGEON SPAWN ====================
         const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
 
-        // Regular spawn — every 4 hours, skipped during active event
         cron.schedule('0 */4 * * *', async () => {
             console.log('🕒 Scheduled dungeon spawn triggered.');
             try {
                 let isEventRunning = false;
                 try {
-                    const [eventRows] = await db.execute(
-                        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-                    );
+                    const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
                     isEventRunning = eventRows.length > 0;
                 } catch (e) { isEventRunning = false; }
-                if (isEventRunning) {
-                    console.log('⏭️ Regular spawn skipped — event active (20min cron handles it).');
-                    return;
-                }
+                if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
+
                 const active = await getActiveDungeon();
                 if (active) {
                     const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-                    if (pc[0].cnt > 0 || active.locked === 1) {
-                        console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`);
-                        return;
-                    }
+                    if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`); return; }
                     console.log(`🧹 Closing stale dungeon ${active.id}.`);
                 }
                 const rank = await getWeightedDungeonRank();
@@ -565,25 +486,19 @@ async function startBot() {
             }
         });
 
-        // ⚡ Event spawn — every 20 minutes, only fires during active event
         cron.schedule('*/20 * * * *', async () => {
             try {
                 let hasActiveEvent = false;
                 try {
-                    const [eventRows] = await db.execute(
-                        "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
-                    );
+                    const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
                     hasActiveEvent = eventRows.length > 0;
                 } catch (e) { hasActiveEvent = false; }
                 if (!hasActiveEvent) return;
+
                 const active = await getActiveDungeon();
                 if (active) {
                     const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-                    if (pc[0].cnt > 0 || active.locked === 1) {
-                        console.log(`⏭️ Event spawn skipped — dungeon ${active.id} has ${pc[0].cnt} players.`);
-                        return;
-                    }
-                    console.log(`🧹 Closing stale event dungeon ${active.id}.`);
+                    if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped — dungeon ${active.id} active.`); return; }
                 }
                 const rank = await getWeightedDungeonRank();
                 console.log(`💠 Event dungeon spawn: ${rank}`);
@@ -596,9 +511,7 @@ async function startBot() {
         // ==================== EVENT AUTO-END ====================
         cron.schedule('*/10 * * * *', async () => {
             try {
-                const [expired] = await db.execute(
-                    "SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1"
-                );
+                const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
                 if (!expired.length) return;
                 console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
                 const { endEvent } = require('./src/commands/event');
@@ -610,59 +523,34 @@ async function startBot() {
 
         // ==================== REFERRAL TRACKING ====================
         sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
-            if (id !== RAID_GROUP) return;
+            const { REFERRAL_GROUP_JID, REFERRAL_XP_REFERRER, REFERRAL_GOLD_NEW, ensureTable } = require('./src/commands/referral');
+            if (id !== REFERRAL_GROUP_JID) return;
             if (action !== 'add') return;
-
             try {
-                const { ensureTable, REFERRAL_XP_REFERRER, REFERRAL_GOLD_NEW } = require('./src/commands/referral');
                 await ensureTable();
-
-                // author = JID of who added/invited them (null for invite link joins)
-                // For invite link joins, author is the link creator's JID in some Baileys versions
                 if (!author) return;
-
                 const referrerId = author.split('@')[0];
-
-                // Check referrer is a registered player
-                const [referrer] = await db.execute(
-                    "SELECT nickname FROM players WHERE id=?", [referrerId]
-                );
+                const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
                 if (!referrer.length) return;
 
                 for (const participantJid of participants) {
                     const newUserId = participantJid.split('@')[0];
                     if (newUserId === referrerId) continue;
 
-                    // Avoid double-rewarding
-                    const [existing] = await db.execute(
-                        "SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?",
-                        [referrerId, newUserId]
-                    );
+                    const [existing] = await db.execute("SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?", [referrerId, newUserId]);
                     if (existing.length) continue;
 
-                    // Log referral
-                    await db.execute(
-                        "INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)",
-                        [referrerId, newUserId, REFERRAL_XP_REFERRER]
-                    );
+                    // ✅ Give XP to referrer immediately
+                    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [REFERRAL_XP_REFERRER, referrerId]);
 
-                    // Reward referrer
-                    await db.execute(
-                        "UPDATE xp SET xp = xp + ? WHERE player_id=?",
-                        [REFERRAL_XP_REFERRER, referrerId]
-                    );
+                    await db.execute("INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)", [referrerId, newUserId, REFERRAL_XP_REFERRER]);
 
-                    // Bonus gold for new player — stored, applied when they register
-                    // Store pending bonus in DB so register.js can pick it up
                     await db.execute(
-                        `INSERT INTO referral_pending_bonus (player_id, gold)
-                         VALUES (?, ?)
-                         ON DUPLICATE KEY UPDATE gold = gold + ?`,
+                        `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
                         [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
                     ).catch(() => {});
 
-                    // Announce in GC
-                    await sock.sendMessage(RAID_GROUP, {
+                    await sock.sendMessage(REFERRAL_GROUP_JID, {
                         text:
                             `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
                             `┃◆ @${newUserId} just joined!\n` +
@@ -679,6 +567,8 @@ async function startBot() {
                 console.error('Referral tracking error:', e.message);
             }
         });
+
+        // ==================== SHOP RESTOCK ====================
         const { restockAllItems } = require('./src/systems/shopSystem');
         cron.schedule('0 0 * * *', async () => {
             console.log('🛒 Restocking shop...');
@@ -706,7 +596,6 @@ cron.schedule('*/5 * * * *', async () => {
     }
 });
 
-// ==================== ERROR HANDLING ====================
 process.on('uncaughtException', (err) => {
     console.error('💥 UNCAUGHT EXCEPTION:', err.message);
     console.error(err.stack);
