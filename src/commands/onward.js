@@ -61,37 +61,38 @@ module.exports = {
                     })();
                 }
 
-                // ✅ Roll for Void Shard drops (event only, per survivor)
+                // ✅ Void Shard drops (event only)
                 try {
                     const { handleShardDrop } = require('./event');
                     await handleShardDrop(dungeon.id, client);
+                } catch (e) { console.error('Shard drop error:', e.message); }
 
-                    // ✅ Material drops — each survivor rolls independently
-                    (async () => {
-                        try {
-                            const { rollMaterialDrop } = require('../systems/materialSystem');
-                            const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                            for (const p of survivors) {
-                                const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RAID_GROUP);
-                                if (drop) {
-                                    await client.sendMessage(RAID_GROUP, {
-                                        text:
-                                            `══〘 💎 MATERIAL DROP 〙══╮\n` +
-                                            `┃◆ @${p.player_id} found something!\n` +
-                                            `┃◆ \n` +
-                                            `┃◆ ${drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪'} *${drop.material}*\n` +
-                                            `┃◆ [${drop.rarity.toUpperCase()}]\n` +
-                                            `┃◆ Total: ×${drop.quantity}\n` +
-                                            `┃◆ \n` +
-                                            `┃◆ Visit the Blacksmith to forge.\n` +
-                                            `╰═══════════════════════╯`,
-                                        mentions: [`${p.player_id}@s.whatsapp.net`]
-                                    });
-                                }
+                // ✅ Material drops — fire and forget
+                (async () => {
+                    try {
+                        const { rollMaterialDrop } = require('../systems/materialSystem');
+                        const RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                        for (const p of survivors) {
+                            const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RG);
+                            if (drop) {
+                                const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
+                                await client.sendMessage(RG, {
+                                    text:
+                                        `══〘 💎 MATERIAL DROP 〙══╮\n` +
+                                        `┃◆ @${p.player_id} found something!\n` +
+                                        `┃◆ \n` +
+                                        `┃◆ ${emoji} *${drop.material}*\n` +
+                                        `┃◆ [${drop.rarity.toUpperCase()}]\n` +
+                                        `┃◆ Total held: ×${drop.quantity}\n` +
+                                        `┃◆ \n` +
+                                        `┃◆ Visit the Blacksmith to forge.\n` +
+                                        `╰═══════════════════════╯`,
+                                    mentions: [`${p.player_id}@s.whatsapp.net`]
+                                });
                             }
-                        } catch (e) { console.error('Material drop error:', e.message); }
-                    })();
-                } catch (e) {}
+                        }
+                    } catch (e) { console.error('Material drop error:', e.message); }
+                })();
 
                 // ✅ Demote all raiders before closing
                 await demoteAllRaiders(client, dungeon.id);
@@ -125,6 +126,52 @@ module.exports = {
                         await updateQuestProgress(p.player_id, 'stage_clear', 1, client);
                     }
                 } catch (e) {}
+            })();
+
+            // ✅ Per-stage material drops into bags
+            (async () => {
+                try {
+                    const { rollMaterialDrop } = require('../systems/materialSystem');
+                    const { addToBag, getPlayerBag } = require('../systems/bagSystem');
+                    const RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                    const [alive] = await db.execute(
+                        "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                        [dungeon.id]
+                    );
+                    for (const p of alive) {
+                        const bag = await getPlayerBag(p.player_id);
+                        if (!bag || bag.durability <= 0) continue; // no bag = no loot
+
+                        const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RG);
+                        if (!drop) continue;
+
+                        const result = await addToBag(p.player_id, drop.material, 1);
+                        const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
+
+                        if (result.ok) {
+                            await client.sendMessage(RG, {
+                                text:
+                                    `══〘 💎 LOOT 〙══╮\n` +
+                                    `┃◆ @${p.player_id} picks up:\n` +
+                                    `┃◆ ${emoji} *${drop.material}* [${drop.rarity.toUpperCase()}]\n` +
+                                    `┃◆ 🎒 Bag: ${result.ok ? 'stored' : 'full'}\n` +
+                                    `╰═══════════════════════╯`,
+                                mentions: [`${p.player_id}@s.whatsapp.net`]
+                            });
+                        } else if (result.reason === 'full') {
+                            await client.sendMessage(RG, {
+                                text:
+                                    `══〘 💎 LOOT 〙══╮\n` +
+                                    `┃◆ @${p.player_id} found:\n` +
+                                    `┃◆ ${emoji} *${drop.material}*\n` +
+                                    `┃◆ ❌ Bag full — loot lost!\n` +
+                                    `┃◆ Use a larger bag next time.\n` +
+                                    `╰═══════════════════════╯`,
+                                mentions: [`${p.player_id}@s.whatsapp.net`]
+                            });
+                        }
+                    }
+                } catch (e) { console.error('Stage loot error:', e.message); }
             })();
 
             // targetChat is the dungeon GC (onward is restricted there by index.js routing)

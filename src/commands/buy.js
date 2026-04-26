@@ -44,6 +44,32 @@ module.exports = {
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
 
+            // ✅ Bags are special — they go to the bag system, not inventory
+            const BAGS_SET = new Set(['Small Bag', 'Medium Bag', 'Large Bag']);
+            if (BAGS_SET.has(item.name)) {
+                const { giveBag, getPlayerBag } = require('../systems/bagSystem');
+                const existing = await getPlayerBag(userId);
+                if (existing) {
+                    // Refund and warn
+                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [item.price, userId]);
+                    return msg.reply(
+                        `══〘 🛒 BUY 〙══╮\n` +
+                        `┃◆ ❌ You already have a ${existing.bag_type}.\n` +
+                        `┃◆ Use !repairbag to restore it.\n` +
+                        `╰═══════════════════════╯`
+                    );
+                }
+                await giveBag(userId, item.name);
+                return msg.reply(
+                    `══〘 🛒 BUY 〙══╮\n` +
+                    `┃◆ ✅ ${item.name} purchased!\n` +
+                    `┃◆ 💰 -${item.price} Gold\n` +
+                    `┃◆ 🎒 Ready for your next raid.\n` +
+                    `┃◆ Use !checkbag to view it.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
             // ✅ Consumables always stored as 'consumable', gear uses its stat type
             const itemType = CONSUMABLES.has(item.name) ? 'consumable' : item.stat;
             const [result] = await db.execute(

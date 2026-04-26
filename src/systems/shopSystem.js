@@ -2,6 +2,13 @@ const db = require('../database/db');
 const itemStats = require('../data/itemStats');
 const weaponMoves = require('../data/weaponMoves');
 
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Small Bag', 'Medium Bag', 'Large Bag','Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
+
 // Seeded random (Mulberry32)
 function seededRandom(seed) {
     return function() {
@@ -230,10 +237,12 @@ async function generateShopItems(role, playerRank, seed) {
             id: items.length + 1,
             name,
             grade: 'F',
-            stat: data.primaryStat || 'strength',
+            stat: CONSUMABLES.has(name) ? 'consumable' : (data.primaryStat || 'strength'),
             value: data.base?.attack || 5,
             price: getItemPrice(name), // ✅ fixed — no playerRank arg needed
-            emoji: { strength:'💪', agility:'⚡', intelligence:'🧠', stamina:'🛡️' }[data.primaryStat] || '✨',
+            emoji: CONSUMABLES.has(name)
+                ? '🧪'
+                : ({ strength:'💪', agility:'⚡', intelligence:'🧠', stamina:'🛡️' }[data.primaryStat] || '✨'),
             moves,
             stock,
             restockedAmount

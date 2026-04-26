@@ -237,15 +237,27 @@ module.exports = {
             // ✅ Handle player death from retaliation
             if (result.playerDied) {
                 try {
-                    // Demote from dungeon GC
                     await demoteRaider(client, userId);
-                    // Announce death in dungeon GC
+
+                    // ✅ Destroy bag and all contents on death
+                    let bagLostMsg = '';
+                    try {
+                        const { destroyBag, getPlayerBag, getBagContents } = require('../systems/bagSystem');
+                        const bag = await getPlayerBag(userId);
+                        if (bag) {
+                            const contents = await getBagContents(userId);
+                            const itemCount = contents.reduce((s, c) => s + c.quantity, 0);
+                            await destroyBag(userId);
+                            bagLostMsg = itemCount > 0 ? `\n┃◆ 🎒 Bag destroyed — ${itemCount} items lost!` : `\n┃◆ 🎒 Bag destroyed.`;
+                        }
+                    } catch (e) {}
+
                     await client.sendMessage(RAID_GROUP, {
                         text:
                             `══〘 💀 RAIDER FALLEN 〙══╮\n` +
                             `┃◆ ${player.nickname} has been slain!\n` +
-                            `┃◆ Struck down by ${targetEnemy.name}.\n` +
-                            `┃◆ ☠️ They have been removed from the raid.\n` +
+                            `┃◆ Struck down by ${targetEnemy.name}.${bagLostMsg}\n` +
+                            `┃◆ ☠️ Removed from the raid.\n` +
                             `┃◆ Use !respawn to revive (penalties apply).\n` +
                             `╰═══════════════════════╯`
                     });

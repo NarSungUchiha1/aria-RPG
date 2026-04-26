@@ -70,8 +70,10 @@ module.exports = {
 ┃  ◆ !claim <id> → Claim a completed quest
 ┃  ◆ Dailies are role-specific, reset at midnight
 ┃  ◆ Achievements grant titles & SP
+┃  ◆ !checkbag → View bag contents and durability
+┃  ◆ !emptybag → Bank all findings into materials
+┃  ◆ !repairbag → Repair bag durability
 ┃
-┃  ⚒️ BLACKSMITH (Blacksmith GC only)
 ┃  ◆ !recipes → View craftable weapons for your role
 ┃  ◆ !forge <number> → Craft a weapon using materials
 ┃  ◆ !materials → View your collected crafting materials
