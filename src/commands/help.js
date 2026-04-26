@@ -71,7 +71,11 @@ module.exports = {
 ┃  ◆ Dailies are role-specific, reset at midnight
 ┃  ◆ Achievements grant titles & SP
 ┃
-┃  💚 HEALER MARKET (Healer GC only)
+┃  ⚒️ BLACKSMITH (Blacksmith GC only)
+┃  ◆ !recipes → View craftable weapons for your role
+┃  ◆ !forge <number> → Craft a weapon using materials
+┃  ◆ !materials → View your collected crafting materials
+┃
 ┃  ◆ !healers → Browse available healers & prices
 ┃  ◆ !hire <number> → Book a healer (gold + XP)
 ┃  ◆ !listservice <gold> <xp> <desc> → Post your service (Healers only)

@@ -58,11 +58,18 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(item => {
             if (!item) return;
-            totalBonus += Number(item.attack_bonus) || 0;
-            if (statUsed === 'strength') totalBonus += Number(item.strength_bonus) || 0;
-            else if (statUsed === 'agility') totalBonus += Number(item.agility_bonus) || 0;
-            else if (statUsed === 'intelligence') totalBonus += Number(item.intelligence_bonus) || 0;
-            else if (statUsed === 'stamina') totalBonus += Number(item.stamina_bonus) || 0;
+            // ✅ Durability affects stat bonuses — lower durability = weaker bonuses
+            const maxDur = item.max_durability || 100;
+            const curDur = item.durability !== null && item.durability !== undefined ? item.durability : maxDur;
+            const durRatio = maxDur > 0 ? Math.max(0, curDur / maxDur) : 1;
+
+            const scale = (val) => Math.floor((Number(val) || 0) * durRatio);
+
+            totalBonus += scale(item.attack_bonus);
+            if (statUsed === 'strength') totalBonus += scale(item.strength_bonus);
+            else if (statUsed === 'agility') totalBonus += scale(item.agility_bonus);
+            else if (statUsed === 'intelligence') totalBonus += scale(item.intelligence_bonus);
+            else if (statUsed === 'stamina') totalBonus += scale(item.stamina_bonus);
         });
     }
 

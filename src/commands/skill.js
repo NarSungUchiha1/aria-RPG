@@ -109,11 +109,27 @@ module.exports = {
                 }
             }
 
-            const heal = calculateHeal(player, move);
+            const isSelf = targetPlayer.id === player.id;
+
+            // ✅ Tank restrictions
+            if (player.role === 'Tank') {
+                if ((player.stamina || 0) <= 0) return msg.reply(
+                    `══〘 💚 HEAL 〙══╮\n┃◆ ❌ Out of stamina.\n┃◆ You cannot heal until stamina recovers.\n╰═══════════════════════╯`
+                );
+                await db.execute("UPDATE players SET stamina = GREATEST(0, stamina - 2) WHERE id=?", [userId]);
+            }
+
+            let heal = calculateHeal(player, move);
+            if (player.role === 'Tank' && !isSelf) heal = Math.floor(heal * 0.5);
+
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
-            return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+
+            const tankNotes = player.role === 'Tank'
+                ? `\n${!isSelf ? '┃◆ ⚠️ Tank heals allies at 50%\n' : ''}┃◆ 🛡️ Stamina: ${Math.max(0, (player.stamina||0)-2)}`
+                : '';
+            return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.${tankNotes}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
         // ==================== DAMAGE ====================

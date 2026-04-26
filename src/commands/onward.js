@@ -65,6 +65,32 @@ module.exports = {
                 try {
                     const { handleShardDrop } = require('./event');
                     await handleShardDrop(dungeon.id, client);
+
+                    // ✅ Material drops — each survivor rolls independently
+                    (async () => {
+                        try {
+                            const { rollMaterialDrop } = require('../systems/materialSystem');
+                            const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                            for (const p of survivors) {
+                                const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RAID_GROUP);
+                                if (drop) {
+                                    await client.sendMessage(RAID_GROUP, {
+                                        text:
+                                            `══〘 💎 MATERIAL DROP 〙══╮\n` +
+                                            `┃◆ @${p.player_id} found something!\n` +
+                                            `┃◆ \n` +
+                                            `┃◆ ${drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪'} *${drop.material}*\n` +
+                                            `┃◆ [${drop.rarity.toUpperCase()}]\n` +
+                                            `┃◆ Total: ×${drop.quantity}\n` +
+                                            `┃◆ \n` +
+                                            `┃◆ Visit the Blacksmith to forge.\n` +
+                                            `╰═══════════════════════╯`,
+                                        mentions: [`${p.player_id}@s.whatsapp.net`]
+                                    });
+                                }
+                            }
+                        } catch (e) { console.error('Material drop error:', e.message); }
+                    })();
                 } catch (e) {}
 
                 // ✅ Demote all raiders before closing

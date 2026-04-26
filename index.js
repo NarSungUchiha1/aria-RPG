@@ -107,7 +107,12 @@ const HEALER_GC_ONLY = new Set([
     'healers', 'listservice', 'removelisting', 'hire', 'contracts'
 ]);
 
-const HEALER_GC_JID = '120363427051780444@g.us';
+const BLACKSMITH_GC_ONLY = new Set([
+    'forge', 'recipes'
+]);
+
+const HEALER_GC_JID      = '120363427051780444@g.us';
+const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
 const DM_ONLY = new Set(['enter']);
 
 const commands = new Map();
@@ -387,6 +392,11 @@ async function startBot() {
 
             if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
                 await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` }, { quoted: msg });
+                return;
+            }
+
+            if (BLACKSMITH_GC_ONLY.has(cmdName) && jid !== BLACKSMITH_GC_JID) {
+                await sock.sendMessage(jid, { text: `══〘 ⚒️ BLACKSMITH 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Blacksmith group.\n╰═══════════════════════╯` }, { quoted: msg });
                 return;
             }
 
