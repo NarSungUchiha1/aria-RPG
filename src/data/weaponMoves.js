@@ -12,9 +12,9 @@ module.exports = {
         { name: "Execute", type: "damage", stat: "strength", multiplier: 2.5, condition: "enemy_hp_below_30", cooldown: 5, cost: 20 }
     ],
     "Rage Blade": [
-        { name: "Rending Slash", type: "damage", stat: "strength", multiplier: 1.6, bleed: true, cooldown: 10, cost: 12 },
-        { name: "Overpower", type: "damage", stat: "strength", multiplier: 1.8, ignore_defense: 0.3, cooldown: 10, cost: 15 },
-        { name: "Annihilate", type: "damage", stat: "strength", multiplier: 2.2, cooldown: 30, cost: 18 }
+        { name: "Rending Slash", type: "damage", stat: "strength", multiplier: 1.6, bleed: true, cooldown: 3, cost: 12 },
+        { name: "Overpower", type: "damage", stat: "strength", multiplier: 1.8, ignore_defense: 0.3, cooldown: 4, cost: 15 },
+        { name: "Annihilate", type: "damage", stat: "strength", multiplier: 2.2, cooldown: 5, cost: 18 }
     ],
     "Warhammer": [
         { name: "Crushing Blow", type: "damage", stat: "strength", multiplier: 1.7, def_reduction: 10, cooldown: 3, cost: 12 },
@@ -188,5 +188,113 @@ module.exports = {
         { name: "Immortal Guard", type: "buff", effect: "defense", value: 150, duration: 3, cooldown: 60, cost: 18 },
         { name: "Eternal Retribution", type: "damage", stat: "stamina", multiplier: 2.5, reflect: 0.3, cooldown: 4, cost: 20 },
         { name: "Aegis of the Gods", type: "shield", value: 250, duration: 2, cooldown: 6, cost: 25 }
+    ]
+
+    // ======================== FORGED WEAPONS — COMMON ========================
+    "Bonecrusher": [
+        { name: "Bone Slam",     type: "damage", stat: "strength", multiplier: 1.8, cooldown: 2, cost: 10 },
+        { name: "Shatter",       type: "damage", stat: "strength", multiplier: 1.5, def_reduction: 15, cooldown: 3, cost: 12 },
+        { name: "Bludgeon",      type: "damage", stat: "strength", multiplier: 2.2, stun: true, cooldown: 5, cost: 16 }
+    ],
+    "Thorn Dagger": [
+        { name: "Thorn Stab",    type: "damage", stat: "agility", multiplier: 1.7, cooldown: 1, cost: 8 },
+        { name: "Bramble Flurry",type: "damage", stat: "agility", multiplier: 1.2, hits: 3, cooldown: 3, cost: 12 },
+        { name: "Wilt",          type: "debuff", effect: "strength", value: -10, duration: 2, cooldown: 4, cost: 10 }
+    ],
+    "Iron Ward": [
+        { name: "Ward Bash",     type: "damage", stat: "stamina", multiplier: 1.3, cooldown: 2, cost: 8 },
+        { name: "Iron Cover",    type: "buff",   effect: "defense", value: 25, duration: 3, cooldown: 4, cost: 10 },
+        { name: "Defender's Cry",type: "buff",   effect: "stamina", value: 15, duration: 2, cooldown: 5, cost: 12 }
+    ],
+    "Bone Staff": [
+        { name: "Bone Bolt",     type: "damage", stat: "intelligence", multiplier: 1.7, cooldown: 1, cost: 8 },
+        { name: "Marrow Drain",  type: "debuff", effect: "intelligence", value: -10, duration: 3, cooldown: 3, cost: 10 },
+        { name: "Void Crackle",  type: "damage", stat: "intelligence", multiplier: 2.0, cooldown: 4, cost: 14 }
+    ],
+    "Splint Mace": [
+        { name: "Mend",          type: "heal",   stat: "intelligence", multiplier: 3.0, baseHeal: 25, cooldown: 2, cost: 8 },
+        { name: "Splint Strike", type: "damage", stat: "strength", multiplier: 1.3, cooldown: 2, cost: 6 },
+        { name: "Patch Up",      type: "heal",   stat: "intelligence", multiplier: 4.5, baseHeal: 40, cooldown: 5, cost: 14 }
+    ],
+
+    // ======================== FORGED WEAPONS — UNCOMMON ========================
+    "Shadow Fang": [
+        { name: "Fang Strike",   type: "damage", stat: "agility", multiplier: 2.2, cooldown: 2, cost: 12 },
+        { name: "Venom Coat",    type: "debuff", effect: "strength", value: -15, duration: 3, cooldown: 3, cost: 10 },
+        { name: "Shadowstep",    type: "damage", stat: "agility", multiplier: 2.8, cooldown: 4, cost: 18 }
+    ],
+    "Ember Greatsword": [
+        { name: "Ember Slash",   type: "damage", stat: "strength", multiplier: 2.0, cooldown: 2, cost: 12 },
+        { name: "Burn Through",  type: "damage", stat: "strength", multiplier: 1.6, def_penetration: 0.3, cooldown: 3, cost: 14 },
+        { name: "Flame Charge",  type: "damage", stat: "strength", multiplier: 2.5, cooldown: 5, cost: 20 }
+    ],
+    "Frost Barrier": [
+        { name: "Ice Block",     type: "buff",   effect: "defense", value: 40, duration: 3, cooldown: 4, cost: 12 },
+        { name: "Cold Slam",     type: "damage", stat: "stamina", multiplier: 1.5, stun: true, cooldown: 3, cost: 10 },
+        { name: "Freeze Wall",   type: "debuff", effect: "agility", value: -20, duration: 2, cooldown: 5, cost: 14 }
+    ],
+    "Venom Codex": [
+        { name: "Toxic Verse",   type: "damage", stat: "intelligence", multiplier: 2.0, cooldown: 2, cost: 12 },
+        { name: "Plague Page",   type: "debuff", effect: "strength", value: -12, duration: 3, cooldown: 3, cost: 10 },
+        { name: "Pestilent Blast",type: "damage", stat: "intelligence", multiplier: 2.6, aoe: true, cooldown: 5, cost: 20 }
+    ],
+    "Ember Chalice": [
+        { name: "Ember Heal",    type: "heal",   stat: "intelligence", multiplier: 4.5, baseHeal: 45, cooldown: 2, cost: 10 },
+        { name: "Frost Mend",    type: "heal",   stat: "intelligence", multiplier: 6.0, baseHeal: 70, cooldown: 4, cost: 16 },
+        { name: "Chalice Smite", type: "damage", stat: "intelligence", multiplier: 1.8, cooldown: 3, cost: 12 }
+    ],
+
+    // ======================== FORGED WEAPONS — RARE ========================
+    "Soulreaper": [
+        { name: "Soul Rend",     type: "damage", stat: "strength", multiplier: 2.8, cooldown: 2, cost: 18 },
+        { name: "Harvest",       type: "damage", stat: "strength", multiplier: 3.2, cooldown: 4, cost: 22 },
+        { name: "Death's Embrace",type: "buff",  effect: "strength", value: 40, duration: 3, cooldown: 6, cost: 20 }
+    ],
+    "Void Edge": [
+        { name: "Void Tear",     type: "damage", stat: "agility", multiplier: 3.0, cooldown: 2, cost: 18 },
+        { name: "Null Step",     type: "buff",   effect: "agility", value: 35, duration: 2, cooldown: 3, cost: 14 },
+        { name: "Erasure",       type: "damage", stat: "agility", multiplier: 3.8, ignore_defense: 0.5, cooldown: 5, cost: 25 }
+    ],
+    "Stormwall": [
+        { name: "Thunder Guard", type: "buff",   effect: "defense", value: 55, duration: 3, cooldown: 4, cost: 15 },
+        { name: "Lightning Bash",type: "damage", stat: "stamina", multiplier: 2.2, stun: true, cooldown: 3, cost: 16 },
+        { name: "Stormstrike",   type: "damage", stat: "stamina", multiplier: 2.8, cooldown: 5, cost: 22 }
+    ],
+    "Blood Grimoire": [
+        { name: "Blood Verse",   type: "damage", stat: "intelligence", multiplier: 2.8, cooldown: 2, cost: 18 },
+        { name: "Scarlet Nova",  type: "damage", stat: "intelligence", multiplier: 3.2, aoe: true, cooldown: 4, cost: 24 },
+        { name: "Crimson Pact",  type: "buff",   effect: "intelligence", value: 40, duration: 3, cooldown: 5, cost: 20 }
+    ],
+    "Soul Lantern": [
+        { name: "Soul Mend",     type: "heal",   stat: "intelligence", multiplier: 5.5, baseHeal: 60, cooldown: 2, cost: 14 },
+        { name: "Lantern's Grace",type: "heal",  stat: "intelligence", multiplier: 7.5, baseHeal: 100, cooldown: 4, cost: 22 },
+        { name: "Spirit Strike", type: "damage", stat: "intelligence", multiplier: 2.0, cooldown: 3, cost: 14 }
+    ],
+
+    // ======================== FORGED WEAPONS — LEGENDARY ========================
+    "Maw of the Abyss": [
+        { name: "Abyss Devour",  type: "damage", stat: "strength", multiplier: 4.5, cooldown: 3, cost: 30 },
+        { name: "Hungering Maw", type: "damage", stat: "strength", multiplier: 3.5, hits: 2, cooldown: 5, cost: 28 },
+        { name: "Abyssal Roar",  type: "debuff", effect: "strength", value: -30, duration: 3, cooldown: 6, cost: 25 }
+    ],
+    "Wraithblade": [
+        { name: "Wraith Cut",    type: "damage", stat: "agility", multiplier: 4.8, cooldown: 2, cost: 28 },
+        { name: "Ghost Walk",    type: "buff",   effect: "agility", value: 60, duration: 2, cooldown: 4, cost: 24 },
+        { name: "Soul Cleave",   type: "damage", stat: "agility", multiplier: 5.5, ignore_defense: 0.7, cooldown: 6, cost: 35 }
+    ],
+    "Aegis of Eternity": [
+        { name: "Eternal Guard",  type: "buff",  effect: "defense", value: 80, duration: 3, cooldown: 4, cost: 20 },
+        { name: "Time Bastion",   type: "shield",value: 300, duration: 2, cooldown: 6, cost: 28 },
+        { name: "Eternity Slam",  type: "damage",stat: "stamina", multiplier: 3.5, stun: true, cooldown: 5, cost: 30 }
+    ],
+    "The Last Word": [
+        { name: "Final Decree",  type: "damage", stat: "intelligence", multiplier: 5.0, cooldown: 3, cost: 30 },
+        { name: "Absolute End",  type: "damage", stat: "intelligence", multiplier: 4.0, aoe: true, cooldown: 5, cost: 28 },
+        { name: "Last Rite",     type: "debuff", effect: "intelligence", value: -40, duration: 3, cooldown: 6, cost: 25 }
+    ],
+    "Cradle of Life": [
+        { name: "Life's Embrace", type: "heal",  stat: "intelligence", multiplier: 8.0, baseHeal: 120, cooldown: 2, cost: 20 },
+        { name: "Rebirth",        type: "heal",  stat: "intelligence", multiplier: 10.0, baseHeal: 180, cooldown: 5, cost: 35 },
+        { name: "Cradle Strike",  type: "damage",stat: "intelligence", multiplier: 2.5, cooldown: 3, cost: 18 }
     ]
 };
