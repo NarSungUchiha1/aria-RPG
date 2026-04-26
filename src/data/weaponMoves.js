@@ -188,7 +188,7 @@ module.exports = {
         { name: "Immortal Guard", type: "buff", effect: "defense", value: 150, duration: 3, cooldown: 60, cost: 18 },
         { name: "Eternal Retribution", type: "damage", stat: "stamina", multiplier: 2.5, reflect: 0.3, cooldown: 4, cost: 20 },
         { name: "Aegis of the Gods", type: "shield", value: 250, duration: 2, cooldown: 6, cost: 25 }
-    ]
+    ],
 
     // ======================== FORGED WEAPONS — COMMON ========================
     "Bonecrusher": [
