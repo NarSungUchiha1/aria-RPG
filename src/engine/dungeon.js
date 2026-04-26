@@ -184,8 +184,14 @@ function startLobbyTimer(dungeonId, client) {
 }
 
 async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
-    const { tagAll } = require('../utils/tagAll');
-    const { mentions } = await tagAll(client);
+    let mentions = [];
+    try {
+        const { tagAll } = require('../utils/tagAll');
+        const result = await tagAll(client);
+        mentions = result.mentions || [];
+    } catch (e) {
+        console.log('tagAll unavailable — sending announcement without mentions.');
+    }
 
     // ✅ Lore flavour text based on current chapter
     let loreText = '';
@@ -214,6 +220,15 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         console.log(`📢 Dungeon announcement sent to group`);
     } catch (e) {
         console.error("Failed to send dungeon announcement:", e.message);
+        // ✅ Retry once after 10 seconds
+        setTimeout(async () => {
+            try {
+                await client.sendMessage(RAID_GROUP, { text: announceMsg, mentions });
+                console.log(`📢 Dungeon announcement sent (retry)`);
+            } catch (e2) {
+                console.error("Dungeon announcement retry failed:", e2.message);
+            }
+        }, 10000);
     }
 }
 

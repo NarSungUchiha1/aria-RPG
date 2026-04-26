@@ -482,6 +482,7 @@ async function startBot() {
         const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
 
         cron.schedule('0 */1 * * *', async () => {
+            if (!isReady) { console.log('⏭️ Spawn skipped — bot not ready.'); return; }
             console.log('🕒 Scheduled dungeon spawn triggered.');
             try {
                 let isEventRunning = false;
@@ -506,6 +507,7 @@ async function startBot() {
         });
 
         cron.schedule('*/20 * * * *', async () => {
+            if (!isReady) return;
             try {
                 let hasActiveEvent = false;
                 try {
