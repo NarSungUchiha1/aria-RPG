@@ -68,6 +68,16 @@ async function getWeightedDungeonRank() {
 }
 
 async function spawnDungeon(rank, client = null) {
+    // ✅ DB-level lock — prevent two spawns running simultaneously
+    try {
+        await db.execute("INSERT INTO dungeon_spawn_lock (id, locked_at) VALUES (1, NOW())");
+    } catch (e) {
+        // Lock already held — another spawn is in progress
+        console.log('⚠️ Spawn blocked — spawn lock already held.');
+        return null;
+    }
+
+    try {
     // ── Safety check — never overwrite a dungeon with alive players ──────────
     const [existing] = await db.execute(
         "SELECT id FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
@@ -117,7 +127,11 @@ async function spawnDungeon(rank, client = null) {
         startLobbyTimer(dungeonId, client);
     }
 
-    return { id: dungeonId, rank, maxStage, boss };
+        return { id: dungeonId, rank, maxStage, boss };
+    } finally {
+        // Always release the lock
+        await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
+    }
 }
 
 // ── LOBBY TIMER ──────────────────────────────────────────
@@ -179,7 +193,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
     // ✅ Lore flavour text based on current chapter
     let loreText = '';
     try {
-        const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loreSystem');
+        const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loresystem');
         const chapter = await getCurrentChapter();
         loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞\n┃◆ \n`;
     } catch (e) {}

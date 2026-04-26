@@ -322,6 +322,15 @@ async function startBot() {
                     )
                 `).catch(() => {});
 
+                await db.execute(`
+                    CREATE TABLE IF NOT EXISTS dungeon_spawn_lock (
+                        id         INT PRIMARY KEY,
+                        locked_at  DATETIME DEFAULT NOW()
+                    )
+                `).catch(() => {});
+                // Clear any stale lock from previous crash
+                await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
+
                 // ✅ Startup dungeon cleanup — scoped, no global deletes
                 try {
                     await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0");
@@ -472,7 +481,7 @@ async function startBot() {
         // ==================== SCHEDULED DUNGEON SPAWN ====================
         const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
 
-        cron.schedule('0 */4 * * *', async () => {
+        cron.schedule('0 */1 * * *', async () => {
             console.log('🕒 Scheduled dungeon spawn triggered.');
             try {
                 let isEventRunning = false;
