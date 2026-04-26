@@ -176,9 +176,18 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
     const { tagAll } = require('../utils/tagAll');
     const { mentions } = await tagAll(client);
 
+    // ✅ Lore flavour text based on current chapter
+    let loreText = '';
+    try {
+        const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loreSystem');
+        const chapter = await getCurrentChapter();
+        loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞\n┃◆ \n`;
+    } catch (e) {}
+
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
         `┃◆ \n` +
+        `${loreText}` +
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +

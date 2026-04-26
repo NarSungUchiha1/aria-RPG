@@ -61,6 +61,10 @@ module.exports = {
 ┃  ◆ !attackboss → Attack the world boss [GC]
 ┃  ◆ !referral → Get your invite link (+20 XP per referral)
 ┃
+┃  📖 STORY & LORE
+┃  ◆ !lore → Read the current chapter of ARIA's story
+┃  ◆ !lore all → See all chapters & their status
+┃
 ┃  📜 QUESTS
 ┃  ◆ !quests → Daily, achievement & party quests
 ┃  ◆ !claim <id> → Claim a completed quest
@@ -103,6 +107,7 @@ module.exports = {
 ┃  ◆ !event → Start a Void Fracture event
 ┃  ◆ !event end → End event early + leaderboard
 ┃  ◆ !spawnboss → Spawn a world boss
+┃  ◆ !chapter → View/advance story chapter (admin)
 ┃  ◆ !announce <message> → Broadcast to GC (tags everyone) (24h)
 ┃  ◆ !event end → Close event + leaderboard
 ┃  ◆ !announce <message> → Broadcast to GC (@all)
