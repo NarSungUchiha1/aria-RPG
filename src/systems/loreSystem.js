@@ -1,201 +1,300 @@
 const db = require('../database/db');
 
-// ── Story Chapters ────────────────────────────────────────────────────────────
 const CHAPTERS = [
     {
         id: 1,
         title: 'The Awakening',
         subtitle: 'Something stirs in the dark.',
         story: [
-            `Before the first dungeon opened, the world was ordinary.`,
-            `Then the Gates appeared.`,
-            `No warning. No explanation. Just rifts in reality — bleeding`,
-            `monsters into the world from somewhere else.`,
+            `Nobody remembers the exact moment the first Gate opened.`,
             ``,
-            `Governments fell. Cities emptied. The old world ended`,
-            `in a matter of weeks.`,
+            `That is the part that haunts people. Not the monsters.`,
+            `Not the cities that burned. Not the governments that collapsed`,
+            `in seventy two hours like they were never real to begin with.`,
             ``,
-            `But some people changed.`,
+            `The part that haunts people is that no one saw it coming.`,
             ``,
-            `Their bodies adapted. Their minds sharpened.`,
-            `They could enter the Gates. Fight what lived inside.`,
-            `Come back out alive.`,
+            `One morning the sky above Nairobi split open like a wound`,
+            `and something stepped through. By the time the cameras caught it`,
+            `there were already seventeen more Gates across six continents.`,
+            `By the time the military responded there were hundreds.`,
+            `By the time the world understood what was happening`,
+            `it was too late to do anything but survive.`,
             ``,
-            `They were called Hunters.`,
+            `The monsters were not mindless. That was the second shock.`,
+            `They moved with intent. They targeted infrastructure first.`,
+            `Power grids. Water systems. Communication towers.`,
+            `Whatever was sending them through understood how civilisation worked`,
+            `and it wanted it gone.`,
             ``,
-            `You are one of them.`,
+            `Then the Hunters appeared.`,
             ``,
-            `The system has recognised you.`,
-            `Your record has been created.`,
-            `Your rank: F.`,
+            `No announcement. No explanation. Just ordinary people`,
+            `who woke up one day different. Stronger. Faster. Aware`,
+            `in a way they could not put into words. Like a second set`,
+            `of senses had switched on overnight.`,
             ``,
-            `Every legend starts somewhere.`,
-            `This is yours.`
+            `Some of them walked into Gates and did not come back.`,
+            `Some of them walked into Gates and came back with blood on their hands`,
+            `and something new in their eyes.`,
+            ``,
+            `The System found them eventually. It always does.`,
+            `It catalogued them. Ranked them. Gave them structure`,
+            `because structure is the only thing standing between`,
+            `a Hunter and the thing a Hunter could become`,
+            `without something to answer to.`,
+            ``,
+            `You are Rank F.`,
+            ``,
+            `That is not an insult. Every Hunter who ever mattered`,
+            `started exactly where you are standing.`,
+            ``,
+            `The Gates are open. The world needs what you are becoming.`,
+            `The only question is whether you are ready to find out`,
+            `what that actually is.`
         ],
-        unlock_rank: null, // available from start
         teaser:
-            `The Gates are open.\n` +
-            `┃◆ The monsters are real.\n` +
-            `┃◆ The question is whether you are too.`
+            `The Gates appeared without warning.\n` +
+            `┃◆ The world fell in seventy two hours.\n` +
+            `┃◆ And then people like you started waking up different.`
     },
     {
         id: 2,
         title: 'The Fracture',
         subtitle: 'The seal is breaking.',
         story: [
-            `The dungeons were supposed to be contained.`,
+            `There is a file that does not officially exist.`,
             ``,
-            `The Gates opened — yes. Monsters poured through — yes.`,
-            `But the system kept them manageable. Ranked. Measured.`,
-            `It gave hunters a fighting chance.`,
+            `The researchers call it the Cradle Report.`,
+            `It was written eight months after the first Gate opened`,
+            `by a team of seven scientists who were studying`,
+            `the energy signature the Gates emit.`,
             ``,
-            `Something has changed.`,
+            `Five of those scientists have since disappeared.`,
+            `One retired and refuses to speak to anyone.`,
+            `The last one gave a single interview before going silent.`,
+            `She said one thing worth remembering.`,
             ``,
-            `Void Shards have begun appearing inside dungeons —`,
-            `crystallised fragments of an energy that should not exist here.`,
-            `They pulse with a frequency that disrupts the system.`,
+            `She said the Gates were not the invasion.`,
+            `The Gates were the lock.`,
             ``,
-            `The researchers have a theory.`,
-            `They are not sharing it publicly.`,
+            `Whatever created them was not trying to let things in.`,
+            `It was trying to keep something else from getting out.`,
             ``,
-            `But the hunters who have collected enough shards`,
-            `report the same dream — a dark ocean. A shape beneath.`,
-            `Something enormous. Waiting.`,
+            `The Void Shards started appearing six weeks ago.`,
+            `Small crystalline fragments found deep inside dungeons`,
+            `after high tier enemies were killed. They pulse at a frequency`,
+            `that no existing instrument was built to measure.`,
+            `They interfere with the System. They make Hunters uneasy`,
+            `in a way none of them can fully explain.`,
+            ``,
+            `The ones who have held a Shard long enough report the same thing.`,
+            `A dream. Always the same dream.`,
+            ``,
+            `A dark ocean with no shore and no sky.`,
+            `And beneath the surface something moving.`,
+            `Something so large that when it shifts`,
+            `the water does not ripple. It heaves.`,
+            ``,
+            `The Cradle Report concluded that the Gates were built`,
+            `by something ancient as a containment structure.`,
+            `Not to protect humanity. Humanity did not exist yet`,
+            `when the Gates were made.`,
+            ``,
+            `To contain what was already here.`,
+            ``,
+            `The Shards are not loot.`,
+            `They are warnings.`,
             ``,
             `The seal is cracking.`,
-            ``,
-            `Whatever was kept out is almost through.`
+            `And whatever is on the other side`,
+            `has been waiting a very long time.`
         ],
         unlock_rank: 'E',
         teaser:
-            `Void Shards don't belong in this world.\n` +
-            `┃◆ Something sent them here.\n` +
-            `┃◆ Something is coming through.`
+            `The Gates were not built to let things in.\n` +
+            `┃◆ They were built to keep something in.\n` +
+            `┃◆ The Void Shards are proof the seal is failing.`
     },
     {
         id: 3,
         title: 'The Void War',
         subtitle: 'The ancient ones have arrived.',
         story: [
-            `The seal broke three days ago.`,
+            `The seal broke on a Tuesday.`,
             ``,
-            `The researchers called it a Level Zero event.`,
-            `They had a protocol for it — evacuate, contain, pray.`,
+            `Nobody chose Tuesday. It just happened to be Tuesday.`,
+            `The world does not wait for a dramatic moment.`,
+            `It breaks when it breaks and you deal with it or you don't.`,
             ``,
-            `It didn't help.`,
+            `The Void Leviathan emerged from coordinates that should`,
+            `have been empty ocean. The Gate that opened was not`,
+            `like other Gates. It was not a rift or a tear.`,
+            `It was more like reality simply stepped aside`,
+            `and made room for something that had`,
+            `always been there waiting.`,
             ``,
-            `The Void Leviathan emerged from the largest Gate ever recorded.`,
-            `It is not a monster. It is not a boss.`,
-            `It is something older than the system itself —`,
-            `something the Gates were built to keep locked away.`,
+            `The first military response lasted four minutes.`,
             ``,
-            `Normal weapons do nothing.`,
-            `Normal hunters die on contact.`,
+            `The Leviathan is not a monster in the way Hunters understand monsters.`,
+            `It does not attack because it is hungry or territorial.`,
+            `It does not have a rank the System can assign.`,
+            `When Hunters attempted to engage it the System`,
+            `flagged an error that no one had ever seen before.`,
             ``,
-            `But the Void Shards — the ones the hunters collected —`,
-            `they react to it. Burn against it.`,
+            `ENTITY UNCLASSIFIABLE. THREAT LEVEL: UNDEFINED.`,
             ``,
-            `The only thing that can stop it`,
-            `is every hunter. Together.`,
+            `What they know is this.`,
+            `It was sealed away before human civilisation existed.`,
+            `Whatever sealed it used something of itself to do it.`,
+            `The Void Shards are fragments of that sacrifice.`,
+            ``,
+            `Which means the Hunters who collected them`,
+            `are carrying pieces of the only weapon`,
+            `that has ever actually worked against it.`,
             ``,
             `This is not a dungeon run.`,
-            `This is a war.`
+            `There is no reward at the end. No rank up.`,
+            `No gold waiting in a chest.`,
+            ``,
+            `There is only the Leviathan`,
+            `and the question of whether the Hunters of this generation`,
+            `are worth what the last generation paid`,
+            `to give them a fighting chance.`,
+            ``,
+            `Every dungeon cleared weakens its forces.`,
+            `Every Shard collected is a wound it cannot heal.`,
+            ``,
+            `This is the Void War.`,
+            `Win it.`
         ],
         unlock_rank: 'C',
         teaser:
-            `It is here.\n` +
-            `┃◆ The Void Leviathan has breached the seal.\n` +
-            `┃◆ All hunters are required.`
+            `The Leviathan does not have a rank.\n` +
+            `┃◆ The System cannot classify it.\n` +
+            `┃◆ The only thing that can stop it is already in your hands.`
     },
     {
         id: 4,
         title: 'The Reckoning',
         subtitle: 'The fallen hunter must be stopped.',
         story: [
-            `The Leviathan fell.`,
+            `His name was Aldric Voss.`,
             ``,
-            `It cost more than anyone expected.`,
-            `But the hunters held. The world survived.`,
+            `The records are sparse because most of what he did`,
+            `happened before the modern System existed.`,
+            `But the older Hunters know the name.`,
+            `They say it quietly and they do not say it twice.`,
             ``,
-            `Then the system flagged an anomaly.`,
+            `He was the first Hunter to reach Rank S.`,
+            `Not in this era. Not in this generation.`,
+            `In the era before this one, when the Gates first opened`,
+            `and nobody understood what was happening`,
+            `and the only thing keeping humanity alive`,
+            `was a handful of people who refused to stop fighting.`,
             ``,
-            `A registrationId that should not exist anymore.`,
-            `A hunter who reached Rank S decades ago —`,
-            `before the modern system existed —`,
-            `and kept pushing. Past the limit.`,
+            `He refused harder than anyone.`,
             ``,
-            `The void consumed him.`,
-            `It gave him back — wrong.`,
+            `After Rank S there is supposed to be nothing.`,
+            `The System was not designed to go further.`,
+            `But Aldric did not accept that.`,
+            `He kept pushing. Kept fighting. Kept forcing the System`,
+            `to account for something it had not planned for.`,
             ``,
-            `Malachar the Undying.`,
+            `The void found him in that space between what the System allows`,
+            `and what he was trying to become.`,
             ``,
-            `He does not fight for the void.`,
-            `He does not fight for humanity.`,
-            `He fights because the system runs —`,
-            `and as long as it runs, so does he.`,
+            `It did not kill him.`,
             ``,
-            `He cannot be reasoned with.`,
-            `He cannot be bargained with.`,
+            `It would have been kinder if it had.`,
             ``,
-            `He can only be stopped.`,
+            `What came back was not Aldric Voss.`,
+            `It wore his body. It carried his strength.`,
+            `It remembered every technique he had ever mastered`,
+            `and it used them with a precision`,
+            `that no living thing should be capable of.`,
             ``,
-            `This ends here.`
+            `But the part of him that chose to fight`,
+            `the part that refused to stop`,
+            `the part that made him the greatest Hunter`,
+            `this world has ever produced`,
+            ``,
+            `that part was gone.`,
+            ``,
+            `He calls himself Malachar now.`,
+            `Nobody knows why. Maybe the void gave him the name.`,
+            `Maybe he chose it in whatever is left of him`,
+            `as a way of saying that Aldric Voss is dead`,
+            `and what stands in his place is something else entirely.`,
+            ``,
+            `He does not serve the void.`,
+            `He does not serve humanity.`,
+            `He runs because the System runs`,
+            `and the System will not let him stop.`,
+            ``,
+            `The cruelest part is that somewhere inside the thing he became`,
+            `Aldric Voss is still there.`,
+            `Still aware. Still watching.`,
+            `Unable to stop what his body does.`,
+            `Unable to rest.`,
+            ``,
+            `The only mercy left to offer him`,
+            `is an end.`,
+            ``,
+            `He cannot be saved. He can only be stopped.`,
+            ``,
+            `This is the Reckoning.`,
+            `Finish what he started.`,
+            `Give him the rest he cannot give himself.`
         ],
         unlock_rank: 'A',
         teaser:
-            `Malachar is not a boss.\n` +
-            `┃◆ He is what happens when a hunter refuses to die.\n` +
-            `┃◆ He must be put to rest.`
+            `His name was Aldric Voss.\n` +
+            `┃◆ He was the greatest Hunter who ever lived.\n` +
+            `┃◆ The void did not kill him. It would have been kinder if it had.`
     }
 ];
 
-// ── Dungeon Lore Flavour Text ─────────────────────────────────────────────────
-// Shown randomly in dungeon announcements based on current chapter
 const DUNGEON_LORE = {
     1: [
-        `The gate pulses with an eerie light. Something waits inside.`,
-        `Monsters have been sighted in the area. Proceed with caution.`,
-        `The system has detected heightened activity. A dungeon has opened.`,
-        `Another rift in reality. Another chance to prove yourself.`,
-        `The air smells like ozone and blood. The gate is open.`
+        `The Gate smells like metal and something older. Like a room that has been sealed for centuries and finally opened.`,
+        `Hunters who came back from this one did not talk much. That is usually a good sign. Usually.`,
+        `The System logged forty seven casualties in this dungeon class last week. The week before it was thirty one. Something is changing.`,
+        `First timers always say the same thing. They say it did not feel real until it did. By then it is too late to turn back.`,
+        `The monsters inside are ranked. Measured. Manageable. That is what the System says. The System has been wrong before.`
     ],
     2: [
-        `The dungeon walls pulse with void energy. Something feels different.`,
-        `Hunters report strange crystalline growths inside. Void Shards.`,
-        `The monsters inside seem... agitated. More than usual.`,
-        `A fracture in the dungeon wall leaks void energy. Be careful.`,
-        `The seal weakens with every dungeon that opens. Fight anyway.`
+        `Three Hunters who cleared this dungeon reported the same dream that night. A dark ocean. Something beneath it. Moving.`,
+        `The Void Shards found here are small. Unstable. The researchers say they are harmless. The researchers also said the Gates were temporary.`,
+        `Something in the dungeon is different today. The monsters are agitated in a way that does not match their rank. Pay attention.`,
+        `The seal weakens every time a dungeon opens. Every time one closes. The System does not know why. It is still calculating.`,
+        `A Hunter left a message scratched into the dungeon wall at Stage 3. It said: it knows we are here. Nobody has figured out what that means yet.`
     ],
     3: [
-        `The Leviathan's presence warps reality. The dungeon feels unstable.`,
-        `Void-touched monsters everywhere. The corruption spreads.`,
-        `Fight hard. Every dungeon cleared weakens the Leviathan's forces.`,
-        `The sky outside the gate is the wrong colour. Don't look up.`,
-        `Every shard collected is a wound against the void. Keep hunting.`
+        `The Leviathan does not need to send monsters. The monsters come because the void calls them. Because fear travels faster than commands.`,
+        `Every dungeon cleared today is a message. We are still here. We are still fighting. Send more.`,
+        `The sky outside the Gate looks wrong. Not dangerous wrong. Just wrong. Like someone changed something small and fundamental about the colour of things.`,
+        `The Hunters who carry Void Shards into dungeons report that the monsters hesitate before attacking them. A fraction of a second. It is enough.`,
+        `There is a theory that the Leviathan can feel every dungeon that opens. If that is true then every raid is a provocation. Good.`
     ],
     4: [
-        `Malachar was spotted near this Gate. His presence corrupts everything.`,
-        `The system flickers when he is near. Stay focused.`,
-        `This dungeon bears his mark. The enemies inside serve him now.`,
-        `He watches every battle. He is learning. So must you.`,
-        `The final chapter is written by hunters. Make it worth reading.`
+        `Malachar was seen near a Gate matching this dungeon's signature. Whatever he is looking for he has not found it yet.`,
+        `The monsters inside bear a mark the System cannot identify. Not a void mark. Something older. Something that belongs to him.`,
+        `He does not rush. He does not retreat. He studies. Every Hunter who survives an encounter with him says the same thing. He was watching them learn.`,
+        `There is one thing Aldric Voss could never do in life. Give up. Whatever he became it kept that much. Use it against him.`,
+        `The System flagged an anomaly near this Gate. A registrationId that should not exist anymore. He has been here. Recently.`
     ]
 };
 
-// ── DB Setup ──────────────────────────────────────────────────────────────────
 async function ensureTables() {
     await db.execute(`
         CREATE TABLE IF NOT EXISTS aria_story (
-            id           INT AUTO_INCREMENT PRIMARY KEY,
+            id              INT AUTO_INCREMENT PRIMARY KEY,
             current_chapter INT DEFAULT 1,
-            updated_at   DATETIME DEFAULT NOW()
+            updated_at      DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
-
-    // Seed default row
-    await db.execute(`
-        INSERT IGNORE INTO aria_story (id, current_chapter) VALUES (1, 1)
-    `).catch(() => {});
+    await db.execute(`INSERT IGNORE INTO aria_story (id, current_chapter) VALUES (1, 1)`).catch(() => {});
 }
 
 async function getCurrentChapter() {
@@ -206,10 +305,7 @@ async function getCurrentChapter() {
 
 async function setChapter(chapterNum) {
     await ensureTables();
-    await db.execute(
-        "UPDATE aria_story SET current_chapter=?, updated_at=NOW() WHERE id=1",
-        [chapterNum]
-    );
+    await db.execute("UPDATE aria_story SET current_chapter=?, updated_at=NOW() WHERE id=1", [chapterNum]);
 }
 
 function getChapterData(chapterNum) {
