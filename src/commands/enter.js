@@ -211,7 +211,7 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
-                let remaining = 3;
+                let remaining = 5;
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -225,12 +225,12 @@ module.exports = {
                         [userId, today]
                     );
                     const todayCount = entryLog[0]?.count || 0;
-                    remaining = 3 - todayCount;
-                    if (todayCount >= 3) {
+                    remaining = 5 - todayCount;
+                    if (todayCount >= 5) {
                         return msg.reply(
                             `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
                             `┃◆ ❌ Daily limit reached.\n` +
-                            `┃◆ You can only enter 3 dungeons\n` +
+                            `┃◆ You can only enter 5 dungeons\n` +
                             `┃◆ per day. Come back tomorrow!\n` +
                             `╰═══════════════════════╯`
                         );
@@ -290,7 +290,8 @@ module.exports = {
                     `┃◆ 👥 Raiders: ${newCount}/5\n` +
                     `┃◆ 📅 Entries left today: ${remaining}/3\n` +
                     `┃◆────────────\n` +
-                    `┃◆ You cannot access the shop🛒 nor your inventory 📦 !\n` +
+                    `┃◆ Get ready before it starts!\n` +
+                    `┃◆ 🛒 !shop  •  📦 !equip\n` +
                     `╰═══════════════════════╯`
                 );
             }
