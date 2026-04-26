@@ -107,9 +107,6 @@ async function spawnDungeon(rank, client = null) {
         console.log(`🧹 Closed dungeon ${oldId}.`);
     }
 
-    // Also close any other stale active dungeons (shouldn't exist but safety net)
-    await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE is_active=1");
-
     const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
     const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10 }[rank] || 3;
 
