@@ -149,3 +149,39 @@ module.exports = {
     giveBag,
     repairBag
 };
+
+// ── Pending Drops — in-memory, expires after 60s ───────────────────────────
+// Key: playerId, Value: { material, rarity, emoji, expiresAt }
+const pendingDrops = new Map();
+
+function setPendingDrop(playerId, material, rarity, emoji) {
+    pendingDrops.set(playerId, {
+        material, rarity, emoji,
+        expiresAt: Date.now() + 60000
+    });
+    // Auto-expire
+    setTimeout(() => {
+        if (pendingDrops.has(playerId) &&
+            pendingDrops.get(playerId).material === material) {
+            pendingDrops.delete(playerId);
+        }
+    }, 60000);
+}
+
+function getPendingDrop(playerId) {
+    const drop = pendingDrops.get(playerId);
+    if (!drop) return null;
+    if (Date.now() > drop.expiresAt) {
+        pendingDrops.delete(playerId);
+        return null;
+    }
+    return drop;
+}
+
+function clearPendingDrop(playerId) {
+    pendingDrops.delete(playerId);
+}
+
+module.exports.setPendingDrop  = setPendingDrop;
+module.exports.getPendingDrop  = getPendingDrop;
+module.exports.clearPendingDrop = clearPendingDrop;

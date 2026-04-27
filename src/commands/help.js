@@ -70,6 +70,7 @@ module.exports = {
 ┃  ◆ !claim <id> → Claim a completed quest
 ┃  ◆ Dailies are role-specific, reset at midnight
 ┃  ◆ Achievements grant titles & SP
+┃  ◆ !pickup → Collect a material drop (60s window)
 ┃  ◆ !checkbag → View bag contents and durability
 ┃  ◆ !emptybag → Bank all findings into materials
 ┃  ◆ !repairbag → Repair bag durability
