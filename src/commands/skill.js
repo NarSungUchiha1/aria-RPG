@@ -220,6 +220,23 @@ module.exports = {
                         reply += `┃◆   ${c.nickname}: +${c.exp} XP, +${c.gold} Gold\n`;
                     });
                 }
+
+                // ✅ Material drop on kill — fits in same message
+                try {
+                    const { rollMaterialDrop } = require('../systems/materialSystem');
+                    const { getPlayerBag, setPendingDrop } = require('../systems/bagSystem');
+                    const bag = await getPlayerBag(userId);
+                    if (bag && bag.durability > 0) {
+                        const drop = await rollMaterialDrop(dungeon.dungeon_rank, userId, client, RAID_GROUP);
+                        if (drop) {
+                            const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
+                            setPendingDrop(userId, drop.material, drop.rarity, emoji);
+                            reply += `┃◆────────────\n`;
+                            reply += `┃◆ ${emoji} *${drop.material}* dropped!\n`;
+                            reply += `┃◆ [${drop.rarity.toUpperCase()}] — !pickup (60s)\n`;
+                        }
+                    }
+                } catch(e) {}
             } else {
                 reply += `┃◆ ${targetEnemy.name} HP: ${result.enemyHp}/${result.enemyMaxHp}\n`;
             }

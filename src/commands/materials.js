@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { getPlayerMaterials, MATERIALS, RARITY_EMOJI, BLACKSMITH_GC } = require('../systems/materialSystem');
+const { getPlayerMaterials, MATERIALS, RARITY_EMOJI } = require('../systems/materialSystem');
 
 module.exports = {
     name: 'materials',
@@ -9,9 +9,13 @@ module.exports = {
 
             if (!mats.length) return msg.reply(
                 `══〘 💎 MATERIALS 〙══╮\n` +
+                `┃◆ \n` +
                 `┃◆ You have no materials yet.\n` +
                 `┃◆ Clear dungeons to collect them.\n` +
-                `┃◆ Visit the Blacksmith GC to forge.\n` +
+                `┃◆ \n` +
+                `┃◆ 🎒 Bring a bag to collect drops.\n` +
+                `┃◆ ⚒️ Visit Blacksmith to forge.\n` +
+                `┃◆ \n` +
                 `╰═══════════════════════╯`
             );
 
@@ -20,19 +24,34 @@ module.exports = {
             for (const m of mats) {
                 const data = MATERIALS[m.material];
                 if (data) byRarity[data.rarity]?.push(m);
+                else byRarity.common.push(m);
             }
 
             let text = `══〘 💎 YOUR MATERIALS 〙══╮\n`;
 
-            for (const [rarity, items] of Object.entries(byRarity)) {
+            const order = ['legendary', 'rare', 'uncommon', 'common'];
+            let first = true;
+
+            for (const rarity of order) {
+                const items = byRarity[rarity];
                 if (!items.length) continue;
+
+                if (!first) text += `┃◆ \n`; // spacer between groups
+                first = false;
+
                 text += `┃◆ ${RARITY_EMOJI[rarity]} ${rarity.toUpperCase()}\n`;
                 items.forEach(i => {
                     text += `┃◆   ${i.material} ×${i.quantity}\n`;
                 });
             }
 
-            text += `┃◆────────────\n┃◆ Use !recipes in the Blacksmith GC\n╰═══════════════════════╯`;
+            const total = mats.reduce((s, m) => s + m.quantity, 0);
+            text +=
+                `┃◆ \n` +
+                `┃◆ Total: ${total} item${total !== 1 ? 's' : ''}\n` +
+                `┃◆ Use !recipes in the Blacksmith GC\n` +
+                `╰═══════════════════════╯`;
+
             return msg.reply(text);
         } catch (err) {
             console.error(err);

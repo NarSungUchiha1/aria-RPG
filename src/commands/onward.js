@@ -128,51 +128,6 @@ module.exports = {
                 } catch (e) {}
             })();
 
-            // ✅ Per-stage material drops into bags
-            (async () => {
-                try {
-                    const { rollMaterialDrop } = require('../systems/materialSystem');
-                    const { addToBag, getPlayerBag } = require('../systems/bagSystem');
-                    const RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                    const [alive] = await db.execute(
-                        "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
-                        [dungeon.id]
-                    );
-                    for (const p of alive) {
-                        const bag = await getPlayerBag(p.player_id);
-                        if (!bag || bag.durability <= 0) continue; // no bag = no loot
-
-                        const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RG);
-                        if (!drop) continue;
-
-                        const result = await addToBag(p.player_id, drop.material, 1);
-                        const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
-
-                        if (result.ok) {
-                            await client.sendMessage(RG, {
-                                text:
-                                    `══〘 💎 LOOT 〙══╮\n` +
-                                    `┃◆ @${p.player_id} picks up:\n` +
-                                    `┃◆ ${emoji} *${drop.material}* [${drop.rarity.toUpperCase()}]\n` +
-                                    `┃◆ 🎒 Bag: ${result.ok ? 'stored' : 'full'}\n` +
-                                    `╰═══════════════════════╯`,
-                                mentions: [`${p.player_id}@s.whatsapp.net`]
-                            });
-                        } else if (result.reason === 'full') {
-                            await client.sendMessage(RG, {
-                                text:
-                                    `══〘 💎 LOOT 〙══╮\n` +
-                                    `┃◆ @${p.player_id} found:\n` +
-                                    `┃◆ ${emoji} *${drop.material}*\n` +
-                                    `┃◆ ❌ Bag full — loot lost!\n` +
-                                    `┃◆ Use a larger bag next time.\n` +
-                                    `╰═══════════════════════╯`,
-                                mentions: [`${p.player_id}@s.whatsapp.net`]
-                            });
-                        }
-                    }
-                } catch (e) { console.error('Stage loot error:', e.message); }
-            })();
 
             // targetChat is the dungeon GC (onward is restricted there by index.js routing)
             const targetChat = await msg.getChat();
