@@ -221,22 +221,40 @@ module.exports = {
                     });
                 }
 
-                // ✅ Material drop on kill — fits in same message
-                try {
-                    const { rollMaterialDrop } = require('../systems/materialSystem');
-                    const { getPlayerBag, setPendingDrop } = require('../systems/bagSystem');
-                    const bag = await getPlayerBag(userId);
-                    if (bag && bag.durability > 0) {
-                        const drop = await rollMaterialDrop(dungeon.dungeon_rank, userId, client, RAID_GROUP);
-                        if (drop) {
+                // ✅ All stage enemies dead — give each alive player a drop
+                (async () => {
+                    try {
+                        const [dungeonCheck] = await db.execute(
+                            "SELECT stage_cleared, dungeon_rank FROM dungeon WHERE id=? AND is_active=1",
+                            [dungeon.id]
+                        );
+                        if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
+
+                        const { rollMaterialDrop } = require('../systems/materialSystem');
+                        const { getPlayerBag, setPendingDrop } = require('../systems/bagSystem');
+                        const [alivePlayers] = await db.execute(
+                            "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                            [dungeon.id]
+                        );
+                        for (const p of alivePlayers) {
+                            const bag = await getPlayerBag(p.player_id);
+                            if (!bag || bag.durability <= 0) continue;
+                            const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, RAID_GROUP);
+                            if (!drop) continue;
                             const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
-                            setPendingDrop(userId, drop.material, drop.rarity, emoji);
-                            reply += `┃◆────────────\n`;
-                            reply += `┃◆ ${emoji} *${drop.material}* dropped!\n`;
-                            reply += `┃◆ [${drop.rarity.toUpperCase()}] — !pickup (60s)\n`;
+                            setPendingDrop(p.player_id, drop.material, drop.rarity, emoji);
+                            await client.sendMessage(RAID_GROUP, {
+                                text:
+                                    `══〘 💎 STAGE LOOT 〙══╮\n` +
+                                    `┃◆ @${p.player_id}\n` +
+                                    `┃◆ ${emoji} *${drop.material}* [${drop.rarity.toUpperCase()}]\n` +
+                                    `┃◆ ⏳ !pickup within 60 seconds\n` +
+                                    `╰═══════════════════════╯`,
+                                mentions: [`${p.player_id}@s.whatsapp.net`]
+                            });
                         }
-                    }
-                } catch(e) {}
+                    } catch(e) { console.error('Stage drop error:', e.message); }
+                })();
             } else {
                 reply += `┃◆ ${targetEnemy.name} HP: ${result.enemyHp}/${result.enemyMaxHp}\n`;
             }

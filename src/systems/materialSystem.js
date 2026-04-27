@@ -242,8 +242,8 @@ async function rollMaterialDrop(dungeonRank, playerId, client, RAID_GROUP) {
     );
     if (!eligible.length) return;
 
-    // Weighted roll — 60% chance of getting anything at all
-    if (Math.random() > 0.60) return;
+    // Per-stage drop — always triggers (called once per stage clear per player)
+    if (Math.random() > 1.0) return; // placeholder — always drops
 
     const totalWeight = eligible.reduce((sum, [, m]) => sum + m.dropWeight, 0);
     let roll = Math.random() * totalWeight;
