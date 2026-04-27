@@ -27,17 +27,24 @@ module.exports = {
                 `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Consumables cannot be equipped.\n┃◆ Use !use ${item.item_name}\n╰═══════════════════════╯`
             );
 
-            // Block equipping same type twice
+            // Block equipping same type twice — but bags auto-swap
             const [alreadyEquipped] = await db.execute(
                 "SELECT id, item_name FROM inventory WHERE player_id=? AND item_type=? AND equipped=1",
                 [userId, item.item_type]
             );
-            if (alreadyEquipped.length) return msg.reply(
-                `══〘 ⚔️ EQUIP 〙══╮\n` +
-                `┃◆ ❌ Already have a ${item.item_type} equipped.\n` +
-                `┃◆ Unequip: ${alreadyEquipped[0].item_name} first.\n` +
-                `╰═══════════════════════╯`
-            );
+            if (alreadyEquipped.length) {
+                if (item.item_type === 'bag') {
+                    // Auto-unequip old bag first
+                    await db.execute("UPDATE inventory SET equipped=0 WHERE id=?", [alreadyEquipped[0].id]);
+                } else {
+                    return msg.reply(
+                        `══〘 ⚔️ EQUIP 〙══╮\n` +
+                        `┃◆ ❌ Already have a ${item.item_type} equipped.\n` +
+                        `┃◆ Unequip: ${alreadyEquipped[0].item_name} first.\n` +
+                        `╰═══════════════════════╯`
+                    );
+                }
+            }
 
             await db.execute("UPDATE inventory SET equipped=1 WHERE id=?", [item.id]);
 

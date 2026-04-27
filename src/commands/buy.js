@@ -44,28 +44,22 @@ module.exports = {
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
 
-            // ✅ Bags are special — they go to the bag system, not inventory
+            // ✅ Bags go to inventory as equippable items
             const BAGS_SET = new Set(['Small Bag', 'Medium Bag', 'Large Bag']);
             if (BAGS_SET.has(item.name)) {
-                const { giveBag, getPlayerBag } = require('../systems/bagSystem');
-                const existing = await getPlayerBag(userId);
-                if (existing) {
-                    // Refund and warn
-                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [item.price, userId]);
-                    return msg.reply(
-                        `══〘 🛒 BUY 〙══╮\n` +
-                        `┃◆ ❌ You already have a ${existing.bag_type}.\n` +
-                        `┃◆ Use !repairbag to restore it.\n` +
-                        `╰═══════════════════════╯`
-                    );
-                }
-                await giveBag(userId, item.name);
+                const { BAGS } = require('../systems/bagSystem');
+                const bagData = BAGS[item.name];
+                await db.execute(
+                    `INSERT INTO inventory (player_id, item_name, item_type, durability, max_durability, equipped)
+                     VALUES (?, ?, 'bag', ?, ?, 0)`,
+                    [userId, item.name, bagData.durability, bagData.durability]
+                );
                 return msg.reply(
                     `══〘 🛒 BUY 〙══╮\n` +
                     `┃◆ ✅ ${item.name} purchased!\n` +
                     `┃◆ 💰 -${item.price} Gold\n` +
-                    `┃◆ 🎒 Ready for your next raid.\n` +
-                    `┃◆ Use !checkbag to view it.\n` +
+                    `┃◆ 📦 ${bagData.slots} slots • ${bagData.durability} durability\n` +
+                    `┃◆ Use !equip to equip it.\n` +
                     `╰═══════════════════════╯`
                 );
             }

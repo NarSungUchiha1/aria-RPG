@@ -1,5 +1,17 @@
 const db = require('../database/db');
 
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
+
+function getDisplayType(itemName, storedType) {
+    if (CONSUMABLES.has(itemName)) return 'CONSUMABLE';
+    return storedType?.toUpperCase() || 'MISC';
+}
+
 module.exports = {
     name: 'inventory',
     async execute(msg, args, { userId }) {
@@ -38,8 +50,19 @@ module.exports = {
                 const grade = it.grade || 'F';
                 const dur   = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
                 const eq    = it.equipped ? '✅ EQUIPPED' : '❌ UNEQUIPPED';
-                text += `┃◆ ${i + 1}. ${it.item_name} [${grade}] 🔧${dur}\n`;
-                text += `┃◆   ➤ ${it.item_type.toUpperCase()}  ${eq}\n`;
+                if (it.item_type === 'bag') {
+                    try {
+                        const { BAGS } = require('../systems/bagSystem');
+                        const slots = BAGS[it.item_name]?.slots || '?';
+                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name}\n`;
+                        text += `┃◆   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
+                    } catch(e) {
+                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name} 🔧${dur}  ${eq}\n`;
+                    }
+                } else {
+                    text += `┃◆ ${i + 1}. ${it.item_name} [${grade}] 🔧${dur}\n`;
+                    text += `┃◆   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
+                }
                 text += `┃◆────────────\n`;
             });
 

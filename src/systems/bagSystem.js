@@ -8,17 +8,6 @@ const BAGS = {
 
 async function ensureTables() {
     await db.execute(`
-        CREATE TABLE IF NOT EXISTS player_bags (
-            id          INT AUTO_INCREMENT PRIMARY KEY,
-            player_id   VARCHAR(50) NOT NULL UNIQUE,
-            bag_type    VARCHAR(50) NOT NULL,
-            slots       INT NOT NULL,
-            durability  INT NOT NULL,
-            max_durability INT NOT NULL
-        )
-    `).catch(() => {});
-
-    await db.execute(`
         CREATE TABLE IF NOT EXISTS bag_contents (
             id          INT AUTO_INCREMENT PRIMARY KEY,
             player_id   VARCHAR(50) NOT NULL,
@@ -29,14 +18,30 @@ async function ensureTables() {
     `).catch(() => {});
 }
 
+// ── Get equipped bag from inventory ──────────────────────────────────────────
 async function getPlayerBag(playerId) {
     await ensureTables();
-    const [rows] = await db.execute("SELECT * FROM player_bags WHERE player_id=?", [playerId]);
-    return rows[0] || null;
+    const [rows] = await db.execute(
+        "SELECT * FROM inventory WHERE player_id=? AND item_type='bag' AND equipped=1 LIMIT 1",
+        [playerId]
+    );
+    if (!rows.length) return null;
+    const item = rows[0];
+    const bagData = BAGS[item.item_name] || {};
+    return {
+        id:            item.id,
+        bag_type:      item.item_name,
+        slots:         bagData.slots || 5,
+        durability:    item.durability !== null ? item.durability : bagData.durability,
+        max_durability: item.max_durability || bagData.durability
+    };
 }
 
 async function getBagContents(playerId) {
-    const [rows] = await db.execute("SELECT * FROM bag_contents WHERE player_id=?", [playerId]);
+    await ensureTables();
+    const [rows] = await db.execute(
+        "SELECT * FROM bag_contents WHERE player_id=?", [playerId]
+    );
     return rows;
 }
 
@@ -62,7 +67,7 @@ async function addToBag(playerId, material, quantity = 1) {
     return { ok: true };
 }
 
-// Called when player types !emptybag — moves everything to player_materials
+// Called when player !emptybag — moves everything to player_materials
 async function emptyBag(playerId) {
     await ensureTables();
     const bag = await getPlayerBag(playerId);
@@ -81,44 +86,27 @@ async function emptyBag(playerId) {
     }
     await db.execute("DELETE FROM bag_contents WHERE player_id=?", [playerId]);
 
-    // Reduce bag durability by 1 on each successful empty
-    await db.execute(
-        "UPDATE player_bags SET durability = GREATEST(0, durability - 1) WHERE player_id=?",
-        [playerId]
-    );
+    // Reduce bag durability by 1
+    const newDur = Math.max(0, bag.durability - 1);
+    await db.execute("UPDATE inventory SET durability=? WHERE id=?", [newDur, bag.id]);
 
-    const [updated] = await db.execute("SELECT durability FROM player_bags WHERE player_id=?", [playerId]);
-    const newDur = updated[0]?.durability || 0;
     if (newDur <= 0) {
-        await destroyBag(playerId);
         return { ok: true, contents, bagBroke: true };
     }
-
-    return { ok: true, contents, bagBroke: false, durability: newDur };
+    return { ok: true, contents, bagBroke: false, durability: newDur, max_durability: bag.max_durability };
 }
 
-// Called on player death — destroy bag and all contents
+// Called on player death — destroy bag contents AND unequip+delete the bag
 async function destroyBag(playerId) {
     await db.execute("DELETE FROM bag_contents WHERE player_id=?", [playerId]);
-    await db.execute("DELETE FROM player_bags WHERE player_id=?", [playerId]);
-}
-
-// Called when player buys a bag from shop
-async function giveBag(playerId, bagType) {
-    await ensureTables();
-    const bagData = BAGS[bagType];
-    if (!bagData) return false;
-
+    // Delete the equipped bag from inventory
     await db.execute(
-        `INSERT INTO player_bags (player_id, bag_type, slots, durability, max_durability)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE bag_type=?, slots=?, durability=?, max_durability=?`,
-        [playerId, bagType, bagData.slots, bagData.durability, bagData.durability,
-         bagType, bagData.slots, bagData.durability, bagData.durability]
+        "DELETE FROM inventory WHERE player_id=? AND item_type='bag' AND equipped=1",
+        [playerId]
     );
-    return true;
 }
 
+// Repair bag — costs gold, restores durability
 async function repairBag(playerId) {
     await ensureTables();
     const bag = await getPlayerBag(playerId);
@@ -133,8 +121,30 @@ async function repairBag(playerId) {
     if (gold < cost) return { ok: false, reason: 'no_gold', cost, gold };
 
     await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [cost, playerId]);
-    await db.execute("UPDATE player_bags SET durability = max_durability WHERE player_id=?", [playerId]);
+    await db.execute("UPDATE inventory SET durability=max_durability WHERE id=?", [bag.id]);
     return { ok: true, cost };
+}
+
+// ── Pending Drops ─────────────────────────────────────────────────────────────
+const pendingDrops = new Map();
+
+function setPendingDrop(playerId, material, rarity, emoji) {
+    pendingDrops.set(playerId, { material, rarity, emoji, expiresAt: Date.now() + 60000 });
+    setTimeout(() => {
+        const d = pendingDrops.get(playerId);
+        if (d && d.material === material) pendingDrops.delete(playerId);
+    }, 60000);
+}
+
+function getPendingDrop(playerId) {
+    const drop = pendingDrops.get(playerId);
+    if (!drop) return null;
+    if (Date.now() > drop.expiresAt) { pendingDrops.delete(playerId); return null; }
+    return drop;
+}
+
+function clearPendingDrop(playerId) {
+    pendingDrops.delete(playerId);
 }
 
 module.exports = {
@@ -146,42 +156,8 @@ module.exports = {
     addToBag,
     emptyBag,
     destroyBag,
-    giveBag,
-    repairBag
+    repairBag,
+    setPendingDrop,
+    getPendingDrop,
+    clearPendingDrop
 };
-
-// ── Pending Drops — in-memory, expires after 60s ───────────────────────────
-// Key: playerId, Value: { material, rarity, emoji, expiresAt }
-const pendingDrops = new Map();
-
-function setPendingDrop(playerId, material, rarity, emoji) {
-    pendingDrops.set(playerId, {
-        material, rarity, emoji,
-        expiresAt: Date.now() + 60000
-    });
-    // Auto-expire
-    setTimeout(() => {
-        if (pendingDrops.has(playerId) &&
-            pendingDrops.get(playerId).material === material) {
-            pendingDrops.delete(playerId);
-        }
-    }, 60000);
-}
-
-function getPendingDrop(playerId) {
-    const drop = pendingDrops.get(playerId);
-    if (!drop) return null;
-    if (Date.now() > drop.expiresAt) {
-        pendingDrops.delete(playerId);
-        return null;
-    }
-    return drop;
-}
-
-function clearPendingDrop(playerId) {
-    pendingDrops.delete(playerId);
-}
-
-module.exports.setPendingDrop  = setPendingDrop;
-module.exports.getPendingDrop  = getPendingDrop;
-module.exports.clearPendingDrop = clearPendingDrop;
