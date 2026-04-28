@@ -42,6 +42,9 @@ module.exports = {
             // Consume materials
             await consumeMaterials(userId, recipe.materials);
 
+            const gradeMap = { common: 'C', uncommon: 'U', rare: 'R', legendary: 'S' };
+            const grade = gradeMap[recipe.rarity] || 'C';
+
             await db.execute(
                 `INSERT INTO inventory 
                  (player_id, item_name, item_type, quantity, grade,
@@ -49,7 +52,7 @@ module.exports = {
                   attack_bonus, defense_bonus, durability, max_durability, equipped)
                  VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, 100, 100, 0)`,
                 [
-                    userId, recipe.name, recipe.rarity.toUpperCase(),
+                    userId, recipe.name, grade,
                     recipe.stats.strength || 0,
                     recipe.stats.agility || 0,
                     recipe.stats.intelligence || 0,
