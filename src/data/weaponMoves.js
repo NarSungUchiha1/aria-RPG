@@ -51,7 +51,7 @@ module.exports = {
     "Nightshade Bow": [
         { name: "Precise Shot", type: "damage", stat: "agility", multiplier: 1.5, cooldown: 1, cost: 6 },
         { name: "Poison Arrow", type: "dot", stat: "agility", multiplier: 0.5, duration: 3, cooldown: 3, cost: 9 },
-        { name: "Multi‑Shot", type: "damage", stat: "agility", multiplier: 1.1, hits: 3, cooldown: 4, cost: 14 }
+        { name: "Multi-Shot", type: "damage", stat: "agility", multiplier: 1.1, hits: 3, cooldown: 4, cost: 14 }
     ],
 
     // ======================== INTELLIGENCE WEAPONS ========================
