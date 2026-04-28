@@ -44,7 +44,8 @@ module.exports = {
 ┃  💰 ECONOMY & TRADING
 ┃  ◆ !pay @user <amount> → Send gold
 ┃  ◆ !transfer @user <amount> → Send XP
-┃  ◆ !trade @user <item #> → Give an item
+┃  ◆ !trade @user <item #> → Give an item (Rank D+)
+┃  ◆ !tradematerial @user <material> <qty> → Trade materials (all ranks)
 ┃
 ┃  ✨ PROGRESSION
 ┃  ◆ !rankup → Rank up (costs XP)

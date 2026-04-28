@@ -125,26 +125,30 @@ async function repairBag(playerId) {
     return { ok: true, cost };
 }
 
-// ── Pending Drops ─────────────────────────────────────────────────────────────
-const pendingDrops = new Map();
+// ── Shared Stage Drop Pool — per dungeon, numbered, first come first served ──
+// Key: dungeonId, Value: [ { id, material, rarity, emoji, takenBy } ]
+const stagePools = new Map();
 
-function setPendingDrop(playerId, material, rarity, emoji) {
-    pendingDrops.set(playerId, { material, rarity, emoji, expiresAt: Date.now() + 60000 });
-    setTimeout(() => {
-        const d = pendingDrops.get(playerId);
-        if (d && d.material === material) pendingDrops.delete(playerId);
-    }, 60000);
+function setStageDrops(dungeonId, drops) {
+    stagePools.set(dungeonId, drops);
+    // Auto-expire after 90 seconds
+    setTimeout(() => stagePools.delete(dungeonId), 90000);
 }
 
-function getPendingDrop(playerId) {
-    const drop = pendingDrops.get(playerId);
-    if (!drop) return null;
-    if (Date.now() > drop.expiresAt) { pendingDrops.delete(playerId); return null; }
-    return drop;
+function getStageDrops(dungeonId) {
+    return stagePools.get(dungeonId) || [];
 }
 
-function clearPendingDrop(playerId) {
-    pendingDrops.delete(playerId);
+function claimStageDrop(dungeonId, dropIndex, playerId) {
+    const pool = stagePools.get(dungeonId);
+    if (!pool || !pool[dropIndex]) return { ok: false, reason: 'no_drop' };
+    if (pool[dropIndex].takenBy) return { ok: false, reason: 'already_taken', takenBy: pool[dropIndex].takenBy };
+    pool[dropIndex].takenBy = playerId;
+    return { ok: true, drop: pool[dropIndex] };
+}
+
+function clearStageDrops(dungeonId) {
+    stagePools.delete(dungeonId);
 }
 
 module.exports = {
@@ -157,7 +161,8 @@ module.exports = {
     emptyBag,
     destroyBag,
     repairBag,
-    setPendingDrop,
-    getPendingDrop,
-    clearPendingDrop
+    setStageDrops,
+    getStageDrops,
+    claimStageDrop,
+    clearStageDrops
 };

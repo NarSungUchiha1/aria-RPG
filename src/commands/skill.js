@@ -221,7 +221,7 @@ module.exports = {
                     });
                 }
 
-                // ✅ All stage enemies dead — give each alive player a drop
+                // ✅ All stage enemies dead — shared drop pool, one message
                 (async () => {
                     try {
                         const [dungeonCheck] = await db.execute(
@@ -231,27 +231,34 @@ module.exports = {
                         if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
 
                         const { rollMaterialDrop } = require('../systems/materialSystem');
-                        const { getPlayerBag, setPendingDrop } = require('../systems/bagSystem');
+                        const { setStageDrops } = require('../systems/bagSystem');
                         const [alivePlayers] = await db.execute(
                             "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                             [dungeon.id]
                         );
+
+                        // Roll one drop per alive player
+                        const drops = [];
                         for (const p of alivePlayers) {
-                            const bag = await getPlayerBag(p.player_id);
-                            if (!bag || bag.durability <= 0) continue;
                             const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, RAID_GROUP);
                             if (!drop) continue;
                             const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
-                            setPendingDrop(p.player_id, drop.material, drop.rarity, emoji);
-                            await client.sendMessage(RAID_GROUP, {
-                                text:
-                                    `══〘 💎 STAGE LOOT 〙══╮\n` +
-                                    `┃◆ ${emoji} *${drop.material}*\n` +
-                                    `┃◆ [${drop.rarity.toUpperCase()}]\n` +
-                                    `┃◆ ⏳ Type !pickup within 60s\n` +
-                                    `╰═══════════════════════╯`
-                            });
+                            drops.push({ material: drop.material, rarity: drop.rarity, emoji, takenBy: null });
                         }
+
+                        if (!drops.length) return;
+
+                        // Store shared pool
+                        setStageDrops(dungeon.id, drops);
+
+                        // Build single numbered drop message
+                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
+                        drops.forEach((d, i) => {
+                            text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
+                        });
+                        text += `┃◆ \n┃◆ ⏳ !pickup <number> — 90 seconds\n┃◆ First come first served.\n╰═══════════════════════╯`;
+
+                        await client.sendMessage(RAID_GROUP, { text });
                     } catch(e) { console.error('Stage drop error:', e.message); }
                 })();
             } else {
