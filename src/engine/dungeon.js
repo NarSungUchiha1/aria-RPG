@@ -216,19 +216,11 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `╰═══════════════════════════╯`;
 
     try {
-        await client.sendMessage(RAID_GROUP, { text: announceMsg, mentions });
+        const { sendWithRetry } = require('../utils/sendWithRetry');
+        await sendWithRetry(client, RAID_GROUP, { text: announceMsg, mentions });
         console.log(`📢 Dungeon announcement sent to group`);
     } catch (e) {
-        console.error("Failed to send dungeon announcement:", e.message);
-        // ✅ Retry once after 10 seconds
-        setTimeout(async () => {
-            try {
-                await client.sendMessage(RAID_GROUP, { text: announceMsg, mentions });
-                console.log(`📢 Dungeon announcement sent (retry)`);
-            } catch (e2) {
-                console.error("Dungeon announcement retry failed:", e2.message);
-            }
-        }, 10000);
+        console.error("Dungeon announcement failed:", e.message);
     }
 }
 

@@ -22,6 +22,7 @@ let lastQR = '';
 let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
+let sock = null; // ✅ Module-level so crons can access it after reconnect
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
@@ -226,7 +227,7 @@ async function startBot() {
         const noop = () => {};
         const silentLogger = { trace:noop, debug:noop, info:noop, warn:noop, error:noop, fatal:noop, child:() => silentLogger };
 
-        const sock = makeWASocket({
+        sock = makeWASocket({
             version,
             auth: state,
             logger: silentLogger,
@@ -478,128 +479,6 @@ async function startBot() {
             }
         });
 
-        // ==================== SCHEDULED DUNGEON SPAWN ====================
-        const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
-
-        cron.schedule('0 */1 * * *', async () => {
-            if (!isReady) { console.log('⏭️ Spawn skipped — bot not ready.'); return; }
-            console.log('🕒 Scheduled dungeon spawn triggered.');
-            try {
-                let isEventRunning = false;
-                try {
-                    const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-                    isEventRunning = eventRows.length > 0;
-                } catch (e) { isEventRunning = false; }
-                if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
-
-                const active = await getActiveDungeon();
-                if (active) {
-                    const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-                    if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`); return; }
-                    console.log(`🧹 Closing stale dungeon ${active.id}.`);
-                }
-                const rank = await getWeightedDungeonRank();
-                console.log(`🎲 Weighted rank selected: ${rank}`);
-                await spawnDungeon(rank, sock);
-            } catch (err) {
-                console.error('Scheduled spawn failed:', err);
-            }
-        });
-
-        cron.schedule('*/20 * * * *', async () => {
-            if (!isReady) return;
-            try {
-                let hasActiveEvent = false;
-                try {
-                    const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-                    hasActiveEvent = eventRows.length > 0;
-                } catch (e) { hasActiveEvent = false; }
-                if (!hasActiveEvent) return;
-
-                const active = await getActiveDungeon();
-                if (active) {
-                    const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-                    if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped — dungeon ${active.id} active.`); return; }
-                }
-                const rank = await getWeightedDungeonRank();
-                console.log(`💠 Event dungeon spawn: ${rank}`);
-                await spawnDungeon(rank, sock);
-            } catch (err) {
-                console.error('Event spawn failed:', err);
-            }
-        });
-
-        // ==================== EVENT AUTO-END ====================
-        cron.schedule('*/10 * * * *', async () => {
-            try {
-                const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
-                if (!expired.length) return;
-                console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
-                const { endEvent } = require('./src/commands/event');
-                await endEvent(expired[0].id, sock);
-            } catch (e) {
-                console.error('Event auto-end error:', e.message);
-            }
-        });
-
-        // ==================== REFERRAL TRACKING ====================
-        sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
-            const { REFERRAL_GROUP_JID, REFERRAL_XP_REFERRER, REFERRAL_GOLD_NEW, ensureTable } = require('./src/commands/referral');
-            if (id !== REFERRAL_GROUP_JID) return;
-            if (action !== 'add') return;
-            try {
-                await ensureTable();
-                if (!author) return;
-                const referrerId = author.split('@')[0];
-                const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
-                if (!referrer.length) return;
-
-                for (const participantJid of participants) {
-                    const newUserId = participantJid.split('@')[0];
-                    if (newUserId === referrerId) continue;
-
-                    const [existing] = await db.execute("SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?", [referrerId, newUserId]);
-                    if (existing.length) continue;
-
-                    // ✅ Give XP to referrer immediately
-                    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [REFERRAL_XP_REFERRER, referrerId]);
-
-                    await db.execute("INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)", [referrerId, newUserId, REFERRAL_XP_REFERRER]);
-
-                    await db.execute(
-                        `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
-                        [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
-                    ).catch(() => {});
-
-                    await sock.sendMessage(REFERRAL_GROUP_JID, {
-                        text:
-                            `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
-                            `┃◆ @${newUserId} just joined!\n` +
-                            `┃◆ Invited by: *${referrer[0].nickname}*\n` +
-                            `┃◆ \n` +
-                            `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
-                            `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
-                            `┃◆ \n` +
-                            `╰═══════════════════════╯`,
-                        mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
-                    });
-                }
-            } catch (e) {
-                console.error('Referral tracking error:', e.message);
-            }
-        });
-
-        // ==================== SHOP RESTOCK ====================
-        const { restockAllItems } = require('./src/systems/shopSystem');
-        cron.schedule('0 0 * * *', async () => {
-            console.log('🛒 Restocking shop...');
-            try {
-                await restockAllItems();
-            } catch (err) {
-                console.error('Shop restock failed:', err);
-            }
-        });
-
     } catch (err) {
         console.error('💥 startBot error:', err.message);
         isBotRunning = false;
@@ -625,5 +504,130 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     console.error('💥 UNHANDLED REJECTION:', reason);
 });
+
+
+// ==================== CRON JOBS (registered once) ====================
+// ==================== SCHEDULED DUNGEON SPAWN ====================
+const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
+
+cron.schedule('0 */1 * * *', async () => {
+    if (!isReady || !sock) { console.log('⏭️ Spawn skipped — bot not ready.'); return; }
+    console.log('🕒 Scheduled dungeon spawn triggered.');
+    try {
+        let isEventRunning = false;
+        try {
+            const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
+            isEventRunning = eventRows.length > 0;
+        } catch (e) { isEventRunning = false; }
+        if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
+
+        const active = await getActiveDungeon();
+        if (active) {
+            const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
+            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`); return; }
+            console.log(`🧹 Closing stale dungeon ${active.id}.`);
+        }
+        const rank = await getWeightedDungeonRank();
+        console.log(`🎲 Weighted rank selected: ${rank}`);
+        await spawnDungeon(rank, sock);
+    } catch (err) {
+        console.error('Scheduled spawn failed:', err);
+    }
+});
+
+cron.schedule('*/20 * * * *', async () => {
+    if (!isReady || !sock) return;
+    try {
+        let hasActiveEvent = false;
+        try {
+            const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
+            hasActiveEvent = eventRows.length > 0;
+        } catch (e) { hasActiveEvent = false; }
+        if (!hasActiveEvent) return;
+
+        const active = await getActiveDungeon();
+        if (active) {
+            const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
+            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped — dungeon ${active.id} active.`); return; }
+        }
+        const rank = await getWeightedDungeonRank();
+        console.log(`💠 Event dungeon spawn: ${rank}`);
+        await spawnDungeon(rank, sock);
+    } catch (err) {
+        console.error('Event spawn failed:', err);
+    }
+});
+
+// ==================== EVENT AUTO-END ====================
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
+        if (!expired.length) return;
+        console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
+        const { endEvent } = require('./src/commands/event');
+        await endEvent(expired[0].id, sock);
+    } catch (e) {
+        console.error('Event auto-end error:', e.message);
+    }
+});
+
+// ==================== REFERRAL TRACKING ====================
+sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
+    const { REFERRAL_GROUP_JID, REFERRAL_XP_REFERRER, REFERRAL_GOLD_NEW, ensureTable } = require('./src/commands/referral');
+    if (id !== REFERRAL_GROUP_JID) return;
+    if (action !== 'add') return;
+    try {
+        await ensureTable();
+        if (!author) return;
+        const referrerId = author.split('@')[0];
+        const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
+        if (!referrer.length) return;
+
+        for (const participantJid of participants) {
+            const newUserId = participantJid.split('@')[0];
+            if (newUserId === referrerId) continue;
+
+            const [existing] = await db.execute("SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?", [referrerId, newUserId]);
+            if (existing.length) continue;
+
+            // ✅ Give XP to referrer immediately
+            await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [REFERRAL_XP_REFERRER, referrerId]);
+
+            await db.execute("INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)", [referrerId, newUserId, REFERRAL_XP_REFERRER]);
+
+            await db.execute(
+                `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
+                [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
+            ).catch(() => {});
+
+            await sock.sendMessage(REFERRAL_GROUP_JID, {
+                text:
+                    `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
+                    `┃◆ @${newUserId} just joined!\n` +
+                    `┃◆ Invited by: *${referrer[0].nickname}*\n` +
+                    `┃◆ \n` +
+                    `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
+                    `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
+                    `┃◆ \n` +
+                    `╰═══════════════════════╯`,
+                mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
+            });
+        }
+    } catch (e) {
+        console.error('Referral tracking error:', e.message);
+    }
+});
+
+// ==================== SHOP RESTOCK ====================
+const { restockAllItems } = require('./src/systems/shopSystem');
+cron.schedule('0 0 * * *', async () => {
+    console.log('🛒 Restocking shop...');
+    try {
+        await restockAllItems();
+    } catch (err) {
+        console.error('Shop restock failed:', err);
+    }
+});
+
 
 startBot();
