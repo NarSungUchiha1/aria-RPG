@@ -246,11 +246,10 @@ module.exports = {
                             await client.sendMessage(RAID_GROUP, {
                                 text:
                                     `══〘 💎 STAGE LOOT 〙══╮\n` +
-                                    `┃◆ @${p.player_id}\n` +
-                                    `┃◆ ${emoji} *${drop.material}* [${drop.rarity.toUpperCase()}]\n` +
-                                    `┃◆ ⏳ !pickup within 60 seconds\n` +
-                                    `╰═══════════════════════╯`,
-                                mentions: [`${p.player_id}@s.whatsapp.net`]
+                                    `┃◆ ${emoji} *${drop.material}*\n` +
+                                    `┃◆ [${drop.rarity.toUpperCase()}]\n` +
+                                    `┃◆ ⏳ Type !pickup within 60s\n` +
+                                    `╰═══════════════════════╯`
                             });
                         }
                     } catch(e) { console.error('Stage drop error:', e.message); }
