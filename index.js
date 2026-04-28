@@ -488,26 +488,42 @@ async function startBot() {
             try {
                 await ensureTable();
                 console.log(`👥 Join event — group: ${id}, author: ${author}, participants: ${participants.join(',')}`);
-                if (!author) {
-                    console.log('⚠️ Referral: author is null — joined via link but no referrer identified.');
-                    return;
-                }
-                const referrerId = author.split('@')[0];
-                const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
-                if (!referrer.length) return;
-
                 for (const participantJid of participants) {
                     const newUserId = participantJid.split('@')[0];
+
+                    if (!author) {
+                        // No referrer — still give new player bonus and welcome them
+                        await db.execute(
+                            `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
+                            [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
+                        ).catch(() => {});
+
+                        await sock.sendMessage(REFERRAL_GROUP_JID, {
+                            text:
+                                `══〘 🔗 NEW HUNTER 〙══╮\n` +
+                                `┃◆ @${newUserId} just joined ARIA!\n` +
+                                `┃◆ \n` +
+                                `┃◆ 💰 +${REFERRAL_GOLD_NEW} Gold bonus\n` +
+                                `┃◆    waiting on registration.\n` +
+                                `┃◆ \n` +
+                                `┃◆ Use !awaken to begin your journey.\n` +
+                                `╰═══════════════════════╯`,
+                            mentions: [participantJid]
+                        });
+                        continue;
+                    }
+
+                    const referrerId = author.split('@')[0];
                     if (newUserId === referrerId) continue;
+
+                    const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
+                    if (!referrer.length) continue;
 
                     const [existing] = await db.execute("SELECT id FROM referrals WHERE referrer_id=? AND referred_id=?", [referrerId, newUserId]);
                     if (existing.length) continue;
 
-                    // ✅ Give XP to referrer immediately
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [REFERRAL_XP_REFERRER, referrerId]);
-
                     await db.execute("INSERT IGNORE INTO referrals (referrer_id, referred_id, xp_rewarded) VALUES (?, ?, ?)", [referrerId, newUserId, REFERRAL_XP_REFERRER]);
-
                     await db.execute(
                         `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
                         [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
@@ -516,12 +532,13 @@ async function startBot() {
                     await sock.sendMessage(REFERRAL_GROUP_JID, {
                         text:
                             `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
-                            `┃◆ @${newUserId} just joined!\n` +
+                            `┃◆ @${newUserId} just joined ARIA!\n` +
                             `┃◆ Invited by: *${referrer[0].nickname}*\n` +
                             `┃◆ \n` +
                             `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
                             `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
                             `┃◆ \n` +
+                            `┃◆ Use !awaken to begin your journey.\n` +
                             `╰═══════════════════════╯`,
                         mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
                     });
