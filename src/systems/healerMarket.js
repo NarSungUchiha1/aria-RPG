@@ -2,7 +2,6 @@ const db = require('../database/db');
 
 const HEALER_GC = '120363427051780444@g.us';
 
-// ── Table Setup ───────────────────────────────────────────────────────────────
 async function ensureTables() {
     await db.execute(`
         CREATE TABLE IF NOT EXISTS healer_listings (
@@ -29,6 +28,20 @@ async function ensureTables() {
             status       ENUM('pending','completed','cancelled') DEFAULT 'pending',
             created_at   DATETIME DEFAULT NOW(),
             completed_at DATETIME NULL
+        )
+    `).catch(() => {});
+
+    // ✅ Dungeon healer hire — tracks hired healer per dungeon
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS dungeon_healer (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            dungeon_id  INT NOT NULL UNIQUE,
+            healer_id   VARCHAR(50) NOT NULL,
+            healer_nick VARCHAR(100) NOT NULL,
+            fee_gold    INT NOT NULL DEFAULT 0,
+            hired_by    VARCHAR(50) NOT NULL,
+            paid        TINYINT DEFAULT 0,
+            created_at  DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
 }

@@ -96,6 +96,7 @@ module.exports = {
 ┃  ◆ !listservice <gold> <xp> <desc> → Post your service
 ┃  ◆ !healers → Browse available healers
 ┃  ◆ !hire <number> → Book a healer (pays them instantly)
+┃  ◆ !hiredungeon <number> → Hire a healer for a dungeon run (paid on clear)
 ┃  ◆ !contracts → Your contract history (healers only)
 ┃  ◆ !removelisting → Take down your listing
 ┃

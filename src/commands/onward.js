@@ -67,6 +67,56 @@ module.exports = {
                     await handleShardDrop(dungeon.id, client);
                 } catch (e) { console.error('Shard drop error:', e.message); }
 
+                // ✅ Healer payment — fee split between alive party members
+                (async () => {
+                    try {
+                        const [hire] = await db.execute(
+                            "SELECT * FROM dungeon_healer WHERE dungeon_id=? AND paid=0",
+                            [dungeon.id]
+                        );
+                        if (!hire.length) return;
+                        const h = hire[0];
+
+                        // Split fee evenly between survivors
+                        const partySize = participants.length;
+                        if (partySize === 0) return;
+                        const perPlayer = Math.ceil(h.fee_gold / partySize);
+
+                        let totalPaid = 0;
+                        for (const p of participants) {
+                            const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [p.player_id]);
+                            const canPay = Math.min(perPlayer, gold[0]?.gold || 0);
+                            if (canPay > 0) {
+                                await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [canPay, p.player_id]);
+                                totalPaid += canPay;
+                            }
+                        }
+
+                        // Pay healer
+                        await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [totalPaid, h.healer_id]);
+                        await db.execute("UPDATE dungeon_healer SET paid=1 WHERE id=?", [h.id]);
+
+                        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                        await client.sendMessage(RAID_GROUP, {
+                            text:
+                                `══〘 💚 HEALER PAID 〙══╮\n` +
+                                `┃◆ *${h.healer_nick}* earned ${totalPaid} Gold\n` +
+                                `┃◆ (${perPlayer}/player × ${partySize} raiders)\n` +
+                                `┃◆ Thanks for the healing! 💚\n` +
+                                `╰═══════════════════════╯`
+                        });
+
+                        // Notify healer
+                        await client.sendMessage(`${h.healer_id}@s.whatsapp.net`, {
+                            text:
+                                `══〘 💚 PAYMENT RECEIVED 〙══╮\n` +
+                                `┃◆ Dungeon cleared!\n` +
+                                `┃◆ 💰 +${totalPaid} Gold received.\n` +
+                                `╰═══════════════════════╯`
+                        });
+                    } catch(e) { console.error('Healer payment error:', e.message); }
+                })();
+
                 // ✅ Material drops — fire and forget
                 (async () => {
                     try {
