@@ -8,18 +8,23 @@ module.exports = {
             `══〘 📢 ANNOUNCE 〙══╮\n┃◆ ❌ Admin only.\n╰═══════════════════════╯`
         );
 
-        const message = args.join(' ').trim();
+        const rawText = msg.body || '';
+        const message = rawText.replace(/^!announce\s*/i, '').trim();
         if (!message) return msg.reply(
             `══〘 📢 ANNOUNCE 〙══╮\n┃◆ ❌ Use: !announce <message>\n╰═══════════════════════╯`
         );
 
+        // Each line becomes a bulleted ┃◆ line
+        const lines = message.split('\n').map(l => `┃◆ ${l.trim()}`).join('\n');
+
         try {
-            const { mentions } = await tagAll(client);
+            let mentions = [];
+        try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) { console.log('tagAll failed, continuing without mentions.'); }
 
             const text =
                 `╭══〘 📢 ANNOUNCEMENT 〙══╮\n` +
                 `┃◆ \n` +
-                `┃◆ ${message}\n` +
+                `${lines}\n` +
                 `┃◆ \n` +
                 `╰═══════════════════════════╯`;
 
