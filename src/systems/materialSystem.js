@@ -236,20 +236,32 @@ async function ensureTables() {
 async function rollMaterialDrop(dungeonRank, playerId, client, RAID_GROUP) {
     await ensureTables();
 
+    const HIGH_RANKS = ['C', 'B', 'A', 'S'];
+    const isHighRank = HIGH_RANKS.includes(dungeonRank);
+
     // Filter eligible materials for this dungeon rank
     const eligible = Object.entries(MATERIALS).filter(([, m]) =>
         m.dungeonRanks.includes(dungeonRank)
     );
     if (!eligible.length) return;
 
-    // Per-stage drop — always triggers (called once per stage clear per player)
-    if (Math.random() > 1.0) return; // placeholder — always drops
+    // ✅ Boost rare/legendary weights for C-S rank dungeons
+    // In high rank dungeons, rare/legendary materials get 10x weight
+    const weightedEligible = eligible.map(([name, mat]) => {
+        let weight = mat.dropWeight;
+        if (isHighRank && (mat.rarity === 'rare' || mat.rarity === 'legendary')) {
+            weight = mat.dropWeight * 10; // ~80% drop rate for rare+ in C-S
+        } else if (isHighRank && mat.rarity === 'common') {
+            weight = Math.floor(mat.dropWeight * 0.2); // common drops much less in high ranks
+        }
+        return [name, { ...mat, dropWeight: weight }];
+    });
 
-    const totalWeight = eligible.reduce((sum, [, m]) => sum + m.dropWeight, 0);
+    const totalWeight = weightedEligible.reduce((sum, [, m]) => sum + m.dropWeight, 0);
     let roll = Math.random() * totalWeight;
 
     let dropped = null;
-    for (const [name, mat] of eligible) {
+    for (const [name, mat] of weightedEligible) {
         roll -= mat.dropWeight;
         if (roll <= 0) { dropped = { name, ...mat }; break; }
     }

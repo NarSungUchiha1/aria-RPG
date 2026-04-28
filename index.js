@@ -487,7 +487,11 @@ async function startBot() {
             if (action !== 'add') return;
             try {
                 await ensureTable();
-                if (!author) return;
+                console.log(`👥 Join event — group: ${id}, author: ${author}, participants: ${participants.join(',')}`);
+                if (!author) {
+                    console.log('⚠️ Referral: author is null — joined via link but no referrer identified.');
+                    return;
+                }
                 const referrerId = author.split('@')[0];
                 const [referrer] = await db.execute("SELECT nickname FROM players WHERE id=?", [referrerId]);
                 if (!referrer.length) return;
