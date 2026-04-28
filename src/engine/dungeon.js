@@ -208,7 +208,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +
-        `┃◆   Max Raiders: 5\n` +
+        `┃◆   Max Raiders: ${{ F:3, E:3, D:4, C:4, B:5, A:5, S:5 }[rank] || 3}\n` +
         `┃◆ \n` +
         `┃◆   DM the bot: !enter to join!\n` +
         `┃◆   ⏳ Portal closes in 10 minutes.\n` +

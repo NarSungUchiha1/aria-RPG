@@ -182,7 +182,11 @@ module.exports = {
                 [dungeon.id]
             );
             const currentPlayers = count[0].cnt;
-            if (currentPlayers >= 5) {
+            
+            // ✅ Raider limit by dungeon rank
+            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
+            const maxRaiders = MAX_RAIDERS[dungeon.dungeon_rank] || 3;
+            if (currentPlayers >= maxRaiders) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
                     `┃◆ ❌ Dungeon is full (5/5).\n` +
@@ -288,7 +292,7 @@ module.exports = {
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
                     `┃◆ 👥 Raiders: ${newCount}/5\n` +
-                    `┃◆ 📅 Entries left today: ${remaining}/3\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/5\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
                     `┃◆ 🛒 !shop  •  📦 !equip\n` +
@@ -315,8 +319,8 @@ module.exports = {
                     [userId, today]
                 );
                 const todayCount = entryLog[0]?.count || 0;
-                const remaining  = 3 - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/3\n`;
+                const remaining  = 5 - todayCount;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/5\n`;
             }
 
             const confirmTimer = setTimeout(() => {
