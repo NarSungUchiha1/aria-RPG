@@ -42,15 +42,14 @@ module.exports = {
             // Consume materials
             await consumeMaterials(userId, recipe.materials);
 
-            // Add to inventory
-            const statsJson = JSON.stringify(recipe.stats);
             await db.execute(
-                `INSERT INTO inventory (player_id, item_name, item_type, grade, rarity,
-                    strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus,
-                    attack_bonus, defense_bonus, durability, max_durability, equipped)
-                 VALUES (?, ?, 'weapon', 'S', ?, ?, ?, ?, ?, ?, ?, 100, 100, 0)`,
+                `INSERT INTO inventory 
+                 (player_id, item_name, item_type, quantity, grade,
+                  strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus,
+                  attack_bonus, defense_bonus, durability, max_durability, equipped)
+                 VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, 100, 100, 0)`,
                 [
-                    userId, recipe.name, recipe.rarity,
+                    userId, recipe.name, recipe.rarity.toUpperCase(),
                     recipe.stats.strength || 0,
                     recipe.stats.agility || 0,
                     recipe.stats.intelligence || 0,
@@ -89,7 +88,7 @@ module.exports = {
             );
         } catch (err) {
             console.error(err);
-            msg.reply(`══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Forge failed.\n╰═══════════════════════╯`);
+            msg.reply(`══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Forge failed.\n┃◆ ${err.message}\n╰═══════════════════════╯`);
         }
     }
 };
