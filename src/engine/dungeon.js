@@ -196,15 +196,35 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
     // ✅ Lore flavour text based on current chapter
     let loreText = '';
     try {
-        const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loresystem');
+        const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loreSystem');
         const chapter = await getCurrentChapter();
         loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞\n┃◆ \n`;
     } catch (e) {}
+
+    // ✅ Void War context if active
+    let warText = '';
+    try {
+        const { getActiveWar } = require('../systems/voidwar');
+        const war = await getActiveWar();
+        if (war) {
+            const pct = Math.min(100, Math.floor((war.total_damage / war.goal) * 100));
+            const filled = Math.floor(pct / 10);
+            const bar = '🟥'.repeat(filled) + '⬛'.repeat(10 - filled);
+            warText =
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ ⚡ VOID WAR ACTIVE\n` +
+                `┃◆ ${bar} ${pct}%\n` +
+                `┃◆ Clear this to wound the Leviathan!\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ \n`;
+        }
+    } catch(e) {}
 
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
         `┃◆ \n` +
         `${loreText}` +
+        `${warText}` +
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +
