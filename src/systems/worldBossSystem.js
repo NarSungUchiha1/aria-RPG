@@ -20,7 +20,6 @@ const WORLD_BOSSES = [
             `┃◆    The system recognises him. It cannot stop him.\n` +
             `┃◆    Malachar the Undying walks again.`
     },
-    {
         {
         name: 'The Void Leviathan',
         rank: 'SS',
