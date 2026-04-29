@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const { RAID_GROUP } = require('../engine/dungeon');
 
-const VOID_WAR_GOAL     = 50000; // Total damage needed to defeat Leviathan
+const VOID_WAR_GOAL     = 100000; // Total damage needed to defeat Leviathan
 const WAR_BONUS_GOLD    = 500;
 const WAR_BONUS_XP      = 300;
 const CORRUPTION_HOURS  = 24;
