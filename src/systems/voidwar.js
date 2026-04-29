@@ -155,11 +155,84 @@ async function endVoidWar(client, forced = false) {
         [warId]
     );
 
+    // ✅ Goal reached — spawn the Void Leviathan
     if (success) {
         // Reward all contributors
         for (const c of contributors) {
             await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [WAR_BONUS_GOLD, c.player_id]);
             await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [WAR_BONUS_XP, c.player_id]);
+        }
+
+        if (client) {
+            const { sendWithRetry } = require('../utils/sendWithRetry');
+            const { tagAll } = require('../utils/tagAll');
+            let mentions = [];
+            try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) {}
+
+            // Build leaderboard
+            let board = '';
+            const medals = ['🥇','🥈','🥉'];
+            contributors.slice(0,10).forEach((c, i) => {
+                board += `┃◆ ${medals[i] || `${i+1}.`} *${c.nickname}* — ${c.damage.toLocaleString()} dmg (${c.dungeons} raids)\n`;
+            });
+
+            await sendWithRetry(client, RAID_GROUP, {
+                text:
+                    `╭══〘 ⚡ VOID WAR — GOAL REACHED 〙══╮\n` +
+                    `┃◆ \n` +
+                    `┃◆ The collective damage threshold\n` +
+                    `┃◆ has been reached.\n` +
+                    `┃◆ \n` +
+                    `┃◆ The Leviathan's forces have been\n` +
+                    `┃◆ weakened enough to face it directly.\n` +
+                    `┃◆ \n` +
+                    `┃◆ 🏆 TOP HUNTERS:\n` +
+                    `${board}` +
+                    `┃◆ \n` +
+                    `┃◆ All participants: +${WAR_BONUS_GOLD} Gold +${WAR_BONUS_XP} XP\n` +
+                    `┃◆ \n` +
+                    `┃◆ ⚠️ Prepare yourselves.\n` +
+                    `┃◆ The Leviathan itself is coming.\n` +
+                    `┃◆ \n` +
+                    `╰═══════════════════════════╯`,
+                mentions
+            });
+
+            // Auto-spawn the Leviathan after 30 seconds
+            setTimeout(async () => {
+                try {
+                    const WORLD_BOSSES = require('../systems/worldBossSystem').WORLD_BOSSES;
+                    const leviathan = WORLD_BOSSES.find(b => b.name === 'The Void Leviathan');
+                    if (!leviathan) return;
+
+                    await db.execute(
+                        `INSERT INTO world_boss (name, \`rank\`, max_hp, current_hp, atk, def, exp_reward, gold_reward, is_active, spawn_time)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
+                        [leviathan.name, leviathan.rank, leviathan.hp, leviathan.hp,
+                         leviathan.atk, leviathan.def, leviathan.exp, leviathan.gold]
+                    );
+
+                    // Init battle
+                    const { initBattle } = require('../systems/leviathan');
+                    await initBattle(client);
+
+                    await sendWithRetry(client, RAID_GROUP, {
+                        text:
+                            `╭══〘 🌊 IT HAS ARRIVED 〙══╮\n` +
+                            `┃◆ \n` +
+                            `┃◆ ${leviathan.spawnMsg}\n` +
+                            `┃◆ \n` +
+                            `┃◆ ❤️ HP: ${leviathan.hp.toLocaleString()}\n` +
+                            `┃◆ \n` +
+                            `┃◆ ALL HUNTERS — use !attackboss\n` +
+                            `┃◆ Every 5-6 turns it retaliates.\n` +
+                            `┃◆ Shard holders cannot be killed.\n` +
+                            `┃◆ \n` +
+                            `╰═══════════════════════════╯`,
+                        mentions
+                    });
+                } catch(e) { console.error('Leviathan auto-spawn error:', e.message); }
+            }, 30000);
         }
     } else {
         // Apply void corruption to all registered players
