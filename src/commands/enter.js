@@ -215,7 +215,7 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
-                let remaining = 5;
+                let remaining = 5; // updated after chapter check
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -229,12 +229,20 @@ module.exports = {
                         [userId, today]
                     );
                     const todayCount = entryLog[0]?.count || 0;
-                    remaining = 5 - todayCount;
-                    if (todayCount >= 5) {
+                    remaining = dailyLimit - todayCount;
+                    // ✅ Chapter 3 = 15 entries, otherwise 5
+                    let dailyLimit = 5;
+                    try {
+                        const { getCurrentChapter } = require('../systems/loreSystem');
+                        const ch = await getCurrentChapter();
+                        if (ch >= 3) dailyLimit = 15;
+                    } catch(e) {}
+
+                    if (todayCount >= dailyLimit) {
                         return msg.reply(
                             `══〘 🏰 DUNGEON ENTRY 〙══╮\n` +
                             `┃◆ ❌ Daily limit reached.\n` +
-                            `┃◆ You can only enter 5 dungeons\n` +
+                            `┃◆ You can only enter ${dailyLimit} dungeons\n` +
                             `┃◆ per day. Come back tomorrow!\n` +
                             `╰═══════════════════════╯`
                         );
@@ -292,7 +300,7 @@ module.exports = {
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
                     `┃◆ 👥 Raiders: ${newCount}/5\n` +
-                    `┃◆ 📅 Entries left today: ${remaining}/5\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/${dailyLimit}\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
                     `┃◆ 🛒 !shop  •  📦 !equip\n` +
@@ -319,8 +327,8 @@ module.exports = {
                     [userId, today]
                 );
                 const todayCount = entryLog[0]?.count || 0;
-                const remaining  = 5 - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/5\n`;
+                const remaining  = dailyLimit - todayCount;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/${dailyLimit}\n`;
             }
 
             const confirmTimer = setTimeout(() => {
