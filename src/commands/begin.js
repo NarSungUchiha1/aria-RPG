@@ -32,6 +32,12 @@ module.exports = {
             }
 
             await lockDungeon(dungeon.id);
+
+            // ✅ Init contribution tracker for stage 1
+            try {
+                const { initStage } = require('../systems/contributionSystem');
+                initStage(dungeon.id);
+            } catch(e) {}
             await spawnStageEnemies(dungeon.id, dungeon.dungeon_rank, 1);
 
             // targetChat is always the dungeon GC (begin is DUNGEON_GC_ONLY in index.js)
@@ -64,7 +70,7 @@ module.exports = {
 
             // ── Message 1: Dungeon begins ──
             await msg.reply(
-                `╭══〘 ⚔️ DUNGEON HAS BEGUN 〙══╮\n` +
+                `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ 🚪 The gates slam shut.\n` +
                 `┃◆ No one enters. No one leaves.\n` +

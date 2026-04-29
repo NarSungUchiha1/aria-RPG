@@ -171,6 +171,9 @@ module.exports = {
             } catch(e) {}
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
 
+            // ✅ Track contribution for loot system
+            try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
+
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
