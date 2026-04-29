@@ -6,19 +6,40 @@ const itemStats = require('../data/itemStats');
 const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 
 const rankRequirements = {
-    E: 1000, D: 3000, C: 7000, B: 15000, A: 30000, S: 60000
+    E: 500,
+    D: 1200,
+    C: 2500,
+    B: 5000,
+    A: 10000,
+    S: 20000
 };
 
 const rankStatIncreases = {
-    E: 4, D: 6, C: 8, B: 12, A: 16, S: 22
+    E: 4,
+    D: 6,
+    C: 8,
+    B: 12,
+    A: 16,
+    S: 22
 };
 
 const rankHpIncreases = {
-    E: 20, D: 35, C: 50, B: 70, A: 100, S: 150
+    E: 20,
+    D: 35,
+    C: 50,
+    B: 70,
+    A: 100,
+    S: 150
 };
 
 const rankMaxMana = {
-    F: 50, E: 100, D: 160, C: 240, B: 330, A: 420, S: 500
+    F: 50,
+    E: 100,
+    D: 160,
+    C: 240,
+    B: 330,
+    A: 420,
+    S: 500
 };
 
 module.exports = {
@@ -29,82 +50,63 @@ module.exports = {
                 "SELECT `rank`, role, strength, agility, intelligence, stamina, hp, max_hp, mana, max_mana FROM players WHERE id=?",
                 [userId]
             );
-            if (!player.length) return msg.reply(
-                `══〘 🏅 RANK UP 〙══╮\n┃◆ ❌ Not registered.\n╰═══════════════════════╯`
-            );
+            if (!player.length) return msg.reply("❌ Not registered.");
 
             const currentRank = player[0].rank;
-            const currentIdx  = rankOrder.indexOf(currentRank);
+            const currentIdx = rankOrder.indexOf(currentRank);
+            if (currentIdx === -1) return msg.reply("❌ Invalid rank data.");
+            if (currentIdx === rankOrder.length - 1) {
+                return msg.reply("❌ You are already max rank (S).");
+            }
 
-            if (currentIdx === -1) return msg.reply(
-                `══〘 🏅 RANK UP 〙══╮\n┃◆ ❌ Invalid rank data.\n╰═══════════════════════╯`
-            );
-            if (currentIdx === rankOrder.length - 1) return msg.reply(
-                `══〘 🏅 RANK UP 〙══╮\n┃◆ ❌ Already max rank (S).\n╰═══════════════════════╯`
-            );
-
-            const nextRank    = rankOrder[currentIdx + 1];
-            const requiredXp  = rankRequirements[nextRank];
+            const nextRank = rankOrder[currentIdx + 1];
+            const requiredXp = rankRequirements[nextRank];
             const statIncrease = rankStatIncreases[nextRank];
-            const hpIncrease  = rankHpIncreases[nextRank];
+            const hpIncrease = rankHpIncreases[nextRank];
 
-            const [xpRow]    = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
-            const currentXp  = Number(xpRow[0]?.xp) || 0;
+            const [xpRow] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
+            const currentXp = Number(xpRow[0]?.xp) || 0;
 
             if (currentXp < requiredXp) {
-                return msg.reply(
-                    `══〘 🏅 RANK UP 〙══╮\n` +
-                    `┃◆ ❌ Not enough XP.\n` +
-                    `┃◆ Need: ${requiredXp} XP\n` +
-                    `┃◆ Have: ${currentXp} XP\n` +
-                    `┃◆ Short: ${requiredXp - currentXp} XP\n` +
-                    `╰═══════════════════════╯`
-                );
+                return msg.reply(`❌ You need ${requiredXp} XP to rank up to ${nextRank}. You have ${currentXp} XP.`);
             }
 
             await db.execute("UPDATE xp SET xp = xp - ? WHERE player_id=?", [requiredXp, userId]);
 
-            const role      = player[0].role;
-            const isCaster  = (role === 'Mage' || role === 'Healer');
+            const role = player[0].role;
+            const isCaster = (role === 'Mage' || role === 'Healer');
             const newMaxMana = isCaster ? rankMaxMana[nextRank] : null;
 
-            let updateQuery =
-                `UPDATE players SET
-                    \`rank\` = ?,
-                    strength     = strength     + ?,
-                    agility      = agility      + ?,
-                    intelligence = intelligence + ?,
-                    stamina      = stamina      + ?,
-                    hp           = hp           + ?,
-                    max_hp       = max_hp       + ?`;
+            let updateQuery = `UPDATE players SET 
+                \`rank\` = ?,
+                strength = strength + ?,
+                agility = agility + ?,
+                intelligence = intelligence + ?,
+                stamina = stamina + ?,
+                hp = hp + ?,
+                max_hp = max_hp + ?`;
             const params = [nextRank, statIncrease, statIncrease, statIncrease, statIncrease, hpIncrease, hpIncrease];
 
             if (isCaster) {
                 updateQuery += `, mana = ?, max_mana = ?`;
                 params.push(newMaxMana, newMaxMana);
             }
+
             updateQuery += ` WHERE id = ?`;
             params.push(userId);
 
             await db.execute(updateQuery, params);
 
-            // ✅ Quest tracking — rank_reached achievement
-            try {
-                const { updateQuestProgress } = require('../systems/questSystem');
-                await updateQuestProgress(userId, 'rank_reached', 1, null);
-            } catch (e) {}
-
-            let reply =
-                `══〘 🏅 RANK UP 〙══╮\n` +
-                `┃◆ 🎉 Congratulations!\n` +
-                `┃◆ Rank: ${currentRank} → ${nextRank}\n` +
-                `┃◆ XP Cost: ${requiredXp}\n` +
-                `┃◆────────────\n` +
-                `┃◆ 💪 STR/AGI/INT/STA +${statIncrease}\n` +
-                `┃◆ ❤️ Max HP +${hpIncrease}\n`;
+            let reply = `══〘 🏅 RANK UP 〙══╮
+┃◆ Congratulations!
+┃◆ Rank: ${currentRank} → ${nextRank}
+┃◆ XP Cost: ${requiredXp}
+┃◆────────────
+┃◆ 💪 STR/AGI/INT/STA +${statIncrease}
+┃◆ ❤️ Max HP +${hpIncrease}`;
 
             if (isCaster) {
-                reply += `┃◆ 💙 Max Mana: ${rankMaxMana[currentRank]} → ${newMaxMana}\n`;
+                reply += `\n┃◆ 💙 Max Mana: ${rankMaxMana[currentRank]} → ${newMaxMana}`;
             }
 
             // Special weapon reward for rank C and above
@@ -119,7 +121,7 @@ module.exports = {
                     const [result] = await db.execute("SELECT LAST_INSERT_ID() as id");
                     const itemId = result[0].id;
                     await db.execute(
-                        `UPDATE inventory SET
+                        `UPDATE inventory SET 
                             strength_bonus = ?, agility_bonus = ?, intelligence_bonus = ?, stamina_bonus = ?,
                             attack_bonus = ?, defense_bonus = ?, durability = 100, max_durability = 100
                          WHERE id = ?`,
@@ -130,16 +132,16 @@ module.exports = {
                             itemId
                         ]
                     );
-                    reply += `┃◆ 🎁 Reward: ${specialName} added!\n`;
+                    reply += `\n┃◆ 🎁 Special Weapon: ${specialName} added to inventory!`;
                 }
             }
 
-            reply += `╰═══════════════════════╯`;
-            return msg.reply(reply);
+            reply += `\n╰═══════════════════════╯`;
 
+            return msg.reply(reply);
         } catch (err) {
             console.error(err);
-            msg.reply(`══〘 🏅 RANK UP 〙══╮\n┃◆ ❌ Rank up failed.\n╰═══════════════════════╯`);
+            msg.reply("❌ Rank up failed.");
         }
     }
 };

@@ -61,6 +61,24 @@ module.exports = {
                     })();
                 }
 
+                // ✅ Void War damage contribution
+                (async () => {
+                    try {
+                        const { addWarDamage, getActiveWar, endVoidWar } = require('../systems/voidwar');
+                        const war = await getActiveWar();
+                        if (!war) return;
+                        for (const p of participants) {
+                            const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [p.player_id]);
+                            if (!pl.length) continue;
+                            const result = await addWarDamage(p.player_id, pl[0].nickname, dungeon.dungeon_rank);
+                            if (result && result.totalDamage >= result.goal) {
+                                console.log('⚡ Void War goal reached! Ending war...');
+                                await endVoidWar(client);
+                            }
+                        }
+                    } catch(e) { console.error('War damage error:', e.message); }
+                })();
+
                 // ✅ Void Shard drops (event only)
                 try {
                     const { handleShardDrop } = require('./event');

@@ -37,172 +37,152 @@ const RARITY_EMOJI = {
 // ── Forge Recipes ─────────────────────────────────────────────────────────────
 // Power scales with rarity of ingredients
 const RECIPES = [
-    // ── COMMON TIER WEAPONS ───────────────────────────────────────────────────
+    // ── COMMON TIER ──────────────────────────────────────────────────────────
     {
-        name: "Bonecrusher",
-        role: "Berserker",
+        name: "Bonecrusher", role: "Berserker", rarity: 'common',
         materials: { 'Iron Shard': 3, 'Bone Fragment': 2 },
-        stats: { strength: 8, attack: 6 },
-        description: "A brutal club fused from dungeon bones and iron scrap. Ugly. Effective.",
-        rarity: 'common'
+        stats: { strength: 25, attack: 20 },
+        durability: 60,
+        description: "A brutal club fused from dungeon bones and iron scrap. Ugly. Effective."
     },
     {
-        name: "Thorn Dagger",
-        role: "Assassin",
+        name: "Thorn Dagger", role: "Assassin", rarity: 'common',
         materials: { 'Thorn Splinter': 3, 'Iron Shard': 2 },
-        stats: { agility: 8, attack: 7 },
-        description: "Lightweight and vicious. Coated in dungeon thorns that never fully dull.",
-        rarity: 'common'
+        stats: { agility: 25, attack: 22 },
+        durability: 60,
+        description: "Lightweight and vicious. Coated in dungeon thorns that never fully dull."
     },
     {
-        name: "Iron Ward",
-        role: "Tank",
+        name: "Iron Ward", role: "Tank", rarity: 'common',
         materials: { 'Iron Shard': 4, 'Bone Fragment': 2 },
-        stats: { stamina: 8, defense: 9 },
-        description: "A rough shield hammered from dungeon iron. Nothing fancy. Holds.",
-        rarity: 'common'
+        stats: { stamina: 25, defense: 28 },
+        durability: 70,
+        description: "A rough shield hammered from dungeon iron. Nothing fancy. Holds."
     },
     {
-        name: "Bone Staff",
-        role: "Mage",
+        name: "Bone Staff", role: "Mage", rarity: 'common',
         materials: { 'Bone Fragment': 3, 'Thorn Splinter': 2 },
-        stats: { intelligence: 8, attack: 6 },
-        description: "Carved from the spine of something that should not have existed. Channels void energy well.",
-        rarity: 'common'
+        stats: { intelligence: 25, attack: 20 },
+        durability: 60,
+        description: "Carved from the spine of something that should not have existed."
     },
     {
-        name: "Splint Mace",
-        role: "Healer",
+        name: "Splint Mace", role: "Healer", rarity: 'common',
         materials: { 'Thorn Splinter': 2, 'Iron Shard': 2, 'Bone Fragment': 2 },
-        stats: { intelligence: 7, stamina: 5 },
-        description: "Crude. But in the right hands it keeps people alive.",
-        rarity: 'common'
+        stats: { intelligence: 22, stamina: 18 },
+        durability: 60,
+        description: "Crude. But in the right hands it keeps people alive."
     },
 
-    // ── UNCOMMON TIER WEAPONS ─────────────────────────────────────────────────
+    // ── UNCOMMON TIER ────────────────────────────────────────────────────────
     {
-        name: "Shadow Fang",
-        role: "Assassin",
+        name: "Shadow Fang", role: "Assassin", rarity: 'uncommon',
         materials: { 'Shadow Essence': 2, 'Venom Crystal': 2, 'Iron Shard': 2 },
-        stats: { agility: 18, attack: 16, strength: 5 },
-        description: "Forged in darkness. Poisons on contact. The monster it came from had no name in the records.",
-        rarity: 'uncommon'
+        stats: { agility: 55, attack: 50, strength: 15 },
+        durability: 80,
+        description: "Forged in darkness. Poisons on contact. The monster it came from had no name."
     },
     {
-        name: "Ember Greatsword",
-        role: "Berserker",
+        name: "Ember Greatsword", role: "Berserker", rarity: 'uncommon',
         materials: { 'Ember Stone': 3, 'Iron Shard': 3 },
-        stats: { strength: 18, attack: 15 },
-        description: "Burns without fire. The blade stays hot long after the dungeon goes cold.",
-        rarity: 'uncommon'
+        stats: { strength: 55, attack: 48 },
+        durability: 80,
+        description: "Burns without fire. The blade stays hot long after the dungeon goes cold."
     },
     {
-        name: "Frost Barrier",
-        role: "Tank",
+        name: "Frost Barrier", role: "Tank", rarity: 'uncommon',
         materials: { 'Frost Gem': 2, 'Iron Shard': 3, 'Bone Fragment': 2 },
-        stats: { stamina: 18, defense: 20 },
-        description: "Hits that land on it slow the attacker. Nobody knows why. Nobody is complaining.",
-        rarity: 'uncommon'
+        stats: { stamina: 55, defense: 60 },
+        durability: 90,
+        description: "Hits that land on it slow the attacker. Nobody knows why."
     },
     {
-        name: "Venom Codex",
-        role: "Mage",
+        name: "Venom Codex", role: "Mage", rarity: 'uncommon',
         materials: { 'Venom Crystal': 2, 'Shadow Essence': 2, 'Thorn Splinter': 2 },
-        stats: { intelligence: 18, attack: 15 },
-        description: "A tome written in a language that predates the Gates. Reading it hurts. Using it is worse.",
-        rarity: 'uncommon'
+        stats: { intelligence: 55, attack: 48 },
+        durability: 80,
+        description: "A tome written in a language that predates the Gates."
     },
     {
-        name: "Ember Chalice",
-        role: "Healer",
+        name: "Ember Chalice", role: "Healer", rarity: 'uncommon',
         materials: { 'Ember Stone': 2, 'Frost Gem': 2, 'Bone Fragment': 2 },
-        stats: { intelligence: 16, stamina: 12 },
-        description: "Heals burn. Heals freeze. Nobody said recovery was comfortable.",
-        rarity: 'uncommon'
+        stats: { intelligence: 50, stamina: 38 },
+        durability: 80,
+        description: "Heals burn. Heals freeze. Nobody said recovery was comfortable."
     },
 
-    // ── RARE TIER WEAPONS ─────────────────────────────────────────────────────
+    // ── RARE TIER ────────────────────────────────────────────────────────────
     {
-        name: "Soulreaper",
-        role: "Berserker",
+        name: "Soulreaper", role: "Berserker", rarity: 'rare',
         materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
-        stats: { strength: 30, attack: 26, stamina: 8 },
-        description: "Every kill feeds it. Every kill makes it hungrier. The Hunter who forged the first one disappeared three days later. The weapon did not.",
-        rarity: 'rare'
+        stats: { strength: 100, attack: 90, stamina: 25 },
+        durability: 120,
+        description: "Every kill feeds it. Every kill makes it hungrier."
     },
     {
-        name: "Void Edge",
-        role: "Assassin",
+        name: "Void Edge", role: "Assassin", rarity: 'rare',
         materials: { 'Void Fragment': 2, 'Shadow Essence': 3, 'Storm Shard': 1 },
-        stats: { agility: 30, attack: 28 },
-        description: "Cuts through things that should not be cuttable. The void recognises its own.",
-        rarity: 'rare'
+        stats: { agility: 100, attack: 95 },
+        durability: 120,
+        description: "Cuts through things that should not be cuttable. The void recognises its own."
     },
     {
-        name: "Stormwall",
-        role: "Tank",
+        name: "Stormwall", role: "Tank", rarity: 'rare',
         materials: { 'Storm Shard': 2, 'Soul Crystal': 1, 'Iron Shard': 4 },
-        stats: { stamina: 30, defense: 32, strength: 8 },
-        description: "Lightning absorbed on impact. Released on counterattack. It does not defend. It waits.",
-        rarity: 'rare'
+        stats: { stamina: 100, defense: 110, strength: 25 },
+        durability: 150,
+        description: "Lightning absorbed on impact. Released on counterattack. It waits."
     },
     {
-        name: "Blood Grimoire",
-        role: "Mage",
+        name: "Blood Grimoire", role: "Mage", rarity: 'rare',
         materials: { 'Blood Opal': 2, 'Void Fragment': 1, 'Soul Crystal': 2 },
-        stats: { intelligence: 30, attack: 26 },
-        description: "Written in blood that is not human. The spells inside are not in any known magical system. They work anyway.",
-        rarity: 'rare'
+        stats: { intelligence: 100, attack: 90 },
+        durability: 120,
+        description: "Written in blood that is not human. The spells work anyway."
     },
     {
-        name: "Soul Lantern",
-        role: "Healer",
+        name: "Soul Lantern", role: "Healer", rarity: 'rare',
         materials: { 'Soul Crystal': 2, 'Blood Opal': 1, 'Frost Gem': 2 },
-        stats: { intelligence: 28, stamina: 18 },
-        description: "It remembers every person it has healed. It carries them. Sometimes at night it glows without being touched.",
-        rarity: 'rare'
+        stats: { intelligence: 95, stamina: 60 },
+        durability: 120,
+        description: "It remembers every person it has healed. It carries them."
     },
 
-    // ── LEGENDARY TIER WEAPONS ────────────────────────────────────────────────
+    // ── LEGENDARY TIER ───────────────────────────────────────────────────────
     {
-        name: "Maw of the Abyss",
-        role: "Berserker",
+        name: "Maw of the Abyss", role: "Berserker", rarity: 'legendary',
         materials: { 'Abyssal Core': 1, 'Soul Crystal': 2, 'Blood Opal': 2, 'Void Fragment': 2 },
-        stats: { strength: 50, attack: 45, stamina: 15 },
-        description: "Forged from the core of something the System refused to classify. It should not exist. Neither should the things it has killed.",
-        rarity: 'legendary'
+        stats: { strength: 220, attack: 200, stamina: 50 },
+        durability: 200,
+        description: "Forged from the core of something the System refused to classify."
     },
     {
-        name: "Wraithblade",
-        role: "Assassin",
+        name: "Wraithblade", role: "Assassin", rarity: 'legendary',
         materials: { 'Void Heart': 1, 'Shadow Essence': 3, 'Void Fragment': 2 },
-        stats: { agility: 50, attack: 48, strength: 10 },
-        description: "It does not cast a shadow. The Hunter who wields it starts having trouble remembering what light looks like. They do not mind.",
-        rarity: 'legendary'
+        stats: { agility: 220, attack: 210, strength: 30 },
+        durability: 200,
+        description: "It does not cast a shadow. The Hunter who wields it starts having trouble remembering what light looks like."
     },
     {
-        name: "Aegis of Eternity",
-        role: "Tank",
+        name: "Aegis of Eternity", role: "Tank", rarity: 'legendary',
         materials: { 'Eternity Shard': 1, 'Abyssal Core': 1, 'Storm Shard': 3 },
-        stats: { stamina: 50, defense: 55, strength: 12 },
-        description: "It has no origin. No records. Hunters who have held it report feeling like they have held it before. In another life. In another war.",
-        rarity: 'legendary'
+        stats: { stamina: 220, defense: 240, strength: 40 },
+        durability: 250,
+        description: "It has no origin. No records. Hunters who hold it feel they have held it before. In another war."
     },
     {
-        name: "The Last Word",
-        role: "Mage",
+        name: "The Last Word", role: "Mage", rarity: 'legendary',
         materials: { 'Void Heart': 1, 'Blood Opal': 2, 'Soul Crystal': 2, 'Abyssal Core': 1 },
-        stats: { intelligence: 50, attack: 45 },
-        description: "A spellbook with one page. The page is blank. But when a Mage opens it in combat the right spell is always there. Always exactly what is needed. Never what the Mage expected.",
-        rarity: 'legendary'
+        stats: { intelligence: 220, attack: 200 },
+        durability: 200,
+        description: "A spellbook with one page. The page is blank. But the right spell is always there."
     },
     {
-        name: "Cradle of Life",
-        role: "Healer",
+        name: "Cradle of Life", role: "Healer", rarity: 'legendary',
         materials: { 'Eternity Shard': 1, 'Soul Crystal': 3, 'Frost Gem': 2, 'Ember Stone': 2 },
-        stats: { intelligence: 45, stamina: 30 },
-        description: "The researchers named it after the report that does not officially exist. Make of that what you will.",
-        rarity: 'legendary'
+        stats: { intelligence: 200, stamina: 120 },
+        durability: 200,
+        description: "The researchers named it after the report that does not officially exist."
     }
 ];
 

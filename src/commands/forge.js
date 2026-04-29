@@ -44,13 +44,14 @@ module.exports = {
 
             const gradeMap = { common: 'C', uncommon: 'U', rare: 'R', legendary: 'S' };
             const grade = gradeMap[recipe.rarity] || 'C';
+            const durability = recipe.durability || 100;
 
             await db.execute(
                 `INSERT INTO inventory 
                  (player_id, item_name, item_type, quantity, grade,
                   strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus,
                   attack_bonus, defense_bonus, durability, max_durability, equipped)
-                 VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, 100, 100, 0)`,
+                 VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
                 [
                     userId, recipe.name, grade,
                     recipe.stats.strength || 0,
@@ -58,7 +59,8 @@ module.exports = {
                     recipe.stats.intelligence || 0,
                     recipe.stats.stamina || 0,
                     recipe.stats.attack || 0,
-                    recipe.stats.defense || 0
+                    recipe.stats.defense || 0,
+                    durability, durability
                 ]
             );
 

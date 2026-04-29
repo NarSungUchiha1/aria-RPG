@@ -77,9 +77,21 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
 
     const totalAttack = statValue + totalBonus;
     const defense = Number(enemy.def) || 0;
-    const damageReduction = Math.floor(defense / 2);
+    const damageReduction = Math.floor(defense / 3); // ✅ reduced defense penalty
     const multiplier = move.multiplier || 1;
-    let damage = Math.floor(totalAttack * multiplier) - damageReduction;
+
+    // ✅ Rank multiplier — higher rank = more base damage
+    const rankMult = { F:1.0, E:1.3, D:1.7, C:2.2, B:2.8, A:3.5, S:4.5 };
+    const rMult = rankMult[player.rank] || 1.0;
+
+    // ✅ Void Corruption — -30% damage if corrupted
+    let corruptionMult = 1.0;
+    try {
+        const { isCorrupted } = require('./voidwar');
+        if (await isCorrupted(player.id)) corruptionMult = 0.7;
+    } catch(e) {}
+
+    let damage = Math.floor(totalAttack * multiplier * rMult * corruptionMult) - damageReduction;
     return Math.max(1, damage);
 }
 

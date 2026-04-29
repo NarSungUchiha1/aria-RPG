@@ -22,7 +22,22 @@ let lastQR = '';
 let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
-let sock = null; // ✅ Module-level so crons can access it after reconnect
+let sock = null;
+
+// ✅ Simple player cache — reduces DB hits on every command
+const playerCache = new Map();
+const CACHE_TTL = 30000; // 30 seconds
+
+function getCachedPlayer(userId) {
+    const cached = playerCache.get(userId);
+    if (!cached) return null;
+    if (Date.now() - cached.ts > CACHE_TTL) { playerCache.delete(userId); return null; }
+    return cached.data;
+}
+
+function setCachedPlayer(userId, data) {
+    playerCache.set(userId, { data, ts: Date.now() });
+}
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
@@ -459,8 +474,15 @@ async function startBot() {
 
             try {
                 if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
-                    const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
-                    if (rows.length && rows[0].hp <= 0) {
+                    let hp = null;
+                    const cached = getCachedPlayer(userId);
+                    if (cached) {
+                        hp = cached.hp;
+                    } else {
+                        const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
+                        if (rows.length) { hp = rows[0].hp; setCachedPlayer(userId, rows[0]); }
+                    }
+                    if (hp !== null && hp <= 0) {
                         return await sock.sendMessage(jid, {
                             text:
                                 `══〘 💀 YOU ARE DEAD 〙══╮\n` +
@@ -657,3 +679,19 @@ cron.schedule('0 0 * * *', async () => {
 
 
 startBot();
+
+// ==================== VOID WAR AUTO-END ====================
+cron.schedule('*/10 * * * *', async () => {
+    if (!isReady || !sock) return;
+    try {
+        const { getActiveWar, endVoidWar } = require('./src/systems/voidwar');
+        const war = await getActiveWar();
+        if (!war) return;
+        const expired = new Date(war.ends_at) <= new Date();
+        const goalReached = war.total_damage >= war.goal;
+        if (expired || goalReached) {
+            console.log(`⚡ Void War ending — expired: ${expired}, goal: ${goalReached}`);
+            await endVoidWar(sock);
+        }
+    } catch(e) { console.error('Void War auto-end error:', e.message); }
+});
