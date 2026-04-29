@@ -21,20 +21,42 @@ const WORLD_BOSSES = [
             `┃◆    Malachar the Undying walks again.`
     },
     {
+        {
         name: 'The Void Leviathan',
         rank: 'SS',
-        hp: 200000, atk: 180, def: 90,
-        exp: 8000, gold: 15000,
+        hp: 500000, atk: 250, def: 120,
+        exp: 15000, gold: 30000,
+        chapter: 3,
         lore:
-            `Before the first dungeon existed, the Void Leviathan\n` +
-            `┃◆    roamed the space between dimensions. ARIA sealed\n` +
-            `┃◆    it using the combined life force of a thousand\n` +
-            `┃◆    hunters. The seal has broken. It is hungry.`,
+            `It was not born. It has always existed.\n` +
+            `┃◆    Before the first Gate opened. Before the system.\n` +
+            `┃◆    Before this world had a name.\n` +
+            `┃◆    \n` +
+            `┃◆    A thousand hunters gave their lives to seal it.\n` +
+            `┃◆    Their sacrifice became the Gates themselves —\n` +
+            `┃◆    not portals, but prison bars.\n` +
+            `┃◆    \n` +
+            `┃◆    The bars are broken now.\n` +
+            `┃◆    The Void Leviathan does not attack.\n` +
+            `┃◆    It simply arrives. And things stop existing.`,
         spawnMsg:
-            `The sky tears open. Something vast and ancient\n` +
-            `┃◆    bleeds through the rift. The Void Leviathan —\n` +
-            `┃◆    older than the system itself — has arrived.\n` +
-            `┃◆    The air tastes like the end of worlds.`
+            `The ocean rose three hundred metres and fell.\n` +
+            `┃◆    The sky turned the colour of a bruise.\n` +
+            `┃◆    Every Hunter within range felt it —\n` +
+            `┃◆    not heard, not seen. Felt.\n` +
+            `┃◆    Something vast and patient and ancient\n` +
+            `┃◆    just opened its eyes.\n` +
+            `┃◆    \n` +
+            `┃◆    The Void Leviathan has arrived.\n` +
+            `┃◆    The system cannot classify it.\n` +
+            `┃◆    The system is afraid.`,
+        voidMoves: [
+            { name: 'Void Surge',       damage: 800,  msg: 'Reality fractures. Everyone takes void damage.' },
+            { name: 'Abyssal Drain',    damage: 600,  msg: 'The Leviathan drains life from the battlefield.' },
+            { name: 'Dimensional Tear', damage: 1200, msg: 'A rift opens. Catastrophic void energy released.' },
+            { name: 'Corruption Wave',  damage: 400,  msg: 'Void corruption spreads across all hunters.' },
+            { name: 'Gravity Crush',    damage: 900,  msg: 'Gravity inverts. Hunters are crushed inward.' }
+        ]
     },
     {
         name: 'Seraphel, Fallen Warden',
@@ -133,7 +155,8 @@ async function spawnWorldBoss(client) {
 
     if (client) {
         const { tagAll } = require('../utils/tagAll');
-        const { mentions } = await tagAll(client);
+        let mentions = [];
+        try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) { console.log('tagAll failed, continuing without mentions.'); }
 
         await client.sendMessage(RAID_GROUP, {
             text:

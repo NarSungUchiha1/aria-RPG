@@ -28,6 +28,38 @@ module.exports = {
                 `══〘 🌍 BOSS ATTACK 〙══╮\n┃◆ ❌ ${result.error}\n╰═══════════════════════╯`
             );
 
+            // ✅ If attacking the Leviathan — use Leviathan battle system
+            if (boss.name === 'The Void Leviathan') {
+                const { battleState, processTurn } = require('../systems/leviathan');
+
+                // Init battle if not active yet
+                if (!battleState.active) {
+                    const { initBattle } = require('../systems/leviathan');
+                    await initBattle(client);
+                }
+
+                if (battleState.finalPhase) return msg.reply(
+                    `══〘 🌊 LEVIATHAN 〙══╮\n` +
+                    `┃◆ The Leviathan is in its final phase.\n` +
+                    `┃◆ Shard holders must !fuse then !finalstrike.\n` +
+                    `╰═══════════════════════╯`
+                );
+
+                await processTurn(userId, damage, client);
+
+                // War damage contribution
+                try {
+                    const { addWarDamage, getActiveWar, endVoidWar } = require('../systems/voidwar');
+                    const war = await getActiveWar();
+                    if (war) {
+                        const warResult = await addWarDamage(userId, p.nickname, 'S');
+                        if (warResult && warResult.totalDamage >= warResult.goal) {
+                            await endVoidWar(client);
+                        }
+                    }
+                } catch(e) {}
+            }
+
             const filledBars = Math.max(0, Math.floor((result.newHp / boss.max_hp) * 10));
             const bar        = '█'.repeat(filledBars) + '░'.repeat(10 - filledBars);
             const hpPct      = ((result.newHp / Number(boss.max_hp)) * 100).toFixed(1);
