@@ -7,6 +7,8 @@ const {
     getDungeonStatusText,
     demoteAllRaiders
 } = require('../engine/dungeon');
+const { handleShardDrop } = require('./event');
+const { getPlayerBag } = require('../systems/bagSystem');
 const { resetStageTimer, clearDungeonTimers } = require('../engine/dungeonTimer');
 
 module.exports = {
@@ -50,7 +52,6 @@ module.exports = {
                     // ✅ Quest tracking — fire and forget
                     (async () => {
                         try {
-                            const { updateQuestProgress } = require('../systems/questSystem');
                             await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
                             await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
                             await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
@@ -64,7 +65,6 @@ module.exports = {
                 // ✅ Void War damage contribution
                 (async () => {
                     try {
-                        const { addWarDamage, getActiveWar, endVoidWar } = require('../systems/voidwar');
                         const war = await getActiveWar();
                         if (!war) return;
                         for (const p of participants) {
@@ -138,7 +138,6 @@ module.exports = {
                 // ✅ Material drops — fire and forget
                 (async () => {
                     try {
-                        const { rollMaterialDrop } = require('../systems/materialSystem');
                         const RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
                         for (const p of survivors) {
                             const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RG);
@@ -184,14 +183,12 @@ module.exports = {
 
             // ✅ Init fresh contribution tracker for new stage
             try {
-                const { initStage } = require('../systems/contributionSystem');
                 initStage(dungeon.id);
             } catch(e) {}
 
             // ✅ Track stage clear — fire and forget
             (async () => {
                 try {
-                    const { updateQuestProgress } = require('../systems/questSystem');
                     const [alive] = await db.execute(
                         "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                         [dungeon.id]

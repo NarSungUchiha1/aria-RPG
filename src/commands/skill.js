@@ -6,6 +6,8 @@ const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findP
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { narrate } = require('../utils/narrator');
+const { addToBag, getPlayerBag, getBagContents, destroyBag } = require('../systems/bagSystem');
+
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
@@ -166,7 +168,6 @@ module.exports = {
 
             // ✅ Void Corruption — -30% damage if corrupted
             try {
-                const { isCorrupted } = require('../systems/voidwar');
                 if (await isCorrupted(userId)) estDamage = Math.floor(estDamage * 0.7);
             } catch(e) {}
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
@@ -180,7 +181,6 @@ module.exports = {
             // ✅ Quest tracking — fire and forget, don't block combat response
             (async () => {
                 try {
-                    const { updateQuestProgress } = require('../systems/questSystem');
                     await updateQuestProgress(userId, 'skill_use', 1, client);
                     await updateQuestProgress(userId, 'damage_dealt', result.damage, client);
                     if (result.defeated) {
@@ -240,10 +240,6 @@ module.exports = {
                             [dungeon.id]
                         );
                         if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
-
-                        const { rollMaterialDrop } = require('../systems/materialSystem');
-                        const { addToBag, getPlayerBag } = require('../systems/bagSystem');
-                        const { assignDropsToContributors, clearStage } = require('../systems/contributionSystem');
                         const [alivePlayers] = await db.execute(
                             "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                             [dungeon.id]
@@ -260,7 +256,7 @@ module.exports = {
 
                         if (!drops.length) { clearStage(dungeon.id); return; }
 
-                        // Assign by contribution rank
+                        // Assign by contribution rank — store as pending, players must !pickup
                         const assignments = assignDropsToContributors(dungeon.id, drops);
                         clearStage(dungeon.id);
 
@@ -271,22 +267,19 @@ module.exports = {
                             return;
                         }
 
-                        // Auto-add to bags
-                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n┃◆ Assigned by contribution:\n┃◆ \n`;
+                        // Store pending drops per player — they must !pickup
+                        for (const a of assignments) {
+                            setPendingAssignment(a.player.playerId, a.drop, a.rank);
+                        }
+
+                        // Build announcement — show who gets what, they must pickup
+                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
+                        text += `┃◆ Loot assigned by contribution:\n┃◆ \n`;
 
                         for (const a of assignments) {
-                            const bag = await getPlayerBag(a.player.playerId);
-                            let status = '';
-                            if (!bag || bag.durability <= 0) {
-                                status = '❌ No bag';
-                            } else {
-                                const result = await addToBag(a.player.playerId, a.drop.material, 1);
-                                status = result.ok ? '✅ Stored' : '❌ Bag full';
-                            }
                             const medal = a.rank === 1 ? '🥇' : a.rank === 2 ? '🥈' : a.rank === 3 ? '🥉' : `${a.rank}.`;
                             text += `┃◆ ${medal} *${a.player.nickname}*\n`;
-                            text += `┃◆    ${a.drop.emoji} ${a.drop.material} [${a.drop.rarity.toUpperCase()}]\n`;
-                            text += `┃◆    ${status}\n`;
+                            text += `┃◆    ${a.drop.emoji} *${a.drop.material}* [${a.drop.rarity.toUpperCase()}]\n`;
                             text += `┃◆ \n`;
                         }
 
@@ -294,10 +287,11 @@ module.exports = {
                             !assignments.find(a => a.player.playerId === p.player_id)
                         );
                         if (noLoot.length) {
-                            text += `┃◆ ⚠️ Low contribution — no loot:\n`;
-                            noLoot.forEach(p => text += `┃◆    @${p.player_id}\n`);
+                            text += `┃◆ ⚠️ Low contribution — no loot for ${noLoot.length} hunter(s).\n┃◆ \n`;
                         }
 
+                        text += `┃◆ ⏳ Type !pickup to collect your drop.\n`;
+                        text += `┃◆ 90 seconds before it disappears.\n`;
                         text += `╰═══════════════════════╯`;
                         await client.sendMessage(RAID_GROUP, { text });
 
@@ -325,7 +319,6 @@ module.exports = {
                     // ✅ Destroy bag and all contents on death
                     let bagLostMsg = '';
                     try {
-                        const { destroyBag, getPlayerBag, getBagContents } = require('../systems/bagSystem');
                         const bag = await getPlayerBag(userId);
                         if (bag) {
                             const contents = await getBagContents(userId);

@@ -26,7 +26,7 @@ let sock = null;
 
 // ✅ Simple player cache — reduces DB hits on every command
 const playerCache = new Map();
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 120000; // 2 minutes
 
 function getCachedPlayer(userId) {
     const cached = playerCache.get(userId);
@@ -476,11 +476,16 @@ async function startBot() {
                 if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
                     let hp = null;
                     const cached = getCachedPlayer(userId);
-                    if (cached) {
+                    if (cached !== null) {
                         hp = cached.hp;
                     } else {
                         const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
-                        if (rows.length) { hp = rows[0].hp; setCachedPlayer(userId, rows[0]); }
+                        if (rows.length) {
+                            hp = rows[0].hp;
+                            setCachedPlayer(userId, rows[0]);
+                        } else {
+                            setCachedPlayer(userId, { hp: null }); // cache miss so we dont re-query
+                        }
                     }
                     if (hp !== null && hp <= 0) {
                         return await sock.sendMessage(jid, {
