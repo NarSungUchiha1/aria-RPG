@@ -162,7 +162,13 @@ module.exports = {
 ┃◆ ❌ Enemy "${targetArg}" not found.
 ╰═══════════════════════╯`);
 
-            const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
+            let estDamage = calculateMoveDamage(player, move, targetEnemy, items);
+
+            // ✅ Void Corruption — -30% damage if corrupted
+            try {
+                const { isCorrupted } = require('../systems/voidwar');
+                if (await isCorrupted(userId)) estDamage = Math.floor(estDamage * 0.7);
+            } catch(e) {}
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
 
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);

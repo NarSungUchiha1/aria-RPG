@@ -84,14 +84,9 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     const rankMult = { F:1.0, E:1.3, D:1.7, C:2.2, B:2.8, A:3.5, S:4.5 };
     const rMult = rankMult[player.rank] || 1.0;
 
-    // ✅ Void Corruption — -30% damage if corrupted
-    let corruptionMult = 1.0;
-    try {
-        const { isCorrupted } = require('./voidwar');
-        if (await isCorrupted(player.id)) corruptionMult = 0.7;
-    } catch(e) {}
-
-    let damage = Math.floor(totalAttack * multiplier * rMult * corruptionMult) - damageReduction;
+    // ✅ Void Corruption applied externally — pass as param if needed
+    // (corruption mult handled in skill.js before calling this)
+    let damage = Math.floor(totalAttack * multiplier * rMult) - damageReduction;
     return Math.max(1, damage);
 }
 
