@@ -22,8 +22,8 @@ const WORLD_BOSSES = [
     },
         {
         name: 'The Void Leviathan',
-        rank: 'SS',
-        hp: 500000, atk: 250, def: 120,
+        rank: 'SSS',
+        hp: 1000000, atk: 1000, def: 250,
         exp: 15000, gold: 30000,
         chapter: 3,
         lore:
