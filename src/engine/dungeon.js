@@ -333,8 +333,9 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     const data = enemiesData[rank];
     if (!data) return;
 
-    // Check if event is active for boosted spawns
+    // Check if event OR Void War is active for boosted spawns
     let isEvent = false;
+    let isVoidWar = false;
     try {
         const [eventRows] = await db.execute(
             "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -342,28 +343,54 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
         isEvent = eventRows.length > 0;
     } catch (e) { isEvent = false; }
 
+    try {
+        const [warRows] = await db.execute(
+            "SELECT id FROM void_war WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
+        );
+        isVoidWar = warRows.length > 0;
+    } catch (e) { isVoidWar = false; }
+
+    const isBoosted = isEvent || isVoidWar;
+
     const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];
 
     if (isBoss) {
         const boss = { ...data.boss };
-        if (isEvent) {
-            // Empowered boss during event
-            boss.hp  = Math.floor(boss.hp  * 2.0);
-            boss.atk = Math.floor(boss.atk * 1.5);
-            boss.exp  = Math.floor(boss.exp  * 1.5);
-            boss.gold = Math.floor(boss.gold * 1.5);
-            boss.name = `Void-Touched ${boss.name}`;
+        if (isBoosted) {
+            // Void War boss — massively empowered
+            const hpMult  = isVoidWar ? 3.5 : 2.0;
+            const atkMult = isVoidWar ? 2.5 : 1.5;
+            boss.hp   = Math.floor(boss.hp  * hpMult);
+            boss.atk  = Math.floor(boss.atk * atkMult);
+            boss.def  = Math.floor((boss.def || 5) * 1.8);
+            boss.exp  = Math.floor(boss.exp  * 2.0);
+            boss.gold = Math.floor(boss.gold * 2.0);
+            boss.name = isVoidWar ? `Void-Corrupted ${boss.name}` : `Void-Touched ${boss.name}`;
         }
         enemiesToSpawn = [boss];
     } else {
-        // Normal: 1–5 enemies per stage. Event: 5–8 enemies per stage
-        const count = isEvent
-            ? Math.floor(Math.random() * 4) + 5
-            : Math.floor(Math.random() * 5) + 1;
+        // Normal: 1–5. Event: 5–8. Void War: 6–10
+        let count;
+        if (isVoidWar) {
+            count = Math.floor(Math.random() * 5) + 6; // 6-10
+        } else if (isEvent) {
+            count = Math.floor(Math.random() * 4) + 5; // 5-8
+        } else {
+            count = Math.floor(Math.random() * 5) + 1; // 1-5
+        }
+
         for (let i = 0; i < count; i++) {
             const template = { ...data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)] };
-            if (isEvent) {
+            if (isVoidWar) {
+                // Void War mini-bosses — heavily boosted
+                template.hp   = Math.floor(template.hp  * 2.5);
+                template.atk  = Math.floor(template.atk * 2.0);
+                template.def  = Math.floor((template.def || 2) * 1.5);
+                template.exp  = Math.floor(template.exp * 1.8);
+                template.gold = Math.floor(template.gold * 1.8);
+                template.name = `Void-Corrupted ${template.name}`;
+            } else if (isEvent) {
                 template.hp  = Math.floor(template.hp  * 1.3);
                 template.atk = Math.floor(template.atk * 1.2);
             }
