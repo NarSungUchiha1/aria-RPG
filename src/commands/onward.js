@@ -182,6 +182,12 @@ module.exports = {
             const next = dungeon.stage + 1;
             await advanceStage(dungeon.id, next);
 
+            // ✅ Init fresh contribution tracker for new stage
+            try {
+                const { initStage } = require('../systems/contributionSystem');
+                initStage(dungeon.id);
+            } catch(e) {}
+
             // ✅ Track stage clear — fire and forget
             (async () => {
                 try {

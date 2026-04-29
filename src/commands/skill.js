@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { trackContribution } = require('../systems/contributionSystem');
 const getUserId = require('../utils/getUserId');
 const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution, demoteRaider, RAID_GROUP } = require('../engine/dungeon');
@@ -125,6 +126,7 @@ module.exports = {
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+            try { trackContribution(dungeon?.id, userId, player.nickname, 'heal', heal); } catch(e) {}
 
             const tankNotes = player.role === 'Tank'
                 ? `\n${!isSelf ? '┃◆ ⚠️ Tank heals allies at 50%\n' : ''}┃◆ 🛡️ Stamina: ${Math.max(0, (player.stamina||0)-2)}`
@@ -221,7 +223,7 @@ module.exports = {
                     });
                 }
 
-                // ✅ All stage enemies dead — shared drop pool, one message
+                // ✅ All stage enemies dead — contribution-based loot assignment
                 (async () => {
                     try {
                         const [dungeonCheck] = await db.execute(
@@ -231,7 +233,8 @@ module.exports = {
                         if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
 
                         const { rollMaterialDrop } = require('../systems/materialSystem');
-                        const { setStageDrops } = require('../systems/bagSystem');
+                        const { addToBag, getPlayerBag } = require('../systems/bagSystem');
+                        const { assignDropsToContributors, clearStage } = require('../systems/contributionSystem');
                         const [alivePlayers] = await db.execute(
                             "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                             [dungeon.id]
@@ -243,22 +246,52 @@ module.exports = {
                             const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, RAID_GROUP);
                             if (!drop) continue;
                             const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
-                            drops.push({ material: drop.material, rarity: drop.rarity, emoji, takenBy: null });
+                            drops.push({ material: drop.material, rarity: drop.rarity, emoji });
                         }
 
-                        if (!drops.length) return;
+                        if (!drops.length) { clearStage(dungeon.id); return; }
 
-                        // Store shared pool
-                        setStageDrops(dungeon.id, drops);
+                        // Assign by contribution rank
+                        const assignments = assignDropsToContributors(dungeon.id, drops);
+                        clearStage(dungeon.id);
 
-                        // Build single numbered drop message
-                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
-                        drops.forEach((d, i) => {
-                            text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
-                        });
-                        text += `┃◆ \n┃◆ ⏳ !pickup <number> — 90 seconds\n┃◆ First come first served.\n╰═══════════════════════╯`;
+                        if (!assignments.length) {
+                            await client.sendMessage(RAID_GROUP, {
+                                text: `══〘 💎 STAGE LOOT 〙══╮\n┃◆ No contributions recorded — no loot awarded.\n╰═══════════════════════╯`
+                            });
+                            return;
+                        }
 
+                        // Auto-add to bags
+                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n┃◆ Assigned by contribution:\n┃◆ \n`;
+
+                        for (const a of assignments) {
+                            const bag = await getPlayerBag(a.player.playerId);
+                            let status = '';
+                            if (!bag || bag.durability <= 0) {
+                                status = '❌ No bag';
+                            } else {
+                                const result = await addToBag(a.player.playerId, a.drop.material, 1);
+                                status = result.ok ? '✅ Stored' : '❌ Bag full';
+                            }
+                            const medal = a.rank === 1 ? '🥇' : a.rank === 2 ? '🥈' : a.rank === 3 ? '🥉' : `${a.rank}.`;
+                            text += `┃◆ ${medal} *${a.player.nickname}*\n`;
+                            text += `┃◆    ${a.drop.emoji} ${a.drop.material} [${a.drop.rarity.toUpperCase()}]\n`;
+                            text += `┃◆    ${status}\n`;
+                            text += `┃◆ \n`;
+                        }
+
+                        const noLoot = alivePlayers.filter(p =>
+                            !assignments.find(a => a.player.playerId === p.player_id)
+                        );
+                        if (noLoot.length) {
+                            text += `┃◆ ⚠️ Low contribution — no loot:\n`;
+                            noLoot.forEach(p => text += `┃◆    @${p.player_id}\n`);
+                        }
+
+                        text += `╰═══════════════════════╯`;
                         await client.sendMessage(RAID_GROUP, { text });
+
                     } catch(e) { console.error('Stage drop error:', e.message); }
                 })();
             } else {
@@ -350,7 +383,13 @@ module.exports = {
         }
 
         // ==================== DEBUFF (on enemy) ====================
+        // Track buff
+        if (move.type === 'buff' || move.type === 'shield') {
+            try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {}
+        }
+
         if (move.type === 'debuff') {
+            try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
             if (!dungeon) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
 ┃◆ ❌ No active dungeon.
 ╰═══════════════════════╯`);

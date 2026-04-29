@@ -1,0 +1,112 @@
+/**
+ * Contribution-based loot system.
+ * Tracks damage dealt, heals given, buffs applied, debuffs applied per stage.
+ * After stage clear, ranks players and assigns drops — best contributors get rarest loot.
+ * Minimum threshold required to receive any drop.
+ */
+
+// In-memory stage contribution tracker
+// Key: dungeonId, Value: Map<playerId, { damage, heals, buffs, debuffs, nickname }>
+const stageContributions = new Map();
+
+const CONTRIBUTION_WEIGHTS = {
+    damage:  1.0,  // per point of damage
+    heal:    2.0,  // per point of healing (healers valued highly)
+    buff:    50,   // flat per buff applied
+    debuff:  50    // flat per debuff applied
+};
+
+// Minimum contribution score to receive any loot
+const MIN_CONTRIBUTION = 100;
+
+function initStage(dungeonId) {
+    stageContributions.set(dungeonId, new Map());
+}
+
+function trackContribution(dungeonId, playerId, nickname, type, value = 1) {
+    if (!stageContributions.has(dungeonId)) initStage(dungeonId);
+    const map = stageContributions.get(dungeonId);
+    if (!map.has(playerId)) {
+        map.set(playerId, { damage: 0, heals: 0, buffs: 0, debuffs: 0, nickname });
+    }
+    const p = map.get(playerId);
+    p.nickname = nickname; // keep fresh
+    switch (type) {
+        case 'damage':  p.damage  += value; break;
+        case 'heal':    p.heals   += value; break;
+        case 'buff':    p.buffs   += value; break;
+        case 'debuff':  p.debuffs += value; break;
+    }
+}
+
+function getContributionScore(entry) {
+    return Math.floor(
+        entry.damage  * CONTRIBUTION_WEIGHTS.damage  +
+        entry.heals   * CONTRIBUTION_WEIGHTS.heal    +
+        entry.buffs   * CONTRIBUTION_WEIGHTS.buff    +
+        entry.debuffs * CONTRIBUTION_WEIGHTS.debuff
+    );
+}
+
+/**
+ * Returns ranked contributors for this stage.
+ * Filters out those below MIN_CONTRIBUTION threshold.
+ * Returns array sorted by score descending: [{ playerId, nickname, score }]
+ */
+function getRankedContributors(dungeonId) {
+    const map = stageContributions.get(dungeonId);
+    if (!map) return [];
+
+    const ranked = [];
+    for (const [playerId, entry] of map.entries()) {
+        const score = getContributionScore(entry);
+        if (score >= MIN_CONTRIBUTION) {
+            ranked.push({ playerId, nickname: entry.nickname, score, ...entry });
+        }
+    }
+
+    // Sort by score descending
+    ranked.sort((a, b) => b.score - a.score);
+    return ranked;
+}
+
+/**
+ * Assign drops to contributors.
+ * Top contributor gets pick of rarest drop.
+ * Second gets next rarest, etc.
+ * Those below threshold get nothing.
+ */
+function assignDropsToContributors(dungeonId, drops) {
+    const ranked = getRankedContributors(dungeonId);
+    if (!ranked.length || !drops.length) return [];
+
+    // Sort drops by rarity — legendary first, then rare, uncommon, common
+    const rarityOrder = { legendary: 0, rare: 1, uncommon: 2, common: 3 };
+    const sortedDrops = [...drops].sort((a, b) =>
+        (rarityOrder[a.rarity] || 3) - (rarityOrder[b.rarity] || 3)
+    );
+
+    const assignments = [];
+    for (let i = 0; i < ranked.length && i < sortedDrops.length; i++) {
+        assignments.push({
+            player: ranked[i],
+            drop:   sortedDrops[i],
+            rank:   i + 1
+        });
+    }
+
+    return assignments;
+}
+
+function clearStage(dungeonId) {
+    stageContributions.delete(dungeonId);
+}
+
+module.exports = {
+    initStage,
+    trackContribution,
+    getRankedContributors,
+    assignDropsToContributors,
+    clearStage,
+    MIN_CONTRIBUTION
+};

@@ -33,6 +33,11 @@ module.exports = {
             clearDungeonTimers(dungeonId);
             clearLobbyTimer(dungeonId);
 
+            try {
+                const { clearStage } = require('../systems/contributionSystem');
+                clearStage(dungeonId);
+            } catch(e) {}
+
             if (autoStartTimers.has(dungeonId)) {
                 clearTimeout(autoStartTimers.get(dungeonId));
                 autoStartTimers.delete(dungeonId);
