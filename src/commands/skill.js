@@ -1,6 +1,6 @@
+const getUserId = require('../utils/getUserId');
 const db = require('../database/db');
 const { trackContribution } = require('../systems/contributionSystem');
-const getUserId = require('../utils/getUserId');
 const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution, demoteRaider, RAID_GROUP } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
