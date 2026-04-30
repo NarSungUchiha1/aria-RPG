@@ -217,6 +217,15 @@ async function restockAllItems() {
             [item, newStock, maxStock, newStock, now, newStock, maxStock, newStock, now]
         );
     }
+
+    // ✅ Always guarantee Mana Potion at 10 for Mage/Healer
+    await db.execute(
+        `INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock)
+         VALUES ('Mana Potion', 10, 10, 10, ?)
+         ON DUPLICATE KEY UPDATE stock=10, max_stock=10, restocked_amount=10, last_restock=?`,
+        [now, now]
+    );
+
     shopCache.clear();
     console.log("🛒 Shop restocked.");
 }
