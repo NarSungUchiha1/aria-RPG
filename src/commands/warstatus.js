@@ -21,7 +21,7 @@ module.exports = {
                 `╰═══════════════════════╯`
             );
 
-            const pct = Math.min(100, Math.floor((war.total_damage / war.goal) * 100));
+            const pct = Math.min(100, Math.floor(((war.total_damage||0) / (war.goal||50000)) * 100));
             const filled = Math.floor(pct / 10);
             const bar = '🟥'.repeat(filled) + '⬛'.repeat(10 - filled);
 
@@ -51,7 +51,7 @@ module.exports = {
                 `┃◆ \n` +
                 `┃◆ Progress: ${pct}%\n` +
                 `┃◆ ${bar}\n` +
-                `┃◆ ${war.total_damage.toLocaleString()} / ${war.goal.toLocaleString()} damage\n` +
+                `┃◆ ${(war.total_damage||0).toLocaleString()} / ${(war.goal||50000).toLocaleString()} damage\n` +
                 `┃◆ \n` +
                 `┃◆ ⏳ Time left: ${hrs}h ${mins}m\n` +
                 `┃◆ \n` +

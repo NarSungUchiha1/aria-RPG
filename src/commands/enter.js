@@ -301,7 +301,7 @@ module.exports = {
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
                     `┃◆ 👥 Raiders: ${newCount}/5\n` +
-                    `┃◆ 📅 Entries left today: ${remaining}/${dl2 || 5}\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/15\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
                     `┃◆ 🛒 !shop  •  📦 !equip\n` +
@@ -329,7 +329,7 @@ module.exports = {
                 );
                 const todayCount = entryLog[0]?.count || 0;
                 let dl2 = 5; try { const { getCurrentChapter: gch } = require('../systems/loreSystem'); const chNum = await gch(); if (chNum >= 3) dl2 = 15; } catch(e) {} const remaining = dl2 - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/${dl2}\n`;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/15\n`;
             }
 
             const confirmTimer = setTimeout(() => {
