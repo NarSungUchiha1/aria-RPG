@@ -261,9 +261,13 @@ module.exports = {
                         clearStage(dungeon.id);
 
                         if (!assignments.length) {
-                            await client.sendMessage(RAID_GROUP, {
-                                text: `══〘 💎 STAGE LOOT 〙══╮\n┃◆ No contributions recorded — no loot awarded.\n╰═══════════════════════╯`
+                            // Fallback: give drops to all alive players equally
+                            let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n┃◆ Drops found (open loot):\n┃◆ \n`;
+                            drops.forEach((d, i) => {
+                                text += `┃◆ ${i+1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
                             });
+                            text += `┃◆ \n┃◆ Equip a bag to collect drops!\n╰═══════════════════════╯`;
+                            await client.sendMessage(RAID_GROUP, { text });
                             return;
                         }
 
