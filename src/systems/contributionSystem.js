@@ -16,7 +16,7 @@ const CONTRIBUTION_WEIGHTS = {
     debuff:  50    // flat per debuff applied
 };
 
-// Minimum contribution score to receive any loot
+// Minimum contribution score to receive any loot — set low so anyone who participates qualifies
 const MIN_CONTRIBUTION = 100;
 
 function initStage(dungeonId) {
@@ -57,15 +57,17 @@ function getRankedContributors(dungeonId) {
     const map = stageContributions.get(dungeonId);
     if (!map) return [];
 
-    const ranked = [];
+    const all = [];
     for (const [playerId, entry] of map.entries()) {
         const score = getContributionScore(entry);
-        if (score >= MIN_CONTRIBUTION) {
-            ranked.push({ playerId, nickname: entry.nickname, score, ...entry });
-        }
+        all.push({ playerId, nickname: entry.nickname, score, ...entry });
     }
 
-    // Sort by score descending
+    // ✅ If nobody meets MIN_CONTRIBUTION (tracker may have missed some actions),
+    // fall back to giving everyone with ANY score a drop
+    const qualified = all.filter(p => p.score >= MIN_CONTRIBUTION);
+    const ranked = (qualified.length > 0 ? qualified : all.filter(p => p.score > 0));
+
     ranked.sort((a, b) => b.score - a.score);
     return ranked;
 }
@@ -110,3 +112,29 @@ module.exports = {
     clearStage,
     MIN_CONTRIBUTION
 };
+
+// ── Pending assignments — player must !pickup within 90s ─────────────────────
+const pendingAssignments = new Map();
+
+function setPendingAssignment(playerId, drop, rank) {
+    pendingAssignments.set(playerId, { drop, rank, expiresAt: Date.now() + 90000 });
+    setTimeout(() => {
+        const p = pendingAssignments.get(playerId);
+        if (p && p.drop.material === drop.material) pendingAssignments.delete(playerId);
+    }, 90000);
+}
+
+function getPendingAssignment(playerId) {
+    const p = pendingAssignments.get(playerId);
+    if (!p) return null;
+    if (Date.now() > p.expiresAt) { pendingAssignments.delete(playerId); return null; }
+    return p;
+}
+
+function clearPendingAssignment(playerId) {
+    pendingAssignments.delete(playerId);
+}
+
+module.exports.setPendingAssignment  = setPendingAssignment;
+module.exports.getPendingAssignment  = getPendingAssignment;
+module.exports.clearPendingAssignment = clearPendingAssignment;

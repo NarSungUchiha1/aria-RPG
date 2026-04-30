@@ -120,11 +120,11 @@ function getItemPrice(itemName) {
 function getMaxStockForItem(itemName) {
     // ✅ Specific overrides
     const stockOverrides = {
-        'Mana Potion': 5,
-        'Potion': 5,
-        'Small Bag': 5,
-        'Medium Bag': 3,
-        'Large Bag': 2
+        'Mana Potion': 10,
+        'Potion':      10,
+        'Small Bag':   5,
+        'Medium Bag':  3,
+        'Large Bag':   2
     };
     if (stockOverrides[itemName] !== undefined) return stockOverrides[itemName];
 
