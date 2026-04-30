@@ -327,8 +327,8 @@ module.exports = {
                     [userId, today]
                 );
                 const todayCount = entryLog[0]?.count || 0;
-                const remaining  = dailyLimit - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/${dailyLimit}\n`;
+                const displayLimit2 = 5; let ch2 = 1; try { const { getCurrentChapter: gc } = require("../systems/loreSystem"); ch2 = await gc(); } catch(e) {} const dl2 = ch2 >= 3 ? 15 : 5; const remaining = dl2 - todayCount;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/${dl2}\n`;
             }
 
             const confirmTimer = setTimeout(() => {
