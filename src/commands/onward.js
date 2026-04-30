@@ -10,6 +10,11 @@ const {
 const { handleShardDrop } = require('./event');
 const { getPlayerBag } = require('../systems/bagSystem');
 const { resetStageTimer, clearDungeonTimers } = require('../engine/dungeonTimer');
+const { getActiveWar, addWarDamage, endVoidWar } = require('../systems/voidwar');
+const { rollMaterialDrop } = require('../systems/materialSystem');
+const { initStage } = require('../systems/contributionSystem');
+const { updateQuestProgress } = require('../systems/questSystem');
+
 
 module.exports = {
     name: 'onward',
@@ -66,17 +71,19 @@ module.exports = {
                 (async () => {
                     try {
                         const war = await getActiveWar();
+                        console.log(`⚡ War check: active=${!!war}, rank=${dungeon.dungeon_rank}`);
                         if (!war) return;
                         for (const p of participants) {
                             const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [p.player_id]);
                             if (!pl.length) continue;
                             const result = await addWarDamage(p.player_id, pl[0].nickname, dungeon.dungeon_rank);
+                            console.log(`⚡ War damage: ${pl[0].nickname} dealt ${result?.damage}, total=${result?.totalDamage}/${result?.goal}`);
                             if (result && result.totalDamage >= result.goal) {
                                 console.log('⚡ Void War goal reached! Ending war...');
                                 await endVoidWar(client);
                             }
                         }
-                    } catch(e) { console.error('War damage error:', e.message); }
+                    } catch(e) { console.error('War damage error:', e.message, e.stack); }
                 })();
 
                 // ✅ Void Shard drops (event only)
@@ -95,7 +102,7 @@ module.exports = {
                         if (!hire.length) return;
                         const h = hire[0];
 
-                        // Split fee evenly between survivors
+                        // Split fee evenly between participants
                         const partySize = participants.length;
                         if (partySize === 0) return;
                         const perPlayer = Math.ceil(h.fee_gold / partySize);
@@ -139,7 +146,7 @@ module.exports = {
                 (async () => {
                     try {
                         const RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                        for (const p of survivors) {
+                        for (const p of participants) {
                             const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RG);
                             if (drop) {
                                 const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';

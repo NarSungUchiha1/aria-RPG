@@ -7,6 +7,10 @@ const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { narrate } = require('../utils/narrator');
 const { addToBag, getPlayerBag, getBagContents, destroyBag } = require('../systems/bagSystem');
+const { isCorrupted } = require('../systems/voidwar');
+const { rollMaterialDrop } = require('../systems/materialSystem');
+const { assignDropsToContributors, clearStage } = require('../systems/contributionSystem');
+
 
 
 function requiresMana(move) {
