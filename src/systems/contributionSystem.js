@@ -138,3 +138,18 @@ function clearPendingAssignment(playerId) {
 module.exports.setPendingAssignment  = setPendingAssignment;
 module.exports.getPendingAssignment  = getPendingAssignment;
 module.exports.clearPendingAssignment = clearPendingAssignment;
+
+// ── Stage Drop Pool — shared by all players ───────────────────────────────────
+const stagePools = new Map();
+
+function setStagePool(dungeonId, drops) {
+    stagePools.set(dungeonId, drops);
+    setTimeout(() => stagePools.delete(dungeonId), 90000);
+}
+
+function getStagePool(dungeonId) {
+    return stagePools.get(dungeonId) || [];
+}
+
+module.exports.setStagePool = setStagePool;
+module.exports.getStagePool = getStagePool;

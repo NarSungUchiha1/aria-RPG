@@ -275,7 +275,16 @@ async function getPlayerMaterials(playerId) {
 async function hasMaterials(playerId, required) {
     const held = await getPlayerMaterials(playerId);
     const heldMap = {};
-    held.forEach(r => { heldMap[r.material] = r.quantity; });
+    held.forEach(r => { heldMap[r.material] = (heldMap[r.material] || 0) + r.quantity; });
+
+    // Also check bag_contents
+    try {
+        const [bagItems] = await db.execute(
+            "SELECT material, quantity FROM bag_contents WHERE player_id=?", [playerId]
+        );
+        bagItems.forEach(r => { heldMap[r.material] = (heldMap[r.material] || 0) + r.quantity; });
+    } catch(e) {}
+
     for (const [mat, qty] of Object.entries(required)) {
         if ((heldMap[mat] || 0) < qty) return { ok: false, missing: mat, have: heldMap[mat] || 0, need: qty };
     }

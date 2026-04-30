@@ -1,17 +1,15 @@
-const getUserId = require('../utils/getUserId');
 const db = require('../database/db');
 const { trackContribution } = require('../systems/contributionSystem');
+const { rollMaterialDrop } = require('../systems/materialSystem');
+const { addToBag, getPlayerBag, destroyBag, getBagContents } = require('../systems/bagSystem');
+const { assignDropsToContributors, clearStage, getStagePool, setStagePool } = require('../systems/contributionSystem');
+const { demoteRaider, RAID_GROUP } = require('../engine/dungeon');
+const getUserId = require('../utils/getUserId');
 const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
-const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution, demoteRaider, RAID_GROUP } = require('../engine/dungeon');
+const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { narrate } = require('../utils/narrator');
-const { addToBag, getPlayerBag, getBagContents, destroyBag } = require('../systems/bagSystem');
-const { isCorrupted } = require('../systems/voidwar');
-const { rollMaterialDrop } = require('../systems/materialSystem');
-const { assignDropsToContributors, clearStage } = require('../systems/contributionSystem');
-
-
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
@@ -22,27 +20,20 @@ module.exports = {
     name: 'skill',
     async execute(msg, args, { userId, client }) {
         if (isPlayerInDuel(userId)) {
-            return msg.reply(
-                `══〘 ⚔️ SKILL 〙══╮\n` +
-                `┃◆ ❌ You are in a duel.\n` +
-                `┃◆ Use !attack <move> instead.\n` +
-                `╰═══════════════════════╯`
-            );
+            return msg.reply("❌ In a duel, use !attack <move> instead.");
         }
 
-        if (args.length < 1) return msg.reply(
-            `══〘 ⚔️ SKILL 〙══╮\n┃◆ ❌ Use: !skill <move> [target]\n╰═══════════════════════╯`
-        );
+        if (args.length < 1) return msg.reply("❌ Use: !skill <move> [target]");
+
+        let potentialName = args.join(' ');
+        let targetArg = '';
 
         const [playerRows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
-        if (!playerRows.length) return msg.reply(
-            `══〘 ⚔️ SKILL 〙══╮\n┃◆ ❌ Not registered.\n╰═══════════════════════╯`
-        );
+        if (!playerRows.length) return msg.reply("❌ Not registered.");
         const player = playerRows[0];
         const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
         const moves = getAllMoves(player, items);
 
-        // Match move name (supports multi-word moves)
         let matchedMove = null;
         let remainingArgs = '';
         for (let i = args.length; i > 0; i--) {
@@ -55,12 +46,10 @@ module.exports = {
             }
         }
 
-        if (!matchedMove) return msg.reply(
-            `══〘 ⚔️ SKILL 〙══╮\n┃◆ ❌ You don't know that move.\n┃◆ Use !moveset to see your moves.\n╰═══════════════════════╯`
-        );
+        if (!matchedMove) return msg.reply("❌ You don't know that move. Use !moveset");
 
         const move = matchedMove;
-        const targetArg = remainingArgs;
+        targetArg = remainingArgs;
 
         const cd = getMoveCooldown(userId, move.name);
         if (cd > 0) return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
@@ -69,13 +58,7 @@ module.exports = {
             const manaCost = move.cost || 5;
             const currentMana = Number(player.mana) || 0;
             if (currentMana < manaCost) {
-                return msg.reply(
-                    `══〘 ⚔️ SKILL 〙══╮\n` +
-                    `┃◆ ❌ Not enough mana!\n` +
-                    `┃◆ Need: ${manaCost} mana\n` +
-                    `┃◆ Use !use Mana Potion to restore.\n` +
-                    `╰═══════════════════════╯`
-                );
+                return msg.reply(`❌ Not enough mana! You need ${manaCost} mana.`);
             }
             await db.execute("UPDATE players SET mana = mana - ? WHERE id=?", [manaCost, userId]);
             player.mana = currentMana - manaCost;
@@ -83,130 +66,75 @@ module.exports = {
 
         const dungeon = await getActiveDungeon();
 
-        async function resolvePlayerTarget(arg) {
-            if (!arg) return player;
-            if (arg.startsWith('@')) {
-                const number = arg.substring(1).replace(/\D/g, '');
+        async function resolvePlayerTarget(targetArg) {
+            if (!targetArg) return player;
+            if (targetArg.startsWith('@')) {
+                const number = targetArg.substring(1).replace(/\D/g, '');
                 const [rows] = await db.execute("SELECT * FROM players WHERE id LIKE ?", [`%${number}%`]);
                 return rows[0] || null;
             } else {
-                if (dungeon) return await findPlayerTarget(dungeon.id, arg, client);
-                const [rows] = await db.execute("SELECT * FROM players WHERE nickname=?", [arg]);
-                return rows[0] || null;
+                if (dungeon) {
+                    return await findPlayerTarget(dungeon.id, targetArg, client);
+                } else {
+                    const [rows] = await db.execute("SELECT * FROM players WHERE nickname=?", [targetArg]);
+                    return rows[0] || null;
+                }
             }
         }
 
         // ==================== HEAL ====================
         if (move.type === 'heal') {
             let targetPlayer = await resolvePlayerTarget(targetArg);
-            if (!targetPlayer) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Player "${targetArg}" not found.
-╰═══════════════════════╯`);
+            if (!targetPlayer) return msg.reply(`❌ Player "${targetArg}" not found.`);
 
             if (targetPlayer.id !== player.id) {
                 const targetDungeon = await isPlayerInAnyDungeon(targetPlayer.id);
                 if (targetDungeon) {
                     const casterDungeon = await isPlayerInAnyDungeon(player.id);
                     if (casterDungeon !== targetDungeon) {
-                        return msg.reply(`══〘 💚 HEAL 〙══╮
-┃◆ ❌ That player is inside a dungeon
-┃◆ and cannot be healed from outside.
-╰═══════════════════════╯`);
+                        return msg.reply("❌ That player is inside a dungeon and cannot be affected from outside.");
                     }
                 }
             }
 
-            const isSelf = targetPlayer.id === player.id;
-
-            // ✅ Tank restrictions
-            if (player.role === 'Tank') {
-                if ((player.stamina || 0) <= 0) return msg.reply(
-                    `══〘 💚 HEAL 〙══╮\n┃◆ ❌ Out of stamina.\n┃◆ You cannot heal until stamina recovers.\n╰═══════════════════════╯`
-                );
-                await db.execute("UPDATE players SET stamina = GREATEST(0, stamina - 2) WHERE id=?", [userId]);
-            }
-
-            let heal = calculateHeal(player, move);
-            if (player.role === 'Tank' && !isSelf) heal = Math.floor(heal * 0.5);
-
+            const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-            const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
-            try { trackContribution(dungeon?.id, userId, player.nickname, 'heal', heal); } catch(e) {}
 
-            const tankNotes = player.role === 'Tank'
-                ? `\n${!isSelf ? '┃◆ ⚠️ Tank heals allies at 50%\n' : ''}┃◆ 🛡️ Stamina: ${Math.max(0, (player.stamina||0)-2)}`
-                : '';
-            return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.${tankNotes}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+            const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+            return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
         // ==================== DAMAGE ====================
         if (move.type === 'damage') {
-            if (!dungeon) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ No active dungeon.
-╰═══════════════════════╯`);
-            if (!dungeon.locked) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Dungeon hasn't started yet.
-╰═══════════════════════╯`);
+            if (!dungeon) return msg.reply("❌ No active dungeon.");
+            if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started.");
 
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND dungeon_id=? AND is_alive=1",
                 [userId, dungeon.id]
             );
-            if (!inDungeon.length) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ You are not inside the dungeon.
-╰═══════════════════════╯`);
+            if (!inDungeon.length) {
+                return msg.reply("❌ You are not inside the dungeon.");
+            }
 
             const enemies = await getCurrentEnemies(dungeon.id);
-            if (enemies.length === 0) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ✅ All enemies defeated!
-┃◆ Use !onward to advance.
-╰═══════════════════════╯`);
+            if (enemies.length === 0) return msg.reply("✅ No enemies. Use !onward.");
 
             let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
-            if (!targetEnemy) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Enemy "${targetArg}" not found.
-╰═══════════════════════╯`);
+            if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
-            let estDamage = calculateMoveDamage(player, move, targetEnemy, items);
-
-            // ✅ Void Corruption — -30% damage if corrupted
-            try {
-                if (await isCorrupted(userId)) estDamage = Math.floor(estDamage * 0.7);
-            } catch(e) {}
+            const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
-
-            // ✅ Track contribution for loot system
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
 
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
-            // ✅ Quest tracking — fire and forget, don't block combat response
-            (async () => {
-                try {
-                    await updateQuestProgress(userId, 'skill_use', 1, client);
-                    await updateQuestProgress(userId, 'damage_dealt', result.damage, client);
-                    if (result.defeated) {
-                        const isBoss = dungeon.stage === dungeon.max_stage;
-                        await updateQuestProgress(userId, 'enemy_kill', 1, client);
-                        if (isBoss) await updateQuestProgress(userId, 'boss_kill', 1, client);
-                    }
-                } catch (e) {}
-            })();
-
-            // ✅ Weapon durability — scales with damage dealt, higher rank = less wear
-            const [weapon] = await db.execute(
-                "SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]
-            );
+            const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
             let weaponBroke = false;
             if (weapon.length) {
-                // Durability loss: 1 base + 1 per 50 damage, reduced by rank
-                const RANK_DUR_REDUCTION = { F:1.0, E:0.9, D:0.8, C:0.6, B:0.5, A:0.35, S:0.2 };
-                const rankMult  = RANK_DUR_REDUCTION[player.rank] || 1.0;
-                const baseLoss  = 1 + Math.floor(result.damage / 50);
-                const durLoss   = Math.max(1, Math.round(baseLoss * rankMult));
-                const newDur    = Math.max(0, (weapon[0].durability || 100) - durLoss);
+                const newDur = (weapon[0].durability || 100) - 1;
                 if (newDur <= 0) {
                     await db.execute("DELETE FROM inventory WHERE id=?", [weapon[0].id]);
                     weaponBroke = true;
@@ -215,28 +143,24 @@ module.exports = {
                 }
             }
 
-            // Build reply
             let reply = `══〘 ⚔️ SKILL 〙══╮\n`;
+            
             if (result.evaded) {
-                reply += `┃◆ ${narrate('evasion', { target: targetEnemy.name })}\n`;
+                const evadeMsg = narrate('evasion', { target: targetEnemy.name });
+                reply += `┃◆ ${evadeMsg}\n`;
             } else {
-                reply += `┃◆ ${narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage })}\n`;
+                const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
+                reply += `┃◆ ${skillMsg}\n`;
             }
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
             if (targetEnemy.def > 0) {
-                reply += `┃◆ 🛡️ ${narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) })}\n`;
+                const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
+                reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
             if (result.defeated) {
-                reply += `┃◆ ${narrate('enemyDefeat', { enemy: targetEnemy.name })}\n`;
-                if (result.rewardDistribution?.contributors?.length) {
-                    reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
-                    result.rewardDistribution.contributors.forEach(c => {
-                        reply += `┃◆   ${c.nickname}: +${c.exp} XP, +${c.gold} Gold\n`;
-                    });
-                }
 
-                // ✅ All stage enemies dead — contribution-based loot assignment
+                // ✅ Check if all stage enemies defeated — roll shared drops
                 (async () => {
                     try {
                         const [dungeonCheck] = await db.execute(
@@ -244,6 +168,7 @@ module.exports = {
                             [dungeon.id]
                         );
                         if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
+
                         const [alivePlayers] = await db.execute(
                             "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                             [dungeon.id]
@@ -258,117 +183,56 @@ module.exports = {
                             drops.push({ material: drop.material, rarity: drop.rarity, emoji });
                         }
 
-                        if (!drops.length) { clearStage(dungeon.id); return; }
+                        if (!drops.length) return;
 
-                        // Assign by contribution rank — store as pending, players must !pickup
-                        const assignments = assignDropsToContributors(dungeon.id, drops);
+                        // Store drops in memory for pickup
                         clearStage(dungeon.id);
+                        const dropPool = drops.map((d, i) => ({ ...d, index: i, takenBy: [] }));
+                        setStagePool(dungeon.id, dropPool);
 
-                        if (!assignments.length) {
-                            // Fallback: give drops to all alive players equally
-                            let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n┃◆ Drops found (open loot):\n┃◆ \n`;
-                            drops.forEach((d, i) => {
-                                text += `┃◆ ${i+1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
-                            });
-                            text += `┃◆ \n┃◆ Equip a bag to collect drops!\n╰═══════════════════════╯`;
-                            await client.sendMessage(RAID_GROUP, { text });
-                            return;
-                        }
-
-                        // Store pending drops per player — they must !pickup
-                        for (const a of assignments) {
-                            setPendingAssignment(a.player.playerId, a.drop, a.rank);
-                        }
-
-                        // Build announcement — show who gets what, they must pickup
+                        // Build message — everyone can pick any item
                         let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
-                        text += `┃◆ Loot assigned by contribution:\n┃◆ \n`;
-
-                        for (const a of assignments) {
-                            const medal = a.rank === 1 ? '🥇' : a.rank === 2 ? '🥈' : a.rank === 3 ? '🥉' : `${a.rank}.`;
-                            text += `┃◆ ${medal} *${a.player.nickname}*\n`;
-                            text += `┃◆    ${a.drop.emoji} *${a.drop.material}* [${a.drop.rarity.toUpperCase()}]\n`;
-                            text += `┃◆ \n`;
-                        }
-
-                        const noLoot = alivePlayers.filter(p =>
-                            !assignments.find(a => a.player.playerId === p.player_id)
-                        );
-                        if (noLoot.length) {
-                            text += `┃◆ ⚠️ Low contribution — no loot for ${noLoot.length} hunter(s).\n┃◆ \n`;
-                        }
-
-                        text += `┃◆ ⏳ Type !pickup to collect your drop.\n`;
-                        text += `┃◆ 90 seconds before it disappears.\n`;
-                        text += `╰═══════════════════════╯`;
+                        dropPool.forEach((d, i) => {
+                            text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
+                        });
+                        text += `┃◆ \n┃◆ !pickup <number> to collect\n┃◆ All raiders can pick each item!\n╰═══════════════════════╯`;
                         await client.sendMessage(RAID_GROUP, { text });
 
                     } catch(e) { console.error('Stage drop error:', e.message); }
-                })();
+                })();                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
+                reply += `┃◆ ${defeatMsg}\n`;
+                if (result.rewardDistribution) {
+                    reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
+                    result.rewardDistribution.contributors.forEach(c => {
+                        reply += `┃◆   ${c.nickname} absorbs lingering essence: +${c.exp} XP, +${c.gold} Gold\n`;
+                    });
+                }
             } else {
                 reply += `┃◆ ${targetEnemy.name} HP: ${result.enemyHp}/${result.enemyMaxHp}\n`;
             }
 
-            if (weaponBroke) reply += `┃◆ ⚠️ Your weapon breaks!\n`;
+            if (weaponBroke) reply += `┃◆ ⚠️ Your weapon cracks under the strain!\n`;
 
             if (result.retaliationMessage) {
                 reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
-                reply += `┃◆ ${player.nickname} HP: ${result.playerHp}/${player.max_hp}\n`;
+                reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
             }
 
             reply += `┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`;
-            await msg.reply(reply);
-
-            // ✅ Handle player death from retaliation
-            if (result.playerDied) {
-                try {
-                    await demoteRaider(client, userId);
-
-                    // ✅ Destroy bag and all contents on death
-                    let bagLostMsg = '';
-                    try {
-                        const bag = await getPlayerBag(userId);
-                        if (bag) {
-                            const contents = await getBagContents(userId);
-                            const itemCount = contents.reduce((s, c) => s + c.quantity, 0);
-                            await destroyBag(userId);
-                            bagLostMsg = itemCount > 0 ? `\n┃◆ 🎒 Bag destroyed — ${itemCount} items lost!` : `\n┃◆ 🎒 Bag destroyed.`;
-                        }
-                    } catch (e) {}
-
-                    await client.sendMessage(RAID_GROUP, {
-                        text:
-                            `══〘 💀 RAIDER FALLEN 〙══╮\n` +
-                            `┃◆ ${player.nickname} has been slain!\n` +
-                            `┃◆ Struck down by ${targetEnemy.name}.${bagLostMsg}\n` +
-                            `┃◆ ☠️ Removed from the raid.\n` +
-                            `┃◆ Use !respawn to revive (penalties apply).\n` +
-                            `╰═══════════════════════╯`
-                    });
-                } catch (e) {
-                    console.error("Death handling error:", e.message);
-                }
-            }
-
-            return;
+            return msg.reply(reply);
         }
 
         // ==================== BUFF / SHIELD / CLEANSE ====================
         if (['buff', 'shield', 'cleanse'].includes(move.type)) {
             let targetPlayer = await resolvePlayerTarget(targetArg);
-            if (!targetPlayer) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Player "${targetArg}" not found.
-╰═══════════════════════╯`);
+            if (!targetPlayer) return msg.reply(`❌ Player "${targetArg}" not found.`);
 
             if (targetPlayer.id !== player.id) {
                 const targetDungeon = await isPlayerInAnyDungeon(targetPlayer.id);
                 if (targetDungeon) {
                     const casterDungeon = await isPlayerInAnyDungeon(player.id);
                     if (casterDungeon !== targetDungeon) {
-                        return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ That player is inside a dungeon
-┃◆ and cannot be affected from outside.
-╰═══════════════════════╯`);
+                        return msg.reply("❌ That player is inside a dungeon and cannot be affected from outside.");
                     }
                 }
             }
@@ -377,51 +241,60 @@ module.exports = {
             if (move.type === 'cleanse') {
                 clearBuffs('player', targetPlayer.id);
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-                return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                const cleanseMsg = narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
+                return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${cleanseMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
+
             if (move.type === 'shield') {
                 const shieldValue = move.value || 30;
-                applyBuff('player', targetPlayer.id, { type: 'shield', stat: 'shield', value: shieldValue, duration: move.duration || 3 });
+                applyBuff('player', targetPlayer.id, {
+                    type: 'shield',
+                    stat: 'shield',
+                    value: shieldValue,
+                    duration: move.duration || 3
+                });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
+                return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
+
             if (move.type === 'buff') {
-                applyBuff('player', targetPlayer.id, { type: 'buff', stat: move.effect.toLowerCase(), value: move.value, duration: move.duration || 3 });
+                const statName = move.effect.toLowerCase();
+                applyBuff('player', targetPlayer.id, {
+                    type: 'buff',
+                    stat: statName,
+                    value: move.value,
+                    duration: move.duration || 3
+                });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
+                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
 
         // ==================== DEBUFF (on enemy) ====================
-        // Track buff
-        if (move.type === 'buff' || move.type === 'shield') {
-            try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {}
-        }
-
         if (move.type === 'debuff') {
-            try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
-            if (!dungeon) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ No active dungeon.
-╰═══════════════════════╯`);
-            if (!dungeon.locked) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Dungeon hasn't started yet.
-╰═══════════════════════╯`);
+            if (!dungeon) return msg.reply("❌ No active dungeon.");
+            if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started.");
             const enemies = await getCurrentEnemies(dungeon.id);
-            if (enemies.length === 0) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ✅ All enemies defeated!
-╰═══════════════════════╯`);
+            if (enemies.length === 0) return msg.reply("✅ No enemies.");
             let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
-            if (!targetEnemy) return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ Enemy "${targetArg}" not found.
-╰═══════════════════════╯`);
+            if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
-            applyBuff('enemy', targetEnemy.id, { type: 'debuff', stat: move.effect.toLowerCase(), value: -move.value, duration: move.duration || 2 });
+            const statName = move.effect.toLowerCase();
+            applyBuff('enemy', targetEnemy.id, {
+                type: 'debuff',
+                stat: statName,
+                value: -move.value,
+                duration: move.duration || 2
+            });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-            return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 })}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+
+            const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
+            try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
+            return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
-        return msg.reply(`══〘 ⚔️ SKILL 〙══╮
-┃◆ ❌ That move type cannot be used here.
-╰═══════════════════════╯`);
+        return msg.reply("❌ Unknown move type.");
     }
 };
