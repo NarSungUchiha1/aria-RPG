@@ -224,19 +224,20 @@ module.exports = {
                 } catch (e) { isEvent = false; }
 
                 if (!isEvent) {
-                    const [entryLog] = await db.execute(
-                        "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
-                        [userId, today]
-                    );
-                    const todayCount = entryLog[0]?.count || 0;
-                    remaining = dailyLimit - todayCount;
-                    // ✅ Chapter 3 = 15 entries, otherwise 5
+                    // ✅ Get daily limit based on chapter
                     let dailyLimit = 5;
                     try {
                         const { getCurrentChapter } = require('../systems/loreSystem');
                         const ch = await getCurrentChapter();
                         if (ch >= 3) dailyLimit = 15;
                     } catch(e) {}
+
+                    const [entryLog] = await db.execute(
+                        "SELECT count FROM dungeon_entry_log WHERE player_id=? AND entry_date=?",
+                        [userId, today]
+                    );
+                    const todayCount = entryLog[0]?.count || 0;
+                    remaining = dailyLimit - todayCount;
 
                     if (todayCount >= dailyLimit) {
                         return msg.reply(
