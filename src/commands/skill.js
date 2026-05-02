@@ -193,17 +193,27 @@ module.exports = {
 
                         if (!drops.length) return;
 
-                        // Store drops in memory for pickup
+                        // Snapshot contributors BEFORE clearStage wipes the tracker
+                        const qualifiedIds = getRankedContributors(dungeon.id).map(r => r.playerId);
                         clearStage(dungeon.id);
                         const dropPool = drops.map((d, i) => ({ ...d, index: i, takenBy: [] }));
-                        setStagePool(dungeon.id, dropPool);
+                        setStagePool(dungeon.id, dropPool, qualifiedIds);
 
-                        // Build message — everyone can pick any item
-                        let text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
-                        dropPool.forEach((d, i) => {
-                            text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`;
-                        });
-                        text += `┃◆ \n┃◆ !pickup <number> to collect\n┃◆ All raiders can pick each item!\n╰═══════════════════════╯`;
+                        // Build message
+                        const isPrestigeLoot = dungeonCheck[0].dungeon_rank && dungeonCheck[0].dungeon_rank.startsWith('P');
+                        let text;
+                        if (isPrestigeLoot) {
+                            text = `╔══〘 ✦ VOID LOOT 〙══╗\n┃★ \n`;
+                        } else {
+                            text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
+                        }
+                        if (isPrestigeLoot) {
+                            dropPool.forEach((d, i) => { text += `┃★ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`; });
+                            text += `┃★ \n┃★ !pickup <number> to collect\n┃★ All Prestige Hunters can pick each item!\n╚═══════════════════════════╝`;
+                        } else {
+                            dropPool.forEach((d, i) => { text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`; });
+                            text += `┃◆ \n┃◆ !pickup <number> to collect\n┃◆ All raiders can pick each item!\n╰═══════════════════════╯`;
+                        }
                         await client.sendMessage(RAID_GROUP, { text });
 
                     } catch(e) { console.error('Stage drop error:', e.message); }

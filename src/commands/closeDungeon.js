@@ -54,6 +54,10 @@ module.exports = {
             await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeonId]);
             await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=?", [dungeonId]);
 
+            // Auto-spawn prestige dungeon after admin close
+            const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(() => {});
+
             return msg.reply(
                 `══〘 🔒 CLOSE DUNGEON 〙══╮\n` +
                 `┃◆ ✅ Dungeon ${dungeonId} closed.\n` +

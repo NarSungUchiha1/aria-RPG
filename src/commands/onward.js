@@ -177,6 +177,10 @@ module.exports = {
                 await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                 clearDungeonTimers(dungeon.id);
 
+                // Auto-spawn prestige dungeon after normal dungeon clears
+                const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(() => {});
+
                 return msg.reply(`══〘 👑 DUNGEON CLEARED 〙══╮
 ┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.
 ┃◆ Each survivor feels the dungeon's gratitude:

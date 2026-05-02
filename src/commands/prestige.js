@@ -57,6 +57,10 @@ module.exports = {
 
             const stars = '☆'.repeat(result.newLevel);
             const isFirst = result.newLevel === 1;
+            const s = result.stats || {};
+            const statLine =
+                `┃★   STR ${s.strength}  AGI ${s.agility}  INT ${s.intelligence}\n` +
+                `┃★   STA ${s.stamina}   HP  ${s.hp}\n`;
 
             return msg.reply(
                 `╔══〘 ✦ PRESTIGE UNLOCKED 〙══╗\n` +
@@ -68,9 +72,8 @@ module.exports = {
                     ? `┃★ The path of the ordinary\n` +
                       `┃★ is no longer yours.\n` +
                       `┃★ \n` +
-                      `┃★ Your gold is gone.\n` +
-                      `┃★ Your XP is gone.\n` +
-                      `┃★ Your rank has reset to ☆ F.\n` +
+                      `┃★ Gold stripped. XP stripped.\n` +
+                      `┃★ Rank reset to ☆ F.\n` +
                       `┃★ \n` +
                       `┃★ But something has changed.\n` +
                       `┃★ The system recognises you now.\n` +
@@ -79,12 +82,18 @@ module.exports = {
                       `┃★ ✅ Blacksmith access granted\n` +
                       `┃★ ✅ Prestige shop available\n`
                     : `┃★ Further. Harder. Stronger.\n` +
+                      `┃★ Gold stripped. XP stripped.\n` +
+                      `┃★ Rank reset to ☆ F.\n` +
                       `┃★ \n` +
                       `┃★ ✅ Prestige ${result.newLevel} achieved\n`
                 ) +
+                `┃★────────────\n` +
+                `┃★ 📊 ${result.role} Starting Stats:\n` +
+                statLine +
                 `┃★ \n` +
                 `╚═══════════════════════════╝`
             );
+
         } catch (err) {
             console.error(err);
             msg.reply(`══〘 ✦ PRESTIGE 〙══╮\n┃★ ❌ Failed.\n╰═══════════════════════╯`);

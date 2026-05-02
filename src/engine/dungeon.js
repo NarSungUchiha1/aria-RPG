@@ -174,6 +174,7 @@ function startLobbyTimer(dungeonId, client) {
                         `╰═══════════════════════╯`
                 });
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
+                trySpawnPrestigeDungeon(client, RAID_GROUP).catch(() => {});
             }
         } catch (e) {
             console.error("Lobby timeout error:", e.message);
@@ -693,6 +694,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
             autoStartTimers.delete(dungeonId);
         }
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
+        if (client) trySpawnPrestigeDungeon(client, RAID_GROUP).catch(() => {});
         return true;
     }
     return false;
