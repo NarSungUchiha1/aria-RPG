@@ -7,13 +7,13 @@ module.exports = {
         await ensureTables();
 
         if (!args[0]) return msg.reply(
-            `══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Use: !forge <recipe number>\n┃◆ See !recipes for your options.\n╰═══════════════════════╯`
+            `╔══〘 ✦ FORGE 〙══╗\n┃★ ❌ Use: !forge <recipe number>\n┃★ See !recipes for your options.\n╚═══════════════════════╝`
         );
 
         try {
             const [player] = await db.execute("SELECT nickname, role FROM players WHERE id=?", [userId]);
             if (!player.length) return msg.reply(
-                `══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Not registered.\n╰═══════════════════════╯`
+                `╔══〘 ✦ FORGE 〙══╗\n┃★ ❌ Not registered.\n╚═══════════════════════╝`
             );
 
             const role = player[0].role;
@@ -23,7 +23,7 @@ module.exports = {
 
             const index = parseInt(args[0]) - 1;
             if (isNaN(index) || index < 0 || index >= myRecipes.length) return msg.reply(
-                `══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Invalid recipe number.\n┃◆ Use !recipes to see your list.\n╰═══════════════════════╯`
+                `╔══〘 ✦ FORGE 〙══╗\n┃★ ❌ Invalid recipe number.\n┃★ Use !recipes to see your list.\n╚═══════════════════════╝`
             );
 
             const recipe = myRecipes[index];
@@ -31,12 +31,12 @@ module.exports = {
             // Check materials
             const check = await hasMaterials(userId, recipe.materials);
             if (!check.ok) return msg.reply(
-                `══〘 ⚒️ FORGE 〙══╮\n` +
-                `┃◆ ❌ Missing materials.\n` +
-                `┃◆ Need: ${recipe.materials[check.missing]}× ${check.missing}\n` +
-                `┃◆ Have: ${check.have}\n` +
-                `┃◆ Clear dungeons to find more.\n` +
-                `╰═══════════════════════╯`
+                `╔══〘 ✦ FORGE 〙══╗\n` +
+                `┃★ ❌ Missing materials.\n` +
+                `┃★ Need: ${recipe.materials[check.missing]}× ${check.missing}\n` +
+                `┃★ Have: ${check.have}\n` +
+                `┃★ Clear dungeons to find more.\n` +
+                `╚═══════════════════════╝`
             );
 
             // Consume materials
@@ -68,32 +68,32 @@ module.exports = {
             await client.sendMessage(BLACKSMITH_GC, {
                 text:
                     `╭══〘 ⚒️ WEAPON FORGED 〙══╮\n` +
-                    `┃◆ \n` +
-                    `┃◆ ${RARITY_EMOJI[recipe.rarity]} *${recipe.name}*\n` +
-                    `┃◆ Rarity: ${recipe.rarity.toUpperCase()}\n` +
-                    `┃◆ Forged by: *${player[0].nickname}*\n` +
-                    `┃◆ \n` +
-                    `┃◆ 〝${recipe.description}〞\n` +
-                    `┃◆ \n` +
-                    `┃◆ ── STATS ──\n` +
-                    `${Object.entries(recipe.stats).map(([s, v]) => `┃◆   ${s} +${v}`).join('\n')}\n` +
-                    `┃◆ \n` +
-                    `┃◆ Use !equip to wield it.\n` +
-                    `┃◆ \n` +
+                    `┃★ \n` +
+                    `┃★ ${RARITY_EMOJI[recipe.rarity]} *${recipe.name}*\n` +
+                    `┃★ Rarity: ${recipe.rarity.toUpperCase()}\n` +
+                    `┃★ Forged by: *${player[0].nickname}*\n` +
+                    `┃★ \n` +
+                    `┃★ 〝${recipe.description}〞\n` +
+                    `┃★ \n` +
+                    `┃★ ── STATS ──\n` +
+                    `${Object.entries(recipe.stats).map(([s, v]) => `┃★   ${s} +${v}`).join('\n')}\n` +
+                    `┃★ \n` +
+                    `┃★ Use !equip to wield it.\n` +
+                    `┃★ \n` +
                     `╰═══════════════════════════╯`
             });
 
             return msg.reply(
-                `══〘 ⚒️ FORGE 〙══╮\n` +
-                `┃◆ ✅ *${recipe.name}* forged!\n` +
-                `┃◆ ${RARITY_EMOJI[recipe.rarity]} ${recipe.rarity.toUpperCase()}\n` +
-                `┃◆ Added to your inventory.\n` +
-                `┃◆ Use !equip to wield it.\n` +
-                `╰═══════════════════════╯`
+                `╔══〘 ✦ FORGE 〙══╗\n` +
+                `┃★ ✅ *${recipe.name}* forged!\n` +
+                `┃★ ${RARITY_EMOJI[recipe.rarity]} ${recipe.rarity.toUpperCase()}\n` +
+                `┃★ Added to your inventory.\n` +
+                `┃★ Use !equip to wield it.\n` +
+                `╚═══════════════════════╝`
             );
         } catch (err) {
             console.error(err);
-            msg.reply(`══〘 ⚒️ FORGE 〙══╮\n┃◆ ❌ Forge failed.\n┃◆ ${err.message}\n╰═══════════════════════╯`);
+            msg.reply(`╔══〘 ✦ FORGE 〙══╗\n┃★ ❌ Forge failed.\n┃★ ${err.message}\n╚═══════════════════════╝`);
         }
     }
 };
