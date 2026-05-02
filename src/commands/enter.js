@@ -159,6 +159,29 @@ module.exports = {
                 );
             }
 
+            // ✅ Check if dungeon is prestige type
+            const isPrestigeDungeon = dungeon.dungeon_rank?.startsWith('P');
+            const [pCheck] = await db.execute(
+                "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]
+            );
+            const isPrestigePlayer = (pCheck[0]?.prestige_level || 0) > 0;
+
+            if (isPrestigeDungeon && !isPrestigePlayer) return msg.reply(
+                `╔══〘 ✦ PRESTIGE DUNGEON 〙══╗\n` +
+                `┃★ ❌ This dungeon is for\n` +
+                `┃★ Prestige Hunters only.\n` +
+                `┃★ Reach S rank → !prestige confirm\n` +
+                `╚═══════════════════════════╝`
+            );
+
+            if (!isPrestigeDungeon && isPrestigePlayer) return msg.reply(
+                `╔══〘 ✦ PRESTIGE HUNTER 〙══╗\n` +
+                `┃★ ❌ You can no longer enter\n` +
+                `┃★ normal dungeons.\n` +
+                `┃★ Wait for a Prestige dungeon.\n` +
+                `╚═══════════════════════════╝`
+            );
+
             if (await isDungeonLockedDB(dungeon.id)) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
