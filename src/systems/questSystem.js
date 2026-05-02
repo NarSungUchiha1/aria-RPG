@@ -58,7 +58,7 @@ async function getPlayerQuests(playerId) {
          FROM player_quests pq
          JOIN quests q ON pq.quest_id = q.id
          WHERE pq.player_id = ? AND q.quest_type = 'daily' AND pq.assigned_date = ?
-         ORDER BY pq.id ASC`,
+         ORDER BY pq.quest_id ASC`,
         [playerId, today]
     );
 
@@ -81,7 +81,7 @@ async function getPlayerQuests(playerId) {
          FROM player_quests pq
          JOIN quests q ON pq.quest_id = q.id
          WHERE pq.player_id = ? AND q.quest_type = 'party' AND pq.assigned_date >= ?
-         ORDER BY pq.id ASC`,
+         ORDER BY pq.quest_id ASC`,
         [playerId, weekAgo]
     );
 
