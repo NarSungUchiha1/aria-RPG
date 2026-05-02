@@ -727,6 +727,10 @@ cron.schedule('30 */1 * * *', async () => { // 30 minutes offset from normal dun
         );
         if (!prestigePlayers.length) return;
 
+        // ✅ Don't spawn if any dungeon is active
+        const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
+        if (anyActive.length) { console.log('⏭️ Prestige spawn skipped — dungeon active'); return; }
+
         const { spawnPrestigeDungeon, PRESTIGE_RANK_MAP } = require('./src/engine/prestigeDungeon');
         const RAID_GROUP = process.env.RAID_GROUP_JID;
 
