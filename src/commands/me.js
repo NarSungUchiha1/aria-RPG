@@ -45,29 +45,57 @@ module.exports = {
             const styledName = stylize(p.nickname.toUpperCase());
             const badge = rankBadge(p.rank);
             const icon = roleIcon(p.role);
+            const prestigeLvl = p.prestige_level || 0;
+            const stars = prestigeLvl > 0 ? '☆'.repeat(Math.min(prestigeLvl, 5)) : '';
+            const rankLine = prestigeLvl > 0 ? `${stars} ${p.rank}` : p.rank;
 
-            let reply = `══〘 👤 PLAYER STATUS 〙══╮
-┃◆ 👤 Name: ${badge} ${styledName}
-┃◆ 🎭 Role: ${icon} ${p.role}
-┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}
-┃◆────────────
-┃◆ 💪 Strength: ${totalStr}
-┃◆ ⚡ Agility: ${totalAgi}
-┃◆ 🧠 Intelligence: ${totalInt}
-┃◆ 🛡️ Stamina: ${totalSta}
-┃◆────────────
-┃◆ ❤️ HP: ${p.hp}/${p.max_hp}`;
+            const manaLine = (p.role === 'Mage' || p.role === 'Healer')
+                ? `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
+                : '';
 
-            if (p.role === 'Mage' || p.role === 'Healer') {
-                reply += `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`;
+            let reply;
+
+            if (prestigeLvl > 0) {
+                reply =
+                    `══〘 ✦ PRESTIGE HUNTER 〙══╮\n` +
+                    `┃◆ 👤 ${badge} ${styledName}\n` +
+                    `┃◆ 🎭 ${icon} ${p.role}\n` +
+                    `┃◆ 🏅 Rank: ${rankLine}  •  Prestige ${prestigeLvl}\n` +
+                    `┃◆ 📜 Title: ${p.title || 'None'}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ 💪 Strength: ${totalStr}\n` +
+                    `┃◆ ⚡ Agility: ${totalAgi}\n` +
+                    `┃◆ 🧠 Intelligence: ${totalInt}\n` +
+                    `┃◆ 🛡️ Stamina: ${totalSta}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}` +
+                    manaLine +
+                    `\n┃◆ ⚡ Reawakened: ${p.awakened ? 'YES' : 'NO'}\n` +
+                    `┃◆ ✨ SP: ${p.sp || 0}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ 💰 Gold: ${gold.toLocaleString()}\n` +
+                    `┃◆ ⭐ XP: ${xp.toLocaleString()}\n` +
+                    `╰═══════════════════════╯`;
+            } else {
+                reply =
+                    `══〘 👤 PLAYER STATUS 〙══╮\n` +
+                    `┃◆ 👤 ${badge} ${styledName}\n` +
+                    `┃◆ 🎭 ${icon} ${p.role}\n` +
+                    `┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ 💪 Strength: ${totalStr}\n` +
+                    `┃◆ ⚡ Agility: ${totalAgi}\n` +
+                    `┃◆ 🧠 Intelligence: ${totalInt}\n` +
+                    `┃◆ 🛡️ Stamina: ${totalSta}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}` +
+                    manaLine +
+                    `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
+                    `┃◆ ✨ SP: ${p.sp || 0}\n` +
+                    `┃◆ 💰 Gold: ${gold}\n` +
+                    `┃◆ ⭐ XP: ${xp}\n` +
+                    `╰═══════════════════════╯`;
             }
-
-            reply += `
-┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}
-┃◆ ✨ SP: ${p.sp || 0}
-┃◆ 💰 Gold: ${gold}
-┃◆ ⭐ XP: ${xp}
-╰═══════════════════════╯`;
 
             return msg.reply(reply);
         } catch (err) {
