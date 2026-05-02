@@ -126,7 +126,7 @@ const HEALER_GC_ONLY = new Set([
 ]);
 
 const BLACKSMITH_GC_ONLY = new Set([
-    'forge', 'recipes'
+    'forge', 'recipes', 'materials'
 ]);
 
 const HEALER_GC_JID      = '120363427051780444@g.us';
@@ -714,4 +714,32 @@ cron.schedule('0 3 * * 1', async () => { // every Monday 3am
         await clearInactivePlayers();
         console.log('🧹 Weekly inactive player cleanup done');
     } catch(e) { console.error('Cleanup error:', e.message); }
+});
+
+// ==================== PRESTIGE DUNGEON SPAWN ====================
+cron.schedule('30 */1 * * *', async () => { // 30 minutes offset from normal dungeons
+    if (!isReady || !sock) return;
+    try {
+        const db = require('./src/database/db');
+        // Check if any prestige players exist
+        const [prestigePlayers] = await db.execute(
+            "SELECT DISTINCT `rank`, prestige_level FROM players WHERE prestige_level > 0 LIMIT 1"
+        );
+        if (!prestigePlayers.length) return;
+
+        const { spawnPrestigeDungeon, PRESTIGE_RANK_MAP } = require('./src/engine/prestigeDungeon');
+        const RAID_GROUP = process.env.RAID_GROUP_JID;
+
+        // Pick a weighted prestige rank based on players
+        const [pRanks] = await db.execute(
+            "SELECT `rank`, COUNT(*) as cnt FROM players WHERE prestige_level > 0 GROUP BY `rank`"
+        );
+        if (!pRanks.length) return;
+
+        const pick = pRanks[Math.floor(Math.random() * pRanks.length)];
+        const prestigeRank = PRESTIGE_RANK_MAP[pick.rank] || 'PF';
+
+        console.log(`✦ Prestige dungeon spawning: ${prestigeRank}`);
+        await spawnPrestigeDungeon(prestigeRank, sock, RAID_GROUP);
+    } catch(e) { console.error('Prestige dungeon spawn error:', e.message); }
 });
