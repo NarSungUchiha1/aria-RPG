@@ -3,6 +3,7 @@ const enemiesData = require('../data/enemies');
 const { calculateMoveDamage } = require('../systems/skillSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
+const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 
 // ✅ Read from env so you never have to touch code to change the group
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -754,7 +755,12 @@ async function getDungeonEnemyRevealText(dungeonId) {
     const d = dungeon[0];
     const enemies = await getCurrentEnemies(dungeonId);
 
-    let text = `══〘 👾 ENEMIES REVEALED 〙══╮\n`;
+    const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+    const [box, bar, bul, close] = isPrestige
+        ? ['╔══〘 ✦ VOID THREATS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
+        : ['══〘 👾 ENEMIES REVEALED 〙══╮', '┃◆────────────', '┃◆', '╰═══════════════════════╯'];
+
+    let text = `${box}\n`;
     text += `┃◆ Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
     text += `┃◆────────────\n`;
 

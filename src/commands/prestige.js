@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { doPrestige } = require('../systems/prestigeSystem');
+const { doPrestige, PRESTIGE_BASE_STATS } = require('../systems/prestigeSystem');
 
 module.exports = {
     name: 'prestige',

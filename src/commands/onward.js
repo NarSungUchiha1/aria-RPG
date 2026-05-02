@@ -14,6 +14,7 @@ const { getActiveWar, addWarDamage, endVoidWar } = require('../systems/voidwar')
 const { rollMaterialDrop } = require('../systems/materialSystem');
 const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
+const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 
 
 module.exports = {

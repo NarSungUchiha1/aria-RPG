@@ -1,14 +1,13 @@
 const db = require('../database/db');
 
 async function ensureTables() {
-    // Add prestige columns to players table
     await db.execute(`ALTER TABLE players ADD COLUMN IF NOT EXISTS prestige_level INT DEFAULT 0`).catch(() => {});
     await db.execute(`ALTER TABLE players ADD COLUMN IF NOT EXISTS last_active DATETIME DEFAULT NOW()`).catch(() => {});
 }
 
 async function getPrestigeBadge(prestigeLevel) {
     if (!prestigeLevel || prestigeLevel <= 0) return '';
-    return '⭐'.repeat(Math.min(prestigeLevel, 5)); // max 5 stars shown
+    return '⭐'.repeat(Math.min(prestigeLevel, 5));
 }
 
 async function getRankDisplay(player) {
@@ -24,6 +23,34 @@ async function canPrestige(playerId) {
     return { ok: true, currentPrestige: rows[0].prestige_level || 0 };
 }
 
+// ── PRESTIGE STARTING STATS ──────────────────────────────────────────────────
+// These are the constant role-based stats every player starts with on prestige.
+// Calibrated for PF dungeon content — meaningful but requiring prestige gear.
+// Every subsequent prestige resets to the same values (no stat inflation).
+const PRESTIGE_BASE_STATS = {
+    Berserker: {
+        strength: 250, agility: 100, intelligence: 20, stamina: 120,
+        hp: 900,  max_hp: 900,  mana: 50
+    },
+    Assassin: {
+        strength: 100, agility: 250, intelligence: 20, stamina: 100,
+        hp: 800,  max_hp: 800,  mana: 50
+    },
+    Mage: {
+        strength: 20,  agility: 100, intelligence: 250, stamina: 100,
+        hp: 800,  max_hp: 800,  mana: 200
+    },
+    Tank: {
+        strength: 120, agility: 50,  intelligence: 20,  stamina: 250,
+        hp: 1500, max_hp: 1500, mana: 50
+    },
+    Healer: {
+        strength: 20,  agility: 80,  intelligence: 220, stamina: 150,
+        hp: 1000, max_hp: 1000, mana: 200
+    }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function doPrestige(playerId) {
     await ensureTables();
     const check = await canPrestige(playerId);
@@ -31,11 +58,9 @@ async function doPrestige(playerId) {
 
     const newLevel = check.currentPrestige + 1;
 
-    // Strip gold and XP only on first prestige
-    if (newLevel === 1) {
-        await db.execute("UPDATE currency SET gold = 0 WHERE player_id=?", [playerId]);
-        await db.execute("UPDATE xp SET xp = 0 WHERE player_id=?", [playerId]);
-    }
+    // Strip gold and XP on every prestige
+    await db.execute("UPDATE currency SET gold = 0 WHERE player_id=?", [playerId]);
+    await db.execute("UPDATE xp SET xp = 0 WHERE player_id=?", [playerId]);
 
     // Reset rank to F, update prestige level
     await db.execute(
@@ -43,23 +68,21 @@ async function doPrestige(playerId) {
         [newLevel, playerId]
     );
 
-    // Reset stats to F rank base (keep role bonuses)
+    // Apply constant role-based prestige starting stats
     const [player] = await db.execute("SELECT role FROM players WHERE id=?", [playerId]);
     const role = player[0]?.role;
-    const baseStats = { strength: 5, agility: 5, intelligence: 5, stamina: 5, hp: 100, max_hp: 100 };
-    if (role === 'Tank')      { baseStats.stamina += 5; baseStats.strength += 3; baseStats.hp += 50; baseStats.max_hp += 50; }
-    if (role === 'Assassin')  { baseStats.agility += 5; baseStats.strength += 2; baseStats.hp += 10; baseStats.max_hp += 10; }
-    if (role === 'Mage')      { baseStats.intelligence += 5; baseStats.agility += 2; baseStats.hp += 10; baseStats.max_hp += 10; }
-    if (role === 'Healer')    { baseStats.intelligence += 4; baseStats.stamina += 3; baseStats.hp += 20; baseStats.max_hp += 20; }
-    if (role === 'Berserker') { baseStats.strength += 5; baseStats.agility += 2; baseStats.hp += 30; baseStats.max_hp += 30; }
+    const stats = PRESTIGE_BASE_STATS[role] || PRESTIGE_BASE_STATS['Berserker'];
 
     await db.execute(
-        "UPDATE players SET strength=?, agility=?, intelligence=?, stamina=?, hp=?, max_hp=? WHERE id=?",
-        [baseStats.strength, baseStats.agility, baseStats.intelligence, baseStats.stamina,
-         baseStats.hp, baseStats.max_hp, playerId]
+        `UPDATE players SET
+            strength=?, agility=?, intelligence=?, stamina=?,
+            hp=?, max_hp=?, mana=?
+         WHERE id=?`,
+        [stats.strength, stats.agility, stats.intelligence, stats.stamina,
+         stats.hp, stats.max_hp, stats.mana, playerId]
     );
 
-    return { ok: true, newLevel };
+    return { ok: true, newLevel, stats, role };
 }
 
 async function updateLastActive(playerId) {
@@ -67,7 +90,6 @@ async function updateLastActive(playerId) {
 }
 
 async function clearInactivePlayers() {
-    // Remove players inactive for 7+ days from dungeon tables only (not players table)
     await db.execute(
         `DELETE dp FROM dungeon_players dp
          JOIN players p ON p.id = dp.player_id
@@ -84,5 +106,6 @@ module.exports = {
     canPrestige,
     doPrestige,
     updateLastActive,
-    clearInactivePlayers
+    clearInactivePlayers,
+    PRESTIGE_BASE_STATS
 };

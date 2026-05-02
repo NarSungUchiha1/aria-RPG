@@ -153,3 +153,4 @@ function getStagePool(dungeonId) {
 
 module.exports.setStagePool = setStagePool;
 module.exports.getStagePool = getStagePool;
+module.exports.getStageQualified = getStageQualified;

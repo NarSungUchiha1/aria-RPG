@@ -7,6 +7,7 @@ const {
     autoStartTimers
 } = require('../engine/dungeon');
 const { clearDungeonTimers } = require('../engine/dungeonTimer');
+const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 
 module.exports = {
     name: 'closedungeon',
