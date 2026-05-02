@@ -1,4 +1,5 @@
 const roleMoves = require('../data/roleMoves');
+const prestigeRoleMoves = require('../data/prestigeRoleMoves');
 const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
@@ -21,7 +22,9 @@ function setMoveCooldown(userId, moveName, baseCooldownSeconds, playerRank) {
 
 function getAllMoves(player, equippedItems) {
     const moves = [];
-    const roleMoveList = roleMoves[player.role] || [];
+    const isPrestige = (player.prestige_level || 0) > 0;
+    const roleMoveSource = isPrestige ? prestigeRoleMoves : roleMoves;
+    const roleMoveList = roleMoveSource[player.role] || [];
     roleMoveList.forEach(m => moves.push({ ...m, source: 'role' }));
 
     if (Array.isArray(equippedItems)) {
