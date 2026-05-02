@@ -105,21 +105,20 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
 
     await sendWithRetry(client, RAID_GROUP, {
         text:
-            `╔══〘 ✦ PRESTIGE DUNGEON 〙══╗\n` +
-            `┃◆ \n` +
-            `┃◆ 〝${lorelines[prestigeRank]}〞\n` +
-            `┃◆ \n` +
-            `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
-            `┃◆ \n` +
-            `┃◆ Rank:      ${prestigeRank}\n` +
-            `┃◆ Stages:    ${maxStage}\n` +
-            `┃◆ Boss:      ${bossName}\n` +
-            `┃◆ \n` +
-            `┃◆ ⚠️ Prestige Hunters only.\n` +
-            `┃◆ DM !enter to join.\n` +
-            `┃◆ Portal closes in 10 minutes.\n` +
-            `┃◆ \n` +
-            `╰═══════════════════════════╯`,
+    `╔══〘 ✦ PRESTIGE DUNGEON 〙══╗\n` +
+            `┃★ \n` +
+            `┃★ 〝${lorelines[prestigeRank]}〞\n` +
+            `┃★ \n` +
+            `┃★────────────\n` +
+            `┃★ Rank:    ${prestigeRank}\n` +
+            `┃★ Stages:  ${maxStage}\n` +
+            `┃★ Boss:    ${bossName}\n` +
+            `┃★ \n` +
+            `┃★ ⚠️ Prestige Hunters only.\n` +
+            `┃★ DM !enter to join.\n` +
+            `┃★ Portal closes in 10 minutes.\n` +
+            `┃★ \n` +
+            `╚═══════════════════════════╝`,
         mentions
     });
 
