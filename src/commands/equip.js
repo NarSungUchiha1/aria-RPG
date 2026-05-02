@@ -27,6 +27,24 @@ module.exports = {
                 `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Consumables cannot be equipped.\n┃◆ Use !use ${item.item_name}\n╰═══════════════════════╯`
             );
 
+            // Block prestige players from equipping normal (non-prestige) weapons
+            if (item.item_type === 'weapon') {
+                const [presRow] = await db.execute(
+                    "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
+                    [userId]
+                );
+                const isPrestige = (presRow[0]?.prestige_level || 0) > 0;
+                const isPrestigeWeapon = item.grade === 'P';
+                if (isPrestige && !isPrestigeWeapon) return msg.reply(
+                    `╔══〘 ✦ EQUIP 〙══╗\n` +
+                    `┃★ ❌ Normal weapons are void-dead\n` +
+                    `┃★ at your level.\n` +
+                    `┃★ Use !melt to convert them to gold.\n` +
+                    `┃★ Equip from !prestigeshop instead.\n` +
+                    `╚═══════════════════════════╝`
+                );
+            }
+
             // Block equipping same type twice — but bags auto-swap
             const [alreadyEquipped] = await db.execute(
                 "SELECT id, item_name FROM inventory WHERE player_id=? AND item_type=? AND equipped=1",
