@@ -7,26 +7,31 @@ module.exports = {
     name: 'shop',
     async execute(msg, args, { userId, client }) {
         try {
-            const [rows] = await db.execute("SELECT nickname, role, `rank` FROM players WHERE id=?", [userId]);
+            const [rows] = await db.execute("SELECT nickname, role, `rank`, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]);
             if (!rows.length) return msg.reply("❌ Not registered.");
 
             const player = rows[0];
 
+            // ✅ Route prestige players to prestige shop
+            const prestigeLevel = player.prestige_level || 0;
+            if (prestigeLevel > 0) {
+                const { execute } = require('./prestigeshop');
+                return execute(msg, args, { userId, client });
+            }
+
+            // ❌ Block shop view if player is inside an active dungeon
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
                 [userId]
             );
-             if (inDungeon.length) {
-                let text = "`══〘 🛒 ARIA SHOP 〙══╮\n`";
-                text += ` ┃◆ ❌ You cannot buy items while inside a dungeon.\n`;
-                text += ` ┃◆ Disobedient mortal you should have read before you entered\n`;
-                return msg.reply(text);
+            if (inDungeon.length) {
+                return msg.reply("❌ You cannot view the shop while inside a dungeon.");
             }
 
             const shopItems = await getPlayerShop(userId, player.role, player.rank);
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
-            const restockTime = getRestockTimeRemaining(); // ✅ no longer async
+            const restockTime = await getRestockTimeRemaining();
 
             if (shopItems.length === 0) {
                 return msg.reply(`══〘 🛒 SHOP 〙══╮\n┃◆ The shop is currently empty. Check back later!\n┃◆ Restocks in: ${restockTime}\n╰═══════════════════════╯`);
