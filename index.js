@@ -97,12 +97,14 @@ app.listen(PORT, '0.0.0.0', () => {
 
 const ADMIN_FILE = path.join(__dirname, "admin.json");
 let ADMINS = [];
+global.ADMINS = ADMINS;
 global.isLockdown = false;
 
 if (fs.existsSync(ADMIN_FILE)) {
     try {
         const data = JSON.parse(fs.readFileSync(ADMIN_FILE, "utf-8"));
         ADMINS = data.admins || (data.admin ? [data.admin] : []);
+        global.ADMINS = ADMINS;
         console.log("🔐 Admins loaded:", ADMINS);
     } catch (err) {
         console.error("Failed to load admin.json:", err);
@@ -393,7 +395,7 @@ async function startBot() {
             const command = commands.get(cmdName);
             if (!command) return;
 
-            const isAdmin = ADMINS.includes(userId);
+            const isAdmin = (global.ADMINS || ADMINS).includes(userId);
 
             if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
                 await sock.sendMessage(jid, {
@@ -499,6 +501,10 @@ async function startBot() {
                     }
                 }
 
+                // ✅ Update last_active on every command
+                try {
+                    await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [userId]).catch(()=>{});
+                } catch(e) {}
                 await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
             } catch (err) {
                 console.error("Command Error:", err);
@@ -699,4 +705,13 @@ cron.schedule('*/10 * * * *', async () => {
             await endVoidWar(sock);
         }
     } catch(e) { console.error('Void War auto-end error:', e.message); }
+});
+
+// ==================== WEEKLY INACTIVE CLEANUP ====================
+cron.schedule('0 3 * * 1', async () => { // every Monday 3am
+    try {
+        const { clearInactivePlayers } = require('./src/systems/prestigeSystem');
+        await clearInactivePlayers();
+        console.log('🧹 Weekly inactive player cleanup done');
+    } catch(e) { console.error('Cleanup error:', e.message); }
 });

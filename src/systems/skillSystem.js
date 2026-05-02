@@ -58,35 +58,32 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(item => {
             if (!item) return;
-            // ✅ Durability affects stat bonuses — lower durability = weaker bonuses
-            const maxDur = item.max_durability || 100;
-            const curDur = item.durability !== null && item.durability !== undefined ? item.durability : maxDur;
-            const durRatio = maxDur > 0 ? Math.max(0, curDur / maxDur) : 1;
-
-            const scale = (val) => Math.floor((Number(val) || 0) * durRatio);
-
-            totalBonus += scale(item.attack_bonus);
-            if (statUsed === 'strength') totalBonus += scale(item.strength_bonus);
-            else if (statUsed === 'agility') totalBonus += scale(item.agility_bonus);
-            else if (statUsed === 'intelligence') totalBonus += scale(item.intelligence_bonus);
-            else if (statUsed === 'stamina') totalBonus += scale(item.stamina_bonus);
+            totalBonus += Number(item.attack_bonus) || 0;
+            if (statUsed === 'strength') totalBonus += Number(item.strength_bonus) || 0;
+            else if (statUsed === 'agility') totalBonus += Number(item.agility_bonus) || 0;
+            else if (statUsed === 'intelligence') totalBonus += Number(item.intelligence_bonus) || 0;
+            else if (statUsed === 'stamina') totalBonus += Number(item.stamina_bonus) || 0;
         });
     }
 
     totalBonus += Number(buffMods.attack) || 0;
 
+    // ── DAMAGE FORMULA ──────────────────────────────────────────────────────
+    // Calibrated targets (base / with weapon / with buffs):
+    // F:  15-20 / 25-30 / 35-45
+    // E:  25-35 / 40-50 / 55-70
+    // D:  45-60 / 70-85 / 90-115
+    // C:  75-100 / 110-140 / 150-185
+    // B:  120-160 / 180-220 / 240-290
+    // A:  200-260 / 290-350 / 380-450
+    // S:  320-400 / 450-550 / 600-750
+
     const totalAttack = statValue + totalBonus;
     const defense = Number(enemy.def) || 0;
-    const damageReduction = Math.floor(defense / 3); // ✅ reduced defense penalty
+    const damageReduction = Math.floor(defense * 0.4);
     const multiplier = move.multiplier || 1;
 
-    // ✅ Rank multiplier — higher rank = more base damage
-    const rankMult = { F:1.0, E:1.3, D:1.7, C:2.2, B:2.8, A:3.5, S:4.5 };
-    const rMult = rankMult[player.rank] || 1.0;
-
-    // ✅ Void Corruption applied externally — pass as param if needed
-    // (corruption mult handled in skill.js before calling this)
-    let damage = Math.floor(totalAttack * multiplier * rMult) - damageReduction;
+    let damage = Math.floor(Math.max(1, totalAttack) * multiplier) - damageReduction;
     return Math.max(1, damage);
 }
 
@@ -107,8 +104,7 @@ function calculateHeal(player, move) {
     const buffValue = typeof buffMods[statUsed] === 'number' ? buffMods[statUsed] : 0;
     const statValue = baseStat + buffValue;
     const multiplier = move.multiplier || 1;
-    const raw = Math.floor(Math.max(0, statValue) * multiplier) + (move.baseHeal || 0);
-    return Math.max(move.baseHeal || 10, raw);
+    return Math.floor(statValue * multiplier);
 }
 
 module.exports = {

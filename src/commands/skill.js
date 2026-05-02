@@ -295,6 +295,36 @@ module.exports = {
             return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
+        // ✅ DOT moves (Poison Vial etc)
+        if (move.type === 'dot') {
+            if (!dungeon) return msg.reply(`══〘 ☠️ POISON 〙══╮\n┃◆ ❌ Only usable in dungeons.\n╰═══════════════════════╯`);
+            const enemies = await getCurrentEnemies(dungeon.id);
+            if (!enemies.length) return msg.reply(`══〘 ☠️ POISON 〙══╮\n┃◆ ❌ No enemies to target.\n╰═══════════════════════╯`);
+            const target = enemies[0];
+
+            // Apply DOT debuff — damage per turn for duration
+            const dotDamage = Math.floor((player[move.stat] || player.agility) * (move.multiplier || 0.4));
+            const duration = move.duration || 3;
+
+            applyBuff('enemy', target.id, {
+                type: 'dot',
+                stat: 'hp',
+                value: dotDamage,
+                duration
+            });
+
+            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+            try { trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
+
+            return msg.reply(
+                `══〘 ☠️ ${move.name.toUpperCase()} 〙══╮\n` +
+                `┃◆ ☠️ ${player.nickname} poisons ${target.name}!\n` +
+                `┃◆ 💀 ${dotDamage} damage/turn × ${duration} turns\n` +
+                `┃◆ Cooldown: ${actualCd}s\n` +
+                `╰═══════════════════════╯`
+            );
+        }
+
         return msg.reply("❌ Unknown move type.");
     }
 };

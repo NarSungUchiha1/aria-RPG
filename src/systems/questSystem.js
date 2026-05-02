@@ -1,476 +1,64 @@
 const db = require('../database/db');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-
-// ── Table Setup ───────────────────────────────────────────────────────────────
-async function ensureTables() {
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS quests (
-            id               INT AUTO_INCREMENT PRIMARY KEY,
-            quest_type       ENUM('daily','achievement','party') NOT NULL,
-            role             VARCHAR(20) NULL,
-            title            VARCHAR(100) NOT NULL,
-            description      TEXT,
-            objective_type   VARCHAR(50) NOT NULL,
-            objective_target VARCHAR(50) NULL,
-            objective_count  INT NOT NULL DEFAULT 1,
-            reward_xp        INT DEFAULT 0,
-            reward_gold      INT DEFAULT 0,
-            reward_sp        INT DEFAULT 0,
-            reward_title     VARCHAR(50) NULL,
-            is_active        TINYINT DEFAULT 1
-        )
-    `).catch(() => {});
-
-    // Add role column if missing (for existing tables)
-    await db.execute(`ALTER TABLE quests ADD COLUMN IF NOT EXISTS role VARCHAR(20) NULL`).catch(() => {});
-
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS player_quests (
-            id            INT AUTO_INCREMENT PRIMARY KEY,
-            player_id     VARCHAR(50) NOT NULL,
-            quest_id      INT NOT NULL,
-            progress      INT DEFAULT 0,
-            completed     TINYINT DEFAULT 0,
-            claimed       TINYINT DEFAULT 0,
-            assigned_date DATE NOT NULL,
-            UNIQUE KEY unique_player_quest_date (player_id, quest_id, assigned_date)
-        )
-    `).catch(() => {});
-
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS player_achievements (
-            id           INT AUTO_INCREMENT PRIMARY KEY,
-            player_id    VARCHAR(50) NOT NULL,
-            quest_id     INT NOT NULL,
-            progress     INT DEFAULT 0,
-            completed    TINYINT DEFAULT 0,
-            claimed      TINYINT DEFAULT 0,
-            earned_at    DATETIME NULL,
-            UNIQUE KEY unique_player_achievement (player_id, quest_id)
-        )
-    `).catch(() => {});
-
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS party_quest_progress (
-            id           INT AUTO_INCREMENT PRIMARY KEY,
-            quest_id     INT NOT NULL,
-            week_start   DATE NOT NULL,
-            progress     INT DEFAULT 0,
-            completed    TINYINT DEFAULT 0,
-            claimed      TINYINT DEFAULT 0,
-            UNIQUE KEY unique_party_quest_week (quest_id, week_start)
-        )
-    `).catch(() => {});
-
-    await seedQuests();
-}
-
-// ── Seed Quest Pool ───────────────────────────────────────────────────────────
-async function seedQuests() {
-    const [roleCheck] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM quests WHERE quest_type='daily' AND role IS NOT NULL"
-    );
-    if (roleCheck[0].cnt > 0) return;
-
-    // Columns: quest_type, role, title, description, objective_type, objective_target,
-    //          objective_count, reward_xp, reward_gold, reward_sp, reward_title
-    //
-    // BALANCING NOTES (with 1-5 enemies per stage, 3 dungeons/day limit):
-    //   Avg enemies per dungeon run : ~9  (3 stages × avg 3 enemies)
-    //   Avg skills used per run     : ~20 (2-3 per enemy)
-    //   Avg stages per day          : ~12 (3 dungeons × avg 4 stages)
-    //   Boss kills per day max      : 3  (1 per completed dungeon)
-    //   All damage targets are mid-rank friendly — achievable in 2-3 runs.
-
-    const quests = [
-
-        // ══ DAILY — UNIVERSAL (2 assigned per day from pool of 5) ════════════
-        ['daily', null, 'Into the Depths',  'Enter a dungeon today',                    'dungeon_enter',   null,  1,  100,  100, 0, null],
-        ['daily', null, 'First Step',       'Clear 2 dungeon stages',                   'stage_clear',     null,  2,  130,  100, 0, null],
-        ['daily', null, 'The Challenger',   'Win 1 PvP duel',                           'pvp_win',         null,  1,  200,  250, 0, null],
-        ['daily', null, 'Loot Run',         'Complete 1 full dungeon run',              'dungeon_clear',   null,  1,  280,  280, 0, null],
-        ['daily', null, 'Potion Duty',      'Use 2 consumable items',                   'item_use',        null,  2,  100,   80, 0, null],
-
-        // ══ DAILY — TANK (3 assigned per day from pool of 5) ═════════════════
-        // Tanks hit for less — damage targets are lower. Survival is their strength.
-        ['daily', 'Tank', 'Iron Wall',      'Complete a dungeon without dying',         'dungeon_survive', null,  1,  300,  220, 0, null],
-        ['daily', 'Tank', 'Guardian Duty',  'Clear 5 dungeon stages',                  'stage_clear',     null,  5,  220,  160, 0, null],
-        ['daily', 'Tank', 'Damage Sponge',  'Deal 250 total damage in dungeons',       'damage_dealt',    null, 250, 160,  180, 0, null],
-        ['daily', 'Tank', 'Shield Up',      'Use 8 skills in combat',                  'skill_use',       null,  8,  150,  120, 0, null],
-        ['daily', 'Tank', 'Boss Blocker',   'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  360, 0, null],
-
-        // ══ DAILY — ASSASSIN (pool of 5) ══════════════════════════════════════
-        // High kill count and damage — AGI-based damage scales well even at low rank.
-        ['daily', 'Assassin', 'Shadow Work',  'Defeat 10 enemies in dungeons',         'enemy_kill',      null, 10,  250,  200, 0, null],
-        ['daily', 'Assassin', 'Blade Dance',  'Use 10 skills in combat',               'skill_use',       null, 10,  160,  130, 0, null],
-        ['daily', 'Assassin', 'Lethal Edge',  'Deal 500 total damage in dungeons',     'damage_dealt',    null, 500, 210,  230, 0, null],
-        ['daily', 'Assassin', 'Phantom Run',  'Complete a dungeon without dying',      'dungeon_survive', null,  1,  300,  220, 0, null],
-        ['daily', 'Assassin', 'Duel Master',  'Win 1 PvP duel',                        'pvp_win',         null,  1,  250,  300, 0, null],
-
-        // ══ DAILY — MAGE (pool of 5) ══════════════════════════════════════════
-        // INT-based damage. Lower kill count, higher skill use — cast-focused gameplay.
-        ['daily', 'Mage', 'Arcane Fury',    'Deal 500 total damage in dungeons',       'damage_dealt',    null, 500, 240,  210, 0, null],
-        ['daily', 'Mage', 'Mana Surge',     'Use 12 skills in combat',                 'skill_use',       null, 12,  200,  160, 0, null],
-        ['daily', 'Mage', 'Spell Runner',   'Complete 1 full dungeon run',             'dungeon_clear',   null,  1,  280,  280, 0, null],
-        ['daily', 'Mage', 'Monster Study',  'Defeat 8 enemies in dungeons',            'enemy_kill',      null,  8,  190,  160, 0, null],
-        ['daily', 'Mage', 'Boss Melt',      'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  380, 0, null],
-
-        // ══ DAILY — HEALER (pool of 5) ════════════════════════════════════════
-        // Support role — consumable use, survival, stage progression over raw damage.
-        ['daily', 'Healer', 'Life Bringer', 'Use 3 consumable items',                  'item_use',        null,  3,  150,  130, 0, null],
-        ['daily', 'Healer', 'Holy Run',     'Complete 1 dungeon without dying',        'dungeon_survive', null,  1,  350,  260, 0, null],
-        ['daily', 'Healer', 'Restoration',  'Use 10 skills in combat',                 'skill_use',       null, 10,  180,  150, 0, null],
-        ['daily', 'Healer', 'Stage Keeper', 'Clear 4 dungeon stages',                  'stage_clear',     null,  4,  200,  160, 0, null],
-        ['daily', 'Healer', 'Boss Support', 'Defeat 1 dungeon boss',                   'boss_kill',       null,  1,  420,  380, 0, null],
-
-        // ══ DAILY — BERSERKER (pool of 5) ════════════════════════════════════
-        // Highest raw damage and kill count. STR scaling means damage targets are higher.
-        ['daily', 'Berserker', 'Bloodthirst', 'Defeat 12 enemies in dungeons',        'enemy_kill',      null, 12,  280,  240, 0, null],
-        ['daily', 'Berserker', 'Rampage',     'Deal 700 total damage in dungeons',    'damage_dealt',    null, 700, 310,  270, 0, null],
-        ['daily', 'Berserker', 'Destroyer',   'Defeat 1 dungeon boss',                'boss_kill',       null,  1,  420,  380, 0, null],
-        ['daily', 'Berserker', 'Rage Mode',   'Use 8 skills in combat',               'skill_use',       null,  8,  150,  120, 0, null],
-        ['daily', 'Berserker', 'No Retreat',  'Complete a dungeon without dying',     'dungeon_survive', null,  1,  320,  230, 0, null],
-
-        // ══ ACHIEVEMENTS (universal, permanent milestones) ═══════════════════
-        ['achievement', null, 'First Blood',       'Win your first PvP duel',          'pvp_win',        null,    1,   500,   500,  3, 'Duelist'],
-        ['achievement', null, 'Veteran',           'Complete 10 full dungeon runs',    'dungeon_clear',  null,   10,  1000,  1000,  5, 'Veteran'],
-        ['achievement', null, 'Rising Star',       'Reach Rank C',                     'rank_reached',   'C',     1,   800,   800,  5, 'Rising Star'],
-        ['achievement', null, 'Elite',             'Reach Rank A',                     'rank_reached',   'A',     1,  2000,  2000, 10, 'Elite'],
-        ['achievement', null, 'Legend',            'Reach Rank S',                     'rank_reached',   'S',     1,  5000,  5000, 20, 'Legend'],
-        ['achievement', null, 'Void Hunter',       'Collect your first Void Shard',    'shard_collect',  null,    1,  1000,  1000,  8, 'Void Hunter'],
-        ['achievement', null, 'Void Keeper',       'Collect all 5 Void Shards',        'shard_collect',  null,    5,  5000,  5000, 20, 'Void Keeper'],
-        ['achievement', null, 'Obliterator',       'Deal 50,000 total damage',         'damage_dealt',   null, 50000, 2000,  2000, 10, 'Obliterator'],
-        ['achievement', null, 'Champion',          'Win 10 PvP duels',                 'pvp_win',        null,   10,  1500,  1500,  8, 'Champion'],
-        ['achievement', null, 'Boss Slayer',       'Defeat 20 dungeon bosses',         'boss_kill',      null,   20,  3000,  3000, 15, 'Boss Slayer'],
-        ['achievement', null, 'S-Rank Conqueror',  'Clear an S-rank dungeon',          'srank_clear',    null,    1,  5000,  5000, 20, 'S-Rank Conqueror'],
-        ['achievement', null, 'Centurion',         'Enter 100 dungeons',               'dungeon_enter',  null,  100,  3000,  3000, 15, 'Centurion'],
-
-        // ══ PARTY (weekly, shared group progress) ════════════════════════════
-        ['party', null, 'Party Grind',   'Clear 10 dungeons as a group this week',     'dungeon_clear',  null,  10, 1000, 1000,  5, null],
-        ['party', null, 'Boss Rush',     'Defeat 5 bosses as a group this week',       'boss_kill',      null,   5, 1500, 1500,  8, null],
-        ['party', null, 'Void Seekers',  'Collect 3 Void Shards as a group this week', 'shard_collect',  null,   3, 2000, 2000, 10, null],
-    ];
-
-    for (const q of quests) {
-        await db.execute(
-            `INSERT INTO quests (quest_type, role, title, description, objective_type, objective_target,
-             objective_count, reward_xp, reward_gold, reward_sp, reward_title) VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-            q
-        );
-    }
-    console.log('📜 Quest pool seeded.');
-}
-
-// ── In-memory cache — tracks which players have been set up today ─────────────
-// Avoids 6+ DB queries on every skill use, kill, etc.
-const questSetupCache = new Map(); // playerId -> 'YYYY-MM-DD'
-
-function isQuestSetupCached(playerId) {
-    const today = new Date().toISOString().split('T')[0];
-    return questSetupCache.get(playerId) === today;
-}
-
-function markQuestSetup(playerId) {
-    const today = new Date().toISOString().split('T')[0];
-    questSetupCache.set(playerId, today);
-}
 async function assignDailyQuests(playerId) {
     const today = new Date().toISOString().split('T')[0];
     const [existing] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM player_quests WHERE player_id=? AND assigned_date=?",
+        "SELECT * FROM player_quests WHERE player_id=? AND assigned_date=?",
         [playerId, today]
     );
-    if (existing[0].cnt >= 5) return;
-
-    const [playerRow] = await db.execute("SELECT role FROM players WHERE id=?", [playerId]);
-    const role = playerRow[0]?.role || null;
-
-    // 3 role-specific quests
-    const [roleQuests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND role=? AND is_active=1 ORDER BY RAND() LIMIT 3",
-        [role]
+    if (existing.length) return;
+    const [quests] = await db.execute(
+        "SELECT * FROM quests WHERE quest_type='daily' AND is_active=1 ORDER BY RAND() LIMIT 3"
     );
-
-    // 2 universal quests
-    const [universalQuests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND role IS NULL AND is_active=1 ORDER BY RAND() LIMIT 2"
-    );
-
-    const toAssign = [...roleQuests, ...universalQuests];
-    for (const q of toAssign) {
+    for (const q of quests) {
         await db.execute(
-            `INSERT IGNORE INTO player_quests (player_id, quest_id, progress, completed, claimed, assigned_date)
+            `INSERT INTO player_quests (player_id, quest_id, progress, completed, claimed, assigned_date)
              VALUES (?, ?, 0, 0, 0, ?)`,
             [playerId, q.id, today]
         );
     }
 }
 
-// ── Ensure achievement rows exist for all players ─────────────────────────────
-async function ensureAchievements(playerId) {
-    const [allAch] = await db.execute(
-        "SELECT id FROM quests WHERE quest_type='achievement' AND is_active=1"
-    );
-    for (const a of allAch) {
-        await db.execute(
-            `INSERT IGNORE INTO player_achievements (player_id, quest_id, progress, completed, claimed)
-             VALUES (?, ?, 0, 0, 0)`,
-            [playerId, a.id]
-        );
-    }
-}
-
-// ── Ensure party quest rows for current week ──────────────────────────────────
-async function ensurePartyQuests() {
-    const weekStart = getWeekStart();
-    const [partyQuests] = await db.execute(
-        "SELECT id FROM quests WHERE quest_type='party' AND is_active=1"
-    );
-    for (const q of partyQuests) {
-        await db.execute(
-            `INSERT IGNORE INTO party_quest_progress (quest_id, week_start, progress, completed, claimed)
-             VALUES (?, ?, 0, 0, 0)`,
-            [q.id, weekStart]
-        );
-    }
-}
-
-function getWeekStart() {
-    const now  = new Date();
-    const day  = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const mon  = new Date(now.setDate(diff));
-    return mon.toISOString().split('T')[0];
-}
-
-// ── Update Quest Progress ─────────────────────────────────────────────────────
-async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
-    // ✅ Only run setup queries once per player per day — cached in memory
-    if (!isQuestSetupCached(playerId)) {
-        await assignDailyQuests(playerId);
-        await ensureAchievements(playerId);
-        await ensurePartyQuests();
-        markQuestSetup(playerId);
-    }
-
-    // ── Daily quests ─────────────────────────────────────────────
-    const today = new Date().toISOString().split('T')[0];
+async function updateQuestProgress(playerId, objectiveType, target, amount = 1) {
     await db.execute(
         `UPDATE player_quests pq
          JOIN quests q ON pq.quest_id = q.id
-         SET pq.progress = LEAST(pq.progress + ?, q.objective_count)
-         WHERE pq.player_id = ?
-           AND q.objective_type = ?
-           AND pq.completed = 0
-           AND pq.assigned_date = ?`,
-        [amount, playerId, objectiveType, today]
+         SET pq.progress = pq.progress + ?
+         WHERE pq.player_id = ? AND q.objective_type = ?
+           AND (q.objective_target = ? OR q.objective_target IS NULL)
+           AND pq.completed = 0 AND pq.assigned_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+        [amount, playerId, objectiveType]
     );
-    // Auto-complete daily
     await db.execute(
         `UPDATE player_quests pq
          JOIN quests q ON pq.quest_id = q.id
          SET pq.completed = 1
-         WHERE pq.player_id = ?
-           AND pq.progress >= q.objective_count
-           AND pq.completed = 0
-           AND pq.assigned_date = ?`,
-        [playerId, today]
-    );
-
-    // ── Achievement quests ───────────────────────────────────────
-    // For rank_reached achievements, check the player's current rank matches the target
-    const [rankRow] = await db.execute("SELECT `rank` FROM players WHERE id=?", [playerId]).catch(() => [[]]);
-    const currentRank = rankRow[0]?.rank || null;
-
-    await db.execute(
-        `UPDATE player_achievements pa
-         JOIN quests q ON pa.quest_id = q.id
-         SET pa.progress = LEAST(pa.progress + ?, q.objective_count)
-         WHERE pa.player_id = ?
-           AND q.objective_type = ?
-           AND (
-               q.objective_target IS NULL
-               OR (q.objective_type = 'rank_reached' AND q.objective_target = ?)
-               OR q.objective_target IS NULL
-           )
-           AND pa.completed = 0`,
-        [amount, playerId, objectiveType, currentRank]
-    );
-    // Auto-complete and notify achievements
-    const [newlyCompleted] = await db.execute(
-        `UPDATE player_achievements pa
-         JOIN quests q ON pa.quest_id = q.id
-         SET pa.completed = 1, pa.earned_at = NOW()
-         WHERE pa.player_id = ?
-           AND pa.progress >= q.objective_count
-           AND pa.completed = 0`,
+         WHERE pq.player_id = ? AND pq.progress >= q.objective_count AND pq.completed = 0`,
         [playerId]
-    );
-    if (newlyCompleted.affectedRows > 0 && client) {
-        await notifyAchievements(playerId, client);
-    }
-
-    // ── Party quests ─────────────────────────────────────────────
-    const weekStart = getWeekStart();
-    await db.execute(
-        `UPDATE party_quest_progress pqp
-         JOIN quests q ON pqp.quest_id = q.id
-         SET pqp.progress = LEAST(pqp.progress + ?, q.objective_count)
-         WHERE q.objective_type = ?
-           AND pqp.week_start = ?
-           AND pqp.completed = 0`,
-        [amount, objectiveType, weekStart]
-    );
-    await db.execute(
-        `UPDATE party_quest_progress pqp
-         JOIN quests q ON pqp.quest_id = q.id
-         SET pqp.completed = 1
-         WHERE pqp.progress >= q.objective_count
-           AND pqp.week_start = ?
-           AND pqp.completed = 0`,
-        [weekStart]
     );
 }
 
-// ── Achievement GC Notification ───────────────────────────────────────────────
-async function notifyAchievements(playerId, client) {
-    const [earned] = await db.execute(
-        `SELECT q.title, q.reward_title, q.reward_sp, q.reward_gold, q.reward_xp
-         FROM player_achievements pa
-         JOIN quests q ON pa.quest_id = q.id
-         WHERE pa.player_id = ? AND pa.completed = 1 AND pa.claimed = 0`,
-        [playerId]
-    );
-    if (!earned.length) return;
-
-    const [player] = await db.execute("SELECT nickname FROM players WHERE id=?", [playerId]);
-    const nickname = player[0]?.nickname || playerId;
-
-    for (const ach of earned) {
-        let text =
-            `╭══〘 🏆 ACHIEVEMENT UNLOCKED 〙══╮\n` +
-            `┃◆ \n` +
-            `┃◆ ⚡ ${nickname}\n` +
-            `┃◆ unlocked: ${ach.title}\n` +
-            `┃◆ \n`;
-        if (ach.reward_title) text += `┃◆ 🎖️ Title: "${ach.reward_title}"\n`;
-        text +=
-            `┃◆ ⭐ +${ach.reward_xp} XP\n` +
-            `┃◆ 💰 +${ach.reward_gold} Gold\n` +
-            (ach.reward_sp ? `┃◆ ✨ +${ach.reward_sp} SP\n` : '') +
-            `┃◆ \n` +
-            `┃◆ Use !claim to collect.\n` +
-            `┃◆ \n` +
-            `╰═══════════════════════════╯`;
-
-        try {
-            await client.sendMessage(RAID_GROUP, { text });
-        } catch (e) {}
-    }
-}
-
-// ── Claim Rewards ─────────────────────────────────────────────────────────────
-async function claimQuestRewards(playerId, questId, client) {
-    // Try daily first
-    const today = new Date().toISOString().split('T')[0];
-    const [daily] = await db.execute(
-        `SELECT pq.*, q.reward_xp, q.reward_gold, q.reward_sp, q.reward_title, q.title, q.quest_type
-         FROM player_quests pq
-         JOIN quests q ON pq.quest_id = q.id
-         WHERE pq.player_id=? AND pq.quest_id=? AND pq.completed=1
-           AND pq.claimed=0 AND pq.assigned_date=?`,
-        [playerId, questId, today]
-    );
-
-    if (daily.length) {
-        const q = daily[0];
-        await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?",  [q.reward_gold, playerId]);
-        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",            [q.reward_xp,   playerId]);
-        if (q.reward_sp) await db.execute("UPDATE players SET sp = sp + ? WHERE id=?", [q.reward_sp, playerId]);
-        await db.execute("UPDATE player_quests SET claimed=1 WHERE player_id=? AND quest_id=? AND assigned_date=?",
-            [playerId, questId, today]);
-        return { success: true, quest: q };
-    }
-
-    // Try achievement
-    const [ach] = await db.execute(
-        `SELECT pa.*, q.reward_xp, q.reward_gold, q.reward_sp, q.reward_title, q.title, q.quest_type
-         FROM player_achievements pa
-         JOIN quests q ON pa.quest_id = q.id
-         WHERE pa.player_id=? AND pa.quest_id=? AND pa.completed=1 AND pa.claimed=0`,
+async function claimQuestRewards(playerId, questId) {
+    const [pq] = await db.execute(
+        "SELECT * FROM player_quests WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0",
         [playerId, questId]
     );
-
-    if (ach.length) {
-        const q = ach[0];
-        await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?",  [q.reward_gold, playerId]);
-        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",            [q.reward_xp,   playerId]);
-        if (q.reward_sp)    await db.execute("UPDATE players SET sp = sp + ? WHERE id=?",    [q.reward_sp,    playerId]);
-        if (q.reward_title) await db.execute("UPDATE players SET title=? WHERE id=?",        [q.reward_title, playerId]);
-        await db.execute("UPDATE player_achievements SET claimed=1 WHERE player_id=? AND quest_id=?",
-            [playerId, questId]);
-        return { success: true, quest: q };
+    if (!pq.length) return { error: "Quest not completed or already claimed." };
+    const [quest] = await db.execute("SELECT * FROM quests WHERE id=?", [questId]);
+    const q = quest[0];
+    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [q.reward_gold, playerId]);
+    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [q.reward_xp, playerId]);
+    if (q.reward_sp) {
+        await db.execute("UPDATE players SET sp = sp + ? WHERE id=?", [q.reward_sp, playerId]);
     }
-
-    return { error: "Quest not found, not completed, or already claimed." };
+    if (q.reward_item) {
+        await db.execute(
+            "INSERT INTO inventory (player_id, item_name, item_type, quantity) VALUES (?, ?, 'misc', 1)",
+            [playerId, q.reward_item]
+        );
+    }
+    await db.execute("UPDATE player_quests SET claimed=1 WHERE player_id=? AND quest_id=?", [playerId, questId]);
+    return { success: true, rewards: q };
 }
 
-// ── Get Player Quest Display ──────────────────────────────────────────────────
-async function getPlayerQuests(playerId) {
-    await assignDailyQuests(playerId);
-    await ensureAchievements(playerId);
-    await ensurePartyQuests();
-
-    const today     = new Date().toISOString().split('T')[0];
-    const weekStart = getWeekStart();
-
-    const [daily] = await db.execute(
-        `SELECT pq.quest_id as id, q.title, q.description, q.objective_count,
-                pq.progress, pq.completed, pq.claimed
-         FROM player_quests pq
-         JOIN quests q ON pq.quest_id = q.id
-         WHERE pq.player_id=? AND pq.assigned_date=?
-         ORDER BY pq.completed ASC`,
-        [playerId, today]
-    );
-
-    const [achievements] = await db.execute(
-        `SELECT pa.quest_id as id, q.title, q.description, q.objective_count,
-                pa.progress, pa.completed, pa.claimed, q.reward_title
-         FROM player_achievements pa
-         JOIN quests q ON pa.quest_id = q.id
-         WHERE pa.player_id=?
-         ORDER BY pa.completed DESC, pa.progress DESC
-         LIMIT 5`,
-        [playerId]
-    );
-
-    const [party] = await db.execute(
-        `SELECT pqp.quest_id as id, q.title, q.description, q.objective_count,
-                pqp.progress, pqp.completed, pqp.claimed
-         FROM party_quest_progress pqp
-         JOIN quests q ON pqp.quest_id = q.id
-         WHERE pqp.week_start=?`,
-        [weekStart]
-    );
-
-    return { daily, achievements, party };
-}
-
-// ── Progress Bar ──────────────────────────────────────────────────────────────
-function progressBar(current, total) {
-    const pct   = Math.min(1, current / total);
-    const filled = Math.floor(pct * 8);
-    const bar   = '█'.repeat(filled) + '░'.repeat(8 - filled);
-    return `[${bar}] ${current}/${total}`;
-}
-
-module.exports = {
-    ensureTables,
-    assignDailyQuests,
-    updateQuestProgress,
-    claimQuestRewards,
-    getPlayerQuests,
-    progressBar
-};
+module.exports = { assignDailyQuests, updateQuestProgress, claimQuestRewards };

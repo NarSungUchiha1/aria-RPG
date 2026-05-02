@@ -10,7 +10,7 @@ const activeDuels = new Map();
 const duelPool    = new Map();
 const turnTimers  = new Map(); // duelKey -> timeout
 
-const DUEL_HP       = 700;
+const DUEL_HP       = 1500;
 const TURN_LIMIT_MS = 20000; // 20 seconds per turn
 
 function getDuelKey(p1, p2) {
@@ -284,7 +284,10 @@ async function handlePvPSkill(attackerId, move, targetId) {
 
         // Use a duel-specific defender object with duel HP for calculation context
         const defenderForCalc = { ...defender, hp: defenderHp, max_hp: DUEL_HP };
-        const damage = calculateMoveDamage(attacker, move, defenderForCalc, items);
+        let damage = calculateMoveDamage(attacker, move, defenderForCalc, items);
+        // ✅ Cap damage to 20% of DUEL_HP per hit — prevents one-shots
+        const maxDuelDamage = Math.floor(DUEL_HP * 0.20);
+        damage = Math.min(damage, maxDuelDamage);
         const newDefenderHp = Math.max(0, defenderHp - damage);
         data.hp[opponentId] = newDefenderHp;
 
