@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { trackContribution } = require('../systems/contributionSystem');
+const { battleState, processSkillHit } = require('../systems/leviathan');
 const { rollMaterialDrop } = require('../systems/materialSystem');
 const { addToBag, getPlayerBag, destroyBag, getBagContents } = require('../systems/bagSystem');
 const { assignDropsToContributors, clearStage, getStagePool, setStagePool } = require('../systems/contributionSystem');
@@ -127,6 +128,13 @@ module.exports = {
             const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
+
+            // ✅ If Leviathan is active — damage also hits the Leviathan
+            if (battleState.active && !battleState.finalPhase) {
+                try {
+                    await processSkillHit(userId, estDamage, client);
+                } catch(e) { console.error('Leviathan hit error:', e.message); }
+            }
 
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);

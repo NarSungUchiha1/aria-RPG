@@ -1,37 +1,28 @@
-const { processFinalStrike, battleState } = require('../systems/leviathan');
+const { battleState, addStriker, executeFinalStrike } = require('../systems/leviathan');
 
 module.exports = {
     name: 'finalstrike',
     async execute(msg, args, { userId, client }) {
         if (!battleState.active || !battleState.finalPhase) return msg.reply(
-            `══〘 ⚔️ FINAL STRIKE 〙══╮\n` +
-            `┃◆ ❌ The final phase has not begun.\n` +
-            `╰═══════════════════════╯`
+            `══〘 ⚔️ FINAL STRIKE 〙══╮\n┃◆ ❌ Final phase not active.\n╰═══════════════════════╯`
         );
 
         if (!battleState.fusedPlayers.has(userId)) return msg.reply(
+            `══〘 ⚔️ FINAL STRIKE 〙══╮\n┃◆ ❌ You must !fuse first.\n╰═══════════════════════╯`
+        );
+
+        if (!battleState.strikeOpen) return msg.reply(
             `══〘 ⚔️ FINAL STRIKE 〙══╮\n` +
-            `┃◆ ❌ You must !fuse your shard first.\n` +
+            `┃◆ ❌ Window not open yet.\n` +
+            `┃◆ Need ${battleState.fusedPlayers.size < 2 ? 'at least 2 fused' : 'window to open'}.\n` +
             `╰═══════════════════════╯`
         );
 
-        const totalFused   = battleState.fusedPlayers.size;
-        const totalHolders = battleState.shardHolders.size;
-
-        if (totalFused < totalHolders) return msg.reply(
-            `══〘 ⚔️ FINAL STRIKE 〙══╮\n` +
-            `┃◆ ❌ Not everyone has fused yet.\n` +
-            `┃◆ Waiting for ${totalHolders - totalFused} more hunters.\n` +
-            `┃◆ They must type !fuse first.\n` +
-            `╰═══════════════════════╯`
-        );
-
-        const result = await processFinalStrike(userId, client);
-
+        const result = await addStriker(userId, client);
         if (!result.ok) return msg.reply(
-            `══〘 ⚔️ FINAL STRIKE 〙══╮\n┃◆ ❌ ${result.msg || 'Cannot strike.'}\n╰═══════════════════════╯`
+            `══〘 ⚔️ FINAL STRIKE 〙══╮\n┃◆ ❌ ${result.reason}\n╰═══════════════════════╯`
         );
 
-        // Narration is handled in leviathan.js — silent here
+        // Silent — narration fires after 5s window from leviathan.js
     }
 };

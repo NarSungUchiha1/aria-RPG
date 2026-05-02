@@ -1,14 +1,16 @@
 /**
- * VOID LEVIATHAN FINAL BATTLE SYSTEM
- * 
+ * VOID LEVIATHAN FINAL BATTLE — REBUILT
+ *
  * Flow:
- * 1. Void War goal reached → Leviathan spawns, everyone promoted to raid group
- * 2. Players !attackboss to deal damage
- * 3. Every 5-6 collective turns → Leviathan retaliates, kills 3/20 players randomly
- * 4. Shard holders are immune to death
- * 5. When only shard holders remain → !fuse phase begins
- * 6. Each shard holder types !fuse → narration plays
- * 7. When all have fused → !finalstrike available → 1 damage per fused player → Leviathan dies
+ * 1. Void War goal reached → Leviathan spawns, ALL registered players promoted to raid group
+ * 2. Players use !skill to deal damage (same as dungeon, Leviathan is the target)
+ * 3. Every 5-6 skill uses → Leviathan retaliates, kills 3/20 randomly
+ * 4. Shard holders immune to death
+ * 5. When only shard holders alive → !fuse phase
+ * 6. Each shard holder types !fuse → unique narration
+ * 7. Min 2 fused → !finalstrike opens 5sec window → anyone who types joins
+ * 8. After 5sec → Leviathan falls, narration plays, Chapter 4 teased
+ * 9. No rewards — just the story
  */
 
 const db = require('../database/db');
@@ -16,175 +18,170 @@ const { RAID_GROUP } = require('../engine/dungeon');
 const { sendWithRetry } = require('../utils/sendWithRetry');
 
 const LEVIATHAN_HP     = 1000000;
-const RETALIATION_FREQ = 5;   // every 5-6 turns
-const KILL_RATIO       = 3/20; // kills 3/20 of participants per retaliation
+const RETALIATION_FREQ = 5;
+const KILL_RATIO       = 3 / 20;
+const MIN_FUSED_TO_STRIKE = 2;
+const FINAL_STRIKE_WINDOW = 5000; // 5 seconds
 
-// In-memory battle state
 const battleState = {
-    active:         false,
-    turnCount:      0,
+    active:          false,
+    hp:              LEVIATHAN_HP,
+    turnCount:       0,
     nextRetaliation: 0,
-    fusedPlayers:   new Set(),  // player IDs who have fused their shards
-    shardHolders:   new Set(),  // player IDs with void shards
-    finalPhase:     false,      // true when only shard holders remain
-    participants:   new Map(),  // playerId → { nickname, alive }
+    fusedPlayers:    new Set(),
+    shardHolders:    new Set(),
+    finalPhase:      false,
+    strikeOpen:      false,
+    strikeTimer:     null,
+    strikers:        new Set(),
+    participants:    new Map(), // playerId → { nickname, alive }
 };
 
 function resetBattle() {
-    battleState.active         = false;
-    battleState.turnCount      = 0;
+    battleState.active          = false;
+    battleState.hp              = LEVIATHAN_HP;
+    battleState.turnCount       = 0;
     battleState.nextRetaliation = 0;
     battleState.fusedPlayers.clear();
     battleState.shardHolders.clear();
-    battleState.finalPhase     = false;
+    battleState.finalPhase      = false;
+    battleState.strikeOpen      = false;
+    battleState.strikers.clear();
+    if (battleState.strikeTimer) clearTimeout(battleState.strikeTimer);
+    battleState.strikeTimer     = null;
     battleState.participants.clear();
 }
 
 async function getShardHolders() {
-    // Check both player_materials and event_progress
-    const [matHolders] = await db.execute(
-        "SELECT DISTINCT player_id FROM player_materials WHERE material IN ('Void Fragment', 'Void Shard') AND quantity > 0"
+    const [mat] = await db.execute(
+        "SELECT DISTINCT player_id FROM player_materials WHERE material IN ('Void Fragment','Void Shard') AND quantity > 0"
     );
-    const [eventHolders] = await db.execute(
+    const [evt] = await db.execute(
         "SELECT DISTINCT player_id FROM event_progress WHERE shards > 0"
     ).catch(() => [[]]);
-
-    const holders = new Set([
-        ...matHolders.map(r => r.player_id),
-        ...eventHolders.map(r => r.player_id)
-    ]);
-    return holders;
+    return new Set([...mat.map(r => r.player_id), ...evt.map(r => r.player_id)]);
 }
 
 async function initBattle(client) {
     resetBattle();
 
-    // Get all registered players
     const [players] = await db.execute("SELECT id, nickname FROM players");
     for (const p of players) {
         battleState.participants.set(p.id, { nickname: p.nickname, alive: true });
     }
 
-    // Get shard holders
     const holders = await getShardHolders();
     holders.forEach(id => battleState.shardHolders.add(id));
 
-    battleState.active = true;
-    battleState.turnCount = 0;
-    battleState.nextRetaliation = 5 + Math.floor(Math.random() * 2); // 5 or 6
+    battleState.active          = true;
+    battleState.hp              = LEVIATHAN_HP;
+    battleState.turnCount       = 0;
+    battleState.nextRetaliation = RETALIATION_FREQ + Math.floor(Math.random() * 2);
 
-    // Promote everyone to raid group
-    try {
-        for (const [playerId] of battleState.participants) {
-            try {
-                await client.groupParticipantsUpdate(
-                    RAID_GROUP,
-                    [`${playerId}@s.whatsapp.net`],
-                    'promote'
-                );
-            } catch(e) {}
-        }
-    } catch(e) {}
+    // Promote ALL registered players to raid group
+    for (const [playerId] of battleState.participants) {
+        try {
+            await client.groupParticipantsUpdate(
+                RAID_GROUP,
+                [`${playerId}@s.whatsapp.net`],
+                'promote'
+            );
+        } catch(e) {}
+    }
 
-    console.log(`⚡ Leviathan battle initiated. ${battleState.participants.size} participants, ${battleState.shardHolders.size} shard holders.`);
+    console.log(`⚡ Leviathan battle started. ${battleState.participants.size} hunters, ${battleState.shardHolders.size} shard holders.`);
 }
 
-async function processTurn(attackerId, damage, client) {
-    if (!battleState.active) return null;
+async function processSkillHit(attackerId, damage, client) {
+    if (!battleState.active || battleState.finalPhase) return null;
 
+    // Deal damage to Leviathan
+    battleState.hp = Math.max(0, battleState.hp - damage);
     battleState.turnCount++;
 
-    // Get attacker name
-    const attacker = battleState.participants.get(attackerId);
-    const attackerNick = attacker?.nickname || attackerId;
-
-    let retaliationResult = null;
-
-    // Check if retaliation triggers
+    // Check retaliation
+    let retaliated = false;
     if (battleState.turnCount >= battleState.nextRetaliation) {
-        retaliationResult = await triggerRetaliation(client);
-        battleState.nextRetaliation = battleState.turnCount + 5 + Math.floor(Math.random() * 2);
-
-        // Check if only shard holders remain
+        await triggerRetaliation(client);
+        battleState.nextRetaliation = battleState.turnCount + RETALIATION_FREQ + Math.floor(Math.random() * 2);
+        retaliated = true;
         await checkFinalPhase(client);
     }
 
-    return { retaliationResult, turnCount: battleState.turnCount };
+    return { hp: battleState.hp, retaliated };
 }
 
 async function triggerRetaliation(client) {
-    // Get all alive non-immune players
     const mortal = [];
     for (const [id, data] of battleState.participants) {
-        if (data.alive && !battleState.shardHolders.has(id)) {
-            mortal.push(id);
-        }
+        if (data.alive && !battleState.shardHolders.has(id)) mortal.push(id);
     }
+    if (!mortal.length) return;
 
-    if (!mortal.length) return { killed: [], msg: 'No mortals remain.' };
-
-    // Kill 3/20 of alive participants (minimum 1)
     const killCount = Math.max(1, Math.floor(mortal.length * KILL_RATIO));
-    const shuffled  = mortal.sort(() => Math.random() - 0.5);
-    const toKill    = shuffled.slice(0, killCount);
+    const toKill = mortal.sort(() => Math.random() - 0.5).slice(0, killCount);
 
     const killed = [];
     for (const id of toKill) {
         const data = battleState.participants.get(id);
         data.alive = false;
         killed.push(data.nickname);
+
+        // Demote from raid group
+        try {
+            await client.groupParticipantsUpdate(
+                RAID_GROUP,
+                [`${id}@s.whatsapp.net`],
+                'demote'
+            );
+        } catch(e) {}
     }
 
-    const killList = killed.map(n => `┃◆   ☠️ ${n}`).join('\n');
-
-    const retaliationMoves = [
+    const moves = [
         { name: 'Void Surge',       msg: 'Reality fractures. The void claims the weak.' },
         { name: 'Abyssal Drain',    msg: 'Life force ripped away. Some hunters simply stop existing.' },
         { name: 'Dimensional Tear', msg: 'Space collapses inward. Those without protection are gone.' },
-        { name: 'Gravity Crush',    msg: 'Gravity inverts. Bodies fall upward into the void.' },
+        { name: 'Gravity Crush',    msg: 'Gravity inverts. Bodies fall upward into nothing.' },
         { name: 'Corruption Wave',  msg: 'Void energy floods the battlefield. The unprepared are consumed.' }
     ];
-
-    const move = retaliationMoves[Math.floor(Math.random() * retaliationMoves.length)];
+    const move = moves[Math.floor(Math.random() * moves.length)];
+    const hpPct = ((battleState.hp / LEVIATHAN_HP) * 100).toFixed(1);
+    const filled = Math.floor((battleState.hp / LEVIATHAN_HP) * 10);
+    const bar = '🟥'.repeat(filled) + '⬛'.repeat(10 - filled);
 
     await sendWithRetry(client, RAID_GROUP, {
         text:
-            `╭══〘 ⚡ LEVIATHAN RETALIATES 〙══╮\n` +
+            `╭══〘 🌊 LEVIATHAN RETALIATES 〙══╮\n` +
             `┃◆ \n` +
             `┃◆ *${move.name}*\n` +
             `┃◆ ${move.msg}\n` +
             `┃◆ \n` +
-            `┃◆ The following hunters have fallen:\n` +
-            `${killList}\n` +
+            `┃◆ ☠️ Fallen:\n` +
+            `${killed.map(n => `┃◆   • ${n}`).join('\n')}\n` +
             `┃◆ \n` +
-            `┃◆ ✨ Shard holders remain protected.\n` +
+            `┃◆ 💚 Shard holders remain.\n` +
+            `┃◆ \n` +
+            `┃◆ 🌊 Leviathan HP:\n` +
+            `┃◆ ${bar} ${hpPct}%\n` +
             `┃◆ \n` +
             `╰═══════════════════════════╯`
     });
-
-    return { killed, move: move.name };
 }
 
 async function checkFinalPhase(client) {
     if (battleState.finalPhase) return;
 
-    // Check if any non-shard holders are still alive
-    const livingMortals = [];
+    // Check if any non-shard mortals are still alive
     for (const [id, data] of battleState.participants) {
-        if (data.alive && !battleState.shardHolders.has(id)) {
-            livingMortals.push(id);
-        }
+        if (data.alive && !battleState.shardHolders.has(id)) return;
     }
 
-    if (livingMortals.length > 0) return; // mortals still alive
-
-    // Only shard holders remain — trigger final phase
     battleState.finalPhase = true;
 
-    const holders = [];
+    const alive = [];
     for (const id of battleState.shardHolders) {
         const data = battleState.participants.get(id);
-        if (data?.alive) holders.push(data.nickname);
+        if (data?.alive) alive.push(data.nickname);
     }
 
     await sendWithRetry(client, RAID_GROUP, {
@@ -194,66 +191,48 @@ async function checkFinalPhase(client) {
             `┃◆ The battlefield falls silent.\n` +
             `┃◆ \n` +
             `┃◆ The Leviathan pauses.\n` +
-            `┃◆ \n` +
             `┃◆ It recognises something.\n` +
+            `┃◆ \n` +
             `┃◆ The fragments of its own prison —\n` +
-            `┃◆ the shards that were torn from the seal\n` +
-            `┃◆ when the Gates were first built —\n` +
+            `┃◆ the shards torn from the seal\n` +
+            `┃◆ when the Gates first opened —\n` +
             `┃◆ are still here.\n` +
+            `┃◆ In the hands of those still standing.\n` +
             `┃◆ \n` +
-            `┃◆ In the hands of the ones still standing.\n` +
+            `┃◆ The shards pulse.\n` +
+            `┃◆ They remember what they were made to do.\n` +
             `┃◆ \n` +
-            `┃◆ The shards pulse. They remember.\n` +
-            `┃◆ They know what they were made to do.\n` +
+            `┃◆ 💠 SHARD HOLDERS:\n` +
+            `${alive.map(n => `┃◆   💠 ${n}`).join('\n')}\n` +
             `┃◆ \n` +
-            `┃◆ ✨ SHARD HOLDERS:\n` +
-            `${holders.map(n => `┃◆   💠 ${n}`).join('\n')}\n` +
-            `┃◆ \n` +
-            `┃◆ The void cannot touch what it created.\n` +
-            `┃◆ \n` +
-            `┃◆ Each of you must channel your shard\n` +
-            `┃◆ into your weapon. One by one.\n` +
-            `┃◆ \n` +
+            `┃◆ Channel your shard into your weapon.\n` +
             `┃◆ Type *!fuse* when you are ready.\n` +
-            `┃◆ \n` +
-            `┃◆ Wait for everyone. Then strike together.\n` +
             `┃◆ \n` +
             `╰═══════════════════════════╯`
     });
 }
 
-async function processFFuse(playerId, client) {
-    if (!battleState.active || !battleState.finalPhase) return {
-        ok: false, reason: 'not_in_final_phase'
-    };
-
-    if (!battleState.shardHolders.has(playerId)) return {
-        ok: false, reason: 'no_shard'
-    };
-
+async function processFuse(playerId, client) {
+    if (!battleState.active || !battleState.finalPhase) return { ok: false, reason: 'not_in_final_phase' };
+    if (!battleState.shardHolders.has(playerId)) return { ok: false, reason: 'no_shard' };
     const data = battleState.participants.get(playerId);
     if (!data?.alive) return { ok: false, reason: 'dead' };
-
-    if (battleState.fusedPlayers.has(playerId)) return {
-        ok: false, reason: 'already_fused'
-    };
+    if (battleState.fusedPlayers.has(playerId)) return { ok: false, reason: 'already_fused' };
 
     battleState.fusedPlayers.add(playerId);
 
-    // Narration for each fuse
-    const fuseNarrations = [
-        `The shard cracks. Light bleeds through the fracture. Not light — something older than light. It floods into the blade, and for a moment the weapon weighs nothing at all.`,
-        `The shard does not merge. It surrenders. Every fracture, every chip, every hairline crack that formed when the seal broke — all of it pours forward at once.`,
-        `The weapon changes. Not in shape. Not in weight. But the thing that was a weapon is now something else. Something the Leviathan was built to fear.`,
-        `The shard shatters completely. The hunter feels the pieces moving through them like breath. Like intention. Like the specific kind of anger that comes from a very long wait.`,
-        `For one second the hunter sees what the shard saw. The original seal. The thousand hunters who died to build it. Their purpose. Now yours.`
+    const narrations = [
+        `The shard cracks. Light bleeds through — not light, something older. It floods the blade. For a moment the weapon weighs nothing at all.`,
+        `The shard does not merge. It surrenders. Every fracture, every chip, every crack formed when the seal broke — pours forward at once.`,
+        `The weapon changes. Not in shape. Not in weight. But what was a weapon is now something else. Something the Leviathan was built to fear.`,
+        `The shard shatters. The hunter feels the pieces move through them like breath. Like intention. Like anger that has waited a very long time.`,
+        `For one second the hunter sees what the shard saw. The original seal. A thousand hunters who died to build it. Their purpose. Now yours.`
     ];
+    const narration = narrations[Math.floor(Math.random() * narrations.length)];
 
-    const narration = fuseNarrations[Math.floor(Math.random() * fuseNarrations.length)];
-
-    const totalHolders  = battleState.shardHolders.size;
-    const fusedCount    = battleState.fusedPlayers.size;
-    const remaining     = totalHolders - fusedCount;
+    const fusedCount  = battleState.fusedPlayers.size;
+    const totalHolders = battleState.shardHolders.size;
+    const canStrike   = fusedCount >= MIN_FUSED_TO_STRIKE;
 
     await sendWithRetry(client, RAID_GROUP, {
         text:
@@ -263,92 +242,89 @@ async function processFFuse(playerId, client) {
             `┃◆ \n` +
             `┃◆ 〝${narration}〞\n` +
             `┃◆ \n` +
-            `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
             `┃◆ Fused: ${fusedCount}/${totalHolders}\n` +
-            `${remaining > 0
-                ? `┃◆ Waiting for ${remaining} more...\n`
-                : `┃◆ ✅ ALL SHARDS FUSED.\n┃◆ \n┃◆ Type *!finalstrike* NOW.\n`
-            }` +
+            `┃◆ \n` +
+            (canStrike
+                ? `┃◆ ⚔️ Enough. Type *!finalstrike* now.\n`
+                : `┃◆ Waiting for more to fuse...\n`
+            ) +
+            `╰═══════════════════════════╯`
+    });
+
+    return { ok: true, fusedCount, canStrike };
+}
+
+async function openFinalStrike(client) {
+    if (battleState.strikeOpen) return;
+    battleState.strikeOpen = true;
+
+    await sendWithRetry(client, RAID_GROUP, {
+        text:
+            `╭══〘 ⚔️ FINAL STRIKE OPEN 〙══╮\n` +
+            `┃◆ \n` +
+            `┃◆ The window is open.\n` +
+            `┃◆ \n` +
+            `┃◆ All who have fused — type *!finalstrike*\n` +
+            `┃◆ You have 5 seconds.\n` +
             `┃◆ \n` +
             `╰═══════════════════════════╯`
     });
 
-    // Check if all have fused
-    if (remaining === 0) {
-        await sendWithRetry(client, RAID_GROUP, {
-            text:
-                `╭══〘 ⚡ THE MOMENT 〙══╮\n` +
-                `┃◆ \n` +
-                `┃◆ The Leviathan sees it now.\n` +
-                `┃◆ \n` +
-                `┃◆ It built the seal.\n` +
-                `┃◆ It knows what happens when every piece\n` +
-                `┃◆ of a prison comes back together.\n` +
-                `┃◆ \n` +
-                `┃◆ It has been afraid of exactly this\n` +
-                `┃◆ for longer than this world has existed.\n` +
-                `┃◆ \n` +
-                `┃◆ ⚔️ ALL SHARD HOLDERS — type *!finalstrike*\n` +
-                `┃◆ \n` +
-                `╰═══════════════════════════╯`
-        });
-    }
-
-    return { ok: true, fusedCount, totalHolders, allFused: remaining === 0 };
+    // 5 second window then auto-fire
+    battleState.strikeTimer = setTimeout(async () => {
+        await executeFinalStrike(client);
+    }, FINAL_STRIKE_WINDOW);
 }
 
-async function processFinalStrike(playerId, client) {
-    if (!battleState.active || !battleState.finalPhase) return {
-        ok: false, reason: 'not_in_final_phase'
-    };
+async function addStriker(playerId, client) {
+    if (!battleState.strikeOpen) return { ok: false, reason: 'window_not_open' };
+    if (!battleState.fusedPlayers.has(playerId)) return { ok: false, reason: 'not_fused' };
+    battleState.strikers.add(playerId);
+    return { ok: true };
+}
 
-    if (!battleState.fusedPlayers.has(playerId)) return {
-        ok: false, reason: 'not_fused',
-        msg: 'You must !fuse your shard first.'
-    };
+async function executeFinalStrike(client) {
+    if (!battleState.active) return;
 
-    const totalFused = battleState.fusedPlayers.size;
-    const totalHolders = battleState.shardHolders.size;
+    // Clear timer if still running
+    if (battleState.strikeTimer) { clearTimeout(battleState.strikeTimer); battleState.strikeTimer = null; }
 
-    if (battleState.fusedPlayers.size < battleState.shardHolders.size) return {
-        ok: false, reason: 'waiting',
-        msg: `Waiting for ${totalHolders - totalFused} more hunters to !fuse.`
-    };
+    const strikerNames = [];
+    for (const id of battleState.strikers) {
+        const data = battleState.participants.get(id);
+        if (data) strikerNames.push(data.nickname);
+    }
 
-    // Deal massive damage — 1 damage per fused player to the Leviathan
-    // Each hit = leviathan loses massive HP (enough to kill it)
-    const massiveDamage = LEVIATHAN_HP; // guaranteed kill
-
-    // Update boss HP to 0
-    await db.execute(
-        "UPDATE world_boss SET current_hp = 0 WHERE is_active=1 AND name='The Void Leviathan'"
-    );
-
+    // Kill the Leviathan
+    battleState.hp = 0;
     battleState.active = false;
 
-    // Build final narration
-    const data = battleState.participants.get(playerId);
+    await db.execute(
+        "UPDATE world_boss SET is_active=0, current_hp=0 WHERE name='The Void Leviathan' AND is_active=1"
+    ).catch(() => {});
 
+    // Narration
     await sendWithRetry(client, RAID_GROUP, {
         text:
             `╭══〘 ⚡ THE FINAL STRIKE 〙══╮\n` +
             `┃◆ \n` +
             `┃◆ They strike together.\n` +
             `┃◆ \n` +
-            `┃◆ Not with strength. Not with skill.\n` +
-            `┃◆ With the specific weight of something\n` +
-            `┃◆ that has been waiting a very long time\n` +
+            `┃◆ Not with strength.\n` +
+            `┃◆ Not with skill.\n` +
+            `┃◆ With the weight of something\n` +
+            `┃◆ that has waited a very long time\n` +
             `┃◆ to go home.\n` +
             `┃◆ \n` +
             `┃◆ The shards pierce the Leviathan\n` +
             `┃◆ at every point simultaneously.\n` +
             `┃◆ The wound is not a wound.\n` +
-            `┃◆ It is a door, opening inward.\n` +
+            `┃◆ It is a door. Opening inward.\n` +
             `┃◆ \n` +
             `┃◆ The Leviathan does not scream.\n` +
             `┃◆ It exhales.\n` +
-            `┃◆ One long sound that is not sound\n` +
-            `┃◆ but is felt in every bone\n` +
+            `┃◆ One long sound — not heard,\n` +
+            `┃◆ but felt in every bone\n` +
             `┃◆ of every hunter still standing.\n` +
             `┃◆ \n` +
             `┃◆ Then silence.\n` +
@@ -364,54 +340,32 @@ async function processFinalStrike(playerId, client) {
             `┃◆ \n` +
             `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
             `┃◆ \n` +
-            `┃◆ The war is over.\n` +
             `┃◆ The seal holds again.\n` +
             `┃◆ \n` +
             `┃◆ But something else is moving\n` +
             `┃◆ in the dark.\n` +
-            `┃◆ \n` +
             `┃◆ Something that was watching\n` +
             `┃◆ the whole time.\n` +
-            `┃◆ Waiting to see\n` +
-            `┃◆ if the hunters were worth\n` +
-            `┃◆ what comes next.\n` +
+            `┃◆ Waiting to see if hunters\n` +
+            `┃◆ were worth what comes next.\n` +
             `┃◆ \n` +
-            `┃◆        — Chapter 4 begins.\n` +
+            `┃◆         — Chapter 4 begins.\n` +
             `┃◆ \n` +
             `╰═══════════════════════════╯`
     });
 
-    // Reward all survivors
-    const survivors = [];
-    for (const [id, data] of battleState.participants) {
-        if (data.alive) {
-            survivors.push({ id, nickname: data.nickname });
-            await db.execute("UPDATE currency SET gold = gold + 5000 WHERE player_id=?", [id]);
-            await db.execute("UPDATE xp SET xp = xp + 2000 WHERE player_id=?", [id]);
-        }
-    }
-
-    // Extra reward for shard holders
-    for (const id of battleState.fusedPlayers) {
-        await db.execute("UPDATE currency SET gold = gold + 3000 WHERE player_id=?", [id]);
-        await db.execute("UPDATE xp SET xp = xp + 1000 WHERE player_id=?", [id]);
-    }
-
-    // Mark boss defeated
-    await db.execute(
-        "UPDATE world_boss SET is_active=0 WHERE name='The Void Leviathan' AND is_active=1"
-    );
-
     resetBattle();
-    return { ok: true, survivors: survivors.length };
 }
 
 module.exports = {
     battleState,
     initBattle,
-    processTurn,
-    processFFuse,
-    processFinalStrike,
+    processSkillHit,
+    processFuse,
+    openFinalStrike,
+    addStriker,
+    executeFinalStrike,
     getShardHolders,
-    LEVIATHAN_HP
+    LEVIATHAN_HP,
+    MIN_FUSED_TO_STRIKE
 };
