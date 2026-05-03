@@ -1,54 +1,58 @@
 const db = require('../database/db');
 
-// ~35% of original shop price for normal items
-// ~20% for prestige weapons (they're powerful but you're moving on)
+// Melt values — reasonable return, not worth holding onto
 const MELT_VALUE = {
-    // ── CONSUMABLES ─────────────────────────────────
-    'Potion': 35, 'Mana Potion': 52, 'Fortify Potion': 42, 'Rage Potion': 45,
-    'Eagle Eye Potion': 42, 'Cleanse Potion': 38, 'Revive Scroll': 175,
-    'Fire Scroll': 63, 'Backstab Scroll': 70, 'Taunt Scroll': 70, 'War Cry Scroll': 70,
-    'Poison Vial': 63, 'Smoke Bomb': 52, 'Herb Kit': 45, 'Holy Water': 52,
-    'Blood Charm': 70, 'Blessing Charm': 70, 'Arrow Bundle': 42, 'Trap Kit': 56,
-    'Divine Protection': 77,
-    // Prestige consumables — not meltable, handled in code
-    // ── BAGS ────────────────────────────────────────
-    'Small Bag': 105, 'Medium Bag': 245, 'Large Bag': 525,
-    'Prestige Bag': 700,
-    // ── ACCESSORIES / MISC ───────────────────────────
-    'Iron Skin': 52, 'Heavy Boots': 56, 'Guard Helm': 59,
-    'Silent Boots': 56, 'Cloak': 49, 'Camouflage Cloak': 56,
-    'Magic Cloak': 73, 'Arcane Ring': 80,
-    'Bow': 77, 'Healing Staff': 98, 'Ice Wand': 91,
-    // ── F RANK WEAPONS ───────────────────────────────
-    'Dagger': 70, 'Battle Axe': 90, 'Rage Blade': 95, 'Warhammer': 100,
-    'Shield': 77, 'Armor Plate': 84, 'Spell Book': 87, 'Heavy Blade': 87,
-    // ── E RANK ───────────────────────────────────────
-    'Shadow Dagger': 140, 'Arcane Staff': 147,
-    'Iron Greatsword': 143, 'Tower Shield': 150,
-    // ── D RANK ───────────────────────────────────────
-    'Twin Fang Blades': 245, 'Frostbane Wand': 252, 'Vanguard Helm': 238,
-    // ── C RANK ───────────────────────────────────────
-    'Wind Katana': 420, 'Nightshade Bow': 420, 'Void Scepter': 455,
-    'Golemheart Gauntlets': 385, 'Dragonbone Mace': 437,
-    'Obsidian Cleaver': 350000, 'Whisperblade': 350000,
-    'Inferno Rod': 350000, 'Bulwark of Stone': 350000,
-    // ── B RANK ───────────────────────────────────────
-    'Celestial Orb': 700000, 'Abyssal Greatsword': 875000,
-    'Voidreaper Dagger': 875000, 'Staff of the Eternal': 875000,
-    'Aegis of the Fallen': 875000,
-    // ── A RANK ───────────────────────────────────────
-    "Titan's Wrath": 1750000, 'Eclipse Edge': 1750000,
-    'Celestial Codex': 1750000, 'Fortress Aegis': 1750000,
-    // ── S RANK ───────────────────────────────────────
-    'Godslayer': 3500000, "Eternity's Edge": 3500000,
-    'Omniscient Scepter': 3500000, 'Aegis Immortal': 3500000,
-    // ── PRESTIGE WEAPONS (~20% of shop price) ────────
-    'Void Crusher': 600, 'Fracture Cleaver': 1600, 'Abyss Annihilator': 4000, "Malachar's Fist": 10000,
-    'Void Fang': 600, 'Fracture Edge': 1600, 'Abyss Phantom': 4000, "Malachar's Shadow": 10000,
-    'Void Codex': 600, 'Fracture Scepter': 1600, 'Abyss Tome': 4000, "Malachar's Gospel": 10000,
-    'Void Bulwark': 600, 'Fracture Rampart': 1600, 'Abyss Fortress': 4000, "Malachar's Seal": 10000,
-    'Void Mend': 600, 'Fracture Chalice': 1600, 'Abyss Lantern': 4000, "Malachar's Grace": 10000,
-};
+    // ── CONSUMABLES ──────────────────────────────────────────────────
+    'Potion': 35, 'Mana Potion': 50, 'Fortify Potion': 40, 'Rage Potion': 45,
+    'Eagle Eye Potion': 40, 'Cleanse Potion': 35, 'Revive Scroll': 150,
+    'Fire Scroll': 60, 'Backstab Scroll': 65, 'Taunt Scroll': 65,
+    'War Cry Scroll': 65, 'Poison Vial': 60, 'Smoke Bomb': 50,
+    'Herb Kit': 45, 'Holy Water': 50, 'Blood Charm': 65,
+    'Blessing Charm': 65, 'Arrow Bundle': 40, 'Trap Kit': 55,
+    'Divine Protection': 75,
+    // ── BAGS ─────────────────────────────────────────────────────────
+    'Small Bag': 100, 'Medium Bag': 230, 'Large Bag': 500, 'Prestige Bag': 650,
+    // ── MISC / ACCESSORIES ───────────────────────────────────────────
+    'Iron Skin': 50, 'Heavy Boots': 55, 'Guard Helm': 55,
+    'Silent Boots': 55, 'Cloak': 45, 'Camouflage Cloak': 55,
+    'Magic Cloak': 70, 'Arcane Ring': 75, 'Bow': 75,
+    'Healing Staff': 95, 'Ice Wand': 88,
+    // ── F RANK WEAPONS ────────────────────────────────────────────────
+    'Dagger': 65, 'Battle Axe': 85, 'Rage Blade': 90, 'Warhammer': 95,
+    'Shield': 72, 'Armor Plate': 80, 'Spell Book': 85, 'Heavy Blade': 85,
+    // ── E RANK ────────────────────────────────────────────────────────
+    'Shadow Dagger': 130, 'Arcane Staff': 140,
+    'Iron Greatsword': 138, 'Tower Shield': 145,
+    // ── D RANK ────────────────────────────────────────────────────────
+    'Twin Fang Blades': 230, 'Frostbane Wand': 240, 'Vanguard Helm': 225,
+    // ── C RANK ────────────────────────────────────────────────────────
+    'Wind Katana': 400, 'Nightshade Bow': 400, 'Void Scepter': 430,
+    'Golemheart Gauntlets': 370, 'Dragonbone Mace': 420,
+    // ── C RANK SPECIAL (expensive shop weapons) ───────────────────────
+    'Obsidian Cleaver': 50000, 'Whisperblade': 50000,
+    'Inferno Rod': 50000, 'Bulwark of Stone': 50000,
+    // ── B RANK ────────────────────────────────────────────────────────
+    'Celestial Orb': 80000, 'Abyssal Greatsword': 100000,
+    'Voidreaper Dagger': 100000, 'Staff of the Eternal': 100000,
+    'Aegis of the Fallen': 100000,
+    // ── A RANK ────────────────────────────────────────────────────────
+    "Titan's Wrath": 200000, 'Eclipse Edge': 200000,
+    'Celestial Codex': 200000, 'Fortress Aegis': 200000,
+    // ── S RANK ────────────────────────────────────────────────────────
+    'Godslayer': 400000, "Eternity's Edge": 400000,
+    'Omniscient Scepter': 400000, 'Aegis Immortal': 400000,
+    // ── PRESTIGE WEAPONS (~10% of shop price) ─────────────────────────
+    'Void Crusher': 7500, 'Fracture Cleaver': 20000,
+    'Abyss Annihilator': 75000, "Malachar's Fist": 300000,
+    'Void Fang': 7500, 'Fracture Edge': 20000,
+    'Abyss Phantom': 75000, "Malachar's Shadow": 300000,
+    'Void Codex': 7500, 'Fracture Scepter': 20000,
+    'Abyss Tome': 75000, "Malachar's Gospel": 300000,
+    'Void Bulwark': 7500, 'Fracture Rampart': 20000,
+    'Abyss Fortress': 75000, "Malachar's Seal": 300000,
+    'Void Mend': 7500, 'Fracture Chalice': 20000,
+    'Abyss Lantern': 75000, "Malachar's Grace": 300000,
+}
 
 // Prestige consumables — cannot be melted
 const PRESTIGE_CONSUMABLES = new Set([

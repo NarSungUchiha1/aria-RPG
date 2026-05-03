@@ -662,12 +662,12 @@ async function addPlayerToDungeon(playerId, dungeonId) {
     );
 }
 
-async function removePlayerFromDungeon(playerId, dungeonId) {
+async function removePlayerFromDungeon(playerId, dungeonId, client = null) {
     await db.execute(
         "DELETE FROM dungeon_players WHERE player_id=? AND dungeon_id=?",
         [playerId, dungeonId]
     );
-    await checkAndCloseEmptyDungeon(dungeonId);
+    await checkAndCloseEmptyDungeon(dungeonId, client);
 }
 
 async function isPlayerInDungeon(playerId, dungeonId) {

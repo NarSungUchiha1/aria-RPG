@@ -239,6 +239,20 @@ module.exports = {
             if (result.playerDied) {
                 reply += `┃◆────────────\n┃◆ ☠️ ${player.nickname} has fallen.\n┃◆ Use !respawn to return.\n`;
                 try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
+
+                // Check if everyone is dead — close dungeon and spawn prestige
+                const [aliveCheck] = await db.execute(
+                    'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
+                    [dungeon.id]
+                );
+                if (aliveCheck[0].cnt === 0) {
+                    await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
+                    const { clearDungeonTimers } = require('../engine/dungeonTimer');
+                    clearDungeonTimers(dungeon.id);
+                    const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
+                    spawnPrestige(client, RAID_GROUP).catch(e => console.error('Prestige spawn error:', e.message));
+                    reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
+                }
             }
 
             reply += `┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`;
