@@ -179,7 +179,7 @@ module.exports = {
 
                 // Auto-spawn prestige dungeon after normal dungeon clears
                 const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(() => {});
+                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
 
                 return msg.reply(`══〘 👑 DUNGEON CLEARED 〙══╮
 ┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.

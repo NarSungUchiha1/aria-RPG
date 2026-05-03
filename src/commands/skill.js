@@ -250,7 +250,7 @@ module.exports = {
                     const { clearDungeonTimers } = require('../engine/dungeonTimer');
                     clearDungeonTimers(dungeon.id);
                     const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
-                    spawnPrestige(client, RAID_GROUP).catch(e => console.error('Prestige spawn error:', e.message));
+                    spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
                     reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                 }
             }
@@ -329,6 +329,12 @@ module.exports = {
 
             const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
+            // Track shield contribution for tanks
+            if (move.type === 'shield') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'shield', 1); } catch(e) {} }
+            // Track buff contribution
+            if (move.type === 'buff') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {} }
+            // Track taunt specifically (debuff with taunt name)
+            if (move.name && move.name.toLowerCase().includes('taunt')) { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'taunt', 1); } catch(e) {} }
             return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 

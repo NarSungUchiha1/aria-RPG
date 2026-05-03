@@ -174,7 +174,7 @@ function startLobbyTimer(dungeonId, client) {
                         `╰═══════════════════════╯`
                 });
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
-                trySpawnPrestigeDungeon(client, RAID_GROUP).catch(() => {});
+                trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
             }
         } catch (e) {
             console.error("Lobby timeout error:", e.message);
@@ -713,7 +713,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
             autoStartTimers.delete(dungeonId);
         }
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
-        if (client) trySpawnPrestigeDungeon(client, RAID_GROUP).catch(() => {});
+        if (client) trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
         return true;
     }
     return false;
@@ -782,8 +782,8 @@ async function getDungeonEnemyRevealText(dungeonId) {
         : ['══〘 👾 ENEMIES REVEALED 〙══╮', '┃◆────────────', '┃◆', '╰═══════════════════════╯'];
 
     let text = `${box}\n`;
-    text += `┃◆ Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
-    text += `┃◆────────────\n`;
+    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
+    text += `${bar}\n`;
 
     enemies.forEach((e, i) => {
         // Parse moves JSON safely
@@ -795,17 +795,17 @@ async function getDungeonEnemyRevealText(dungeonId) {
             }
         } catch (_) {}
 
-        text += `┃◆ ${i + 1}. ${e.name}\n`;
-        text += `┃◆    ❤️ HP:  ${e.current_hp}/${e.max_hp}\n`;
-        text += `┃◆    ⚔️ ATK: ${e.atk}\n`;
-        text += `┃◆    🛡️ DEF: ${e.def}\n`;
-        text += `┃◆    🗡️ Moves: ${moveNames}\n`;
-        if (i < enemies.length - 1) text += `┃◆────────────\n`;
+        text += `${bul} ${i + 1}. ${e.name}\n`;
+        text += `${bul}    ❤️ HP:  ${e.current_hp}/${e.max_hp}\n`;
+        text += `${bul}    ⚔️ ATK: ${e.atk}\n`;
+        text += `${bul}    🛡️ DEF: ${e.def}\n`;
+        text += `${bul}    🗡️ Moves: ${moveNames}\n`;
+        if (i < enemies.length - 1) text += `${bar}\n`;
     });
 
-    text += `┃◆────────────\n`;
-    text += `┃◆ 🧭 !skill <move> [enemy #]\n`;
-    text += `╰═══════════════════════╯`;
+    text += `${bar}\n`;
+    text += `${bul} 🧭 !skill <move> [enemy #]\n`;
+    text += `${close}`;
     return text;
 }
 

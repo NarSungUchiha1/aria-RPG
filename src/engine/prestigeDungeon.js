@@ -189,12 +189,12 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
         PS: 'This is the end. Or the beginning of what comes after the end.'
     };
 
-    const { sendWithRetry } = require('../utils/sendWithRetry');
     const { tagAll } = require('../utils/tagAll');
     let mentions = [];
-    try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) {}
+    try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) { console.log('★ tagAll failed:', e.message); }
 
-    await sendWithRetry(client, RAID_GROUP, {
+    console.log('★ Sending prestige dungeon alert to:', RAID_GROUP);
+    await client.sendMessage(RAID_GROUP, {
         text:
             `╔══〘 ✦ PRESTIGE DUNGEON 〙══╗\n` +
             `┃★ \n` +
@@ -211,7 +211,7 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
             `┃★ \n` +
             `╚═══════════════════════════╝`,
         mentions
-    });
+    }).then(() => console.log('★ Prestige alert sent OK')).catch(e => console.error('★ Alert send failed:', e.message));
 
     // Start prestige lobby timer
     startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP);
@@ -242,8 +242,10 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`★ Auto-spawning prestige dungeon rank ${prestigeRank}`);
         await spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP);
+        console.log('★ Prestige dungeon spawned successfully.');
     } catch (e) {
-        console.error('★ trySpawnPrestigeDungeon error:', e.message, e.stack);
+        console.error('★ trySpawnPrestigeDungeon error:', e.message);
+        console.error(e.stack);
     }
 }
 
