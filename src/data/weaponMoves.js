@@ -76,7 +76,7 @@ module.exports = {
         { name: "Abyssal Gaze", type: "debuff", effect: "fear", duration: 1, cooldown: 4, cost: 13 }
     ],
     "Celestial Orb": [
-        { name: "Holy Light", type: "heal", stat: "intelligence", multiplier: 1.8, cooldown: 3, cost: 12 },
+        { name: "Arcane Surge", type: "damage", stat: "intelligence", multiplier: 2.2, cooldown: 3, cost: 12 },
         { name: "Divine Smite", type: "damage", stat: "intelligence", multiplier: 1.6, cooldown: 3, cost: 14 },
         { name: "Blessing of Wisdom", type: "buff", effect: "int_up", value: 25, duration: 3, cooldown: 5, cost: 15 }
     ],
@@ -90,7 +90,7 @@ module.exports = {
     "Armor Plate": [
         { name: "Iron Skin", type: "buff", effect: "defense_up", value: 30, duration: 3, cooldown: 4, cost: 10 },
         { name: "Reflect", type: "buff", effect: "damage_reflect", value: 20, duration: 2, cooldown: 5, cost: 12 },
-        { name: "Last Stand", type: "heal", stat: "stamina", multiplier: 1.0, condition: "hp_below_30", cooldown: 6, cost: 15 }
+        { name: "Iron Resolve", type: "shield", value: 80, cooldown: 6, cost: 15 }
     ],
     "Tower Shield": [
         { name: "Bulwark", type: "buff", effect: "damage_reduction", value: 40, duration: 2, cooldown: 4, cost: 12 },
@@ -100,7 +100,7 @@ module.exports = {
     "Vanguard Helm": [
         { name: "Battle Cry", type: "buff", effect: "party_defense_up", value: 20, duration: 3, cooldown: 5, cost: 12 },
         { name: "Headbutt", type: "damage", stat: "stamina", multiplier: 1.3, stun_chance: 50, cooldown: 2, cost: 8 },
-        { name: "Indomitable", type: "heal", stat: "stamina", multiplier: 0.8, cooldown: 4, cost: 10 }
+        { name: "Vanguard's Stand", type: "buff", effect: "defense_up", value: 25, duration: 3, cooldown: 4, cost: 10 }
     ],
     "Golemheart Gauntlets": [
         { name: "Stone Fist", type: "damage", stat: "stamina", multiplier: 1.5, cooldown: 2, cost: 9 },
@@ -137,7 +137,7 @@ module.exports = {
     "Voidreaper Dagger": [
         { name: "Void Strike", type: "damage", stat: "agility", multiplier: 2.6, cooldown: 2, cost: 15 },
         { name: "Reaper's Mark", type: "debuff", effect: "defense", value: -20, duration: 3, cooldown: 4, cost: 12 },
-        { name: "Soul Siphon", type: "heal", stat: "agility", multiplier: 1.2, cooldown: 4, cost: 14 }
+        { name: "Void Drain", type: "damage", stat: "agility", multiplier: 2.0, ignore_defense: 0.3, cooldown: 4, cost: 14 }
     ],
     "Staff of the Eternal": [
         { name: "Eternal Flames", type: "damage", stat: "intelligence", multiplier: 2.4, cooldown: 3, cost: 20 },
@@ -162,7 +162,7 @@ module.exports = {
     "Celestial Codex": [
         { name: "Celestial Nova", type: "damage", stat: "intelligence", multiplier: 3.6, aoe: true, cooldown: 4, cost: 25 },
         { name: "Divine Inspiration", type: "buff", effect: "intelligence", value: 60, duration: 3, cooldown: 5, cost: 20 },
-        { name: "Heavenly Light", type: "heal", stat: "intelligence", multiplier: 2.2, cooldown: 4, cost: 18 }
+        { name: "Celestial Wrath", type: "damage", stat: "intelligence", multiplier: 2.8, aoe: true, cooldown: 4, cost: 18 }
     ],
     "Fortress Aegis": [
         { name: "Fortress Wall", type: "buff", effect: "defense", value: 60, duration: 3, cooldown: 4, cost: 15 },
@@ -297,8 +297,8 @@ module.exports = {
         { name: "Rebirth",        type: "heal",  stat: "intelligence", multiplier: 10.0, baseHeal: 180, cooldown: 5, cost: 35 },
         { name: "Cradle Strike",  type: "damage",stat: "intelligence", multiplier: 2.5, cooldown: 3, cost: 18 }
     ],
-    // ════════════════ PRESTIGE WEAPONS ════════════════
-    // ── BERSERKER ────────────────────────────────────
+    // ════════════════════════ PRESTIGE WEAPONS ════════════════════════
+    // ── BERSERKER ────────────────────────────────────────────────────
     'Void Crusher': [
         { name: 'Void Smash',        type: 'damage', stat: 'strength', multiplier: 2.8, cooldown: 2, cost: 20 },
         { name: 'Bone Fracture',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 30, cooldown: 3, cost: 22 },
@@ -320,7 +320,7 @@ module.exports = {
         { name: 'The First War',     type: 'damage', stat: 'strength', multiplier: 4.5, ignore_defense: 1.0, cooldown: 6, cost: 50 }
     ],
 
-    // ── ASSASSIN ─────────────────────────────────────
+    // ── ASSASSIN ─────────────────────────────────────────────────────
     'Void Fang': [
         { name: 'Void Pierce',       type: 'damage', stat: 'agility', multiplier: 2.8, cooldown: 1, cost: 18 },
         { name: 'Fang Strike',       type: 'damage', stat: 'agility', multiplier: 2.5, bleed: true, cooldown: 3, cost: 20 },
@@ -342,7 +342,7 @@ module.exports = {
         { name: 'Eternal Dark',      type: 'buff',   effect: 'agility_up', value: 100, duration: 2, cooldown: 5, cost: 35 }
     ],
 
-    // ── MAGE ─────────────────────────────────────────
+    // ── MAGE ─────────────────────────────────────────────────────────
     'Void Codex': [
         { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 2.8, cooldown: 2, cost: 20 },
         { name: 'Codex Blast',       type: 'damage', stat: 'intelligence', multiplier: 2.5, aoe: true, cooldown: 4, cost: 25 },
@@ -364,7 +364,7 @@ module.exports = {
         { name: 'The Last Word',     type: 'damage', stat: 'intelligence', multiplier: 4.0, aoe: true, cooldown: 5, cost: 50 }
     ],
 
-    // ── TANK ─────────────────────────────────────────
+    // ── TANK ─────────────────────────────────────────────────────────
     'Void Bulwark': [
         { name: 'Void Shield Wall',  type: 'buff',   effect: 'defense_up', value: 60, duration: 3, cooldown: 3, cost: 18 },
         { name: 'Bulwark Smash',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 20, cooldown: 3, cost: 22 },
@@ -386,7 +386,7 @@ module.exports = {
         { name: 'Void Barrier',      type: 'shield', value: 4000, cooldown: 5, cost: 45 }
     ],
 
-    // ── HEALER ───────────────────────────────────────
+    // ── HEALER ───────────────────────────────────────────────────────
     'Void Mend': [
         { name: 'Void Heal',         type: 'heal', stat: 'intelligence', multiplier: 2.0, cooldown: 2, cost: 20 },
         { name: 'Mend Wound',        type: 'heal', stat: 'intelligence', multiplier: 1.8, cleanse: true, cooldown: 3, cost: 22 },
@@ -407,5 +407,4 @@ module.exports = {
         { name: "Healer's Last Stand",type: 'heal', stat: 'intelligence', multiplier: 4.5, aoe: true, cooldown: 4, cost: 45 },
         { name: 'Infinite Mercy',    type: 'heal', stat: 'intelligence', multiplier: 4.0, cleanse: true, aoe: true, cooldown: 5, cost: 50 }
     ]
-
 };
