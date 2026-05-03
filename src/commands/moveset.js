@@ -1,6 +1,13 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
 const { getAllMoves, getMoveCooldown } = require('../systems/skillSystem');
+
+function typeIcon(type) {
+    return type === 'heal' ? '💚' : type === 'buff' ? '⬆️' : type === 'debuff' ? '⬇️' : type === 'shield' ? '🛡️' : type === 'cleanse' ? '✨' : '⚔️';
+}
+
+function cdText(cd) {
+    return cd > 0 ? `⏳ ${Math.ceil(cd / 1000)}s` : '✅ Ready';
+}
 
 module.exports = {
     name: 'moveset',
@@ -16,75 +23,81 @@ module.exports = {
             const [items] = await db.execute(
                 "SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]
             );
-            const moves = getAllMoves(player, items);
+            const moves    = getAllMoves(player, items);
+            const roleMoves   = moves.filter(m => m.source === 'role');
+            const weaponMoves = moves.filter(m => m.source === 'weapon');
 
-            const roleMoveList   = moves.filter(m => m.source === 'role');
-            const weaponMoveList = moves.filter(m => m.source === 'weapon');
-
-            if (isPrestige) {
-                const stars = '☆'.repeat(Math.min(player.prestige_level, 5));
+            // ── NORMAL UI ────────────────────────────────────────────────────
+            if (!isPrestige) {
                 let text =
-                    `╔══〘 ✦ VOID MOVESET 〙══╗\n` +
-                    `┃★ ${stars} ${player.nickname.toUpperCase()}\n` +
-                    `┃★ 🎭 ${player.role} — Prestige ${player.prestige_level}\n` +
-                    `┃★────────────\n` +
-                    `┃★ VOID SKILLS:\n`;
+                    `══〘 ⚔️ MOVESET 〙══╮\n` +
+                    `┃◆ 👤 ${player.nickname}\n` +
+                    `┃◆ 🎭 ${player.role}  •  Rank ${player.rank}\n` +
+                    `┃◆────────────\n` +
+                    `┃◆ ROLE SKILLS\n`;
 
-                roleMoveList.forEach(m => {
-                    const cd = getMoveCooldown(userId, m.name);
-                    const cdText = cd > 0 ? `⏳ ${Math.ceil(cd/1000)}s` : '✅ Ready';
-                    const typeIcon = m.type === 'heal' ? '💚' : m.type === 'buff' ? '⬆️' : m.type === 'debuff' ? '⬇️' : m.type === 'shield' ? '🛡️' : '⚔️';
-                    text += `┃★   ${typeIcon} ${m.name} | ${cdText}\n`;
+                roleMoves.forEach(m => {
+                    const cd   = getMoveCooldown(userId, m.name);
+                    const icon = typeIcon(m.type);
+                    text += `┃◆ ${icon} ${m.name}\n`;
+                    text += `┃◆    Type: ${m.type}  •  ${cdText(cd)}\n`;
+                    if (m.cooldown) text += `┃◆    CD: ${m.cooldown}s  Cost: ${m.cost || 0} mana\n`;
                 });
 
-                if (weaponMoveList.length) {
-                    text += `┃★────────────\n`;
-                    text += `┃★ VOID WEAPON SKILLS:\n`;
-                    weaponMoveList.forEach(m => {
-                        const cd = getMoveCooldown(userId, m.name);
-                        const cdText = cd > 0 ? `⏳ ${Math.ceil(cd/1000)}s` : '✅ Ready';
-                        const typeIcon = m.type === 'heal' ? '💚' : m.type === 'buff' ? '⬆️' : m.type === 'debuff' ? '⬇️' : m.type === 'shield' ? '🛡️' : '⚔️';
-                        text += `┃★   ${typeIcon} ${m.name} | ${cdText}\n`;
+                if (weaponMoves.length) {
+                    text += `┃◆────────────\n┃◆ WEAPON SKILLS\n`;
+                    weaponMoves.forEach(m => {
+                        const cd   = getMoveCooldown(userId, m.name);
+                        const icon = typeIcon(m.type);
+                        text += `┃◆ ${icon} ${m.name}\n`;
+                        text += `┃◆    Type: ${m.type}  •  ${cdText(cd)}\n`;
+                        if (m.cooldown) text += `┃◆    CD: ${m.cooldown}s  Cost: ${m.cost || 0} mana\n`;
                     });
                 }
 
                 text +=
-                    `┃★────────────\n` +
-                    `┃★ 🧭 Use !skill <move>\n` +
-                    `╚═══════════════════════════╝`;
+                    `┃◆────────────\n` +
+                    `┃◆ 🧭 !skill <move name>\n` +
+                    `╰═══════════════════════╯`;
                 return msg.reply(text);
             }
 
-            // Normal player UI
-            let text = `══〘 ⚔️ MOVESET 〙══╮\n`;
-            text += `┃◆ 👤 ${player.nickname.toUpperCase()}\n`;
-            text += `┃◆ 🎭 ${player.role}\n`;
-            text += `┃◆────────────\n`;
-            text += `┃◆ ROLE SKILLS:\n`;
+            // ── PRESTIGE UI ──────────────────────────────────────────────────
+            const stars = '☆'.repeat(Math.min(player.prestige_level, 5));
+            let text =
+                `╔══〘 ✦ VOID MOVESET 〙══╗\n` +
+                `┃★ ${stars} ${player.nickname}\n` +
+                `┃★ 🎭 ${player.role}  •  Prestige ${player.prestige_level}\n` +
+                `┃★────────────\n` +
+                `┃★ VOID SKILLS\n`;
 
-            roleMoveList.forEach(m => {
-                const cd = getMoveCooldown(userId, m.name);
-                const cdText = cd > 0 ? `⏳ ${Math.ceil(cd/1000)}s` : '✅ Ready';
-                text += `┃◆   ${m.name} - ${m.type} | ${cdText}\n`;
+            roleMoves.forEach(m => {
+                const cd   = getMoveCooldown(userId, m.name);
+                const icon = typeIcon(m.type);
+                text += `┃★ ${icon} ${m.name}\n`;
+                text += `┃★    Type: ${m.type}  •  ${cdText(cd)}\n`;
+                if (m.cooldown) text += `┃★    CD: ${m.cooldown}s  Cost: ${m.cost || 0} mana\n`;
             });
 
-            if (weaponMoveList.length) {
-                text += `┃◆────────────\n`;
-                text += `┃◆ WEAPON SKILLS:\n`;
-                weaponMoveList.forEach(m => {
-                    const cd = getMoveCooldown(userId, m.name);
-                    const cdText = cd > 0 ? `⏳ ${Math.ceil(cd/1000)}s` : '✅ Ready';
-                    text += `┃◆   ${m.name} (${m.weapon}) - ${m.type} | ${cdText}\n`;
+            if (weaponMoves.length) {
+                text += `┃★────────────\n┃★ VOID WEAPON SKILLS\n`;
+                weaponMoves.forEach(m => {
+                    const cd   = getMoveCooldown(userId, m.name);
+                    const icon = typeIcon(m.type);
+                    text += `┃★ ${icon} ${m.name} (${m.weapon})\n`;
+                    text += `┃★    Type: ${m.type}  •  ${cdText(cd)}\n`;
+                    if (m.cooldown) text += `┃★    CD: ${m.cooldown}s  Cost: ${m.cost || 0} mana\n`;
                 });
             }
 
-            text += `┃◆────────────\n`;
-            text += `┃◆ 🧭 Use !skill <move>\n`;
-            text += `╰═══════════════════════╯`;
+            text +=
+                `┃★────────────\n` +
+                `┃★ 🧭 !skill <move name>\n` +
+                `╚═══════════════════════════╝`;
             return msg.reply(text);
 
         } catch (err) {
-            console.error(err);
+            console.error('moveset error:', err);
             msg.reply(`══〘 ⚔️ MOVESET 〙══╮\n┃◆ ❌ Could not load moveset.\n╰═══════════════════════╯`);
         }
     }
