@@ -139,10 +139,10 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
 
     for (const e of toSpawn) {
         await db.execute(
-            `INSERT INTO dungeon_enemies (dungeon_id, name, current_hp, max_hp, atk, def, exp, gold, stage, is_boss, moves)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, moves)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [dungeonId, e.name, e.hp, e.hp, e.atk, e.def,
-             e.exp, e.gold, stage, isBoss ? 1 : 0,
+             e.exp, e.gold,
              JSON.stringify(e.moves || [])]
         );
     }
