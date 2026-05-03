@@ -236,6 +236,11 @@ module.exports = {
                 reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
             }
 
+            if (result.playerDied) {
+                reply += `┃◆────────────\n┃◆ ☠️ ${player.nickname} has fallen.\n┃◆ Use !respawn to return.\n`;
+                try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
+            }
+
             reply += `┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`;
             return msg.reply(reply);
         }

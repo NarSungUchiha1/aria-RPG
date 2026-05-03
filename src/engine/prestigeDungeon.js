@@ -227,22 +227,23 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         const [prestigePlayers] = await db.execute(
             "SELECT COUNT(*) as cnt FROM players WHERE COALESCE(prestige_level,0) > 0"
         );
-        if (!prestigePlayers[0]?.cnt) return; // No prestige players — skip
+        if (!prestigePlayers[0]?.cnt) { console.log('★ No prestige players — skip spawn'); return; }
 
         // Check no prestige dungeon already active
         const [alreadyActive] = await db.execute(
             "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' LIMIT 1"
         );
-        if (alreadyActive.length) return;
+        if (alreadyActive.length) { console.log('★ Prestige dungeon already active — skip spawn'); return; }
 
         // Short delay so normal dungeon closure messages settle first
         await new Promise(r => setTimeout(r, 3000));
 
+        console.log('★ RAID_GROUP for prestige spawn:', RAID_GROUP);
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`★ Auto-spawning prestige dungeon rank ${prestigeRank}`);
         await spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP);
     } catch (e) {
-        console.error('trySpawnPrestigeDungeon error:', e.message);
+        console.error('★ trySpawnPrestigeDungeon error:', e.message, e.stack);
     }
 }
 
