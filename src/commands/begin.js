@@ -8,11 +8,11 @@ const {
     demoteAllRaiders
 } = require('../engine/dungeon');
 const { startDungeonTimers, clearDungeonTimers } = require('../engine/dungeonTimer');
+const { spawnPrestigeEnemies } = require('../engine/prestigeDungeon');
 
 module.exports = {
     name: 'begin',
     async execute(msg, args, { userId, isAdmin, client }) {
-        // ✅ Admin only — normal players rely on the auto-start
         if (!isAdmin) return msg.reply("❌ Admin only. The dungeon auto-starts after 5 minutes.");
 
         try {
@@ -28,25 +28,31 @@ module.exports = {
                 [dungeon.id]
             );
             if (!players.length) {
-                return msg.reply("❌ No players have entered the dungeon yet.");
+                return msg.reply("❌ No players have entered yet.");
             }
+
+            const isPrestige = dungeon.dungeon_rank && dungeon.dungeon_rank.startsWith('P');
 
             await lockDungeon(dungeon.id);
 
-            // ✅ Init contribution tracker for stage 1
             try {
                 const { initStage } = require('../systems/contributionSystem');
                 initStage(dungeon.id);
             } catch(e) {}
-            await spawnStageEnemies(dungeon.id, dungeon.dungeon_rank, 1);
 
-            // targetChat is always the dungeon GC (begin is DUNGEON_GC_ONLY in index.js)
+            // Spawn correct enemies based on dungeon type
+            if (isPrestige) {
+                await spawnPrestigeEnemies(dungeon.id, dungeon.dungeon_rank, 1);
+            } else {
+                await spawnStageEnemies(dungeon.id, dungeon.dungeon_rank, 1);
+            }
+
             const targetChat = await msg.getChat();
 
             const failCallback = async (type) => {
-                const failMsg = type === 'stage'
-                    ? `══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n┃◆ ☠️ All raiders: HP set to 0\n┃◆ 💸 Respawn penalties apply on revival.\n╰═══════════════════════╯`
-                    : `══〘 💀 DUNGEON COLLAPSED 〙══╮\n┃◆ The dungeon's energy dissipates!\n┃◆ You are crushed by the collapsing realm.\n┃◆ ☠️ All raiders: HP set to 0\n┃◆ 💸 Respawn penalties apply on revival.\n╰═══════════════════════╯`;
+                const failMsg = isPrestige
+                    ? `╔══〘 ✦ VOID DUNGEON COLLAPSED 〙══╗\n┃★ The void reclaims what was opened.\n┃★ ☠️ All hunters have fallen.\n┃★ 💸 Respawn penalties apply.\n╚═══════════════════════════╝`
+                    : `══〘 💀 DUNGEON COLLAPSED 〙══╮\n┃◆ The dungeon's energy dissipates!\n┃◆ ☠️ All raiders: HP set to 0\n┃◆ 💸 Respawn penalties apply on revival.\n╰═══════════════════════╯`;
 
                 try {
                     const [alive] = await db.execute(
@@ -68,32 +74,42 @@ module.exports = {
 
             await startDungeonTimers(dungeon.id, client, targetChat, failCallback);
 
-            // ── Message 1: Dungeon begins ──
-            await msg.reply(
-                `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮\n` +
-                `┃◆ \n` +
-                `┃◆ 🚪 The gates slam shut.\n` +
-                `┃◆ No one enters. No one leaves.\n` +
-                `┃◆ You fight until victory — or death.\n` +
-                `┃◆ \n` +
-                `┃◆ The air grows heavy. Shadows stir\n` +
-                `┃◆ in the depths ahead. Steel yourselves.\n` +
-                `┃◆ \n` +
-                `┃◆ Stage 1/${dungeon.max_stage}  •  Rank: ${dungeon.dungeon_rank}\n` +
-                `┃◆ ⏱️ 5 min per stage  •  25 min total\n` +
-                `┃◆ \n` +
-                `┃◆ ⚠️ Defeat all enemies to advance.\n` +
-                `┃◆ Use !skill <move> [enemy #] to fight!\n` +
-                `┃◆ \n` +
-                `╰═══════════════════════════╯`
-            );
+            if (isPrestige) {
+                await msg.reply(
+                    `╔══〘 ✦ THE VOID OPENS 〙══╗\n` +
+                    `┃★ \n` +
+                    `┃★ The rift seals behind you.\n` +
+                    `┃★ What lies ahead has no name\n` +
+                    `┃★ in any living language.\n` +
+                    `┃★ \n` +
+                    `┃★ Stage 1/${dungeon.max_stage}  •  Rank: ${dungeon.dungeon_rank}\n` +
+                    `┃★ ⏱️ 5 min per stage\n` +
+                    `┃★ \n` +
+                    `┃★ Use !skill <move> [enemy #]\n` +
+                    `┃★ \n` +
+                    `╚═══════════════════════════╝`
+                );
+            } else {
+                await msg.reply(
+                    `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮\n` +
+                    `┃◆ \n` +
+                    `┃◆ 🚪 The gates slam shut.\n` +
+                    `┃◆ No one enters. No one leaves.\n` +
+                    `┃◆ \n` +
+                    `┃◆ Stage 1/${dungeon.max_stage}  •  Rank: ${dungeon.dungeon_rank}\n` +
+                    `┃◆ ⏱️ 5 min per stage  •  25 min total\n` +
+                    `┃◆ \n` +
+                    `┃◆ Use !skill <move> [enemy #]\n` +
+                    `┃◆ \n` +
+                    `╰═══════════════════════════╯`
+                );
+            }
 
-            // ── Message 2: Enemy stats reveal ──
             const revealText = await getDungeonEnemyRevealText(dungeon.id);
             if (revealText) return msg.reply(revealText);
 
         } catch (err) {
-            console.error(err);
+            console.error('begin error:', err);
             msg.reply("❌ Failed to force-start dungeon.");
         }
     }

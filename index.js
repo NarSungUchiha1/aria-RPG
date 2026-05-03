@@ -351,7 +351,9 @@ async function startBot() {
 
                 // ✅ Startup dungeon cleanup — scoped, no global deletes
                 try {
-                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0");
+                    // Only deactivate normal dungeons that have been sitting unlocked for over 30 min
+                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND dungeon_rank NOT LIKE 'P%' AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)").catch(() =>
+                        db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND dungeon_rank NOT LIKE 'P%'"));
                     const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
                     if (!activeDungeons.length) {
                         await db.execute("DELETE FROM dungeon_players WHERE player_id IS NOT NULL");
