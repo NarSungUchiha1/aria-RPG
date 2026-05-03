@@ -20,6 +20,7 @@ function requiresMana(move) {
 module.exports = {
     name: 'skill',
     async execute(msg, args, { userId, client }) {
+      try {
         if (isPlayerInDuel(userId)) {
             return msg.reply("❌ In a duel, use !attack <move> instead.");
         }
@@ -369,5 +370,9 @@ module.exports = {
         }
 
         return msg.reply("❌ Unknown move type.");
+      } catch(err) {
+        console.error("skill.js error:", err.message, err.stack);
+        return msg.reply("❌ Something went wrong using that skill. Check bot logs.");
+      }
     }
 };
