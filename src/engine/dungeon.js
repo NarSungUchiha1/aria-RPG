@@ -597,12 +597,13 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 //  REWARD DISTRIBUTION
 // =======================
 async function distributeEnemyRewards(dungeonId, enemyId) {
-    const [enemy] = await db.execute("SELECT exp, gold, name, is_boss FROM dungeon_enemies WHERE id=?", [enemyId]);
+    const [enemy] = await db.execute("SELECT exp, gold, name, max_hp FROM dungeon_enemies WHERE id=?", [enemyId]);
     if (!enemy.length) return { contributors: [] };
 
     const totalExp  = Number(enemy[0].exp);
     const totalGold = Number(enemy[0].gold);
-    const isBoss    = enemy[0].is_boss === 1;
+    // Bosses have significantly higher exp — use exp threshold to detect
+    const isBoss    = Number(enemy[0].exp) >= 2000;
 
     const [contributors] = await db.execute(
         "SELECT player_id, damage_dealt FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?",
@@ -814,20 +815,25 @@ async function getDungeonStatusText(dungeonId) {
     if (!dungeon.length) return "Dungeon not found.";
     const d = dungeon[0];
     const enemies = await getCurrentEnemies(dungeonId);
-    let text = `══〘 🏰 DUNGEON STATUS 〙══╮\n`;
-    text += `┃◆ Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
-    text += `┃◆ Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}\n`;
-    text += `┃◆────────────\n`;
+    const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+    const [box, bar, bul, close] = isPrestige
+        ? ['╔══〘 ✦ PRESTIGE STATUS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
+        : ['══〘 🏰 DUNGEON STATUS 〙══╮', '┃◆────────────', '┃◆', '╰═══════════════════════╯'];
+
+    let text = `${box}\n`;
+    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
+    text += `${bul} Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}\n`;
+    text += `${bar}\n`;
     if (enemies.length === 0) {
-        text += `┃◆ ✅ All enemies defeated!\n`;
-        text += `┃◆ 🧭 Use !onward to advance\n`;
+        text += `${bul} ✅ All enemies defeated!\n`;
+        text += `${bul} 🧭 Use !onward to advance\n`;
     } else {
-        text += `┃◆ 👾 ENEMIES:\n`;
+        text += `${bul} 👾 ENEMIES:\n`;
         enemies.forEach((e, i) => {
-            text += `┃◆   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
+            text += `${bul}   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
         });
     }
-    text += `┃◆────────────\n┃◆ 🧭 !skill <move> [target]\n╰═══════════════════════╯`;
+    text += `${bar}\n${bul} 🧭 !skill <move> [target]\n${close}`;
     return text;
 }
 
