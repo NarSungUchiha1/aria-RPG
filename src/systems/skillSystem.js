@@ -81,7 +81,9 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     // A:  200-260 / 290-350 / 380-450
     // S:  320-400 / 450-550 / 600-750
 
-    const totalAttack = statValue + totalBonus;
+    // Stamina gets a 1.4x conversion — it is a defensive stat so needs a boost to compete offensively
+    const staminaScale = (move.stat === 'stamina') ? 1.4 : 1.0;
+    const totalAttack = (statValue + totalBonus) * staminaScale;
     const defense = Number(enemy.def) || 0;
     const damageReduction = Math.floor(defense * 0.4);
     const multiplier = move.multiplier || 1;

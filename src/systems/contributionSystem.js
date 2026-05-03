@@ -10,10 +10,12 @@
 const stageContributions = new Map();
 
 const CONTRIBUTION_WEIGHTS = {
-    damage:  1.0,  // per point of damage
-    heal:    2.0,  // per point of healing (healers valued highly)
-    buff:    50,   // flat per buff applied
-    debuff:  50    // flat per debuff applied
+    damage:  1.0,
+    heal:    2.0,
+    buff:    50,
+    debuff:  50,
+    shield:  80,   // tanks: per shield applied
+    taunt:   120   // tanks: per taunt applied
 };
 
 // Minimum contribution score to receive any loot — set low so anyone who participates qualifies
@@ -27,7 +29,7 @@ function trackContribution(dungeonId, playerId, nickname, type, value = 1) {
     if (!stageContributions.has(dungeonId)) initStage(dungeonId);
     const map = stageContributions.get(dungeonId);
     if (!map.has(playerId)) {
-        map.set(playerId, { damage: 0, heals: 0, buffs: 0, debuffs: 0, nickname });
+        map.set(playerId, { damage: 0, heals: 0, buffs: 0, debuffs: 0, shields: 0, taunts: 0, nickname });
     }
     const p = map.get(playerId);
     p.nickname = nickname; // keep fresh
@@ -36,6 +38,8 @@ function trackContribution(dungeonId, playerId, nickname, type, value = 1) {
         case 'heal':    p.heals   += value; break;
         case 'buff':    p.buffs   += value; break;
         case 'debuff':  p.debuffs += value; break;
+        case 'shield':  p.shields += value; break;
+        case 'taunt':   p.taunts  += value; break;
     }
 }
 
@@ -44,7 +48,9 @@ function getContributionScore(entry) {
         entry.damage  * CONTRIBUTION_WEIGHTS.damage  +
         entry.heals   * CONTRIBUTION_WEIGHTS.heal    +
         entry.buffs   * CONTRIBUTION_WEIGHTS.buff    +
-        entry.debuffs * CONTRIBUTION_WEIGHTS.debuff
+        entry.debuffs * CONTRIBUTION_WEIGHTS.debuff  +
+        (entry.shields || 0) * CONTRIBUTION_WEIGHTS.shield +
+        (entry.taunts  || 0) * CONTRIBUTION_WEIGHTS.taunt
     );
 }
 
@@ -104,7 +110,23 @@ function clearStage(dungeonId) {
     stageContributions.delete(dungeonId);
 }
 
+function getContributionScore(dungeonId, playerId) {
+    const map = stageContributions.get(dungeonId);
+    if (!map) return 0;
+    const entry = map.get(playerId);
+    if (!entry) return 0;
+    return Math.floor(
+        entry.damage  * CONTRIBUTION_WEIGHTS.damage  +
+        entry.heals   * CONTRIBUTION_WEIGHTS.heal    +
+        entry.buffs   * CONTRIBUTION_WEIGHTS.buff    +
+        entry.debuffs * CONTRIBUTION_WEIGHTS.debuff  +
+        (entry.shields || 0) * CONTRIBUTION_WEIGHTS.shield +
+        (entry.taunts  || 0) * CONTRIBUTION_WEIGHTS.taunt
+    );
+}
+
 module.exports = {
+    getContributionScore,
     initStage,
     trackContribution,
     getRankedContributors,

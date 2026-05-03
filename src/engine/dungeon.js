@@ -597,11 +597,12 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 //  REWARD DISTRIBUTION
 // =======================
 async function distributeEnemyRewards(dungeonId, enemyId) {
-    const [enemy] = await db.execute("SELECT exp, gold, name FROM dungeon_enemies WHERE id=?", [enemyId]);
+    const [enemy] = await db.execute("SELECT exp, gold, name, is_boss FROM dungeon_enemies WHERE id=?", [enemyId]);
     if (!enemy.length) return { contributors: [] };
 
     const totalExp  = Number(enemy[0].exp);
     const totalGold = Number(enemy[0].gold);
+    const isBoss    = enemy[0].is_boss === 1;
 
     const [contributors] = await db.execute(
         "SELECT player_id, damage_dealt FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?",
@@ -609,11 +610,29 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     );
     if (contributors.length === 0) return { contributors: [] };
 
+    // Pull contribution scores — used to bonus tanks/supports on boss kills
+    const { getContributionScore } = require('../systems/contributionSystem');
     const totalDamage = contributors.reduce((sum, c) => sum + Number(c.damage_dealt), 0);
     const rewards = [];
 
     for (const c of contributors) {
-        const share      = totalDamage > 0 ? Number(c.damage_dealt) / totalDamage : 0;
+        let share = totalDamage > 0 ? Number(c.damage_dealt) / totalDamage : 1 / contributors.length;
+
+        // On boss kills: blend damage share with contribution score for tanks/supports
+        if (isBoss) {
+            const [roleRow] = await db.execute("SELECT role FROM players WHERE id=?", [c.player_id]);
+            const role = roleRow[0]?.role;
+            if (role === 'Tank' || role === 'Healer') {
+                const contribScore = getContributionScore(dungeonId, c.player_id) || 0;
+                const totalContrib = contributors.reduce((s, x) => {
+                    return s + (getContributionScore(dungeonId, x.player_id) || 0);
+                }, 0);
+                const contribShare = totalContrib > 0 ? contribScore / totalContrib : share;
+                // 40% damage share + 60% contribution share for tanks/healers on boss
+                share = (share * 0.4) + (contribShare * 0.6);
+            }
+        }
+
         const expEarned  = Math.floor(totalExp  * share);
         const goldEarned = Math.floor(totalGold * share);
 

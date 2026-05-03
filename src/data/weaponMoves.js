@@ -402,6 +402,16 @@ module.exports = {
         { name: 'Lantern Glow',      type: 'heal', stat: 'intelligence', multiplier: 3.0, cleanse: true, aoe: true, cooldown: 4, cost: 35 },
         { name: 'Lost World Heal',   type: 'heal', stat: 'intelligence', multiplier: 4.0, cooldown: 5, cost: 32 }
     ],
+    'Void Earthbreaker': [
+        { name: 'Seismic Slam',      type: 'damage', stat: 'stamina',   multiplier: 3.5, stun: true,    cooldown: 2, cost: 22 },
+        { name: 'Void Quake',        type: 'damage', stat: 'stamina',   multiplier: 3.0, aoe: true,     cooldown: 3, cost: 28 },
+        { name: 'Earthbreaker Blow', type: 'damage', stat: 'strength',  multiplier: 4.0, def_reduction: 40, cooldown: 4, cost: 30 }
+    ],
+    'Fracture Colossus': [
+        { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',   multiplier: 4.5, cooldown: 2,   cost: 30 },
+        { name: 'Fracture Slam',     type: 'damage', stat: 'stamina',   multiplier: 4.0, stun: true, aoe: true, cooldown: 4, cost: 38 },
+        { name: 'Titan Force',       type: 'buff',   effect: 'strength_up', value: 120, duration: 3, cooldown: 5, cost: 25 }
+    ],
     "Malachar's Grace": [
         { name: "Grace of Malachar", type: 'heal', stat: 'intelligence', multiplier: 5.0, cooldown: 2, cost: 40 },
         { name: "Healer's Last Stand",type: 'heal', stat: 'intelligence', multiplier: 4.5, aoe: true, cooldown: 4, cost: 45 },

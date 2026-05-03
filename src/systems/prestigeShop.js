@@ -79,7 +79,11 @@ const PRESTIGE_ITEMS = {
         { name: 'Abyss Fortress',    price: 750000,   minPrestige: 1, stats: { stamina: 1100, defense: 1200 }, durability: 450,
           desc: 'Ancient. Pre-dates the Gates. Nobody knows who made it.' },
         { name: "Malachar's Seal",   price: 3000000,  minPrestige: 2, stats: { stamina: 2200, defense: 2500, strength: 200 }, durability: 600,
-          desc: 'It was the original seal. Repurposed.' }
+          desc: 'It was the original seal. Repurposed.' },
+        { name: 'Void Earthbreaker',  price: 180000,   minPrestige: 1, stats: { stamina: 600, strength: 400, attack: 350 }, durability: 300,
+          desc: 'A warhammer that channels void energy through sheer mass. The ground remembers every swing.' },
+        { name: 'Fracture Colossus',  price: 600000,   minPrestige: 1, stats: { stamina: 1200, strength: 800, attack: 700 }, durability: 380,
+          desc: 'Built for one purpose. It has never needed a second.' }
     ],
 
     // ── HEALER ────────────────────────────────────────────────────────────────
