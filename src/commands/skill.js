@@ -260,7 +260,10 @@ module.exports = {
                     const { clearDungeonTimers } = require('../engine/dungeonTimer');
                     clearDungeonTimers(dungeon.id);
                     const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
-                    spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
+                    // Only spawn after NORMAL dungeons
+                    if (!dungeon.dungeon_rank?.startsWith('P')) {
+                        spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
+                    }
                     reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                 }
             }

@@ -56,7 +56,11 @@ module.exports = {
 
             // Auto-spawn prestige dungeon after admin close
             const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (closeDungeon):', e.message));
+            // Only spawn after NORMAL dungeons
+            const [closedRankRow] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]);
+            if (!closedRankRow[0]?.dungeon_rank?.startsWith('P')) {
+                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (closeDungeon):', e.message));
+            }
 
             return msg.reply(
                 `══〘 🔒 CLOSE DUNGEON 〙══╮\n` +
