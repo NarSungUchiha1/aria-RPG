@@ -707,6 +707,8 @@ async function advanceStage(dungeonId, nextStage) {
 //  PLAYER DUNGEON ACTIONS
 // =======================
 async function addPlayerToDungeon(playerId, dungeonId) {
+    // Ensure columns exist before inserting
+    await ensureSessionColumns();
     await db.execute(
         "INSERT INTO dungeon_players (player_id, dungeon_id, is_alive, session_gold, session_xp) VALUES (?, ?, 1, 0, 0)",
         [playerId, dungeonId]
