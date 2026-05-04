@@ -138,6 +138,27 @@ const CONSUMABLES = {
         label: 'Elixir'
     },
 
+    // ── PRESTIGE CONSUMABLES ──────────────────────────────
+    'Void Elixir': {
+        type: 'heal_percent',
+        emoji: '🌀',
+        percent: 0.6,
+        label: 'Void Elixir'
+    },
+    'Fracture Potion': {
+        type: 'heal_full',
+        emoji: '💠',
+        label: 'Fracture Potion'
+    },
+    'Abyss Tonic': {
+        type: 'buff',
+        emoji: '⚫',
+        stat: 'attack',
+        baseValue: 50,
+        duration: 3,
+        label: 'Abyss Tonic'
+    },
+
     // ── DUNGEON COMBAT (requires active dungeon) ──────────
     'Poison Vial': {
         type: 'dungeon_debuff',
@@ -154,6 +175,8 @@ const CONSUMABLES = {
         label: 'Fire Scroll'
     },
 };
+
+const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic']);
 
 module.exports = {
     name: 'use',
@@ -177,6 +200,19 @@ module.exports = {
                 await updateQuestProgress(userId, 'item_use', 1);
             } catch (e) {}
 
+            // Prestige players can only use prestige-tier consumables
+            const [presRow] = await db.execute('SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?', [userId]);
+            const isPrestige = (presRow[0]?.prestige_level || 0) > 0;
+            if (isPrestige && !PRESTIGE_CONSUMABLES.has(item.item_name)) return msg.reply(
+                `╔══〘 ✦ USE 〙══╗
+` +
+                `┃★ ${item.item_name} cannot be used by a Void Hunter.
+` +
+                `┃★ Use !melt to convert it to gold.
+` +
+                `╚════════════════════════════╝`
+            );
+
             const def = CONSUMABLES[item.item_name];
             if (!def) return msg.reply(`❌ ${itemName} cannot be used with !use.`);
 
@@ -191,6 +227,41 @@ module.exports = {
             await db.execute("DELETE FROM inventory WHERE id=?", [item.id]);
 
             // ── APPLY effect ─────────────────────────────
+
+            // PRESTIGE — PERCENT HEAL (Void Elixir — restores 60% HP)
+            if (def.type === 'heal_percent') {
+                const current = Number(player.hp);
+                const max     = Number(player.max_hp);
+                const restore = Math.floor(max * def.percent);
+                const newHp   = Math.min(max, current + restore);
+                await db.execute('UPDATE players SET hp=? WHERE id=?', [newHp, userId]);
+                return msg.reply(
+                    `╔══〘 ${def.emoji} ${def.label.toUpperCase()} 〙══╗
+` +
+                    `┃★ Void energy surges through you.
+` +
+                    `┃★ HP: ${current} → ${newHp}/${max}
+` +
+                    `┃★ (+${restore} restored)
+` +
+                    `╚════════════════════════════╝`
+                );
+            }
+
+            // PRESTIGE — FULL HEAL (Fracture Potion)
+            if (def.type === 'heal_full') {
+                const max = Number(player.max_hp);
+                await db.execute('UPDATE players SET hp=? WHERE id=?', [max, userId]);
+                return msg.reply(
+                    `╔══〘 ${def.emoji} ${def.label.toUpperCase()} 〙══╗
+` +
+                    `┃★ The fracture seals completely.
+` +
+                    `┃★ HP fully restored: ${max}/${max}
+` +
+                    `╚════════════════════════════╝`
+                );
+            }
 
             // HP RESTORE
             if (def.type === 'heal') {
