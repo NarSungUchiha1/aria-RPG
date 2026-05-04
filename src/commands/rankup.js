@@ -6,7 +6,7 @@ const itemStats = require('../data/itemStats');
 const NORMAL_ORDER = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 const PRESTIGE_ORDER = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
 
-const normalXpCost = { E: 4000, D: 10000, C: 20000, B: 40000, A: 80000, S: 150000 };
+const normalXpCost = { E: 500, D: 1200, C: 2500, B: 5000, A: 10000, S: 20000 };
 const prestigeXpCost = { PE: 36000, PD: 111000, PC: 380000, PB: 1006000, PA: 3225000, PS: 7420000 };
 
 const normalStatGain  = { E: 4, D: 6, C: 8, B: 12, A: 16, S: 22 };

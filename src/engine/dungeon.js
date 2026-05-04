@@ -471,6 +471,12 @@ function calculateEnemyRetaliation(enemy, player) {
 }
 
 function evasionCheck(player, enemy) {
+    // Use enemy's own evasion stat if available
+    const enemyEvasion = Number(enemy.evasion) || 0;
+    if (enemyEvasion > 0) {
+        const roll = Math.random() * 100;
+        return roll < enemyEvasion;
+    }
     const evadeChance = Math.min(0.3, (Number(player.agility) || 0) / 100);
     return Math.random() < evadeChance;
 }
@@ -707,7 +713,6 @@ async function advanceStage(dungeonId, nextStage) {
 //  PLAYER DUNGEON ACTIONS
 // =======================
 async function addPlayerToDungeon(playerId, dungeonId) {
-    // Ensure columns exist before inserting
     await ensureSessionColumns();
     await db.execute(
         "INSERT INTO dungeon_players (player_id, dungeon_id, is_alive, session_gold, session_xp) VALUES (?, ?, 1, 0, 0)",
