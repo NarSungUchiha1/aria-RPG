@@ -11,6 +11,13 @@ const duelPool    = new Map();
 const turnTimers  = new Map(); // duelKey -> timeout
 
 const DUEL_HP       = 1500;
+
+// Get effective duel HP for a player — prestige players use their real HP
+async function getDuelHp(playerId) {
+    const [rows] = await db.execute('SELECT max_hp, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?', [playerId]);
+    if (!rows.length) return DUEL_HP;
+    return rows[0].prestige_level > 0 ? Number(rows[0].max_hp) : DUEL_HP;
+}
 const TURN_LIMIT_MS = 20000; // 20 seconds per turn
 
 function getDuelKey(p1, p2) {
@@ -74,12 +81,15 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
     turnTimers.set(duelKey, timer);
 }
 
-function setDuelActive(p1Id, p2Id, chat, betAmount) {
+async function setDuelActive(p1Id, p2Id, chat, betAmount) {
     const key = getDuelKey(p1Id, p2Id);
+    const p1Hp = await getDuelHp(p1Id);
+    const p2Hp = await getDuelHp(p2Id);
     duelPool.set(key, {
-        hp:    { [p1Id]: DUEL_HP, [p2Id]: DUEL_HP },
-        bet:   betAmount,
-        round: 1,
+        hp:     { [p1Id]: p1Hp, [p2Id]: p2Hp },
+        maxHp:  { [p1Id]: p1Hp, [p2Id]: p2Hp },
+        bet:    betAmount,
+        round:  1,
         p1Id, p2Id
     });
     activeDuels.set(p1Id, { opponentId: p2Id, turn: null, chat, duelKey: key });
@@ -158,7 +168,7 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
     const firstNick = firstTurn === p1Id ? p1.nickname : p2.nickname;
 
     const chat = await msg.getChat();
-    setDuelActive(p1Id, p2Id, chat, betAmount);
+    await setDuelActive(p1Id, p2Id, chat, betAmount);
     setTurn(p1Id, p2Id, firstTurn);
 
     const secondTurn = firstTurn === p1Id ? p2Id : p1Id;
@@ -285,8 +295,10 @@ async function handlePvPSkill(attackerId, move, targetId) {
         // Use a duel-specific defender object with duel HP for calculation context
         const defenderForCalc = { ...defender, hp: defenderHp, max_hp: DUEL_HP };
         let damage = calculateMoveDamage(attacker, move, defenderForCalc, items);
-        // ✅ Cap damage to 20% of DUEL_HP per hit — prevents one-shots
-        const maxDuelDamage = Math.floor(DUEL_HP * 0.20);
+        // Cap per hit: 15% of defender's duel HP — scales with prestige
+        const defDuelHp = data.hp[opponentId] || DUEL_HP;
+        const startHp   = await getDuelHp(opponentId);
+        const maxDuelDamage = Math.floor(startHp * 0.15);
         damage = Math.min(damage, maxDuelDamage);
         const newDefenderHp = Math.max(0, defenderHp - damage);
         data.hp[opponentId] = newDefenderHp;
