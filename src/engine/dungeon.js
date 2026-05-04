@@ -709,7 +709,13 @@ async function addDamageContribution(dungeonId, enemyId, playerId, damage) {
 async function advanceStage(dungeonId, nextStage) {
     await db.execute("UPDATE dungeon SET stage=?, stage_cleared=0 WHERE id=?", [nextStage, dungeonId]);
     const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
-    await spawnStageEnemies(dungeonId, dungeon[0].dungeon_rank, nextStage);
+    const rank = dungeon[0]?.dungeon_rank;
+    if (rank && rank.startsWith('P')) {
+        const { spawnPrestigeEnemies } = require('./prestigeDungeon');
+        await spawnPrestigeEnemies(dungeonId, rank, nextStage);
+    } else {
+        await spawnStageEnemies(dungeonId, rank, nextStage);
+    }
 }
 
 // =======================
