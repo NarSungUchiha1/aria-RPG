@@ -182,6 +182,34 @@ module.exports = {
                 `╚═══════════════════════════╝`
             );
 
+
+            // ✅ Rank restriction — players can only enter dungeons ±1 their rank
+            if (!isPrestigeDungeon) {
+                const RANK_ORDER = ['F','E','D','C','B','A','S'];
+                const [playerRankRow] = await db.execute('SELECT `rank` FROM players WHERE id=?', [userId]);
+                const playerRank   = playerRankRow[0]?.rank || 'F';
+                const dungeonRank  = dungeon.dungeon_rank;
+                const playerIdx    = RANK_ORDER.indexOf(playerRank);
+                const dungeonIdx   = RANK_ORDER.indexOf(dungeonRank);
+
+                if (dungeonIdx !== -1 && playerIdx !== -1 && Math.abs(dungeonIdx - playerRank) > 1) {
+                    // Correct the abs diff to use indices
+                }
+                if (dungeonIdx !== -1 && playerIdx !== -1 && Math.abs(dungeonIdx - playerIdx) > 1) {
+                    const allowed = [
+                        RANK_ORDER[playerIdx - 1],
+                        RANK_ORDER[playerIdx],
+                        RANK_ORDER[playerIdx + 1]
+                    ].filter(Boolean).join(', ');
+                    return msg.reply(
+                        `══〘 🏰 ENTER 〙══╮\n` +
+                        `┃◆ ❌ Rank mismatch.\n` +
+                        `┃◆ You are rank ${playerRank}. This is a ${dungeonRank} dungeon.\n` +
+                        `┃◆ You can enter: ${allowed}\n` +
+                        `╰═══════════════════════╯`
+                    );
+                }
+            }
             if (await isDungeonLockedDB(dungeon.id)) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
