@@ -15,8 +15,8 @@ module.exports = {
             // ✅ Route prestige players to prestige shop
             const prestigeLevel = player.prestige_level || 0;
             if (prestigeLevel > 0) {
-                const { execute } = require('./prestigeshop');
-                return execute(msg, args, { userId, client });
+                const prestigeShopCmd = require('./prestigeshop');
+                return prestigeShopCmd.execute(msg, args, { userId, client });
             }
 
             // ❌ Block shop view if player is inside an active dungeon
