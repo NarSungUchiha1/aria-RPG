@@ -1,11 +1,16 @@
 const db = require('../database/db');
 const { getPrestigeShopItems, buyPrestigeItem } = require('../systems/prestigeShop');
 
-// Cooldown by prestige rank — buffs/debuffs/heals scale down as rank increases
-const RANK_COOLDOWNS = {
-    PF: 150, PE: 130, PD: 110, PC: 90, PB: 70, PA: 50, PS: 30
-};
 
+function getRestockTime() {
+    const now = new Date();
+    const midnight = new Date();
+    midnight.setUTCHours(24, 0, 0, 0);
+    const diff = midnight - now;
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    return `${h}h ${m}m`;
+}
 module.exports = {
     name: 'prestigeshop',
     async execute(msg, args, { userId }) {
@@ -30,7 +35,7 @@ module.exports = {
             const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const playerGold = gold[0]?.gold || 0;
             const stars      = '⭐'.repeat(Math.min(p.prestige_level, 5));
-            const rankCD     = RANK_COOLDOWNS[p.rank] || 150;
+
 
             // ── BUY ──────────────────────────────────────────────────────────
             if (args[0]?.toLowerCase() === 'buy') {
@@ -61,7 +66,7 @@ module.exports = {
                 `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n` +
                 `┃★ CLEARANCE: PRESTIGE ${p.prestige_level}  ${stars}\n` +
                 `┃★ HUNTER: ${p.nickname.toUpperCase()} [${p.role.toUpperCase()}]\n` +
-                `┃★ RANK: ${p.rank}  •  BUFF CD: ${rankCD}s\n` +
+                `┃★ RANK: ${p.rank}\n` +
                 `┃★ BALANCE: ${playerGold.toLocaleString()}G\n` +
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃★ WEAPONS — VOID CLASS\n` +
@@ -95,7 +100,6 @@ module.exports = {
             text +=
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃★ CMD: !prestigeshop buy <name>\n` +
-                `┃★ RESTOCKS: DAILY AT MIDNIGHT\n` +
                 `╚════════════════════════════╝`;
 
             return msg.reply(text);
