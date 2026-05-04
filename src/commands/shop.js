@@ -15,8 +15,11 @@ module.exports = {
             // ✅ Route prestige players to prestige shop
             const prestigeLevel = player.prestige_level || 0;
             if (prestigeLevel > 0) {
-                const prestigeShopCmd = require('./prestigeshop');
-                return prestigeShopCmd.execute(msg, args, { userId, client });
+                const prestigeShopMod = require('./prestigeshop');
+                const execFn = prestigeShopMod.execute || (prestigeShopMod.default && prestigeShopMod.default.execute);
+                if (typeof execFn === 'function') return execFn(msg, args, { userId, client });
+                // Fallback: run inline
+                return msg.reply(`╔══〘 ✦ PRESTIGE SHOP 〙══╗\n┃★ Use !prestigeshop to view your shop.\n╚═══════════════════════════╝`);
             }
 
             // ❌ Block shop view if player is inside an active dungeon
