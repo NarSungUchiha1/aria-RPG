@@ -349,11 +349,10 @@ async function startBot() {
                 // Clear any stale lock from previous crash
                 await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
 
-                // ✅ Startup dungeon cleanup — scoped, no global deletes
+                // ✅ Startup dungeon cleanup — only wipe dungeons older than 2 hours that are still unlocked
+                // This prevents reconnects from killing active/lobby dungeons
                 try {
-                    // Only deactivate normal dungeons that have been sitting unlocked for over 30 min
-                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND dungeon_rank NOT LIKE 'P%' AND created_at < DATE_SUB(NOW(), INTERVAL 30 MINUTE)").catch(() =>
-                        db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND dungeon_rank NOT LIKE 'P%'"));
+                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)").catch(() => {});
                     const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
                     if (!activeDungeons.length) {
                         await db.execute("DELETE FROM dungeon_players WHERE player_id IS NOT NULL");
@@ -734,7 +733,8 @@ cron.schedule('30 */1 * * *', async () => { // 30 minutes offset from normal dun
         if (anyActive.length) { console.log('⏭️ Prestige spawn skipped — dungeon active'); return; }
 
         const { spawnPrestigeDungeon, PRESTIGE_RANK_MAP } = require('./src/engine/prestigeDungeon');
-        const RAID_GROUP = process.env.RAID_GROUP_JID;
+        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
+        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID set — cannot spawn prestige dungeon'); return; }
 
         // Pick a weighted prestige rank based on players
         const [pRanks] = await db.execute(

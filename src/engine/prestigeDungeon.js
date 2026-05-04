@@ -238,6 +238,7 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         // Short delay so normal dungeon closure messages settle first
         await new Promise(r => setTimeout(r, 3000));
 
+        if (!RAID_GROUP) { console.error('★ trySpawnPrestigeDungeon: RAID_GROUP is undefined — set RAID_GROUP_JID env var'); return; }
         console.log('★ RAID_GROUP for prestige spawn:', RAID_GROUP);
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`★ Auto-spawning prestige dungeon rank ${prestigeRank}`);
