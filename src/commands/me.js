@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { hasClaimedStarter, claimStarterPack } = require('../systems/prestigeStarterPack');
 const { getPrestigeBadge } = require('../systems/prestigeSystem');
 
 module.exports = {
@@ -31,6 +32,39 @@ module.exports = {
             const xp = xpRow[0]?.xp || 0;
 
             const prestigeLvl = p.prestige_level || 0;
+
+            // ── PRESTIGE STARTER PACK ────────────────────────────────────────
+            if (prestigeLvl > 0) {
+                const claimed = await hasClaimedStarter(userId, prestigeLvl);
+                if (!claimed) {
+                    const pack = await claimStarterPack(userId, p.role, prestigeLvl);
+                    if (pack.ok) {
+                        await msg.reply(
+                            `╔══〘 ✦ WELCOME, VOID HUNTER 〙══╗\n` +
+                            `┃★ \n` +
+                            `┃★ The system has acknowledged you.\n` +
+                            `┃★ You are no longer bound by the\n` +
+                            `┃★ rules of the old world.\n` +
+                            `┃★ \n` +
+                            `┃★ 〝What you were is gone.\n` +
+                            `┃★  What you become is your choice.〞\n` +
+                            `┃★ \n` +
+                            `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                            `┃★ STARTER PACK CLAIMED\n` +
+                            `┃★ \n` +
+                            `┃★ ⚔️ *${pack.weapon.name}*\n` +
+                            `┃★   〝${pack.weapon.desc}〞\n` +
+                            `┃★ \n` +
+                            `┃★ 💰 ${pack.gold.toLocaleString()} Gold\n` +
+                            `┃★ ⭐ ${pack.xp.toLocaleString()} XP\n` +
+                            `┃★ \n` +
+                            `┃★ !prestigeshop — your armory\n` +
+                            `┃★ !moveset — your void skills\n` +
+                            `╚════════════════════════════╝`
+                        );
+                    }
+                }
+            }
             const stars = prestigeLvl > 0 ? '☆'.repeat(Math.min(prestigeLvl, 5)) + ' ' : '';
             const rankLine = prestigeLvl > 0 ? `${stars}${p.rank}` : p.rank;
 

@@ -1,7 +1,6 @@
 const db = require('../database/db');
 const { getPrestigeShopItems, buyPrestigeItem } = require('../systems/prestigeShop');
 
-
 function getRestockTime() {
     const now = new Date();
     const midnight = new Date();
@@ -11,6 +10,7 @@ function getRestockTime() {
     const m = Math.floor((diff % 3600000) / 60000);
     return `${h}h ${m}m`;
 }
+
 module.exports = {
     name: 'prestigeshop',
     async execute(msg, args, { userId }) {
@@ -34,16 +34,24 @@ module.exports = {
 
             const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const playerGold = gold[0]?.gold || 0;
-            const stars      = '⭐'.repeat(Math.min(p.prestige_level, 5));
+            const stars = '⭐'.repeat(Math.min(p.prestige_level, 5));
 
-
-            // ── BUY ──────────────────────────────────────────────────────────
+            // ── BUY BY NUMBER ────────────────────────────────────────────────
             if (args[0]?.toLowerCase() === 'buy') {
-                const itemName = args.slice(1).join(' ');
-                if (!itemName) return msg.reply(
-                    `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n┃★ CMD: !prestigeshop buy <name>\n╚════════════════════════════╝`
+                const itemNum = parseInt(args[1]);
+                if (isNaN(itemNum)) return msg.reply(
+                    `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n┃★ CMD: !prestigeshop buy <number>\n╚════════════════════════════╝`
                 );
-                const result = await buyPrestigeItem(userId, itemName, p.role, p.prestige_level);
+
+                const { weapons, consumables } = await getPrestigeShopItems(userId, p.role, p.prestige_level);
+                const allItems = [...weapons, ...consumables];
+                const item = allItems[itemNum - 1];
+
+                if (!item) return msg.reply(
+                    `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n┃★ ❌ Invalid number.\n╚════════════════════════════╝`
+                );
+
+                const result = await buyPrestigeItem(userId, item.name, p.role, p.prestige_level);
                 if (!result.ok) return msg.reply(
                     `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n┃★ ❌ ${result.reason}\n╚════════════════════════════╝`
                 );
@@ -62,18 +70,20 @@ module.exports = {
             // ── DISPLAY ──────────────────────────────────────────────────────
             const { weapons, consumables } = await getPrestigeShopItems(userId, p.role, p.prestige_level);
 
+            let itemNum = 1;
             let text =
                 `╔══〘 ✦ SYSTEM ARMORY 〙══╗\n` +
                 `┃★ CLEARANCE: PRESTIGE ${p.prestige_level}  ${stars}\n` +
                 `┃★ HUNTER: ${p.nickname.toUpperCase()} [${p.role.toUpperCase()}]\n` +
                 `┃★ RANK: ${p.rank}\n` +
                 `┃★ BALANCE: ${playerGold.toLocaleString()}G\n` +
+                `┃★ RESTOCK: ${getRestockTime()}\n` +
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃★ WEAPONS — VOID CLASS\n` +
                 `┃★\n`;
 
-            weapons.forEach((w, i) => {
-                const num      = String(i + 1).padStart(2, '0');
+            weapons.forEach(w => {
+                const num      = String(itemNum).padStart(2, '0');
                 const statLine = Object.entries(w.stats)
                     .map(([k, v]) => `${k.toUpperCase().slice(0,3)}+${v}`)
                     .join('  ');
@@ -81,25 +91,28 @@ module.exports = {
                 const locked   = (w.minPrestige || 1) > p.prestige_level ? ` 🔒 P${w.minPrestige}` : '';
                 text +=
                     `┃★ ${num}. ${w.name}${locked}\n` +
-                    `┃★     ${statLine}  DUR:${w.stats.durability || w.durability}\n` +
+                    `┃★     ${statLine}  DUR:${w.durability}\n` +
                     `┃★     COST: ${w.price.toLocaleString()}G  ${stock}\n` +
                     `┃★\n`;
+                itemNum++;
             });
 
             text += `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n┃★ CONSUMABLES\n┃★\n`;
 
             consumables.forEach(c => {
+                const num   = String(itemNum).padStart(2, '0');
                 const stock = c.stock <= 0 ? 'OUT OF STOCK' : `[${c.stock} LEFT]`;
                 text +=
-                    `┃★ • ${c.name}\n` +
+                    `┃★ ${num}. ${c.name}\n` +
                     `┃★   ${c.desc}\n` +
                     `┃★   COST: ${c.price.toLocaleString()}G  ${stock}\n` +
                     `┃★\n`;
+                itemNum++;
             });
 
             text +=
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-                `┃★ CMD: !prestigeshop buy <name>\n` +
+                `┃★ CMD: !prestigeshop buy <number>\n` +
                 `╚════════════════════════════╝`;
 
             return msg.reply(text);

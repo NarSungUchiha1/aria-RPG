@@ -331,6 +331,33 @@ module.exports = {
         { name: 'Absolute End',    type: 'damage', stat: 'intelligence', multiplier: 3.8, aoe: true, cooldown: 5, cost: 28 },
         { name: 'Last Rite',       type: 'debuff', effect: 'intelligence', value: -40, duration: 3, cooldown: 6, cost: 25 }
     ],
+
+    // ── PRESTIGE STARTER WEAPONS (weaker than Void tier, ~stat 180) ──
+    'Void Initiate Blade': [
+        { name: 'Initiate Slash',  type: 'damage', stat: 'strength', multiplier: 0.8, cooldown: 1, cost: 0 },
+        { name: 'Void Cut',        type: 'damage', stat: 'strength', multiplier: 1.5, cooldown: 3, cost: 15 },
+        { name: 'First Fracture',  type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 5, cost: 20 }
+    ],
+    'Void Initiate Fang': [
+        { name: 'Initiate Pierce', type: 'damage', stat: 'agility',  multiplier: 0.8, cooldown: 1, cost: 0 },
+        { name: 'Void Sting',      type: 'damage', stat: 'agility',  multiplier: 1.5, bleed: true, cooldown: 3, cost: 15 },
+        { name: 'First Shadow',    type: 'damage', stat: 'agility',  multiplier: 2.5, cooldown: 5, cost: 20 }
+    ],
+    'Void Initiate Tome': [
+        { name: 'Initiate Bolt',   type: 'damage', stat: 'intelligence', multiplier: 0.8, cooldown: 1, cost: 8 },
+        { name: 'Void Page',       type: 'damage', stat: 'intelligence', multiplier: 1.5, cooldown: 3, cost: 15 },
+        { name: 'First Verse',     type: 'damage', stat: 'intelligence', multiplier: 2.5, cooldown: 5, cost: 20 }
+    ],
+    'Void Initiate Shield': [
+        { name: 'Initiate Bash',   type: 'damage', stat: 'stamina', multiplier: 0.8, cooldown: 1, cost: 0 },
+        { name: 'Void Ward',       type: 'buff',   effect: 'defense_up', value: 40, duration: 3, cooldown: 4, cost: 12 },
+        { name: 'First Stand',     type: 'shield', value: 300, cooldown: 5, cost: 18 }
+    ],
+    'Void Initiate Lantern': [
+        { name: 'Initiate Strike', type: 'damage', stat: 'intelligence', multiplier: 0.8, cooldown: 1, cost: 0 },
+        { name: 'Void Light',      type: 'heal',   stat: 'intelligence', multiplier: 1.5, baseHeal: 50, cooldown: 3, cost: 15 },
+        { name: 'First Mend',      type: 'heal',   stat: 'intelligence', multiplier: 2.5, baseHeal: 80, cooldown: 5, cost: 20 }
+    ],
     // ══════════════════════════════════════════════════════════
     //  PRESTIGE WEAPONS — PF TIER (stat ~650, mult 1.3/2.5/5.0)
     // ══════════════════════════════════════════════════════════
