@@ -93,10 +93,10 @@ module.exports = {
     // Player stat ~7200. Mini HP ~200000. Boss ~3M
     PS: {
         miniBosses: [
-            { name: "Malachar's General",  hp: 180000,  atk: 1600, def: 3000, evasion: 30, exp: 13000, gold: 10400, moves: [{ name: "General's Wrath",  damage: 3.0 }] },
-            { name: 'Void Primordial',     hp: 220000,  atk: 1500, def: 3500, evasion: 32, exp: 16000, gold: 12800, moves: [{ name: 'Primordial Surge', damage: 3.2 }] },
-            { name: 'The Second Coming',   hp: 200000,  atk: 1700, def: 3200, evasion: 28, exp: 15000, gold: 12000, moves: [{ name: 'Second Judgement', damage: 3.4 }] },
-            { name: 'Fracture Absolute',   hp: 250000,  atk: 1400, def: 4000, evasion: 25, exp: 18000, gold: 14400, moves: [{ name: 'Absolute Zero',    damage: 3.1 }] }
+            { name: "Malachar's General",  hp: 42000,  atk: 1600, def: 3000, evasion: 30, exp: 13000, gold: 10400, moves: [{ name: "General's Wrath",  damage: 3.0 }] },
+            { name: 'Void Primordial',     hp: 50000,  atk: 1500, def: 3500, evasion: 32, exp: 16000, gold: 12800, moves: [{ name: 'Primordial Surge', damage: 3.2 }] },
+            { name: 'The Second Coming',   hp: 46000,  atk: 1700, def: 3200, evasion: 28, exp: 15000, gold: 12000, moves: [{ name: 'Second Judgement', damage: 3.4 }] },
+            { name: 'Fracture Absolute',   hp: 55000,  atk: 1400, def: 4000, evasion: 25, exp: 18000, gold: 14400, moves: [{ name: 'Absolute Zero',    damage: 3.1 }] }
         ],
         boss: { name: 'Malachar', hp: 3000000, atk: 2200, def: 5000, evasion: 10, exp: 210000, gold: 520000, moves: [{ name: "Malachar's Reckoning", damage: 5.0 }] }
     }

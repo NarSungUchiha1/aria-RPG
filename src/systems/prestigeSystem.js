@@ -20,12 +20,12 @@ const PRESTIGE_BASE_STATS = {
 // ── PRESTIGE RANK STAT GAINS ──────────────────────────────────────────────────
 // Each rank up gives meaningful stat increases — by PS players are truly void-tier
 const PRESTIGE_STAT_GAINS = {
-    PE: { stats: 40,  hp: 300,  mana: 80  },
-    PD: { stats: 70,  hp: 500,  mana: 120 },
-    PC: { stats: 110, hp: 800,  mana: 180 },
-    PB: { stats: 160, hp: 1200, mana: 250 },
-    PA: { stats: 220, hp: 1800, mana: 350 },
-    PS: { stats: 300, hp: 2500, mana: 500 }
+    PE: { stats: 50,  hp: 400,  mana: 100 },
+    PD: { stats: 90,  hp: 700,  mana: 150 },
+    PC: { stats: 140, hp: 1000, mana: 220 },
+    PB: { stats: 200, hp: 1500, mana: 300 },
+    PA: { stats: 280, hp: 2200, mana: 420 },
+    PS: { stats: 400, hp: 3000, mana: 600 }
 };
 
 async function getPrestigeBadge(prestigeLevel) {
