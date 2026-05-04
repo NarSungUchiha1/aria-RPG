@@ -235,6 +235,12 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         );
         if (alreadyActive.length) { console.log('★ Prestige dungeon already active — skip spawn'); return; }
 
+        // Don't spawn if a prestige dungeon ran in the last 25 minutes
+        const [recentPrestige] = await db.execute(
+            "SELECT id FROM dungeon WHERE dungeon_rank LIKE 'P%' AND created_at > DATE_SUB(NOW(), INTERVAL 25 MINUTE) LIMIT 1"
+        );
+        if (recentPrestige.length) { console.log('★ Prestige dungeon ran recently — skip auto spawn'); return; }
+
         // Short delay so normal dungeon closure messages settle first
         await new Promise(r => setTimeout(r, 3000));
 
