@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { restockAllItems } = require('../systems/shopSystem');
+const { restockPrestigeShop } = require('../systems/prestigeShop');
 
 module.exports = {
     name: 'restock',
@@ -12,10 +13,11 @@ module.exports = {
         if (!args.length) {
             try {
                 await restockAllItems();
+                await restockPrestigeShop();
                 return msg.reply(
                     `══〘 🛒 RESTOCK 〙══╮\n` +
                     `┃◆ ✅ All shop items restocked!\n` +
-                    `┃◆ Mana Potion guaranteed at 10.\n` +
+                    `┃◆ ✅ Prestige shop restocked!\n` +
                     `╰═══════════════════════╯`
                 );
             } catch (err) {
