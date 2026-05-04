@@ -130,7 +130,7 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
     if (isBoss) {
         toSpawn = [{ ...data.boss }];
     } else {
-        const count = Math.floor(Math.random() * 4) + 3;
+        const count = Math.floor(Math.random() * 3) + 1; // 1-3 enemies per prestige stage
         for (let i = 0; i < count; i++) {
             const mini = data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)];
             toSpawn.push({ ...mini });
