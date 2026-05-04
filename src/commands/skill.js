@@ -238,7 +238,16 @@ module.exports = {
             }
 
             if (result.playerDied) {
-                reply += `┃◆────────────\n┃◆ ☠️ ${player.nickname} has fallen.\n┃◆ Use !respawn to return.\n`;
+                // Fetch what was lost for the message
+                let lostMsg = '';
+                try {
+                    const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                    const lg = sess[0]?.session_gold || 0;
+                    const lx = sess[0]?.session_xp   || 0;
+                    if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
+                } catch(e) {}
+                const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
+                reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
                 try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
 
                 // Check if everyone is dead — close dungeon and spawn prestige

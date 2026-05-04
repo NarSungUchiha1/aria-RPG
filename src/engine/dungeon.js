@@ -174,7 +174,11 @@ function startLobbyTimer(dungeonId, client) {
                         `╰═══════════════════════╯`
                 });
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
-                trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+                // Only spawn prestige after NORMAL dungeons
+                const [expRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
+                if (!expRank[0]?.dungeon_rank?.startsWith('P')) {
+                    trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+                }
             }
         } catch (e) {
             console.error("Lobby timeout error:", e.message);
@@ -315,6 +319,11 @@ async function isDungeonLockedDB(dungeonId) {
     const locked = rows[0]?.locked === 1;
     if (locked) dungeonLocks.set(dungeonId, true); // Restore to memory
     return locked;
+}
+
+async function ensureSessionColumns() {
+    await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_gold INT DEFAULT 0').catch(() => {});
+    await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_xp INT DEFAULT 0').catch(() => {});
 }
 
 async function lockDungeon(dungeonId) {
@@ -519,6 +528,16 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
             [playerId, dungeonId]
         );
+        // Strip all earnings gained this dungeon session
+        try {
+            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+            if (sess.length) {
+                const lostGold = sess[0].session_gold || 0;
+                const lostXp   = sess[0].session_xp   || 0;
+                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            }
+        } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
     tickBuffs('player', playerId);
@@ -581,6 +600,16 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
             [playerId, dungeonId]
         );
+        // Strip all earnings gained this dungeon session
+        try {
+            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+            if (sess.length) {
+                const lostGold = sess[0].session_gold || 0;
+                const lostXp   = sess[0].session_xp   || 0;
+                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            }
+        } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
     tickBuffs('player', playerId);
@@ -639,6 +668,8 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
 
         await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",          [expEarned,  c.player_id]);
         await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [goldEarned, c.player_id]);
+        // Track session earnings for death penalty
+        await db.execute("UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?", [goldEarned, expEarned, c.player_id, dungeonId]).catch(() => {});
 
         const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [c.player_id]);
         rewards.push({
@@ -677,7 +708,7 @@ async function advanceStage(dungeonId, nextStage) {
 // =======================
 async function addPlayerToDungeon(playerId, dungeonId) {
     await db.execute(
-        "INSERT INTO dungeon_players (player_id, dungeon_id, is_alive) VALUES (?, ?, 1)",
+        "INSERT INTO dungeon_players (player_id, dungeon_id, is_alive, session_gold, session_xp) VALUES (?, ?, 1, 0, 0)",
         [playerId, dungeonId]
     );
 }
@@ -714,7 +745,11 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
             autoStartTimers.delete(dungeonId);
         }
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
-        if (client) trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+        // Only spawn prestige after NORMAL dungeons, not after prestige ones (avoids loop)
+        const [dRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
+        if (client && !dRank[0]?.dungeon_rank?.startsWith('P')) {
+            trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+        }
         return true;
     }
     return false;
@@ -846,6 +881,7 @@ module.exports = {
     addPlayerToDungeon,
     removePlayerFromDungeon,
     lockDungeon,
+    ensureSessionColumns,
     isDungeonLocked,
     isDungeonLockedDB,
     spawnStageEnemies,
