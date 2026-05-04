@@ -352,7 +352,7 @@ async function startBot() {
                 // ✅ Startup dungeon cleanup — only wipe dungeons older than 2 hours that are still unlocked
                 // This prevents reconnects from killing active/lobby dungeons
                 try {
-                    await db.execute("UPDATE dungeon SET is_active=0 WHERE is_active=1 AND locked=0 AND created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)").catch(() => {});
+                    await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)").catch(() => {});
                     const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
                     if (!activeDungeons.length) {
                         await db.execute("DELETE FROM dungeon_players WHERE player_id IS NOT NULL");
@@ -718,34 +718,33 @@ cron.schedule('0 3 * * 1', async () => { // every Monday 3am
 });
 
 // ==================== PRESTIGE DUNGEON SPAWN ====================
-cron.schedule('30 */1 * * *', async () => { // 30 minutes offset from normal dungeons
+
+// ==================== PRESTIGE DUNGEON SPAWN ====================
+// Backup spawn — only fires if no prestige dungeon ran in last 25 mins
+cron.schedule('30 */1 * * *', async () => {
     if (!isReady || !sock) return;
     try {
-        const db = require('./src/database/db');
-        // Check if any prestige players exist
         const [prestigePlayers] = await db.execute(
-            "SELECT DISTINCT `rank`, prestige_level FROM players WHERE prestige_level > 0 LIMIT 1"
+            "SELECT DISTINCT prestige_level FROM players WHERE prestige_level > 0 LIMIT 1"
         );
         if (!prestigePlayers.length) return;
 
-        // ✅ Don't spawn if any dungeon is active
+        // Don't spawn if any dungeon is active
         const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
-        if (anyActive.length) { console.log('⏭️ Prestige spawn skipped — dungeon active'); return; }
+        if (anyActive.length) { console.log('⏭️ Prestige cron skipped — dungeon active'); return; }
 
-        const { spawnPrestigeDungeon, PRESTIGE_RANK_MAP } = require('./src/engine/prestigeDungeon');
-        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
-        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID set — cannot spawn prestige dungeon'); return; }
-
-        // Pick a weighted prestige rank based on players
-        const [pRanks] = await db.execute(
-            "SELECT `rank`, COUNT(*) as cnt FROM players WHERE prestige_level > 0 GROUP BY `rank`"
+        // Don't spawn if a prestige dungeon ran in the last 25 minutes
+        const [recentP] = await db.execute(
+            "SELECT id FROM dungeon WHERE dungeon_rank LIKE 'P%' AND created_at > DATE_SUB(NOW(), INTERVAL 25 MINUTE) LIMIT 1"
         );
-        if (!pRanks.length) return;
+        if (recentP.length) { console.log('⏭️ Prestige cron skipped — ran recently'); return; }
 
-        const pick = pRanks[Math.floor(Math.random() * pRanks.length)];
-        const prestigeRank = PRESTIGE_RANK_MAP[pick.rank] || 'PF';
+        const { spawnPrestigeDungeon, getWeightedPrestigeRank } = require('./src/engine/prestigeDungeon');
+        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
+        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID — cannot spawn prestige dungeon'); return; }
 
-        console.log(`✦ Prestige dungeon spawning: ${prestigeRank}`);
+        const prestigeRank = await getWeightedPrestigeRank();
+        console.log(`✦ Prestige cron spawn: ${prestigeRank}`);
         await spawnPrestigeDungeon(prestigeRank, sock, RAID_GROUP);
-    } catch(e) { console.error('Prestige dungeon spawn error:', e.message); }
+    } catch(e) { console.error('Prestige cron spawn error:', e.message); }
 });
