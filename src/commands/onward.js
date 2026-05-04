@@ -177,9 +177,11 @@ module.exports = {
                 await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                 clearDungeonTimers(dungeon.id);
 
-                // Auto-spawn prestige dungeon after normal dungeon clears
-                const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
+                // Only spawn prestige dungeon after NORMAL dungeons — not after prestige ones
+                if (!dungeon.dungeon_rank || !dungeon.dungeon_rank.startsWith('P')) {
+                    const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                    trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
+                }
 
                 return msg.reply(`══〘 👑 DUNGEON CLEARED 〙══╮
 ┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.
@@ -237,6 +239,27 @@ module.exports = {
                     console.error("Onward failCallback error:", err);
                 }
             };
+
+            // ── 80% HP RESTORATION AFTER STAGE CLEAR ──────────────
+            try {
+                const [aliveForHeal] = await db.execute(
+                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                    [dungeon.id]
+                );
+                for (const p of aliveForHeal) {
+                    const [pStats] = await db.execute("SELECT hp, max_hp FROM players WHERE id=?", [p.player_id]);
+                    if (pStats.length) {
+                        const lost    = pStats[0].max_hp - pStats[0].hp;
+                        const restore = Math.floor(lost * 0.80);
+                        if (restore > 0) {
+                            await db.execute(
+                                "UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?",
+                                [restore, p.player_id]
+                            );
+                        }
+                    }
+                }
+            } catch(e) { console.error('HP restore error:', e.message); }
 
             // Reset stage timer only — overall timer keeps running from begin/auto-start
             await resetStageTimer(dungeon.id, client, targetChat, failCallback);
