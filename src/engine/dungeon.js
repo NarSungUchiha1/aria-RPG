@@ -70,6 +70,17 @@ async function getWeightedDungeonRank() {
 }
 
 async function spawnDungeon(rank, client = null) {
+    // Skip if any dungeon has active players inside — don't interrupt a live session
+    try {
+        const [activePlayers] = await db.execute(
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
+        );
+        if (activePlayers[0].cnt > 0) {
+            console.log('⏭️ Spawn skipped — players still active in a dungeon');
+            return null;
+        }
+    } catch(e) {}
+
     // ✅ DB-level lock — prevent two spawns running simultaneously
     try {
         await db.execute("INSERT INTO dungeon_spawn_lock (id, locked_at) VALUES (1, NOW())");
@@ -160,12 +171,31 @@ function startLobbyTimer(dungeonId, client) {
                 [dungeonId]
             );
             if (rows.length) {
+                // Don't close if players are already inside
+                const [playersInside] = await db.execute(
+                    "SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                    [dungeonId]
+                );
+                if (playersInside[0].cnt > 0) {
+                    console.log(`🚪 Dungeon ${dungeonId} lobby timer fired but ${playersInside[0].cnt} players inside — keeping active.`);
+                    lobbyTimers.delete(dungeonId);
+                    return;
+                }
                 // Cancel auto-start timer if one was running
                 if (autoStartTimers.has(dungeonId)) {
                     clearTimeout(autoStartTimers.get(dungeonId));
                     autoStartTimers.delete(dungeonId);
                 }
-                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [dungeonId]);
+                // Atomic update — only proceeds if dungeon is still active and unlocked
+                const [updateResult] = await db.execute(
+                    "UPDATE dungeon SET is_active=0 WHERE id=? AND is_active=1 AND locked=0",
+                    [dungeonId]
+                );
+                if (updateResult.affectedRows === 0) {
+                    console.log(`🚪 Dungeon ${dungeonId} lobby expiry skipped — already locked or closed.`);
+                    lobbyTimers.delete(dungeonId);
+                    return;
+                }
                 await client.sendMessage(RAID_GROUP, {
                     text:
                         `══〘 🚪 DUNGEON EXPIRED 〙══╮\n` +

@@ -20,7 +20,7 @@ const AUTO_START_MINUTES = 5;
 async function beginDungeon(dungeonId, client) {
     try {
         const [dungeon] = await db.execute("SELECT * FROM dungeon WHERE id=?", [dungeonId]);
-        if (!dungeon.length || dungeon[0].locked) return;
+        if (!dungeon.length || !dungeon[0].is_active || dungeon[0].locked) return; // abort if dungeon was closed
 
         const [players] = await db.execute(
             "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
@@ -33,9 +33,19 @@ async function beginDungeon(dungeonId, client) {
             return;
         }
 
-        await lockDungeon(dungeonId);
-        await spawnStageEnemies(dungeonId, dungeon[0].dungeon_rank, dungeon[0].stage);
+        // Cancel lobby timer — we are starting now
+        const { clearLobbyTimer } = require('../engine/dungeon');
+        clearLobbyTimer(dungeonId);
         autoStartTimers.delete(dungeonId);
+
+        await lockDungeon(dungeonId);
+        const isPrestige = dungeon[0].dungeon_rank?.startsWith('P');
+        if (isPrestige) {
+            const { spawnPrestigeEnemies } = require('../engine/prestigeDungeon');
+            await spawnPrestigeEnemies(dungeonId, dungeon[0].dungeon_rank, dungeon[0].stage);
+        } else {
+            await spawnStageEnemies(dungeonId, dungeon[0].dungeon_rank, dungeon[0].stage);
+        }
 
         console.log(`⚔️ Dungeon ${dungeonId} auto-started with ${players.length} players.`);
 
@@ -182,34 +192,6 @@ module.exports = {
                 `╚═══════════════════════════╝`
             );
 
-
-            // ✅ Rank restriction — players can only enter dungeons ±1 their rank
-            if (!isPrestigeDungeon) {
-                const RANK_ORDER = ['F','E','D','C','B','A','S'];
-                const [playerRankRow] = await db.execute('SELECT `rank` FROM players WHERE id=?', [userId]);
-                const playerRank   = playerRankRow[0]?.rank || 'F';
-                const dungeonRank  = dungeon.dungeon_rank;
-                const playerIdx    = RANK_ORDER.indexOf(playerRank);
-                const dungeonIdx   = RANK_ORDER.indexOf(dungeonRank);
-
-                if (dungeonIdx !== -1 && playerIdx !== -1 && Math.abs(dungeonIdx - playerRank) > 1) {
-                    // Correct the abs diff to use indices
-                }
-                if (dungeonIdx !== -1 && playerIdx !== -1 && Math.abs(dungeonIdx - playerIdx) > 1) {
-                    const allowed = [
-                        RANK_ORDER[playerIdx - 1],
-                        RANK_ORDER[playerIdx],
-                        RANK_ORDER[playerIdx + 1]
-                    ].filter(Boolean).join(', ');
-                    return msg.reply(
-                        `══〘 🏰 ENTER 〙══╮\n` +
-                        `┃◆ ❌ Rank mismatch.\n` +
-                        `┃◆ You are rank ${playerRank}. This is a ${dungeonRank} dungeon.\n` +
-                        `┃◆ You can enter: ${allowed}\n` +
-                        `╰═══════════════════════╯`
-                    );
-                }
-            }
             if (await isDungeonLockedDB(dungeon.id)) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
