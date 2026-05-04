@@ -1,4 +1,14 @@
 const roleMoves = require('../data/roleMoves');
+
+// Prestige rank-scaled cooldowns for buff/debuff/heal moves
+const PRESTIGE_RANK_CD = {
+    PF: 150, PE: 130, PD: 110, PC: 90, PB: 70, PA: 50, PS: 30
+};
+function resolvePrestigeCooldown(cooldown, rank, type) {
+    if (cooldown === 'RANKED')      return PRESTIGE_RANK_CD[rank] || 150;
+    if (cooldown === 'RANKED_HEAL') return Math.floor((PRESTIGE_RANK_CD[rank] || 150) * 0.7);
+    return cooldown;
+}
 const prestigeRoleMoves = require('../data/prestigeRoleMoves');
 const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
@@ -25,7 +35,10 @@ function getAllMoves(player, equippedItems) {
     const isPrestige = (player.prestige_level || 0) > 0;
     const roleMoveSource = isPrestige ? prestigeRoleMoves : roleMoves;
     const roleMoveList = roleMoveSource[player.role] || [];
-    roleMoveList.forEach(m => moves.push({ ...m, source: 'role' }));
+    roleMoveList.forEach(m => {
+        const cd = resolvePrestigeCooldown(m.cooldown, player.rank, m.type);
+        moves.push({ ...m, cooldown: cd, source: 'role' });
+    });
 
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(item => {
