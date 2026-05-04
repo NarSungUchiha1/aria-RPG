@@ -28,7 +28,7 @@ module.exports = {
                 daily.forEach((q, i) => {
                     const bar    = progressBar(q.progress, q.objective_count);
                     const status = q.claimed   ? `✅ Claimed`
-                                 : q.completed ? `🎁 !claim ${q.id}`
+                                 : q.completed ? `🎁 !claim ${q.quest_id}`
                                  : `🔄 ${bar}`;
                     text += `┃◆ ${i + 1}. *${q.title}*\n`;
                     text += `┃◆    ${q.description}\n`;
@@ -47,7 +47,7 @@ module.exports = {
                 achievements.forEach((a, i) => {
                     const bar    = progressBar(a.progress, a.objective_count);
                     const status = a.claimed   ? `✅ Claimed`
-                                 : a.completed ? `🎁 !claim ${a.id}`
+                                 : a.completed ? `🎁 !claim ${a.quest_id}`
                                  : `🔄 ${bar}`;
                     text += `┃◆ ${i + 1}. *${a.title}*\n`;
                     text += `┃◆    ${a.description}\n`;
@@ -67,7 +67,7 @@ module.exports = {
                 party.forEach((p, i) => {
                     const bar    = progressBar(p.progress, p.objective_count);
                     const status = p.claimed   ? `✅ Claimed`
-                                 : p.completed ? `🎁 !claim ${p.id}`
+                                 : p.completed ? `🎁 !claim ${p.quest_id}`
                                  : `🔄 ${bar}`;
                     text += `┃◆ ${i + 1}. *${p.title}*\n`;
                     text += `┃◆    ${p.description}\n`;
