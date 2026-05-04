@@ -3,6 +3,7 @@ const enemiesData = require('../data/enemies');
 const { calculateMoveDamage } = require('../systems/skillSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
+const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 
 // ✅ Read from env so you never have to touch code to change the group
@@ -327,6 +328,8 @@ async function ensureSessionColumns() {
 }
 
 async function lockDungeon(dungeonId) {
+    // Clear prestige lobby timer if this is a prestige dungeon
+    clearPrestigeLobbyTimer(dungeonId);
     dungeonLocks.set(dungeonId, true);
     clearLobbyTimer(dungeonId); // ✅ dungeon started — cancel the lobby expiry
     await db.execute("UPDATE dungeon SET locked=1 WHERE id=?", [dungeonId]);
