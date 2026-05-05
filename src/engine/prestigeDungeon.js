@@ -28,9 +28,10 @@ const PRESTIGE_BOSSES = {
 const MAX_STAGES = { PF: 3, PE: 3, PD: 4, PC: 4, PB: 5, PA: 5, PS: 6 };
 
 // ── PRESTIGE LOBBY TIMER ─────────────────────────────────
-const PRESTIGE_LOBBY_WARN_MS  = 8  * 60 * 1000;
-const PRESTIGE_LOBBY_CLOSE_MS = 10 * 60 * 1000;
-const prestigeLobbyTimers = new Map(); // dungeonId -> { warning, timeout }
+const PRESTIGE_LOBBY_WARN_MS  = 8  * 60 * 1000; // 8 min warning
+const PRESTIGE_LOBBY_CLOSE_MS = 10 * 60 * 1000; // 10 min close
+
+const prestigeLobbyTimers = new Map();
 
 function clearPrestigeLobbyTimer(dungeonId) {
     const t = prestigeLobbyTimers.get(dungeonId);
@@ -43,11 +44,10 @@ function clearPrestigeLobbyTimer(dungeonId) {
 
 function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP) {
     clearPrestigeLobbyTimer(dungeonId);
-    const { sendWithRetry } = require('../utils/sendWithRetry');
 
     const warning = setTimeout(async () => {
         try {
-            await sendWithRetry(client, RAID_GROUP, {
+            await client.sendMessage(RAID_GROUP, {
                 text:
                     `╔══〘 ✦ PRESTIGE PORTAL 〙══╗\n` +
                     `┃★ ⚠️ The void rift is destabilizing!\n` +
@@ -61,17 +61,32 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP) {
     const timeout = setTimeout(async () => {
         try {
             const [rows] = await db.execute(
-                "SELECT id FROM dungeon WHERE id=? AND is_active=1 AND locked=0",
+                'SELECT id FROM dungeon WHERE id=? AND is_active=1 AND locked=0',
                 [dungeonId]
             );
             if (rows.length) {
-                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [dungeonId]);
-                await sendWithRetry(client, RAID_GROUP, {
+                const [playersInside] = await db.execute(
+                    'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
+                    [dungeonId]
+                );
+                if (playersInside[0].cnt > 0) {
+                    console.log(`★ Prestige dungeon ${dungeonId} timer fired but players inside — keeping active.`);
+                    prestigeLobbyTimers.delete(dungeonId);
+                    return;
+                }
+                const [updateResult] = await db.execute(
+                    'UPDATE dungeon SET is_active=0 WHERE id=? AND is_active=1 AND locked=0',
+                    [dungeonId]
+                );
+                if (updateResult.affectedRows === 0) {
+                    prestigeLobbyTimers.delete(dungeonId);
+                    return;
+                }
+                await client.sendMessage(RAID_GROUP, {
                     text:
                         `╔══〘 ✦ PRESTIGE PORTAL 〙══╗\n` +
                         `┃★ The void rift has sealed itself.\n` +
                         `┃★ No Prestige Hunters stepped through.\n` +
-                        `┃★ The darkness recedes... for now.\n` +
                         `╚═══════════════════════════╝`
                 });
                 console.log(`★ Prestige dungeon ${dungeonId} expired — no one entered.`);
@@ -166,6 +181,18 @@ async function getPrestigeRankForPlayer(playerId) {
 async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
     const data = prestigeEnemies[prestigeRank];
     if (!data) return null;
+
+    // Skip if any dungeon has active players inside
+    try {
+        const db = require('../database/db');
+        const [activePlayers] = await db.execute(
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
+        );
+        if (activePlayers[0].cnt > 0) {
+            console.log('⏭️ Prestige spawn skipped — players still active in a dungeon');
+            return null;
+        }
+    } catch(e) {}
 
     const maxStage = MAX_STAGES[prestigeRank] || 3;
     const bossName = PRESTIGE_BOSSES[prestigeRank];
