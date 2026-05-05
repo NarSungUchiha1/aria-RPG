@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { assignDailyQuests } = require('../systems/questSystem');
 const {
     getActiveDungeon,
     isPlayerInDungeon,
@@ -161,6 +162,20 @@ module.exports = {
 
             const dungeon = await getActiveDungeon();
             if (!dungeon) {
+                // Give prestige players a specific message
+                const [pCheck2] = await db.execute(
+                    "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]
+                );
+                const isPrestigePlayer = (pCheck2[0]?.prestige_level || 0) > 0;
+                if (isPrestigePlayer) {
+                    return msg.reply(
+                        `╔══〘 ✦ ENTER 〙══╗\n` +
+                        `┃★ No prestige dungeon is open.\n` +
+                        `┃★ One spawns after each normal\n` +
+                        `┃★ dungeon closes. Stay alert.\n` +
+                        `╚════════════════════════════╝`
+                    );
+                }
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
                     `┃◆ ❌ No active dungeon right now.\n` +
@@ -304,6 +319,8 @@ module.exports = {
 
                 // Promote to group admin
                 await promoteRaider(client, userId);
+                // Auto-assign quests
+                assignDailyQuests(userId).catch(() => {});
 
                 // Start auto-start timer if first player
                 if (isFirstPlayer && !autoStartTimers.has(dungeon.id)) {

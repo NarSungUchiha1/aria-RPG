@@ -98,7 +98,7 @@ async function assignDailyQuests(playerId) {
     if (existing.length) return;
 
     const [quests] = await db.execute(
-        "SELECT * FROM quests WHERE quest_type='daily' AND is_active=1 ORDER BY RAND() LIMIT 3"
+        "SELECT * FROM quests WHERE is_active=1 ORDER BY RAND() LIMIT 5"
     );
     for (const q of quests) {
         await db.execute(
@@ -111,13 +111,15 @@ async function assignDailyQuests(playerId) {
 
 // ── UPDATE QUEST PROGRESS ────────────────────────────────────────────────────
 async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
+    // Auto-assign quests if not yet done today
+    await assignDailyQuests(playerId).catch(() => {});
     await db.execute(
         `UPDATE player_quests pq
          JOIN quests q ON pq.quest_id = q.id
          SET pq.progress = pq.progress + ?
          WHERE pq.player_id = ? AND q.objective_type = ?
            AND pq.completed = 0
-           AND pq.assigned_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)`,
+           `,
         [amount, playerId, objectiveType]
     );
     await db.execute(
