@@ -17,7 +17,11 @@ module.exports = {
             );
 
             const role = player[0].role;
-            const myRecipes = RECIPES.filter(r => r.role === role);
+            const [presRow] = await db.execute(
+                'SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?', [userId]
+            );
+            const isPrestige = (presRow[0]?.prestige_level || 0) > 0;
+            const myRecipes = RECIPES.filter(r => r.role === role && (isPrestige ? r.prestige : !r.prestige));
             const rarityOrder = ['common', 'uncommon', 'rare', 'legendary'];
             myRecipes.sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
 
@@ -43,8 +47,16 @@ module.exports = {
             await consumeMaterials(userId, recipe.materials);
 
             const gradeMap = { common: 'C', uncommon: 'U', rare: 'R', legendary: 'S' };
-            const grade = gradeMap[recipe.rarity] || 'C';
+            const grade = recipe.prestige ? 'P' : (gradeMap[recipe.rarity] || 'C');
             const durability = recipe.durability || 100;
+
+            // Use recipe.stats for prestige weapons
+            const rStr = recipe.stats?.strength     || 0;
+            const rAgi = recipe.stats?.agility      || 0;
+            const rInt = recipe.stats?.intelligence || 0;
+            const rSta = recipe.stats?.stamina      || 0;
+            const rAtk = recipe.stats?.attack       || 0;
+            const rDef = recipe.stats?.defense      || 0;
 
             await db.execute(
                 `INSERT INTO inventory 
