@@ -10,6 +10,7 @@ const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMov
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
+const { getPlayerClan, CLAN_BLESSINGS, getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
 
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
@@ -18,6 +19,75 @@ const { narrate } = require('../utils/narrator');
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
            (move.type === 'damage' && move.stat === 'intelligence');
+}
+
+
+// ── CLAN BLESSING TRIGGER ────────────────────────────────────────────────────
+async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, extraData = {}) {
+    try {
+        const clan = await getPlayerClan(playerId);
+        if (!clan) return null;
+        const blessing = CLAN_BLESSINGS[clan.blessing_id];
+        if (!blessing || blessing.trigger !== trigger) return null;
+        if (blessing.prestige_only && !(player.prestige_level > 0)) return null;
+
+        const state = await getPlayerBlessingState(playerId, dungeonId);
+
+        // One-use blessings per dungeon
+        if (['hp_below_30','on_death','final_stage','all_allies_below_50'].includes(trigger) && state.blessing_used) return null;
+
+        let blessingMsg = '';
+
+        if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
+            // Deal AOE damage to all enemies
+            const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
+            const primaryStat = player[player.role === 'Mage' || player.role === 'Healer' ? 'intelligence' : player.role === 'Assassin' ? 'agility' : 'strength'] || player.stamina || 100;
+            for (const e of enemies[0]) {
+                const dmg = trigger === 'final_stage'
+                    ? Math.floor(e.current_hp * blessing.hp_drain)
+                    : Math.floor(primaryStat * (blessing.multiplier || 3.0));
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
+            }
+            blessingMsg = `
+✨ *${blessing.emoji} ${blessing.name}* ACTIVATED!
+${blessing.effect}`;
+            if (['hp_below_30','final_stage','all_allies_below_50'].includes(trigger)) {
+                await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+            }
+        }
+
+        if (trigger === 'every_5_skills') {
+            const newCount = (state.skill_count || 0) + 1;
+            if (newCount % 5 === 0) {
+                const enemies = await db.execute('SELECT id, current_hp FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
+                const stat = player.intelligence || 100;
+                for (const e of enemies[0]) {
+                    const dmg = Math.floor(stat * blessing.multiplier);
+                    await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
+                }
+                blessingMsg = `
+☄️ *Heaven's Fall* strikes all enemies for ${Math.floor((player.intelligence||100)*blessing.multiplier)} damage!`;
+            }
+            await updateBlessingState(playerId, dungeonId, { skill_count: newCount });
+        }
+
+        if (trigger === 'three_consecutive_hits') {
+            const newHits = (state.hit_count || 0) + 1;
+            if (newHits >= 3) {
+                await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2 });
+                blessingMsg = `
+⚡ *Titan's Roar* — Invincible for 2 turns! Next hit deals 400% damage!`;
+            } else {
+                await updateBlessingState(playerId, dungeonId, { hit_count: newHits });
+            }
+        }
+
+        if (blessingMsg) await msg.reply(blessingMsg).catch(() => {});
+        return blessingMsg;
+    } catch(e) {
+        console.error('Blessing trigger error:', e.message);
+        return null;
+    }
 }
 
 module.exports = {
@@ -105,6 +175,8 @@ module.exports = {
             const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+            // Track every_5_skills blessing
+            if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
 
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
