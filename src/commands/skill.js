@@ -10,6 +10,9 @@ const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMov
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
+
+// In-memory taunt state: dungeonId -> { tankId, expires }
+const tauntState = new Map();
 const { narrate } = require('../utils/narrator');
 
 function requiresMana(move) {
@@ -346,8 +349,23 @@ module.exports = {
             if (move.type === 'shield') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'shield', 1); } catch(e) {} }
             // Track buff contribution
             if (move.type === 'buff') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {} }
+            // Buff reward — small gold/XP for supporting the team
+            if (dungeon && move.type === 'buff') {
+                const buffReward = Math.floor((move.value || 20) * 2);
+                await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [buffReward, userId]).catch(() => {});
+                await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?',           [buffReward, userId]).catch(() => {});
+                await db.execute(
+                    'UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?',
+                    [buffReward, buffReward, userId, dungeon.id]
+                ).catch(() => {});
+            }
             // Track taunt specifically (debuff with taunt name)
-            if (move.name && move.name.toLowerCase().includes('taunt')) { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'taunt', 1); } catch(e) {} }
+            if (move.name && move.name.toLowerCase().includes('taunt')) {
+                try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'taunt', 1); } catch(e) {}
+                // Set taunt state — all enemy retaliation hits the tank for 3 turns
+                const tauntDuration = 3 * 30000; // 3 turns × 30s avg
+                tauntState.set(dungeon.id, { tankId: userId, expires: Date.now() + tauntDuration });
+            }
             return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 

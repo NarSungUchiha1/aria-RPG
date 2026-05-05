@@ -547,7 +547,20 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
         if (shieldAbsorbed > 0) consumeShield('player', playerId, shieldAbsorbed);
-        await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, playerId]);
+        // Check if a tank is taunting — redirect retaliation to them
+        let retaliationTargetId = playerId;
+        try {
+            const { tauntState } = require('../commands/skill');
+            const activeTaunt = tauntState && tauntState.get(dungeonId);
+            if (activeTaunt && activeTaunt.tankId !== playerId && Date.now() < activeTaunt.expires) {
+                const [tankAlive] = await db.execute(
+                    'SELECT id FROM dungeon_players WHERE dungeon_id=? AND player_id=? AND is_alive=1',
+                    [dungeonId, activeTaunt.tankId]
+                );
+                if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
+            }
+        } catch(e) {}
+        await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
         const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
         playerHp = Number(pUp[0].hp);
         retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;

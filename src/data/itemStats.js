@@ -25,11 +25,11 @@ module.exports = {
     "Celestial Orb":    { primaryStat: 'intelligence', base: { intelligence: 1, healing: 1 }, increment: { intelligence: 1, healing: 1 } },
 
     // STA
-    "Shield":               { primaryStat: 'stamina', base: { stamina: 1, defense: 2 }, increment: { stamina: 1, defense: 1 } },
-    "Armor Plate":          { primaryStat: 'stamina', base: { stamina: 1, defense: 1 }, increment: { stamina: 1, defense: 1 } },
-    "Tower Shield":         { primaryStat: 'stamina', base: { stamina: 2, defense: 2 }, increment: { stamina: 1, defense: 1 } },
-    "Vanguard Helm":        { primaryStat: 'stamina', base: { stamina: 1, defense: 1, strength: 1 }, increment: { stamina: 1, defense: 1, strength: 0 } },
-    "Golemheart Gauntlets": { primaryStat: 'stamina', base: { stamina: 1, defense: 1, strength: 1 }, increment: { stamina: 1, defense: 1, strength: 0 } },
+    "Shield":               { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
+    "Armor Plate":          { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
+    "Tower Shield":         { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
+    "Vanguard Helm":        { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
+    "Golemheart Gauntlets": { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
 
     // CONSUMABLE
     "Mana Potion": { primaryStat: 'intelligence', base: { mana_restore: 30 }, increment: { mana_restore: 10 } },
@@ -39,7 +39,7 @@ module.exports = {
     "Obsidian Cleaver": { primaryStat: 'strength',     base: { strength: 8,  attack: 8  }, increment: { strength: 3, attack: 3 }, minRank: 'C' },
     "Whisperblade":     { primaryStat: 'agility',      base: { agility: 8,   attack: 7  }, increment: { agility: 3,  attack: 3 }, minRank: 'C' },
     "Inferno Rod":      { primaryStat: 'intelligence', base: { intelligence: 8, attack: 6 }, increment: { intelligence: 3, attack: 3 }, minRank: 'C' },
-    "Bulwark of Stone": { primaryStat: 'stamina',      base: { stamina: 8,   defense: 8 }, increment: { stamina: 3,  defense: 3 }, minRank: 'C' },
+    "Bulwark of Stone": { primaryStat: 'stamina',      base: { stamina: 20,  defense: 10, attack: 8 }, increment: { stamina: 5, defense: 2, attack: 2 }, minRank: 'C' },
 
     // ── SPECIAL WEAPONS — B RANK ──────────────────────────────────────────────
     "Abyssal Greatsword":   { primaryStat: 'strength',     base: { strength: 14, attack: 12, stamina: 4 }, increment: { strength: 4, attack: 4, stamina: 1 }, minRank: 'B' },
