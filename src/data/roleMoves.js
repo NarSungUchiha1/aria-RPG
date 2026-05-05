@@ -1,11 +1,11 @@
 module.exports = {
     Tank: [
-        { name: "Strike",        type: "damage", stat: "strength", multiplier: 1.0, cooldown: 1,   cost: 0  },
-        { name: "Shield Bash",   type: "damage", stat: "stamina",  multiplier: 1.2, cooldown: 2,   cost: 5  },
-        { name: "Fortify",       type: "buff",   effect: "defense", value: 20, duration: 3, cooldown: 150, cost: 8  },
-        { name: "Taunt",         type: "debuff", effect: "attack",  value: -10, duration: 2, cooldown: 150, cost: 6  },
-        { name: "Iron Will",     type: "heal",   stat: "stamina",  multiplier: 3.0, baseHeal: 30, cooldown: 4, cost: 10 },
-        { name: "Earth Shatter", type: "damage", stat: "strength", multiplier: 1.5, cooldown: 3,   cost: 7  }
+        { name: "Strike",        type: "damage", stat: "stamina",  multiplier: 1.2, cooldown: 1,   cost: 0  },
+        { name: "Shield Bash",   type: "damage", stat: "stamina",  multiplier: 1.6, cooldown: 2,   cost: 5  },
+        { name: "Fortify",       type: "buff",   effect: "defense", value: 25, duration: 3, cooldown: 4,   cost: 8  },
+        { name: "Taunt",         type: "debuff", effect: "attack",  value: -15, duration: 3, cooldown: 3,   cost: 6  },
+        { name: "Iron Wall",     type: "shield", value: 150, cooldown: 4, cost: 10 },
+        { name: "Earth Shatter", type: "damage", stat: "strength", multiplier: 1.8, stun: true, cooldown: 4, cost: 10  }
     ],
     Assassin: [
         { name: "Strike",        type: "damage", stat: "strength", multiplier: 1.0, cooldown: 1,   cost: 0  },

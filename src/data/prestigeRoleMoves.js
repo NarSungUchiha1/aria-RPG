@@ -38,11 +38,11 @@ module.exports = {
         { name: 'Void Intellect',   type: 'buff',   effect: 'intelligence_up', value: 80, duration: 3, cooldown: CD_RANKED, cost: 18 }
     ],
     Tank: [
-        { name: 'Void Strike',        type: 'damage', stat: 'strength', multiplier: 2.8,  cooldown: 1,         cost: 0  },
+        { name: 'Void Strike',        type: 'damage', stat: 'stamina',  multiplier: 2.8,  cooldown: 1,         cost: 0  },
         { name: 'Fracture Bash',      type: 'damage', stat: 'stamina',  multiplier: 3.2,  def_reduction: 40,   cooldown: 2,         cost: 8  },
         { name: 'Void Fortress',      type: 'buff',   effect: 'defense', value: 100, duration: 3,              cooldown: CD_RANKED, cost: 12 },
         { name: 'Abyssal Taunt',      type: 'debuff', effect: 'attack',  value: -55, duration: 3,              cooldown: CD_RANKED, cost: 10 },
-        { name: 'Void Regeneration',  type: 'heal',   stat: 'stamina',   multiplier: 6.0, baseHeal: 150,       cooldown: CD_HEAL,   cost: 15 },
+        { name: 'Void Bulwark',        type: 'shield', value: 800,                          cooldown: CD_RANKED, cost: 15 },
         { name: 'Earth Void Shatter', type: 'damage', stat: 'strength',  multiplier: 3.8, stun: true,          cooldown: 4,         cost: 14 }
     ],
     Healer: [
