@@ -7,6 +7,13 @@
 
 const db = require('../database/db');
 
+// ── PRESET CLANS — fixed, cannot be renamed ──────────────────────────────────
+const PRESET_CLANS = [
+    { name: '🔥 MUGEN KANNAZUKI 🔥', blessing_id: 1 }, // Dragon's Breath
+    { name: 'ASHEN',                  blessing_id: 5 }, // Soul Shatter
+    { name: 'PHANTOM CREST',          blessing_id: 6 }  // Phantom Shift
+];
+
 // ── CLAN BLESSINGS ────────────────────────────────────────────────────────────
 const CLAN_BLESSINGS = {
     1: {
@@ -136,6 +143,7 @@ async function ensureClanTables() {
             blessing_used  TINYINT DEFAULT 0,
             damage_boost   FLOAT DEFAULT 0,
             invincible     INT DEFAULT 0,
+            last_triggered DATETIME DEFAULT NULL,
             PRIMARY KEY (player_id, dungeon_id)
         )
     `).catch(() => {});
@@ -200,6 +208,7 @@ function getBlessingDisplay() {
 }
 
 module.exports = {
+    PRESET_CLANS,
     CLAN_BLESSINGS,
     ensureClanTables,
     getPlayerClan,
