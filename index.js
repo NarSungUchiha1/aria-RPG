@@ -111,6 +111,12 @@ if (fs.existsSync(ADMIN_FILE)) {
     }
 }
 
+// ── BLOCKED USERS ────────────────────────────────────────────
+// Add phone numbers (without +) to block from all commands
+const BLOCKED_USERS = new Set([
+    // e.g. '2348012345678'
+]);
+
 function normalizeId(id) {
     if (!id) return "";
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
@@ -363,6 +369,26 @@ async function startBot() {
                         await db.execute(`DELETE FROM dungeon_enemies WHERE dungeon_id NOT IN (${activeIds.join(',')})`);
                     }
                     console.log('🧹 Stale dungeon state cleared on startup.');
+
+                // Restart prestige lobby timer if a prestige dungeon is waiting
+                try {
+                    const [activePD] = await db.execute(
+                        "SELECT id, created_at FROM dungeon WHERE is_active=1 AND locked=0 AND dungeon_rank LIKE 'P%' LIMIT 1"
+                    );
+                    if (activePD.length) {
+                        const { startPrestigeLobbyTimer } = require('./src/engine/prestigeDungeon');
+                        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
+                        const elapsed = Date.now() - new Date(activePD[0].created_at).getTime();
+                        const remaining = (20 * 60 * 1000) - elapsed;
+                        if (remaining > 0 && RAID_GROUP) {
+                            console.log(`★ Restarting prestige lobby timer — ${Math.floor(remaining/60000)}min remaining`);
+                            startPrestigeLobbyTimer(activePD[0].id, sock, RAID_GROUP, remaining);
+                        } else if (remaining <= 0) {
+                            await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [activePD[0].id]);
+                            console.log(`★ Prestige dungeon ${activePD[0].id} expired on startup cleanup`);
+                        }
+                    }
+                } catch(e) { console.error('Prestige lobby restart error:', e.message); }
                 } catch (e) {
                     console.error('Startup dungeon cleanup error:', e.message);
                 }
@@ -395,6 +421,9 @@ async function startBot() {
 
             const command = commands.get(cmdName);
             if (!command) return;
+
+            // Block check
+            if (BLOCKED_USERS.has(userId)) return;
 
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
 
@@ -691,6 +720,20 @@ cron.schedule('0 0 * * *', async () => {
 
 
 startBot();
+
+
+// ==================== MANA REGENERATION ====================
+// Full mana regen over 2 days = 2880 mins
+// Run every 10 mins → restore max_mana / 288 per tick
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        await db.execute(`
+            UPDATE players 
+            SET mana = LEAST(max_mana, mana + GREATEST(1, FLOOR(max_mana / 288)))
+            WHERE mana < max_mana AND max_mana > 0
+        `);
+    } catch(e) { console.error('Mana regen error:', e.message); }
+});
 
 // ==================== VOID WAR AUTO-END ====================
 cron.schedule('*/10 * * * *', async () => {

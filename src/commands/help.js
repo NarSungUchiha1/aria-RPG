@@ -52,6 +52,13 @@ module.exports = {
 ┃★ !melt → View items & gold return
 ┃★ !melt <#> → Destroy item for gold
 ┃★
+┃★  🏰 CLANS
+┃★ ✦ !clan → View your clan & blessing
+┃★ ✦ !createclan → Forge a clan (Prestige only)
+┃★ ✦ !clan join <name> → Join a clan
+┃★ ✦ !clan accept @user → Accept member
+┃★ ✦ !leaveclan → Leave your clan
+┃★
 ┃★  💰 ECONOMY & TRADING
 ┃★ !pay @user <amount> → Send gold
 ┃★ !transfer @user <amount> → Send XP
@@ -192,6 +199,12 @@ module.exports = {
 ┃  ◆ !recipes → Craftable weapons for your role
 ┃  ◆ !forge <number> → Craft a weapon
 ┃  ◆ !materials → Your crafting materials
+┃
+┃  🏰 CLANS
+┃  ◆ !clan → View your clan info
+┃  ◆ !createclan → Start a clan (Prestige only)
+┃  ◆ !clan join <name> → Request to join (Rank D+)
+┃  ◆ !leaveclan → Leave your clan
 ┃
 ┃  💚 HEALER MARKET
 ┃  ◆ !healers → Browse available healers

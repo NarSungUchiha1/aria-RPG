@@ -33,6 +33,12 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
 
+        // 12-hour cooldown — blessing can only trigger once per 12 hours
+        if (state.last_triggered) {
+            const hoursSince = (Date.now() - new Date(state.last_triggered).getTime()) / (1000 * 60 * 60);
+            if (hoursSince < 12) return null; // Still on cooldown
+        }
+
         // One-use blessings per dungeon
         if (['hp_below_30','on_death','final_stage','all_allies_below_50'].includes(trigger) && state.blessing_used) return null;
 
@@ -82,7 +88,84 @@ ${blessing.effect}`;
             }
         }
 
-        if (blessingMsg) await msg.reply(blessingMsg).catch(() => {});
+        // Abyssal Hunger — on_healed
+        if (trigger === 'on_healed') {
+            const healAmt = extraData.healAmount || 100;
+            const dmg     = Math.floor(healAmt * (blessing.heal_multiplier || 2.0));
+            const [rndEnemy] = await db.execute(
+                'SELECT id FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0 ORDER BY RAND() LIMIT 1', [dungeonId]
+            );
+            if (rndEnemy.length) {
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, rndEnemy[0].id]);
+                blessingMsg = `
+🕳️ *Abyssal Hunger* absorbs ${healAmt} healing → ${dmg} void damage on enemy!`;
+            }
+        }
+
+        // Reaper's Mark — enemy_below_25
+        if (trigger === 'enemy_below_25' && extraData.enemy) {
+            const e = extraData.enemy;
+            const isBoss = e.current_hp > 50000;
+            if (isBoss) {
+                const bossDmg = Math.floor(e.current_hp * (blessing.boss_multiplier || 0.8));
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [bossDmg, e.id]);
+                blessingMsg = `
+💀 *Reaper's Mark* — ${bossDmg} void damage on boss!`;
+            } else {
+                await db.execute('UPDATE dungeon_enemies SET current_hp = 0 WHERE id=?', [e.id]);
+                blessingMsg = `
+💀 *Reaper's Mark* — ${e.name} EXECUTED!`;
+            }
+            await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+        }
+
+        // Phantom Shift — on_death
+        if (trigger === 'on_death') {
+            const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
+            await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
+            await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+            blessingMsg = `
+👻 *Phantom Shift* — Death refused! Survived with ${healAmt} HP restored!`;
+        }
+
+        // Soul Shatter — stage_first_move
+        if (trigger === 'stage_first_move') {
+            await db.execute(
+                'UPDATE dungeon_enemies SET def = GREATEST(0, def - FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
+                [blessing.damage_amp || 0.5, dungeonId]
+            );
+            blessingMsg = `
+💠 *Soul Shatter* — All enemies fractured! DEF reduced by 50% this stage!`;
+            await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+        }
+
+        // Eclipse — final stage HP drain + damage boost
+        if (trigger === 'final_stage') {
+            const [allEnemies] = await db.execute('SELECT id, current_hp FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
+            for (const e of allEnemies) {
+                const drain = Math.floor(e.current_hp * (blessing.hp_drain || 0.4));
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [drain, e.id]);
+            }
+            await updateBlessingState(playerId, dungeonId, { damage_boost: blessing.damage_boost || 0.3, blessing_used: 1 });
+            blessingMsg = `
+🌒 *Eclipse* — All enemies lost 40% HP! +30% damage for rest of dungeon!`;
+        }
+
+        // Malachar's Will — all_allies_below_50
+        if (trigger === 'all_allies_below_50') {
+            await updateBlessingState(playerId, dungeonId, { invincible: blessing.charges || 3, blessing_used: 1 });
+            blessingMsg = `
+👁️ *Malachar's Will* — CHANNELING MALACHAR! Next 3 attacks deal 1000% damage!`;
+        }
+
+        if (blessingMsg) {
+            await msg.reply(blessingMsg).catch(() => {});
+            // Update 12-hour cooldown timestamp
+            await db.execute(
+                'UPDATE clan_blessing_state SET last_triggered=NOW() WHERE player_id=? AND dungeon_id=?',
+                [playerId, dungeonId]
+            ).catch(() => {});
+        }
         return blessingMsg;
     } catch(e) {
         console.error('Blessing trigger error:', e.message);
@@ -177,6 +260,10 @@ module.exports = {
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             // Track every_5_skills blessing
             if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
+            // Abyssal Hunger — fires on the TARGET when healed
+            if (dungeon && targetPlayer.id !== userId) {
+                triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, { healAmount: heal }).catch(() => {});
+            }
 
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
@@ -237,6 +324,43 @@ module.exports = {
                 reply += `┃◆ ${skillMsg}\n`;
             }
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
+            if (dungeon) {
+                const newPlayerHp = result.playerHp || player.hp;
+                // hp_below_30 — fires when attacker drops below 30%
+                if (newPlayerHp < player.max_hp * 0.3) {
+                    await triggerBlessingIfReady('hp_below_30', userId, dungeon.id, player, dungeon, msg);
+                }
+                // enemy_below_25 — fires when target enemy drops below 25%
+                if (targetEnemy && result.enemyHp > 0) {
+                    const pct = result.enemyHp / targetEnemy.max_hp;
+                    if (pct <= 0.25) {
+                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: targetEnemy });
+                    }
+                }
+                // on_kill
+                if (result.defeated) {
+                    await triggerBlessingIfReady('on_kill', userId, dungeon.id, player, dungeon, msg);
+                }
+                // stage_first_move
+                const state = await getPlayerBlessingState(userId, dungeon.id).catch(() => null);
+                if (state && state.skill_count === 0) {
+                    await triggerBlessingIfReady('stage_first_move', userId, dungeon.id, player, dungeon, msg);
+                }
+                // final_stage
+                if (dungeon.stage === dungeon.max_stage) {
+                    await triggerBlessingIfReady('final_stage', userId, dungeon.id, player, dungeon, msg);
+                }
+                // all_allies_below_50 — check all alive players
+                try {
+                    const [aliveRows] = await db.execute(
+                        'SELECT p.hp, p.max_hp FROM dungeon_players dp JOIN players p ON p.id=dp.player_id WHERE dp.dungeon_id=? AND dp.is_alive=1',
+                        [dungeon.id]
+                    );
+                    if (aliveRows.length > 1 && aliveRows.every(r => r.hp < r.max_hp * 0.5)) {
+                        await triggerBlessingIfReady('all_allies_below_50', userId, dungeon.id, player, dungeon, msg);
+                    }
+                } catch(e) {}
+            }
             if (targetEnemy.def > 0) {
                 const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
