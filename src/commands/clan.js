@@ -41,10 +41,8 @@ module.exports = {
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                     `┃◆ ${blessing.emoji} CLAN BLESSING\n` +
                     `┃◆ *${blessing.name}*\n` +
-                    `┃◆\n` +
                     `┃◆ 📌 Condition:\n` +
                     `┃◆  ${blessing.condition}\n` +
-                    `┃◆\n` +
                     `┃◆ ⚡ Effect:\n` +
                     `┃◆  ${blessing.effect}\n` +
                     `┃◆\n` +
@@ -134,16 +132,24 @@ module.exports = {
                 const blessing = CLAN_BLESSINGS[myClan.blessing_id];
 
                 return msg.reply(
-                    `══〘 🏰 ${myClan.name} 〙══╮\n` +
-                    `┃◆ ✅ ${newMember[0]?.nickname} has joined!\n` +
-                    `┃◆────────────\n` +
-                    `┃◆ 🎁 STARTER PACK\n` +
+                    `╔══〘 🏰 CLAN INDUCTION 〙══╗\n` +
+                    `┃◆\n` +
+                    `┃◆ *${newMember[0]?.nickname}* has been accepted\n` +
+                    `┃◆ into *${myClan.name}*.\n` +
+                    `┃◆\n` +
+                    `┃◆ The bloodline flows through you now.\n` +
+                    `┃◆ What this clan carries, you carry.\n` +
+                    `┃◆\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ 🩸 Bloodline Obtained : ${blessing.emoji} *${blessing.name}*\n` +
+                    `┃◆ Condition for activation 📌 : ${blessing.condition}\n` +
+                    `┃◆ ⚡ ${blessing.effect}\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ 🎁 INITIATION REWARD\n` +
                     `┃◆ 💰 +${CLAN_STARTER_GOLD.toLocaleString()} Gold\n` +
                     `┃◆ ⭐ +${CLAN_STARTER_XP.toLocaleString()} XP\n` +
-                    `┃◆────────────\n` +
-                    `┃◆ ${blessing.emoji} Clan Blessing: *${blessing.name}*\n` +
-                    `┃◆ ${blessing.effect}\n` +
-                    `╰═══════════════════════╯`
+                    `┃◆\n` +
+                    `╚═══════════════════════════╝`
                 );
             }
 
