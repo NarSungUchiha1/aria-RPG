@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { hasClaimedStarter, claimStarterPack } = require('../systems/prestigeStarterPack');
+const { getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
 const { getPrestigeBadge } = require('../systems/prestigeSystem');
 
 module.exports = {
@@ -76,6 +77,9 @@ module.exports = {
 
             const stylize = (s) => s.split('').join(' ');
             const styledName = stylize(p.nickname.toUpperCase());
+            // Fetch clan info
+            const playerClan = await getPlayerClan(userId).catch(() => null);
+            const clanDisplay = playerClan ? `${playerClan.name}` : null;
 
             const manaLine = (p.role === 'Mage' || p.role === 'Healer')
                 ? `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
@@ -95,6 +99,7 @@ module.exports = {
                     `┃★ 🎭 ${icon} ${p.role}\n` +
                     `┃★ 🏅 Rank: ${rankLine}  •  Prestige ${prestigeLvl}\n` +
                     `┃★ 📜 Title: ${p.title || 'None'}\n` +
+                    (clanDisplay ? `┃★ 🏰 Clan: ${clanDisplay}\n` : '') +
                     `┃★────────────\n` +
                     `┃★ 💪 Strength: ${totalStr}\n` +
                     `┃★ ⚡ Agility: ${totalAgi}\n` +
@@ -116,6 +121,7 @@ module.exports = {
                     `┃◆ 👤 ${badge} ${styledName}\n` +
                     `┃◆ 🎭 ${icon} ${p.role}\n` +
                     `┃◆ 🏅 Rank: ${p.rank}  •  Title: ${p.title || 'None'}\n` +
+                    (clanDisplay ? `┃◆ 🏰 Clan: ${clanDisplay}\n` : '') +
                     `┃◆────────────\n` +
                     `┃◆ 💪 Strength: ${totalStr}\n` +
                     `┃◆ ⚡ Agility: ${totalAgi}\n` +
