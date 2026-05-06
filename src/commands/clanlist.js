@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { CLAN_BLESSINGS, PRESET_CLANS, ensureClanTables } = require('../systems/clanSystem');
+const { CLAN_BLESSINGS, ensureClanTables } = require('../systems/clanSystem');
 
 module.exports = {
     name: 'clanlist',
@@ -7,30 +7,35 @@ module.exports = {
         try {
             await ensureClanTables();
 
-            const [existingClans] = await db.execute(
-                "SELECT c.*, COUNT(cm.player_id) as member_count FROM clans c LEFT JOIN clan_members cm ON cm.clan_id = c.id GROUP BY c.id"
+            const [clans] = await db.execute(
+                `SELECT c.*, COUNT(cm.player_id) as member_count
+                 FROM clans c
+                 LEFT JOIN clan_members cm ON cm.clan_id = c.id
+                 GROUP BY c.id
+                 ORDER BY c.id ASC`
             );
 
             let text =
-                `╔══〘 🏰CLANS 〙══╗\n` +
+                `╔══〘 🏰 THE THREE CLANS 〙══╗\n` +
                 `┃◆\n`;
 
-            // Show all 3 preset clans whether created or not
-            for (const preset of PRESET_CLANS) {
-                const existing = existingClans.find(c => c.name === preset.name);
-                const blessing = CLAN_BLESSINGS[preset.blessing_id];
-                const members  = existing ? existing.member_count : 0;
-                const status   = existing ? `👥 ${members}/10 members` : `⚠️ Not yet founded`;
+            if (!clans.length) {
+                text += `┃◆ No clans have been founded yet.\n`;
+            } else {
+                for (const clan of clans) {
+                    const blessing = CLAN_BLESSINGS[clan.blessing_id];
+                    if (!blessing) continue;
 
-                text +=
-                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-                    `┃◆ ${preset.name}\n` +
-                    `┃◆ ${status}\n` +
-                    `┃◆\n` +
-                    `┃◆ ${blessing.emoji} *${blessing.name}*\n` +
-                    `┃◆ 📌 ${blessing.condition}\n` +
-                    `┃◆ ⚡ ${blessing.effect}\n` +
-                    `┃◆\n`;
+                    text +=
+                        `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                        `┃◆ ${clan.name}\n` +
+                        `┃◆ 👥 ${clan.member_count}/10 members\n` +
+                        `┃◆\n` +
+                        `┃◆ 🩸 Bloodline : ${blessing.emoji} *${blessing.name}*\n` +
+                        `┃◆ 📌 Condition to be met : ${blessing.condition}\n` +
+                        `┃◆ ⚡ ${blessing.effect}\n` +
+                        `┃◆\n`;
+                }
             }
 
             text +=

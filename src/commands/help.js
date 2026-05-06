@@ -58,6 +58,14 @@ module.exports = {
 ┃★ ✦ !clan join <name> → Join a clan
 ┃★ ✦ !clan accept @user → Accept member
 ┃★ ✦ !leaveclan → Leave your clan
+┃★ ✦ !clanlist → See all 3 clans
+┃★
+┃★  ⚔️ CLAN WARS
+┃★ ┃★ !clanwar — View war status
+┃★ !clanwar challenge <clan> <mode> <bo3/bo5>
+┃★ !clanwar accept / decline
+┃★ !clanwar result <score> <score>
+┃★
 ┃★
 ┃★  💰 ECONOMY & TRADING
 ┃★ !pay @user <amount> → Send gold

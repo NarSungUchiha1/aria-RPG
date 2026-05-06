@@ -41,8 +41,7 @@ module.exports = {
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                     `┃◆ ${blessing.emoji} CLAN BLESSING\n` +
                     `┃◆ *${blessing.name}*\n` +
-                    `┃◆ 📌 Condition:\n` +
-                    `┃◆  ${blessing.condition}\n` +
+                    `┃◆ 📌 Condition to be met : ${blessing.condition}\n` +
                     `┃◆ ⚡ Effect:\n` +
                     `┃◆  ${blessing.effect}\n` +
                     `┃◆\n` +
@@ -142,7 +141,7 @@ module.exports = {
                     `┃◆\n` +
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                     `┃◆ 🩸 Bloodline Obtained : ${blessing.emoji} *${blessing.name}*\n` +
-                    `┃◆ Condition for activation 📌 : ${blessing.condition}\n` +
+                    `┃◆ 📌 Condition to be met : ${blessing.condition}\n` +
                     `┃◆ ⚡ ${blessing.effect}\n` +
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                     `┃◆ 🎁 INITIATION REWARD\n` +
