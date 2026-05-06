@@ -30,27 +30,41 @@ module.exports = {
                 const members  = await getClanMembers(myClan.id);
                 const blessing = CLAN_BLESSINGS[myClan.blessing_id];
                 const isLeader = myClan.leader_id === userId;
+                const leader   = members.find(m => m.id === myClan.leader_id);
 
                 let text =
-                    `══〘 🏰 ${myClan.name.toUpperCase()} 〙══╮\n` +
-                    `┃◆ 👑 Leader: ${members.find(m => m.id === myClan.leader_id)?.nickname || 'Unknown'}\n` +
+                    `╔══〘 🏰 ${myClan.name} 〙══╗\n` +
+                    `┃◆\n` +
+                    `┃◆ 👑 Leader: ${leader?.nickname || 'Unknown'}\n` +
                     `┃◆ 👥 Members: ${members.length}/${MAX_MEMBERS}\n` +
-                    `┃◆────────────\n` +
-                    `┃◆ ${blessing.emoji} *${blessing.name}*\n` +
-                    `┃◆ 📌 ${blessing.condition}\n` +
-                    `┃◆ ⚡ ${blessing.effect}\n` +
-                    `┃◆────────────\n` +
-                    `┃◆ MEMBERS:\n`;
+                    `┃◆\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ ${blessing.emoji} CLAN BLESSING\n` +
+                    `┃◆ *${blessing.name}*\n` +
+                    `┃◆\n` +
+                    `┃◆ 📌 Condition:\n` +
+                    `┃◆  ${blessing.condition}\n` +
+                    `┃◆\n` +
+                    `┃◆ ⚡ Effect:\n` +
+                    `┃◆  ${blessing.effect}\n` +
+                    `┃◆\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ MEMBERS (${members.length})` +
+                    `\n`;
 
                 members.forEach(m => {
-                    const crown = m.id === myClan.leader_id ? '👑 ' : '┃◆   ';
-                    text += `${crown}${m.nickname} [${m.role}] Rank ${m.rank}\n`;
+                    const crown = m.id === myClan.leader_id ? '👑' : '◆';
+                    text += `┃${crown} ${m.nickname} [${m.role}] ${m.rank}\n`;
                 });
 
+                text += `┃◆\n`;
                 if (isLeader) {
-                    text += `┃◆────────────\n┃◆ !clan accept @user — accept request\n┃◆ !clan kick @user — remove member\n┃◆ !clan promote @user — transfer lead\n`;
+                    text += `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                        `┃◆ !clan accept @user\n` +
+                        `┃◆ !clan kick @user\n` +
+                        `┃◆ !clan promote @user\n`;
                 }
-                text += `╰═══════════════════════╯`;
+                text += `╚═══════════════════════════╝`;
                 return msg.reply(text);
             }
 
