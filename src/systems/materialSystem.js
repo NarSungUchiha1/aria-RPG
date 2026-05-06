@@ -131,8 +131,8 @@ const RECIPES = [
     {
         name: "Soulreaper", role: "Berserker", rarity: 'legendary',
         materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
-        stats: { strength: 100, attack: 90, stamina: 25 },
-        durability: 120,
+        stats: { strength: 220, attack: 200, stamina: 50 },
+        durability: 200,
         description: "Every kill feeds it. Every kill makes it hungrier."
     },
     {
@@ -168,8 +168,8 @@ const RECIPES = [
     {
         name: "Maw of the Abyss", role: "Berserker", rarity: 'rare',
         materials: { 'Abyssal Core': 1, 'Soul Crystal': 2, 'Blood Opal': 2, 'Void Fragment': 2 },
-        stats: { strength: 220, attack: 200, stamina: 50 },
-        durability: 200,
+        stats: { strength: 100, attack: 90, stamina: 25 },
+        durability: 120,
         description: "Forged from the core of something the System refused to classify."
     },
     {
