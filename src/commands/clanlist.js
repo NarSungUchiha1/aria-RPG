@@ -12,7 +12,7 @@ module.exports = {
             );
 
             let text =
-                `╔══〘 🏰 THE THREE CLANS 〙══╗\n` +
+                `╔══〘 🏰CLANS 〙══╗\n` +
                 `┃◆\n`;
 
             // Show all 3 preset clans whether created or not
