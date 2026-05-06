@@ -571,7 +571,7 @@ module.exports = {
             }
 
             if (move.type === 'buff') {
-                const statName = move.effect.toLowerCase();
+                const statName = move.effect.toLowerCase().replace(/_up$/, '');
                 applyBuff('player', targetPlayer.id, {
                     type: 'buff',
                     stat: statName,

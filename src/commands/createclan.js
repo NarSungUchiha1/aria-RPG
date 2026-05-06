@@ -2,6 +2,7 @@ const db = require('../database/db');
 const { ensureClanTables, getPlayerClan, getBlessingDisplay, CLAN_BLESSINGS } = require('../systems/clanSystem');
 
 const CREATE_COST = 5000;
+const { PRESET_CLANS } = require('../systems/clanSystem');
 
 module.exports = {
     name: 'createclan',
@@ -29,29 +30,33 @@ module.exports = {
                 `══〘 🏰 CLAN 〙══╮\n┃◆ ❌ You are already in *${existing.name}*.\n┃◆ !leaveclan first.\n╰═══════════════════════╯`
             );
 
-            // Step 1 — no args: show blessing list
+            // Show available preset clans
+            const [existingClans] = await db.execute("SELECT name FROM clans");
+            const taken = existingClans.map(r => r.name);
+            const available = PRESET_CLANS.filter(p => !taken.includes(p.name));
+
             if (!args[0]) {
+                if (!available.length) return msg.reply(
+                    `══〘 🏰 CREATE CLAN 〙══╮\n┃◆ All 3 clans have been claimed.\n╰═══════════════════════╯`
+                );
                 let text =
-                    `══〘 🏰 CREATE CLAN 〙══╮\n` +
+                    `══〘 🏰 FORGE A CLAN 〙══╮\n` +
                     `┃◆ Cost: ${CREATE_COST.toLocaleString()} Gold\n` +
                     `┃◆────────────\n` +
-                    `┃◆ Choose your clan blessing:\n` +
-                    `┃◆────────────\n` +
-                    getBlessingDisplay() + '\n' +
-                    `┃◆ CMD: !createclan <name> <blessing #>\n` +
-                    `╰═══════════════════════╯`;
+                    `┃◆ Available clans:\n`;
+                available.forEach((p, i) => {
+                    const b = CLAN_BLESSINGS[p.blessing_id];
+                    text += `┃◆ ${i+1}. ${p.name}\n┃◆    ${b.emoji} ${b.name} — ${b.condition}\n┃◆\n`;
+                });
+                text += `┃◆ CMD: !createclan <number>\n╰═══════════════════════╯`;
                 return msg.reply(text);
             }
 
-            // Step 2 — args provided: create clan
-            const blessingId = parseInt(args[args.length - 1]);
-            const clanName   = args.slice(0, args.length - 1).join(' ').trim();
-
-            if (!clanName) return msg.reply("❌ !createclan <name> <blessing #>");
-            if (!CLAN_BLESSINGS[blessingId]) return msg.reply(
-                `❌ Invalid blessing number. Choose 1-${Object.keys(CLAN_BLESSINGS).length}.`
-            );
-            if (clanName.length > 30) return msg.reply("❌ Clan name too long. Max 30 chars.");
+            const pick = parseInt(args[0]) - 1;
+            if (isNaN(pick) || !available[pick]) return msg.reply("❌ Invalid number.");
+            const chosen    = available[pick];
+            const clanName  = chosen.name;
+            const blessingId = chosen.blessing_id;
 
             const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             if ((gold[0]?.gold || 0) < CREATE_COST) return msg.reply(

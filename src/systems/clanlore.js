@@ -14,7 +14,7 @@ const CLAN_LORE = `
 ┃  people who know how to fight back.  
 ┃                                      
 ┃  But something changed three weeks   
-┃  ago(I swear I launched this 2weeks ago... moving on).                                
+┃  ago.                                
 ┃                                      
 ┃  Three hunters stepped into the void 
 ┃  and came back different.            
@@ -28,7 +28,7 @@ const CLAN_LORE = `
 ┃  🔥 MUGEN KANNAZUKI 🔥               
 ┃                                      
 ┃  The first to cross over.            
-┃  They carry Dragon's Breath -       
+┃  They carry Dragon's Breath —        
 ┃  a fire from somewhere older         
 ┃  than any world still standing.      
 ┃  When they break, everything         
@@ -43,7 +43,7 @@ const CLAN_LORE = `
 ┃                                      
 ┃  They came back quieter than         
 ┃  they left. The void gave them       
-┃  Soul Shatter - the ability to       
+┃  Soul Shatter — the ability to       
 ┃  crack the foundation of an enemy    
 ┃  before anyone else even swings.     
 ┃                                      
@@ -52,11 +52,11 @@ const CLAN_LORE = `
 ┃                                      
 ╠══════════════════════════════════════╣
 ┃                                      
-┃   PHANTOM CREST 🌘🩸                   
+┃  👻 PHANTOM CREST                    
 ┃                                      
 ┃  Nobody saw them cross over.         
 ┃  Nobody saw them come back.          
-┃  They carry Phantom Shift -          
+┃  They carry Phantom Shift —          
 ┃  death reached for them              
 ┃  and missed.                         
 ┃                                      
@@ -68,13 +68,13 @@ const CLAN_LORE = `
 ┃  The clans are not alliances.        
 ┃  They are bloodlines.                
 ┃  The blessing does not come from     
-┃  training, it comes from who        
+┃  training — it comes from who        
 ┃  you stand beside.                   
 ┃                                      
 ┃  Malachar is still out there.        
 ┃  The void is still open.             
 ┃  But for the first time since        
-┃  the Gates fell,                    
+┃  the Gates fell —                    
 ┃  the hunters have names.             
 ┃                                      
 ┃  !clan join <name> — Rank D+        

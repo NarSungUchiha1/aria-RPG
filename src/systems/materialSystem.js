@@ -129,7 +129,7 @@ const RECIPES = [
 
     // ── RARE TIER ────────────────────────────────────────────────────────────
     {
-        name: "Soulreaper", role: "Berserker", rarity: 'rare',
+        name: "Soulreaper", role: "Berserker", rarity: 'legendary',
         materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
         stats: { strength: 100, attack: 90, stamina: 25 },
         durability: 120,
@@ -166,7 +166,7 @@ const RECIPES = [
 
     // ── LEGENDARY TIER ───────────────────────────────────────────────────────
     {
-        name: "Maw of the Abyss", role: "Berserker", rarity: 'legendary',
+        name: "Maw of the Abyss", role: "Berserker", rarity: 'rare',
         materials: { 'Abyssal Core': 1, 'Soul Crystal': 2, 'Blood Opal': 2, 'Void Fragment': 2 },
         stats: { strength: 220, attack: 200, stamina: 50 },
         durability: 200,

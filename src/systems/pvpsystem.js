@@ -187,7 +187,7 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
         `┃◆ 🎭 ${p1.role}\n` +
         `┃◆ 💪 STR: ${p1.strength}  ⚡ AGI: ${p1.agility}\n` +
         `┃◆ 🧠 INT: ${p1.intelligence}  🛡️ STA: ${p1.stamina}\n` +
-        `┃◆ ❤️ HP: ${DUEL_HP}/${DUEL_HP}\n` +
+        `┃◆ ❤️ HP: ${data.maxHp?.[p1Id] || DUEL_HP}/${data.maxHp?.[p1Id] || DUEL_HP}\n` +
         `┃◆ \n` +
         `┃◆ ━━━━ ⚔️ VS ⚔️ ━━━━\n` +
         `┃◆ \n` +
@@ -195,7 +195,7 @@ async function startPvPDuel(p1Id, p2Id, betAmount, client, msg) {
         `┃◆ 🎭 ${p2.role}\n` +
         `┃◆ 💪 STR: ${p2.strength}  ⚡ AGI: ${p2.agility}\n` +
         `┃◆ 🧠 INT: ${p2.intelligence}  🛡️ STA: ${p2.stamina}\n` +
-        `┃◆ ❤️ HP: ${DUEL_HP}/${DUEL_HP}\n` +
+        `┃◆ ❤️ HP: ${data.maxHp?.[p1Id] || DUEL_HP}/${data.maxHp?.[p1Id] || DUEL_HP}\n` +
         `┃◆ \n` +
         `${betLine}` +
         `┃◆ ━━━━━━━━━━━━\n` +

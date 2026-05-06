@@ -66,12 +66,7 @@ module.exports = {
                  VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
                 [
                     userId, recipe.name, grade,
-                    recipe.stats.strength || 0,
-                    recipe.stats.agility || 0,
-                    recipe.stats.intelligence || 0,
-                    recipe.stats.stamina || 0,
-                    recipe.stats.attack || 0,
-                    recipe.stats.defense || 0,
+                    rStr, rAgi, rInt, rSta, rAtk, rDef,
                     durability, durability
                 ]
             );
