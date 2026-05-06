@@ -39,17 +39,20 @@ module.exports = {
                     `┃◆ 👥 Members: ${members.length}/${MAX_MEMBERS}\n` +
                     `┃◆\n` +
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-                    `┃◆ ${blessing.emoji} CLAN BLESSING\n` +
-                    `┃◆ *${blessing.name}*\n` +
+                    `┃◆ 🩸 Bloodline Obtained : ${blessing.emoji} *${blessing.name}*\n` +
                     `┃◆ 📌 Condition to be met : ${blessing.condition}\n` +
-                    `┃◆ ⚡ Effect:\n` +
-                    `┃◆  ${blessing.effect}\n` +
+                    `┃◆ ⚡ ${blessing.effect}\n` +
                     `┃◆\n` +
                     `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                     `┃◆ MEMBERS (${members.length})` +
                     `\n`;
 
-                members.forEach(m => {
+                // Leader first
+                const sorted = [
+                    ...members.filter(m => m.id === myClan.leader_id),
+                    ...members.filter(m => m.id !== myClan.leader_id)
+                ];
+                sorted.forEach(m => {
                     const crown = m.id === myClan.leader_id ? '👑' : '◆';
                     text += `┃${crown} ${m.nickname} [${m.role}] ${m.rank}\n`;
                 });
