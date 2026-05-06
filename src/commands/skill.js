@@ -47,16 +47,36 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
             // Deal AOE damage to all enemies
             const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
-            const primaryStat = player[player.role === 'Mage' || player.role === 'Healer' ? 'intelligence' : player.role === 'Assassin' ? 'agility' : 'strength'] || player.stamina || 100;
+            const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina' };
+            const primaryStatKey = roleStatMap[player.role] || 'strength';
+            const primaryStat = Number(player[primaryStatKey]) || 100;
             for (const e of enemies[0]) {
-                const dmg = trigger === 'final_stage'
-                    ? Math.floor(e.current_hp * blessing.hp_drain)
-                    : Math.floor(primaryStat * (blessing.multiplier || 3.0));
+                undefined
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
             }
-            blessingMsg = `
-✨ *${blessing.emoji} ${blessing.name}* ACTIVATED!
-${blessing.effect}`;
+            const totalDmgDealt = toSpawn ? toSpawn.reduce((s,e) => s + Math.floor(totalStat * (blessing.multiplier||3.0)), 0) : 0;
+            if (trigger === 'hp_below_30') {
+                blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
+┃◆ The bloodline awakens.
+┃◆ ${player.nickname} reaches the edge —
+┃◆ and the dragon inside ignites.
+┃◆ 🔥 Void fire erupts on ALL enemies.
+┃◆ DEF means nothing. It burns through.
+╚═══════════════════════════╝`;
+            } else if (trigger === 'on_kill') {
+                blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
+┃◆ The kill tears a hole in space.
+┃◆ The void rushes in — and takes
+┃◆ everything with it.
+┃◆ 💥 ALL remaining enemies hit.
+┃◆ DEF shattered by 50% this stage.
+╚═══════════════════════════╝`;
+            } else {
+                blessingMsg = `╔══〘 ✨ ${blessing.name} 〙══╗
+┃◆ ${blessing.emoji} The bloodline stirs.
+┃◆ ${blessing.effect}
+╚═══════════════════════════╝`;
+            }
             if (['hp_below_30','final_stage','all_allies_below_50'].includes(trigger)) {
                 await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
             }
@@ -81,8 +101,14 @@ ${blessing.effect}`;
             const newHits = (state.hit_count || 0) + 1;
             if (newHits >= 3) {
                 await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2 });
-                blessingMsg = `
-⚡ *Titan's Roar* — Invincible for 2 turns! Next hit deals 400% damage!`;
+                blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗
+┃◆ Three hits. Enough.
+┃◆ ${player.nickname} lets out a roar
+┃◆ that shakes the dungeon walls.
+┃◆ 
+┃◆ Invincible. 2 turns.
+┃◆ Next strike: 400% damage.
+╚═══════════════════════════╝`;
             } else {
                 await updateBlessingState(playerId, dungeonId, { hit_count: newHits });
             }
@@ -113,8 +139,12 @@ ${blessing.effect}`;
 💀 *Reaper's Mark* — ${bossDmg} void damage on boss!`;
             } else {
                 await db.execute('UPDATE dungeon_enemies SET current_hp = 0 WHERE id=?', [e.id]);
-                blessingMsg = `
-💀 *Reaper's Mark* — ${e.name} EXECUTED!`;
+                blessingMsg = `╔══〘 💀 REAPER'S MARK 〙══╗
+┃◆ The mark was set the moment
+┃◆ ${e.name} started bleeding.
+┃◆ 
+┃◆ Execution carried out.
+╚═══════════════════════════╝`;
             }
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
         }
@@ -124,8 +154,13 @@ ${blessing.effect}`;
             const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
             await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
-            blessingMsg = `
-👻 *Phantom Shift* — Death refused! Survived with ${healAmt} HP restored!`;
+            blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
+┃◆ Death reached for ${player.nickname}.
+┃◆ The bloodline refused.
+┃◆ 
+┃◆ You survived with ${healAmt} HP.
+┃◆ The attacker feels the recoil.
+╚═══════════════════════════╝`;
         }
 
         // Soul Shatter — stage_first_move
@@ -134,8 +169,13 @@ ${blessing.effect}`;
                 'UPDATE dungeon_enemies SET def = GREATEST(0, def - FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
                 [blessing.damage_amp || 0.5, dungeonId]
             );
-            blessingMsg = `
-💠 *Soul Shatter* — All enemies fractured! DEF reduced by 50% this stage!`;
+            blessingMsg = `╔══〘 💠 SOUL SHATTER 〙══╗
+┃◆ ASHEN blood burns cold.
+┃◆ The first strike cracks
+┃◆ something deeper than armour.
+┃◆ 
+┃◆ All enemies: DEF -50% this stage.
+╚═══════════════════════════╝`;
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
         }
 
@@ -147,15 +187,27 @@ ${blessing.effect}`;
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [drain, e.id]);
             }
             await updateBlessingState(playerId, dungeonId, { damage_boost: blessing.damage_boost || 0.3, blessing_used: 1 });
-            blessingMsg = `
-🌒 *Eclipse* — All enemies lost 40% HP! +30% damage for rest of dungeon!`;
+            blessingMsg = `╔══〘 🌒 ECLIPSE 〙══╗
+┃◆ The final stage darkens.
+┃◆ Something ancient in the bloodline
+┃◆ recognises the end — and rises.
+┃◆ 
+┃◆ All enemies: -40% current HP.
+┃◆ +30% damage — permanent this run.
+╚═══════════════════════════╝`;
         }
 
         // Malachar's Will — all_allies_below_50
         if (trigger === 'all_allies_below_50') {
             await updateBlessingState(playerId, dungeonId, { invincible: blessing.charges || 3, blessing_used: 1 });
-            blessingMsg = `
-👁️ *Malachar's Will* — CHANNELING MALACHAR! Next 3 attacks deal 1000% damage!`;
+            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
+┃★ The bloodline does not ask.
+┃★ It takes.
+┃★ 
+┃★ Malachar channels through you.
+┃★ Next 3 attacks — 1000% damage.
+┃★ Nothing evades. Nothing blocks.
+╚═══════════════════════════╝`;
         }
 
         if (blessingMsg) {
@@ -327,18 +379,18 @@ module.exports = {
             if (dungeon) {
                 const newPlayerHp = result.playerHp || player.hp;
                 // hp_below_30 — fires when attacker drops below 30%
-                if (newPlayerHp < player.max_hp * 0.3) {
+                if (newPlayerHp > 0 && newPlayerHp < player.max_hp * 0.3) {
                     await triggerBlessingIfReady('hp_below_30', userId, dungeon.id, player, dungeon, msg);
                 }
                 // enemy_below_25 — fires when target enemy drops below 25%
-                if (targetEnemy && result.enemyHp > 0) {
-                    const pct = result.enemyHp / targetEnemy.max_hp;
+                if (result.enemyHp > 0 && result.enemyMaxHp > 0) {
+                    const pct = result.enemyHp / result.enemyMaxHp;
                     if (pct <= 0.25) {
-                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: targetEnemy });
+                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
                     }
                 }
                 // on_kill
-                if (result.defeated) {
+                if (result.defeated || result.enemyDefeated) {
                     await triggerBlessingIfReady('on_kill', userId, dungeon.id, player, dungeon, msg);
                 }
                 // stage_first_move
@@ -448,6 +500,17 @@ module.exports = {
                 const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
                 reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
                 try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
+
+                // Phantom Shift — fires AFTER death message as a separate resurrection message
+                try {
+                    const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
+                    if (phantomResult) {
+                        // Undo death
+                        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
+                        await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                        try { await demoteRaider(client, userId); } catch(e2) {}
+                    }
+                } catch(e) { console.error('Phantom shift error:', e.message); }
 
                 // Check if everyone is dead — close dungeon and spawn prestige
                 const [aliveCheck] = await db.execute(
