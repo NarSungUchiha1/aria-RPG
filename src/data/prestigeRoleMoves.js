@@ -14,36 +14,36 @@ const CD_HEAL   = 'RANKED_HEAL'; // heal — slightly shorter than buff
 
 module.exports = {
     Berserker: [
-        { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 1,       cost: 0  },
-        { name: 'Void Slash',       type: 'damage', stat: 'strength', multiplier: 3.2, cooldown: 2,       cost: 0  },
+        { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 30,       cost: 0  },
+        { name: 'Void Slash',       type: 'damage', stat: 'strength', multiplier: 3.2, cooldown: 30,       cost: 0  },
         { name: 'Void Bloodlust',   type: 'buff',   effect: 'strength_up', value: 80, duration: 3,  cooldown: CD_RANKED, cost: 15 },
-        { name: 'Abyss Smash',      type: 'damage', stat: 'strength', multiplier: 3.8, stun: true,  cooldown: 4,       cost: 18 },
-        { name: 'Fracture Frenzy',  type: 'damage', stat: 'strength', multiplier: 2.8, hits: 3,     cooldown: 5,       cost: 22 },
+        { name: 'Abyss Smash',      type: 'damage', stat: 'strength', multiplier: 3.8, stun: true,  cooldown: 30,       cost: 18 },
+        { name: 'Fracture Frenzy',  type: 'damage', stat: 'strength', multiplier: 2.8, hits: 3,     cooldown: 30,       cost: 22 },
         { name: 'Void Intimidate',  type: 'debuff', effect: 'defense', value: -50, duration: 3,     cooldown: CD_RANKED, cost: 12 }
     ],
     Assassin: [
         { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 1,       cost: 0  },
-        { name: 'Void Backstab',    type: 'damage', stat: 'agility',  multiplier: 3.5, cooldown: 2,       cost: 10 },
+        { name: 'Void Backstab',    type: 'damage', stat: 'agility',  multiplier: 3.5, cooldown: 25,       cost: 10 },
         { name: 'Phantom Step',     type: 'buff',   effect: 'agility_up', value: 80, duration: 3,  cooldown: CD_RANKED, cost: 12 },
         { name: 'Void Venom',       type: 'debuff', effect: 'strength', value: -35, duration: 3,   cooldown: CD_RANKED, cost: 10 },
-        { name: 'Abyss Fatal',      type: 'damage', stat: 'agility',  multiplier: 4.0, ignore_defense: 0.5, cooldown: 5, cost: 20 },
+        { name: 'Abyss Fatal',      type: 'damage', stat: 'agility',  multiplier: 4.0, ignore_defense: 0.5, cooldo0wn: 120, cost: 20 },
         { name: 'Void Smoke',       type: 'debuff', effect: 'agility', value: -50, duration: 3,    cooldown: CD_RANKED, cost: 10 }
     ],
     Mage: [
         { name: 'Void Strike',      type: 'damage', stat: 'strength',      multiplier: 2.5, cooldown: 1,       cost: 0  },
         { name: 'Void Fireball',    type: 'damage', stat: 'intelligence',  multiplier: 3.2, cooldown: 1,       cost: 15 },
-        { name: 'Fracture Blast',   type: 'damage', stat: 'intelligence',  multiplier: 2.8, aoe: true, cooldown: 3, cost: 20 },
+        { name: 'Fracture Blast',   type: 'damage', stat: 'intelligence',  multiplier: 2.8, aoe: true, cooldown: 10, cost: 20 },
         { name: 'Abyss Barrier',    type: 'shield', value: 500,                             cooldown: CD_RANKED, cost: 15 },
-        { name: 'Void Nova',        type: 'damage', stat: 'intelligence',  multiplier: 2.5, freeze: true, aoe: true, cooldown: 4, cost: 18 },
+        { name: 'Void Nova',        type: 'damage', stat: 'intelligence',  multiplier: 2.5, freeze: true, aoe: true, cooldown: 10, cost: 18 },
         { name: 'Void Intellect',   type: 'buff',   effect: 'intelligence_up', value: 80, duration: 3, cooldown: CD_RANKED, cost: 18 }
     ],
     Tank: [
         { name: 'Void Strike',        type: 'damage', stat: 'stamina',  multiplier: 2.8,  cooldown: 1,         cost: 0  },
-        { name: 'Fracture Bash',      type: 'damage', stat: 'stamina',  multiplier: 3.2,  def_reduction: 40,   cooldown: 2,         cost: 8  },
+        { name: 'Fracture Bash',      type: 'damage', stat: 'stamina',  multiplier: 3.2,  def_reduction: 40,   cooldown: 20,         cost: 8  },
         { name: 'Void Fortress',      type: 'buff',   effect: 'defense', value: 100, duration: 3,              cooldown: CD_RANKED, cost: 12 },
         { name: 'Abyssal Taunt',      type: 'debuff', effect: 'attack',  value: -55, duration: 3,              cooldown: CD_RANKED, cost: 10 },
         { name: 'Void Bulwark',        type: 'shield', value: 800,                          cooldown: CD_RANKED, cost: 15 },
-        { name: 'Earth Void Shatter', type: 'damage', stat: 'strength',  multiplier: 3.8, stun: true,          cooldown: 4,         cost: 14 }
+        { name: 'Earth Void Shatter', type: 'damage', stat: 'strength',  multiplier: 3.8, stun: true,          cooldown: 120,         cost: 14 }
     ],
     Healer: [
         { name: 'Void Strike',      type: 'damage', stat: 'strength',      multiplier: 2.5, cooldown: 1,         cost: 0  },
