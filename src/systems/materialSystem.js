@@ -129,6 +129,13 @@ const RECIPES = [
 
     // ── RARE TIER ────────────────────────────────────────────────────────────
     {
+        name: "Soulreaper", role: "Berserker", rarity: 'rare',
+        materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
+        stats: { strength: 100, attack: 90, stamina: 25 },
+        durability: 120,
+        description: "Every kill feeds it. Every kill makes it hungrier."
+    },
+    {
         name: "Void Edge", role: "Assassin", rarity: 'rare',
         materials: { 'Void Fragment': 2, 'Shadow Essence': 3, 'Storm Shard': 1 },
         stats: { agility: 100, attack: 95 },
@@ -159,11 +166,11 @@ const RECIPES = [
 
     // ── LEGENDARY TIER ───────────────────────────────────────────────────────
     {
-        name: "Soulreaper", role: "Berserker", rarity: 'legendary',
-        materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
+        name: "Abyssal Reckoning", role: "Berserker", rarity: 'legendary',
+        materials: { 'Abyssal Core': 1, 'Soul Crystal': 3, 'Blood Opal': 2, 'Void Fragment': 2 },
         stats: { strength: 220, attack: 200, stamina: 50 },
         durability: 200,
-        description: "Every kill feeds it. Every kill makes it hungrier."
+        description: "The void does not forgive. Neither does this."
     },
     {
         name: "Wraithblade", role: "Assassin", rarity: 'legendary',

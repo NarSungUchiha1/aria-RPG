@@ -17,7 +17,16 @@ module.exports = {
             );
 
             const role = player[0].role;
-            const myRecipes = RECIPES.filter(r => r.role === role);
+
+            // Only prestige players can forge
+            const [presCheck] = await db.execute(
+                "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]
+            );
+            if ((presCheck[0]?.prestige_level || 0) < 1) return msg.reply(
+                `╔══〘 ✦ FORGE 〙══╗\n┃★ ❌ The Blacksmith serves\n┃★ prestige hunters only.\n┃★ Reach Rank S → !prestige confirm\n╚═══════════════════════╝`
+            );
+            const isPrestige = true;
+            const myRecipes = RECIPES.filter(r => r.role === role && r.prestige);
             const rarityOrder = ['common', 'uncommon', 'rare', 'legendary'];
             myRecipes.sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
 
