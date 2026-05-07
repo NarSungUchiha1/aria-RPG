@@ -12,10 +12,11 @@ module.exports = {
     name: 'recipes',
     async execute(msg, args, { userId }) {
         try {
+            // ✅ Blacksmith is prestige-only
             const [prestigeCheck] = await db.execute(
                 "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]
             );
-            if (false) return msg.reply(
+            if (!prestigeCheck[0] || prestigeCheck[0].prestige_level < 1) return msg.reply(
                 `╔══〘 ✦ BLACKSMITH 〙══╗\n` +
                 `┃★ ❌ The Blacksmith serves\n` +
                 `┃★ prestige hunters only.\n` +
@@ -30,8 +31,7 @@ module.exports = {
             );
 
             const role = player[0].role;
-            const isPrestige = (prestigeCheck[0]?.prestige_level || 0) > 0;
-            const myRecipes = RECIPES.filter(r => r.role === role && (isPrestige ? r.prestige : !r.prestige));
+            const myRecipes = RECIPES.filter(r => r.role === role);
             const rarityOrder = ['common', 'uncommon', 'rare', 'legendary'];
             myRecipes.sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
 
