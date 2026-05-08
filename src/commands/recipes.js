@@ -31,7 +31,7 @@ module.exports = {
             );
 
             const role = player[0].role;
-            const myRecipes = RECIPES.filter(r => r.role === role);
+            const myRecipes = RECIPES.filter(r => r.role === role && r.prestige);
             const rarityOrder = ['common', 'uncommon', 'rare', 'legendary'];
             myRecipes.sort((a, b) => rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity));
 

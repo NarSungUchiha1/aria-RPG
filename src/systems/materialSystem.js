@@ -55,35 +55,35 @@ const RARITY_EMOJI = {
 const RECIPES = [
     // ── COMMON TIER ──────────────────────────────────────────────────────────
     {
-        name: "Bonecrusher", role: "Berserker", rarity: 'common',
+        name: "Bonecrusher", role: "Berserker", rarity: 'common', prestige: true,
         materials: { 'Iron Shard': 3, 'Bone Fragment': 2 },
         stats: { strength: 25, attack: 20 },
         durability: 60,
         description: "A brutal club fused from dungeon bones and iron scrap. Ugly. Effective."
     },
     {
-        name: "Thorn Dagger", role: "Assassin", rarity: 'common',
+        name: "Thorn Dagger", role: "Assassin", rarity: 'common', prestige: true,
         materials: { 'Thorn Splinter': 3, 'Iron Shard': 2 },
         stats: { agility: 25, attack: 22 },
         durability: 60,
         description: "Lightweight and vicious. Coated in dungeon thorns that never fully dull."
     },
     {
-        name: "Iron Ward", role: "Tank", rarity: 'common',
+        name: "Iron Ward", role: "Tank", rarity: 'common', prestige: true,
         materials: { 'Iron Shard': 4, 'Bone Fragment': 2 },
         stats: { stamina: 25, defense: 28 },
         durability: 70,
         description: "A rough shield hammered from dungeon iron. Nothing fancy. Holds."
     },
     {
-        name: "Bone Staff", role: "Mage", rarity: 'common',
+        name: "Bone Staff", role: "Mage", rarity: 'common', prestige: true,
         materials: { 'Bone Fragment': 3, 'Thorn Splinter': 2 },
         stats: { intelligence: 25, attack: 20 },
         durability: 60,
         description: "Carved from the spine of something that should not have existed."
     },
     {
-        name: "Splint Mace", role: "Healer", rarity: 'common',
+        name: "Splint Mace", role: "Healer", rarity: 'common', prestige: true,
         materials: { 'Thorn Splinter': 2, 'Iron Shard': 2, 'Bone Fragment': 2 },
         stats: { intelligence: 22, stamina: 18 },
         durability: 60,
@@ -92,35 +92,35 @@ const RECIPES = [
 
     // ── UNCOMMON TIER ────────────────────────────────────────────────────────
     {
-        name: "Shadow Fang", role: "Assassin", rarity: 'uncommon',
+        name: "Shadow Fang", role: "Assassin", rarity: 'uncommon', prestige: true,
         materials: { 'Shadow Essence': 2, 'Venom Crystal': 2, 'Iron Shard': 2 },
         stats: { agility: 55, attack: 50, strength: 15 },
         durability: 80,
         description: "Forged in darkness. Poisons on contact. The monster it came from had no name."
     },
     {
-        name: "Ember Greatsword", role: "Berserker", rarity: 'uncommon',
+        name: "Ember Greatsword", role: "Berserker", rarity: 'uncommon', prestige: true,
         materials: { 'Ember Stone': 3, 'Iron Shard': 3 },
         stats: { strength: 55, attack: 48 },
         durability: 80,
         description: "Burns without fire. The blade stays hot long after the dungeon goes cold."
     },
     {
-        name: "Frost Barrier", role: "Tank", rarity: 'uncommon',
+        name: "Frost Barrier", role: "Tank", rarity: 'uncommon', prestige: true,
         materials: { 'Frost Gem': 2, 'Iron Shard': 3, 'Bone Fragment': 2 },
         stats: { stamina: 55, defense: 60 },
         durability: 90,
         description: "Hits that land on it slow the attacker. Nobody knows why."
     },
     {
-        name: "Venom Codex", role: "Mage", rarity: 'uncommon',
+        name: "Venom Codex", role: "Mage", rarity: 'uncommon', prestige: true,
         materials: { 'Venom Crystal': 2, 'Shadow Essence': 2, 'Thorn Splinter': 2 },
         stats: { intelligence: 55, attack: 48 },
         durability: 80,
         description: "A tome written in a language that predates the Gates."
     },
     {
-        name: "Ember Chalice", role: "Healer", rarity: 'uncommon',
+        name: "Ember Chalice", role: "Healer", rarity: 'uncommon', prestige: true,
         materials: { 'Ember Stone': 2, 'Frost Gem': 2, 'Bone Fragment': 2 },
         stats: { intelligence: 50, stamina: 38 },
         durability: 80,
@@ -129,35 +129,35 @@ const RECIPES = [
 
     // ── RARE TIER ────────────────────────────────────────────────────────────
     {
-        name: "Soulreaper", role: "Berserker", rarity: 'rare',
+        name: "Soulreaper", role: "Berserker", rarity: 'rare', prestige: true,
         materials: { 'Soul Crystal': 2, 'Blood Opal': 2, 'Ember Stone': 2 },
         stats: { strength: 100, attack: 90, stamina: 25 },
         durability: 120,
         description: "Every kill feeds it. Every kill makes it hungrier."
     },
     {
-        name: "Void Edge", role: "Assassin", rarity: 'rare',
+        name: "Void Edge", role: "Assassin", rarity: 'rare', prestige: true,
         materials: { 'Void Fragment': 2, 'Shadow Essence': 3, 'Storm Shard': 1 },
         stats: { agility: 100, attack: 95 },
         durability: 120,
         description: "Cuts through things that should not be cuttable. The void recognises its own."
     },
     {
-        name: "Stormwall", role: "Tank", rarity: 'rare',
+        name: "Stormwall", role: "Tank", rarity: 'rare', prestige: true,
         materials: { 'Storm Shard': 2, 'Soul Crystal': 1, 'Iron Shard': 4 },
         stats: { stamina: 100, defense: 110, strength: 25 },
         durability: 150,
         description: "Lightning absorbed on impact. Released on counterattack. It waits."
     },
     {
-        name: "Blood Grimoire", role: "Mage", rarity: 'rare',
+        name: "Blood Grimoire", role: "Mage", rarity: 'rare', prestige: true,
         materials: { 'Blood Opal': 2, 'Void Fragment': 1, 'Soul Crystal': 2 },
         stats: { intelligence: 100, attack: 90 },
         durability: 120,
         description: "Written in blood that is not human. The spells work anyway."
     },
     {
-        name: "Soul Lantern", role: "Healer", rarity: 'rare',
+        name: "Soul Lantern", role: "Healer", rarity: 'rare', prestige: true,
         materials: { 'Soul Crystal': 2, 'Blood Opal': 1, 'Frost Gem': 2 },
         stats: { intelligence: 95, stamina: 60 },
         durability: 120,
@@ -166,35 +166,35 @@ const RECIPES = [
 
     // ── LEGENDARY TIER ───────────────────────────────────────────────────────
     {
-        name: "Abyssal Reckoning", role: "Berserker", rarity: 'legendary',
+        name: "Abyssal Reckoning", role: "Berserker", rarity: 'legendary', prestige: true,
         materials: { 'Abyssal Core': 1, 'Soul Crystal': 3, 'Blood Opal': 2, 'Void Fragment': 2 },
         stats: { strength: 220, attack: 200, stamina: 50 },
         durability: 200,
         description: "The void does not forgive. Neither does this."
     },
     {
-        name: "Wraithblade", role: "Assassin", rarity: 'legendary',
+        name: "Wraithblade", role: "Assassin", rarity: 'legendary', prestige: true,
         materials: { 'Void Heart': 1, 'Shadow Essence': 3, 'Void Fragment': 2 },
         stats: { agility: 220, attack: 210, strength: 30 },
         durability: 200,
         description: "It does not cast a shadow. The Hunter who wields it starts having trouble remembering what light looks like."
     },
     {
-        name: "Aegis of Eternity", role: "Tank", rarity: 'legendary',
+        name: "Aegis of Eternity", role: "Tank", rarity: 'legendary', prestige: true,
         materials: { 'Eternity Shard': 1, 'Abyssal Core': 1, 'Storm Shard': 3 },
         stats: { stamina: 220, defense: 240, strength: 40 },
         durability: 250,
         description: "It has no origin. No records. Hunters who hold it feel they have held it before. In another war."
     },
     {
-        name: "The Last Word", role: "Mage", rarity: 'legendary',
+        name: "The Last Word", role: "Mage", rarity: 'legendary', prestige: true,
         materials: { 'Void Heart': 1, 'Blood Opal': 2, 'Soul Crystal': 2, 'Abyssal Core': 1 },
         stats: { intelligence: 220, attack: 200 },
         durability: 200,
         description: "A spellbook with one page. The page is blank. But the right spell is always there."
     },
     {
-        name: "Cradle of Life", role: "Healer", rarity: 'legendary',
+        name: "Cradle of Life", role: "Healer", rarity: 'legendary', prestige: true,
         materials: { 'Eternity Shard': 1, 'Soul Crystal': 3, 'Frost Gem': 2, 'Ember Stone': 2 },
         stats: { intelligence: 200, stamina: 120 },
         durability: 200,
