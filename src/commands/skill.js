@@ -33,10 +33,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
 
-        // 12-hour cooldown — blessing can only trigger once per 12 hours
+        // 1-hour cooldown — blessing can only trigger once per hour
         if (state.last_triggered) {
             const hoursSince = (Date.now() - new Date(state.last_triggered).getTime()) / (1000 * 60 * 60);
-            if (hoursSince < 12) return null; // Still on cooldown
+            if (hoursSince < 1) return null;
         }
 
         // One-use blessings per dungeon
@@ -51,10 +51,11 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             const primaryStatKey = roleStatMap[player.role] || 'strength';
             const primaryStat = Number(player[primaryStatKey]) || 100;
             for (const e of enemies[0]) {
-                undefined
+                const dmg = blessing.ignore_defense
+                    ? Math.floor(primaryStat * (blessing.multiplier || 3.0))
+                    : Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)) - (Number(e.def) || 0));
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
             }
-            const totalDmgDealt = toSpawn ? toSpawn.reduce((s,e) => s + Math.floor(totalStat * (blessing.multiplier||3.0)), 0) : 0;
             if (trigger === 'hp_below_30') {
                 blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
 ┃◆ The bloodline awakens.

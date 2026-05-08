@@ -240,27 +240,6 @@ module.exports = {
                 }
             };
 
-            // ── 80% HP RESTORATION AFTER STAGE CLEAR ──────────────
-            try {
-                const [aliveForHeal] = await db.execute(
-                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
-                    [dungeon.id]
-                );
-                for (const p of aliveForHeal) {
-                    const [pStats] = await db.execute("SELECT hp, max_hp FROM players WHERE id=?", [p.player_id]);
-                    if (pStats.length) {
-                        const lost    = pStats[0].max_hp - pStats[0].hp;
-                        const restore = Math.floor(lost * 0.80);
-                        if (restore > 0) {
-                            await db.execute(
-                                "UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?",
-                                [restore, p.player_id]
-                            );
-                        }
-                    }
-                }
-            } catch(e) { console.error('HP restore error:', e.message); }
-
             // Reset stage timer only — overall timer keeps running from begin/auto-start
             await resetStageTimer(dungeon.id, client, targetChat, failCallback);
 

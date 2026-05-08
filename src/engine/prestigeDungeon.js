@@ -147,8 +147,8 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
     } else {
         // Enemy count scales with rank — harder ranks have more enemies
         const RANK_ENEMY_COUNT = {
-            PF: [1, 3], PE: [2, 4], PD: [2, 4],
-            PC: [3, 5], PB: [3, 5], PA: [4, 6], PS: [5, 7]
+            PF: [2, 4], PE: [3, 5], PD: [3, 6],
+            PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [7, 10]
         };
         const [minE, maxE] = RANK_ENEMY_COUNT[prestigeRank] || [1, 3];
         const count = Math.floor(Math.random() * (maxE - minE + 1)) + minE;
