@@ -14,7 +14,7 @@ const CD_HEAL   = 'RANKED_HEAL'; // heal — slightly shorter than buff
 
 module.exports = {
     Berserker: [
-        { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 30,       cost: 0  },
+        { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 1,       cost: 0  },
         { name: 'Void Slash',       type: 'damage', stat: 'strength', multiplier: 3.2, cooldown: 30,       cost: 0  },
         { name: 'Void Bloodlust',   type: 'buff',   effect: 'strength_up', value: 80, duration: 3,  cooldown: CD_RANKED, cost: 15 },
         { name: 'Abyss Smash',      type: 'damage', stat: 'strength', multiplier: 3.8, stun: true,  cooldown: 30,       cost: 18 },
