@@ -42,8 +42,13 @@ function clearPrestigeLobbyTimer(dungeonId) {
     }
 }
 
-function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP) {
+function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null) {
     clearPrestigeLobbyTimer(dungeonId);
+
+    // If remaining time is provided, calculate relative timeouts
+    const totalDuration = remaining || PRESTIGE_LOBBY_CLOSE_MS;
+    const warningDelay = remaining ? Math.max(0, totalDuration - (PRESTIGE_LOBBY_CLOSE_MS - PRESTIGE_LOBBY_WARN_MS)) : PRESTIGE_LOBBY_WARN_MS;
+    const closeDelay = remaining || PRESTIGE_LOBBY_CLOSE_MS;
 
     const warning = setTimeout(async () => {
         try {
@@ -56,7 +61,7 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP) {
                     `╚═══════════════════════════╝`
             });
         } catch (e) {}
-    }, PRESTIGE_LOBBY_WARN_MS);
+    }, warningDelay);
 
     const timeout = setTimeout(async () => {
         try {
@@ -95,7 +100,7 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP) {
             console.error('Prestige lobby timeout error:', e.message);
         }
         prestigeLobbyTimers.delete(dungeonId);
-    }, PRESTIGE_LOBBY_CLOSE_MS);
+    }, closeDelay);
 
     prestigeLobbyTimers.set(dungeonId, { warning, timeout });
 }
