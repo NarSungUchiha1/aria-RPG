@@ -157,7 +157,7 @@ async function claimQuestRewards(playerId, questId, client) {
         "UPDATE player_quests SET claimed=1 WHERE player_id=? AND quest_id=?",
         [playerId, questId]
     );
-    return { success: true, rewards: q };
+    return { quest: q };
 }
 
 module.exports = {
