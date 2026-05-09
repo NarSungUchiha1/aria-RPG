@@ -58,11 +58,12 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             }
             if (trigger === 'hp_below_30') {
                 blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
-┃◆ The bloodline awakens.
-┃◆ ${player.nickname} reaches the edge —
-┃◆ and the dragon inside ignites.
-┃◆ 🔥 Void fire erupts on ALL enemies.
-┃◆ DEF means nothing. It burns through.
+┃◆ 🔥 The ancient flame awakens!
+┃◆ ${player.nickname}'s blood boils with draconic fury.
+┃◆ From the depths of their soul erupts...
+┃◆ 🌋 A BLAZING INFERNO that consumes ALL!
+┃◆ Flames so hot they ignore all defenses!
+┃◆ The battlefield becomes a sea of fire!
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
@@ -154,12 +155,24 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'on_death') {
             const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
             await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
+
+            // Apply stat boost for 3 turns
+            const boostDuration = blessing.stat_boost_duration || 3;
+            const boostPercent = blessing.stat_boost_percent || 6.0;
+            await db.execute(
+                `INSERT INTO active_buffs (player_id, buff_type, stat_boost_percent, duration, source)
+                 VALUES (?, 'phantom_shift', ?, ?, 'clan_blessing')
+                 ON DUPLICATE KEY UPDATE stat_boost_percent = ?, duration = GREATEST(duration, ?)`,
+                [playerId, boostPercent, boostDuration, boostPercent, boostDuration]
+            );
+
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
             blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
 ┃◆ Death reached for ${player.nickname}.
 ┃◆ The bloodline refused.
 ┃◆ 
 ┃◆ You survived with ${healAmt} HP.
+┃◆ ALL stats boosted by ${Math.floor(boostPercent * 100)}% for ${boostDuration} turns!
 ┃◆ The attacker feels the recoil.
 ╚═══════════════════════════╝`;
         }
@@ -509,7 +522,6 @@ module.exports = {
                         // Undo death
                         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                        try { await demoteRaider(client, userId); } catch(e2) {}
                     }
                 } catch(e) { console.error('Phantom shift error:', e.message); }
 

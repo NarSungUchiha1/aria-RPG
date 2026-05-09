@@ -51,8 +51,8 @@ module.exports = {
             // Consume materials
             await consumeMaterials(userId, recipe.materials);
 
-            const gradeMap = { common: 'C', uncommon: 'U', rare: 'R', legendary: 'S' };
-            const grade = gradeMap[recipe.rarity] || 'C';
+            const gradeMap = { common: 'P', uncommon: 'P', rare: 'P', legendary: 'P' };
+            const grade = gradeMap[recipe.rarity] || 'P';
             const durability = recipe.durability || 100;
 
             await db.execute(

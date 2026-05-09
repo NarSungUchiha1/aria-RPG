@@ -132,7 +132,7 @@ async function updateQuestProgress(playerId, objectiveType, amount = 1, client =
 }
 
 // ── CLAIM QUEST REWARDS ──────────────────────────────────────────────────────
-async function claimQuestRewards(playerId, questId) {
+async function claimQuestRewards(playerId, questId, client) {
     const [pq] = await db.execute(
         "SELECT * FROM player_quests WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0",
         [playerId, questId]

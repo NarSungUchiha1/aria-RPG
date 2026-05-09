@@ -67,10 +67,12 @@ const CLAN_BLESSINGS = {
         name: "Phantom Shift",
         emoji: '👻',
         condition: 'When you would die from a hit',
-        effect: 'Survive with 1 HP, instantly heal to 60% max HP and deal 600% damage to the attacker.',
+        effect: 'Survive with 1 HP, instantly heal to 60% max HP, boost ALL stats by 600% for 3 turns, and deal 600% damage to the attacker.',
         trigger: 'on_death',
         multiplier: 6.0,
-        heal_percent: 0.6
+        heal_percent: 0.6,
+        stat_boost_percent: 6.0,
+        stat_boost_duration: 3
     },
     7: {
         name: "Heaven's Fall",
