@@ -2,7 +2,7 @@ const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
-const { increasePlayerFatigue } = require('./fatigueSystem');
+const { increasePlayerFatigue, getFatigueMultiplier } = require('./fatigueSystem');
 const { getPlayerClan, CLAN_BLESSINGS } = require('./clanSystem');
 
 // ── Duel State ────────────────────────────────────────────────────────────────
@@ -574,7 +574,7 @@ async function handlePvPSkill(attackerId, move, targetId) {
         const newDefenderHp = Math.max(0, defenderHp - damage);
         data.hp[targetId] = newDefenderHp;
 
-        const fatigueGain = Math.max(2, Math.ceil(damage / 15));
+        const fatigueGain = Math.max(1, Math.ceil(damage / 20));
         await increasePlayerFatigue(attackerId, fatigueGain, attacker);
 
         if (newDefenderHp <= 0) {
@@ -706,12 +706,16 @@ async function handlePvPAttack(attackerId) {
 
     const baseDmg  = Number(attacker.strength) + Math.floor(weaponBonus * 0.5);
     const defence  = Number(defender.stamina) || 0;
-    const damage   = Math.max(1, Math.floor(baseDmg - defence / 2));
+    const fatigueMultiplier = getFatigueMultiplier(attacker);
+    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier));
     const round    = data.round;
 
     const attackerHp = data.hp[attackerId];
     const newDefHp   = Math.max(0, data.hp[targetId] - damage);
     data.hp[targetId] = newDefHp;
+
+    const fatigueGain = Math.max(1, Math.ceil(damage / 20));
+    await increasePlayerFatigue(attackerId, fatigueGain, attacker);
 
     const nextTurnAfterMove = async () => {
         const nextTurn = findNextAlivePlayer(duel.duelKey, attackerId);
