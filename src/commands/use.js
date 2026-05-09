@@ -182,7 +182,7 @@ const CONSUMABLES = {
     },
 };
 
-const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic']);
+const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic', 'Fatigue Potion']);
 
 module.exports = {
     name: 'use',
