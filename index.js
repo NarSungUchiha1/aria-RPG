@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const db = require('./src/database/db');
+const { restockPrestigeShop } = require('./src/systems/prestigeShop');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -716,6 +717,16 @@ cron.schedule('0 0 * * *', async () => {
         await restockAllItems();
     } catch (err) {
         console.error('Shop restock failed:', err);
+    }
+});
+
+// ==================== PRESTIGE SHOP RESTOCK ====================
+cron.schedule('0 0 * * *', async () => {
+    console.log('💎 Restocking prestige shop...');
+    try {
+        await restockPrestigeShop();
+    } catch (err) {
+        console.error('Prestige shop restock failed:', err);
     }
 });
 
