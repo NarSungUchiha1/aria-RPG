@@ -488,5 +488,94 @@ module.exports = {
         { name: 'Grace of Malachar', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 2, cost: 40 },
         { name: "Healer's Last Stand",type: 'heal',  stat: 'intelligence', multiplier: 22.7, aoe: true,   cooldown: 4, cost: 48 },
         { name: 'Infinite Mercy',    type: 'heal',   stat: 'intelligence', multiplier: 38.0, cleanse: true, aoe: true, cooldown: 6, cost: 55 }
+    ],
+
+    // ══════════════════════════════════════════════════════════
+    //  PRESTIGE FORGED WEAPONS
+    // ══════════════════════════════════════════════════════════
+
+    // ── BERSERKER PRESTIGE FORGED ──────────────────────────────
+    'Void Ravager': [
+        { name: 'Void Ravage',       type: 'damage', stat: 'strength', multiplier: 1.8, cooldown: 2, cost: 20 },
+        { name: 'Rend Reality',      type: 'damage', stat: 'strength', multiplier: 3.2, def_reduction: 25, cooldown: 4, cost: 25 },
+        { name: 'Void Rampage',      type: 'damage', stat: 'strength', multiplier: 5.5, aoe: true,  cooldown: 6, cost: 32 }
+    ],
+    'Fracture Titan Blade': [
+        { name: 'Titan Cleave',      type: 'damage', stat: 'strength', multiplier: 3.5, cooldown: 3, cost: 28 },
+        { name: 'Fracture Slash',    type: 'damage', stat: 'strength', multiplier: 6.0, ignore_defense: 0.5, cooldown: 5, cost: 32 },
+        { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 11.0, stun: true, cooldown: 7, cost: 45 }
+    ],
+    'Malachars Replica': [
+        { name: 'Replica Strike',    type: 'damage', stat: 'strength', multiplier: 8.0, cooldown: 3, cost: 40 },
+        { name: 'Echoing Blow',      type: 'damage', stat: 'strength', multiplier: 15.0, def_reduction: 50, cooldown: 5, cost: 48 },
+        { name: 'The Replica War',   type: 'damage', stat: 'strength', multiplier: 28.0, aoe: true,  cooldown: 8, cost: 55 }
+    ],
+
+    // ── ASSASSIN PRESTIGE FORGED ──────────────────────────────
+    'Void Phantom Blade': [
+        { name: 'Phantom Slash',     type: 'damage', stat: 'agility', multiplier: 1.8, cooldown: 1, cost: 20 },
+        { name: 'Phase Rend',        type: 'damage', stat: 'agility', multiplier: 3.2, ignore_defense: 0.4, cooldown: 3, cost: 25 },
+        { name: 'Void Teleport',     type: 'damage', stat: 'agility', multiplier: 5.5, bleed: true, cooldown: 5, cost: 32 }
+    ],
+    'Fracture Reaper': [
+        { name: 'Reaper Strike',     type: 'damage', stat: 'agility', multiplier: 3.5, cooldown: 2, cost: 28 },
+        { name: 'Fracture Sever',    type: 'damage', stat: 'agility', multiplier: 6.2, ignore_defense: 0.6, cooldown: 4, cost: 32 },
+        { name: 'Void Harvest',      type: 'damage', stat: 'agility', multiplier: 11.5, cooldown: 6, cost: 45 }
+    ],
+    'Malachars Shadow Replica': [
+        { name: 'Shadow Strike',     type: 'damage', stat: 'agility', multiplier: 8.0, cooldown: 1, cost: 40 },
+        { name: 'Void Echo',         type: 'damage', stat: 'agility', multiplier: 15.5, bleed: true, cooldown: 3, cost: 48 },
+        { name: 'The Replica Shadow',type: 'damage', stat: 'agility', multiplier: 29.0, ignore_defense: 0.8, cooldown: 6, cost: 55 }
+    ],
+
+    // ── MAGE PRESTIGE FORGED ────────────────────────────────────
+    'Void Grimoire': [
+        { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 2, cost: 20 },
+        { name: 'Arcane Tear',       type: 'damage', stat: 'intelligence', multiplier: 3.2, aoe: true,   cooldown: 4, cost: 25 },
+        { name: 'Void Page',         type: 'damage', stat: 'intelligence', multiplier: 5.5, ignore_defense: 0.3, cooldown: 6, cost: 32 }
+    ],
+    'Fracture Codex Supreme': [
+        { name: 'Supreme Spell',     type: 'damage', stat: 'intelligence', multiplier: 3.5, cooldown: 3, cost: 28 },
+        { name: 'Fracture Verse',    type: 'damage', stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 5, cost: 32 },
+        { name: 'Ultimate Codex',    type: 'damage', stat: 'intelligence', multiplier: 11.0, cooldown: 7, cost: 45 }
+    ],
+    'Malachars Gospel Replica': [
+        { name: 'Gospel Incant',     type: 'damage', stat: 'intelligence', multiplier: 8.0, cooldown: 3, cost: 40 },
+        { name: 'Void Sermon',       type: 'damage', stat: 'intelligence', multiplier: 15.0, aoe: true,   cooldown: 5, cost: 48 },
+        { name: 'The Replica Gospel',type: 'damage', stat: 'intelligence', multiplier: 27.5, ignore_defense: 0.7, cooldown: 8, cost: 55 }
+    ],
+
+    // ── TANK PRESTIGE FORGED ────────────────────────────────────
+    'Void Aegis': [
+        { name: 'Void Guard',        type: 'buff',   effect: 'defense_up', value: 70, duration: 3, cooldown: 4, cost: 20 },
+        { name: 'Void Bash',         type: 'damage', stat: 'stamina', multiplier: 1.8, stun: true, cooldown: 3, cost: 22 },
+        { name: 'Void Wall',         type: 'shield', value: 700,                        cooldown: 5, cost: 28 }
+    ],
+    'Fracture Fortress Shield': [
+        { name: 'Fortress Strike',   type: 'damage', stat: 'stamina', multiplier: 3.5, stun: true, cooldown: 4, cost: 28 },
+        { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 120, duration: 3, cooldown: 5, cost: 30 },
+        { name: 'Fortress Collapse', type: 'shield', value: 1500,                      cooldown: 6, cost: 38 }
+    ],
+    'Void Colossus Gauntlet': [
+        { name: 'Colossus Punch',    type: 'damage', stat: 'strength', multiplier: 7.5, stun: true, cooldown: 4, cost: 40 },
+        { name: 'Void Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 5, cost: 35 },
+        { name: 'Colossus Slam',     type: 'shield', value: 3000, aoe: true,           cooldown: 7, cost: 48 }
+    ],
+
+    // ── HEALER PRESTIGE FORGED ──────────────────────────────────
+    'Void Sanctuary Staff': [
+        { name: 'Sanctuary Heal',    type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 2, cost: 20 },
+        { name: 'Void Light',        type: 'heal',   stat: 'intelligence', multiplier: 3.5, cleanse: true, cooldown: 4, cost: 25 },
+        { name: 'Void Sanctuary',    type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 6, cost: 32 }
+    ],
+    'Fracture Life Chalice': [
+        { name: 'Life Sip',          type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 2, cost: 28 },
+        { name: 'Fracture Mend',     type: 'heal',   stat: 'intelligence', multiplier: 6.5, cleanse: true, cooldown: 4, cost: 32 },
+        { name: 'Chalice Overflow',  type: 'heal',   stat: 'intelligence', multiplier: 12.0, aoe: true,   cooldown: 6, cost: 45 }
+    ],
+    'Malachars Grace Replica': [
+        { name: 'Replica Grace',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, cooldown: 2, cost: 40 },
+        { name: 'Echo of Grace',     type: 'heal',   stat: 'intelligence', multiplier: 15.0, cleanse: true, aoe: true, cooldown: 4, cost: 48 },
+        { name: 'The Replica Grace', type: 'heal',   stat: 'intelligence', multiplier: 26.0, aoe: true,   cooldown: 6, cost: 55 }
     ]
 };
