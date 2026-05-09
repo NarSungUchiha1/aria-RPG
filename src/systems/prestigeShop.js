@@ -102,7 +102,7 @@ const PRESTIGE_ITEMS = {
           desc: 'Carries the light of a world that no longer exists. Still warm.' },
         { name: "Malachar's Grace",  price: 3000000,  minPrestige: 2, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
           desc: 'Malachar had healers. This belonged to the last one.' },
-        { name: 'Void Manalisk',       price: 180000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
+        { name: 'Void Manalisk',       price: 18000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
           desc: 'A staff that channels void energy to restore mana. It hums with power.' }
     ]
 };
