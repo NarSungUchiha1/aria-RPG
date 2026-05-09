@@ -8,9 +8,12 @@ async function ensureTable() {
             target_id     VARCHAR(50) NOT NULL,
             bet_amount    INT DEFAULT 0,
             status        ENUM('pending','accepted','declined') DEFAULT 'pending',
+            team_key      VARCHAR(64) DEFAULT NULL,
             created_at    DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
+
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS team_key VARCHAR(64) DEFAULT NULL`).catch(() => {});
 }
 
 module.exports = {
@@ -22,42 +25,39 @@ module.exports = {
             `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Use: !duel @user [bet]\n╰═══════════════════════╯`
         );
 
-        const targetId = msg.mentionedIds[0].replace(/@c\.us/g, "").split("@")[0];
-
-        if (targetId === userId) return msg.reply(
+        const targetIds = [...new Set(msg.mentionedIds.map(id => id.replace(/@c\.us/g, "").split("@")[0]).filter(id => id !== userId))];
+        if (!targetIds.length) return msg.reply(
             `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You cannot duel yourself.\n╰═══════════════════════╯`
+        );
+
+        const betArg = args.find(a => !a.startsWith('@') && !isNaN(parseInt(a)));
+        let betAmount = 0;
+        if (betArg) betAmount = Math.max(0, parseInt(betArg));
+        if (betAmount > 0 && targetIds.length > 1) return msg.reply(
+            `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Party duels cannot include bets yet.\n╰═══════════════════════╯`
         );
 
         try {
             const [challenger] = await db.execute(
                 "SELECT nickname, `rank`, role, strength, agility, intelligence, stamina, hp FROM players WHERE id=?", [userId]
             );
-            const [target] = await db.execute(
-                "SELECT nickname, `rank`, role, strength, agility, intelligence, stamina, hp FROM players WHERE id=?", [targetId]
-            );
-
             if (!challenger.length) return msg.reply(
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are not registered.\n╰═══════════════════════╯`
             );
-            if (!target.length) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ That player is not registered.\n╰═══════════════════════╯`
-            );
-
             const c = challenger[0];
-            const t = target[0];
 
-            if (c.hp <= 0) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are dead. Use !respawn first.\n╰═══════════════════════╯`
+            const [targets] = await db.execute(
+                `SELECT id, nickname, \`rank\`, role, strength, agility, intelligence, stamina, hp
+                 FROM players WHERE id IN (${targetIds.map(() => '?').join(',')})`,
+                targetIds
             );
-            if (t.hp <= 0) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${t.nickname}* is dead and cannot duel.\n╰═══════════════════════╯`
+            if (targets.length !== targetIds.length) return msg.reply(
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ One or more mentioned players are not registered.\n╰═══════════════════════╯`
             );
 
-            const [inDungeonT] = await db.execute(
-                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1", [targetId]
-            );
-            if (inDungeonT.length) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${t.nickname}* is inside a dungeon.\n╰═══════════════════════╯`
+            const invalidTarget = targets.find(t => t.hp <= 0);
+            if (invalidTarget) return msg.reply(
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${invalidTarget.nickname}* is dead and cannot duel.\n╰═══════════════════════╯`
             );
 
             const [inDungeonC] = await db.execute(
@@ -67,59 +67,55 @@ module.exports = {
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are inside a dungeon.\n╰═══════════════════════╯`
             );
 
-            // Parse bet
-            let betAmount = 0;
-            const betArg = args.find(a => !a.startsWith('@') && !isNaN(parseInt(a)));
-            if (betArg) betAmount = Math.max(0, parseInt(betArg));
+            const [inDungeonTargets] = await db.execute(
+                `SELECT player_id FROM dungeon_players WHERE player_id IN (${targetIds.map(() => '?').join(',')}) AND is_alive=1`,
+                targetIds
+            );
+            if (inDungeonTargets.length && inDungeonTargets[0].length) return msg.reply(
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ One or more targets are inside a dungeon.\n╰═══════════════════════╯`
+            );
 
-            if (betAmount > 0) {
-                const [cGold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
-                const [tGold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [targetId]);
-                if (!cGold.length || cGold[0].gold < betAmount) return msg.reply(
-                    `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You don't have ${betAmount} Gold.\n╰═══════════════════════╯`
-                );
-                if (!tGold.length || tGold[0].gold < betAmount) return msg.reply(
-                    `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${t.nickname}* doesn't have ${betAmount} Gold.\n╰═══════════════════════╯`
-                );
-            }
-
-            // Check no existing pending challenge
             const [existing] = await db.execute(
-                "SELECT id FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending'",
-                [userId, targetId]
+                `SELECT id FROM pvp_challenges WHERE challenger_id=? AND target_id IN (${targetIds.map(() => '?').join(',')}) AND status='pending'`,
+                [userId, ...targetIds]
             );
             if (existing.length) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You already challenged *${t.nickname}*.\n╰═══════════════════════╯`
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You already have a pending challenge to one of those players.\n╰═══════════════════════╯`
             );
 
+            const teamKey = `${userId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            const placeholders = targetIds.map(() => '(?, ?, ?, ?)').join(',');
+            const params = [];
+            targetIds.forEach(id => params.push(userId, id, betAmount, teamKey));
+
             await db.execute(
-                "INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount) VALUES (?, ?, ?)",
-                [userId, targetId, betAmount]
+                `INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount, team_key) VALUES ${placeholders}`,
+                params
             );
 
             const betLine = betAmount > 0
                 ? `┃◆ 💰 Bet: ${betAmount} Gold each  •  Pot: ${betAmount * 2} Gold\n`
                 : `┃◆ 💰 No bet — honour duel\n`;
 
+            const targetLines = targets.map(t =>
+                `┃◆ • ${t.nickname} [${t.rank}] • ${t.role} • STR:${t.strength} AGI:${t.agility} INT:${t.intelligence} STA:${t.stamina}\n`
+            ).join('');
+
             return msg.reply(
                 `╭══〘 ⚔️ DUEL CHALLENGE 〙══╮\n` +
                 `┃◆ \n` +
-                `┃◆ *${c.nickname}* [${c.rank}] challenges\n` +
-                `┃◆ *${t.nickname}* [${t.rank}] to a duel!\n` +
+                `┃◆ *${c.nickname}* [${c.rank}] challenges:\n` +
+                `${targetLines}` +
                 `┃◆ \n` +
                 `┃◆ ── *${c.nickname}* ──\n` +
                 `┃◆ 🎭 ${c.role}\n` +
                 `┃◆ 💪 ${c.strength}  ⚡ ${c.agility}  🧠 ${c.intelligence}  🛡️ ${c.stamina}\n` +
                 `┃◆ \n` +
-                `┃◆ ── *${t.nickname}* ──\n` +
-                `┃◆ 🎭 ${t.role}\n` +
-                `┃◆ 💪 ${t.strength}  ⚡ ${t.agility}  🧠 ${t.intelligence}  🛡️ ${t.stamina}\n` +
-                `┃◆ \n` +
                 `${betLine}` +
                 `┃◆ ━━━━━━━━━━━━\n` +
-                `┃◆ ⚔️ Both fight at 700 HP\n` +
+                `┃◆ ⚔️ Team duel awaits acceptance.\n` +
                 `┃◆ \n` +
-                `┃◆ *${t.nickname}* — respond:\n` +
+                `┃◆ Targets — respond:\n` +
                 `┃◆ ✅ !accept @${c.nickname}\n` +
                 `┃◆ ❌ !decline @${c.nickname}\n` +
                 `┃◆ ⏳ Expires in 5 minutes\n` +
