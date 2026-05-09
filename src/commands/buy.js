@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const getUserId = require('../utils/getUserId');
-const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank } = require('../systems/shopSystem');
+const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank, isItemAllowedForRank } = require('../systems/shopSystem');
 const itemStats = require('../data/itemStats');
 
 const CONSUMABLES = new Set([
@@ -36,6 +36,9 @@ module.exports = {
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
             if (gold < item.price) return msg.reply("❌ Not enough gold.");
+            if (!isItemAllowedForRank(item.name, player[0].rank)) {
+                return msg.reply(`❌ Your rank is too low to buy ${item.name}.`);
+            }
 
             const [stockRow] = await db.execute("SELECT stock FROM shop_stock WHERE item_name = ?", [item.name]);
             if (!stockRow.length || stockRow[0].stock <= 0) {

@@ -29,7 +29,11 @@ function getBuffModifiers(targetType, targetId) {
     for (const buff of buffs) {
         if (buff.type === 'buff' || buff.type === 'debuff') {
             const stat = buff.stat;
-            if (mods[stat] !== undefined) {
+            if (stat === 'all') {
+                for (const key of Object.keys(mods)) {
+                    if (key !== 'shield') mods[key] += buff.value;
+                }
+            } else if (mods[stat] !== undefined) {
                 mods[stat] += buff.value;
             }
         } else if (buff.type === 'shield') {

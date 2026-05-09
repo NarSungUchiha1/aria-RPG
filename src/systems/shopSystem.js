@@ -302,5 +302,6 @@ module.exports = {
     getRestockTimeRemaining,
     getMaxStockForItem,
     clearShopCacheForRoleRank,
+    isItemAllowedForRank,
     getSpecialItemForRank
 };

@@ -159,12 +159,19 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             // Apply stat boost for 3 turns
             const boostDuration = blessing.stat_boost_duration || 3;
             const boostPercent = blessing.stat_boost_percent || 6.0;
-            await db.execute(
-                `INSERT INTO active_buffs (player_id, buff_type, stat_boost_percent, duration, source)
-                 VALUES (?, 'phantom_shift', ?, ?, 'clan_blessing')
-                 ON DUPLICATE KEY UPDATE stat_boost_percent = ?, duration = GREATEST(duration, ?)`,
-                [playerId, boostPercent, boostDuration, boostPercent, boostDuration]
-            );
+            const boostValue = Math.floor(boostPercent * 100);
+            applyBuff('player', playerId, {
+                type: 'buff',
+                stat: 'all',
+                value: boostValue,
+                duration: boostDuration,
+                source: 'clan_blessing'
+            });
+
+            if (extraData.attacker && extraData.attacker.id) {
+                const counterDamage = Math.max(1, Math.floor((player.strength || 100) * (blessing.multiplier || 6.0)));
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [counterDamage, extraData.attacker.id]);
+            }
 
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
             blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
@@ -172,7 +179,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃◆ The bloodline refused.
 ┃◆ 
 ┃◆ You survived with ${healAmt} HP.
-┃◆ ALL stats boosted by ${Math.floor(boostPercent * 100)}% for ${boostDuration} turns!
+┃◆ ALL stats boosted by ${boostValue}% for ${boostDuration} turns!
 ┃◆ The attacker feels the recoil.
 ╚═══════════════════════════╝`;
         }
@@ -509,11 +516,13 @@ module.exports = {
             if (result.playerDied) {
                 let phantomResult = null;
                 try {
-                    phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg, client);
+                    phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg, client, { attacker: targetEnemy });
                     if (phantomResult) {
                         const reviveHp = Math.max(1, Math.floor(player.max_hp * 0.6));
-                        await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                        reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;
+                        await db.execute('UPDATE dungeon_players SET is_alive=1, hp=? WHERE player_id=? AND dungeon_id=?', [reviveHp, userId, dungeon.id]);
+                        player.hp = reviveHp;
+                        const reviveNarrative = narrate('revive', { player: player.nickname });
+                        reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${reviveNarrative}\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;
                     }
                 } catch(e) {
                     console.error('Phantom shift error:', e.message);
