@@ -2,6 +2,7 @@ const db = require('../database/db');
 const { hasClaimedStarter, claimStarterPack } = require('../systems/prestigeStarterPack');
 const { getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
 const { getPrestigeBadge } = require('../systems/prestigeSystem');
+const { formatFatigueBar } = require('../systems/fatigueSystem');
 
 module.exports = {
     name: 'me',
@@ -11,7 +12,8 @@ module.exports = {
                 `SELECT p.nickname, p.role, p.\`rank\`, p.title, p.hp, p.max_hp,
                         p.strength, p.agility, p.intelligence, p.stamina,
                         p.awakened, p.sp, p.mana, p.max_mana,
-                        COALESCE(p.prestige_level, 0) as prestige_level
+                        COALESCE(p.prestige_level, 0) as prestige_level,
+                        COALESCE(p.fatigue, 0) as fatigue
                  FROM players p WHERE p.id = ?`,
                 [userId]
             );
@@ -33,6 +35,11 @@ module.exports = {
             const xp = xpRow[0]?.xp || 0;
 
             const prestigeLvl = p.prestige_level || 0;
+            const fatigue = Number(p.fatigue) || 0;
+            const fatigueBar = formatFatigueBar(fatigue);
+            const fatigueLine = prestigeLvl > 0
+                ? `\n┃★ 🔵 Fatigue: ${fatigueBar} ${fatigue}%`
+                : `\n┃◆ 🔵 Fatigue: ${fatigueBar} ${fatigue}%`;
 
             // ── PRESTIGE STARTER PACK ────────────────────────────────────────
             if (prestigeLvl > 0) {
@@ -108,6 +115,7 @@ module.exports = {
                     `┃★────────────\n` +
                     `┃★ ❤️ HP: ${p.hp}/${p.max_hp}` +
                     manaLineP +
+                    fatigueLine +
                     `\n┃★ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃★ ✨ SP: ${p.sp || 0}\n` +
                     `┃★────────────\n` +
@@ -130,6 +138,7 @@ module.exports = {
                     `┃◆────────────\n` +
                     `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}` +
                     manaLine +
+                    fatigueLine +
                     `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃◆ ✨ SP: ${p.sp || 0}\n` +
                     `┃◆ 💰 Gold: ${gold}\n` +

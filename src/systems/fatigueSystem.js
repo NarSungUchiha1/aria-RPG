@@ -1,0 +1,49 @@
+const db = require('../database/db');
+
+const FATIGUE_MAX = 100;
+const FATIGUE_MIN_MULTIPLIER = 0.5;
+const FATIGUE_PER_POINT = 0.005;
+
+function clampFatigue(value = 0) {
+    return Math.max(0, Math.min(FATIGUE_MAX, Number(value) || 0));
+}
+
+function getFatigueMultiplier(player = {}) {
+    const fatigue = clampFatigue(player.fatigue);
+    return Math.max(FATIGUE_MIN_MULTIPLIER, 1 - fatigue * FATIGUE_PER_POINT);
+}
+
+function formatFatigueBar(fatigue = 0) {
+    const value = clampFatigue(fatigue);
+    const bars = 10;
+    const filled = Math.round((value / FATIGUE_MAX) * bars);
+    const empty = bars - filled;
+    return '🟦'.repeat(filled) + '▫️'.repeat(empty);
+}
+
+async function increasePlayerFatigue(playerId, amount = 1) {
+    const points = Math.max(0, Number(amount) || 0);
+    if (!playerId || points === 0) return;
+    await db.execute(
+        "UPDATE players SET fatigue = LEAST(100, GREATEST(0, COALESCE(fatigue, 0) + ?)) WHERE id=?",
+        [points, playerId]
+    );
+}
+
+async function ensureFatigueColumn() {
+    try {
+        await db.execute("ALTER TABLE players ADD COLUMN fatigue INT DEFAULT 0");
+    } catch (e) {
+        // Ignore if column already exists or table is managed externally.
+    }
+}
+
+module.exports = {
+    FATIGUE_MAX,
+    FATIGUE_MIN_MULTIPLIER,
+    clampFatigue,
+    getFatigueMultiplier,
+    formatFatigueBar,
+    increasePlayerFatigue,
+    ensureFatigueColumn
+};

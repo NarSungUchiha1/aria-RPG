@@ -13,6 +13,7 @@ const prestigeRoleMoves = require('../data/prestigeRoleMoves');
 const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
+const { getFatigueMultiplier } = require('./fatigueSystem');
 
 const cooldowns = new Map();
 
@@ -102,7 +103,9 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     const multiplier = move.multiplier || 1;
 
     let damage = Math.floor(Math.max(1, totalAttack) * multiplier) - damageReduction;
-    return Math.max(1, damage);
+    damage = Math.max(1, damage);
+    const fatigueMultiplier = getFatigueMultiplier(player);
+    return Math.max(1, Math.floor(damage * fatigueMultiplier));
 }
 
 function calculateHeal(player, move) {

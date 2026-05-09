@@ -2,6 +2,7 @@ const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
+const { increasePlayerFatigue } = require('./fatigueSystem');
 
 // ── Duel State ────────────────────────────────────────────────────────────────
 // activeDuels: playerId -> { opponentId, turn, chat, duelKey }
@@ -303,6 +304,7 @@ async function handlePvPSkill(attackerId, move, targetId) {
         const newDefenderHp = Math.max(0, defenderHp - damage);
         data.hp[opponentId] = newDefenderHp;
 
+        await increasePlayerFatigue(attackerId, 6);
         if (newDefenderHp <= 0) {
             return await handleVictory(attackerId, opponentId, chat, data,
                 attacker.nickname, defender.nickname, attackerHp);

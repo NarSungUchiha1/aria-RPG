@@ -352,6 +352,7 @@ async function startBot() {
                         locked_at  DATETIME DEFAULT NOW()
                     )
                 `).catch(() => {});
+                await db.execute("ALTER TABLE players ADD COLUMN fatigue INT DEFAULT 0").catch(() => {});
                 // Clear any stale lock from previous crash
                 await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
 

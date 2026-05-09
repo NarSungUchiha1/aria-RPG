@@ -1,6 +1,7 @@
 const db = require('../database/db');
 const enemiesData = require('../data/enemies');
 const { calculateMoveDamage } = require('../systems/skillSystem');
+const { getFatigueMultiplier, increasePlayerFatigue } = require('../systems/fatigueSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
@@ -476,7 +477,9 @@ function calculatePlayerDamage(player, enemy, weaponBonus = 0) {
     const enemyDef   = Number(enemy.def) || 0;
     const reduction  = Math.min(0.5, enemyDef / 100);
     const baseAttack = (Number(player.strength) || 0) + Math.floor((Number(weaponBonus) || 0) * 0.5);
-    return Math.max(1, Math.floor(baseAttack * (1 - reduction)));
+    const rawDamage = Math.max(1, Math.floor(baseAttack * (1 - reduction)));
+    const fatigueMultiplier = getFatigueMultiplier(player);
+    return Math.max(1, Math.floor(rawDamage * fatigueMultiplier));
 }
 
 function calculateEnemyRetaliation(enemy, player) {
@@ -592,6 +595,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
+    await increasePlayerFatigue(playerId, 4);
     tickBuffs('player', playerId);
 
     return {
@@ -664,6 +668,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
+    await increasePlayerFatigue(playerId, 6);
     tickBuffs('player', playerId);
 
     return {
