@@ -40,7 +40,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         // One-use blessings per dungeon
-        if (['hp_below_30','on_death','final_stage','all_allies_below_50'].includes(trigger) && state.blessing_used) return null;
+        if (['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move'].includes(trigger) && state.blessing_used) return null;
 
         let blessingMsg = '';
 
@@ -339,7 +339,7 @@ module.exports = {
             if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
             // Abyssal Hunger — fires on the TARGET when healed
             if (dungeon && targetPlayer.id !== userId) {
-                triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, { healAmount: heal }).catch(() => {});
+                triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, null, { healAmount: heal }).catch(() => {});
             }
 
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
@@ -411,17 +411,21 @@ module.exports = {
                 if (result.enemyHp > 0 && result.enemyMaxHp > 0) {
                     const pct = result.enemyHp / result.enemyMaxHp;
                     if (pct <= 0.25) {
-                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
+                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, null, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
                     }
                 }
                 // on_kill
                 if (result.defeated || result.enemyDefeated) {
                     await triggerBlessingIfReady('on_kill', userId, dungeon.id, player, dungeon, msg);
                 }
-                // stage_first_move
+                // stage_first_move — must check BEFORE incrementing skill_count
                 const state = await getPlayerBlessingState(userId, dungeon.id).catch(() => null);
                 if (state && state.skill_count === 0) {
                     await triggerBlessingIfReady('stage_first_move', userId, dungeon.id, player, dungeon, msg);
+                }
+                // Increment skill_count for all damage moves (used by every_5_skills and stage_first_move)
+                if (state) {
+                    await updateBlessingState(userId, dungeon.id, { skill_count: (state.skill_count || 0) + 1 }).catch(() => {});
                 }
                 // final_stage
                 if (dungeon.stage === dungeon.max_stage) {
@@ -519,7 +523,8 @@ module.exports = {
                     phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg, client, { attacker: targetEnemy });
                     if (phantomResult) {
                         const reviveHp = Math.max(1, Math.floor(player.max_hp * 0.6));
-                        await db.execute('UPDATE dungeon_players SET is_alive=1, hp=? WHERE player_id=? AND dungeon_id=?', [reviveHp, userId, dungeon.id]);
+                        // dungeon_players has no hp column — HP is tracked in players table (set inside triggerBlessingIfReady)
+                        await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
                         player.hp = reviveHp;
                         const reviveNarrative = narrate('revive', { player: player.nickname });
                         reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${reviveNarrative}\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;

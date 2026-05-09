@@ -1,5 +1,7 @@
 const db = require('../database/db');
 
+const PARTY_MAX = 5; // max members per side in party duels
+
 async function ensureTable() {
     await db.execute(`
         CREATE TABLE IF NOT EXISTS pvp_challenges (
@@ -9,11 +11,13 @@ async function ensureTable() {
             bet_amount    INT DEFAULT 0,
             status        ENUM('pending','accepted','declined') DEFAULT 'pending',
             team_key      VARCHAR(64) DEFAULT NULL,
+            duel_mode     ENUM('solo','party') DEFAULT 'solo',
             created_at    DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
 
-    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS team_key VARCHAR(64) DEFAULT NULL`).catch(() => {});
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS team_key  VARCHAR(64)            DEFAULT NULL`).catch(() => {});
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS duel_mode ENUM('solo','party')  DEFAULT 'solo'`).catch(() => {});
 }
 
 module.exports = {
@@ -21,30 +25,76 @@ module.exports = {
     async execute(msg, args, { userId, client }) {
         await ensureTable();
 
+        // ── Mode detection ─────────────────────────────────────────────────
+        // !duel @user [bet]           → solo
+        // !duel solo @user [bet]      → solo
+        // !duel party @a @b @c [bet]  → party (max 5 enemy targets)
+        const firstArg = args[0]?.toLowerCase();
+        let mode = 'solo';
+        let effectiveArgs = args;
+        if (firstArg === 'solo') {
+            mode = 'solo';
+            effectiveArgs = args.slice(1);
+        } else if (firstArg === 'party') {
+            mode = 'party';
+            effectiveArgs = args.slice(1);
+        }
+
         if (!msg.mentionedIds.length) return msg.reply(
-            `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Use: !duel @user [bet]\n╰═══════════════════════╯`
+            `══〘 ⚔️ DUEL 〙══╮\n` +
+            `┃◆ ❌ Mention who you want to duel.\n` +
+            `┃◆ \n` +
+            `┃◆ *Solo:*  !duel @player [bet]\n` +
+            `┃◆ *Party:* !duel party @a @b @c\n` +
+            `┃◆          Max ${PARTY_MAX} players per side.\n` +
+            `╰═══════════════════════╯`
         );
 
-        const targetIds = [...new Set(msg.mentionedIds.map(id => id.replace(/@c\.us/g, "").split("@")[0]).filter(id => id !== userId))];
+        const targetIds = [...new Set(
+            msg.mentionedIds
+                .map(id => id.replace(/@c\.us/g, '').split('@')[0])
+                .filter(id => id !== userId)
+        )];
+
         if (!targetIds.length) return msg.reply(
             `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You cannot duel yourself.\n╰═══════════════════════╯`
         );
 
-        const betArg = args.find(a => !a.startsWith('@') && !isNaN(parseInt(a)));
+        // Solo: exactly 1 target
+        if (mode === 'solo' && targetIds.length > 1) return msg.reply(
+            `══〘 ⚔️ DUEL 〙══╮\n` +
+            `┃◆ ❌ Solo duels: one opponent only.\n` +
+            `┃◆ For multiple opponents use: !duel party @a @b\n` +
+            `╰═══════════════════════╯`
+        );
+
+        // Party: max PARTY_MAX targets (challenger is on their own team so max side = PARTY_MAX)
+        if (mode === 'party' && targetIds.length > PARTY_MAX) return msg.reply(
+            `══〘 ⚔️ DUEL 〙══╮\n` +
+            `┃◆ ❌ Party max is ${PARTY_MAX} players per side.\n` +
+            `┃◆ You tagged ${targetIds.length} — remove ${targetIds.length - PARTY_MAX}.\n` +
+            `╰═══════════════════════╯`
+        );
+
+        const betArg = effectiveArgs.find(a => !a.startsWith('@') && !isNaN(parseInt(a)));
         let betAmount = 0;
         if (betArg) betAmount = Math.max(0, parseInt(betArg));
-        if (betAmount > 0 && targetIds.length > 1) return msg.reply(
-            `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Party duels cannot include bets yet.\n╰═══════════════════════╯`
+        if (betAmount > 0 && mode === 'party') return msg.reply(
+            `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Bets are only allowed in solo duels.\n╰═══════════════════════╯`
         );
 
         try {
             const [challenger] = await db.execute(
-                "SELECT nickname, `rank`, role, strength, agility, intelligence, stamina, hp FROM players WHERE id=?", [userId]
+                "SELECT nickname, `rank`, role, strength, agility, intelligence, stamina, hp FROM players WHERE id=?",
+                [userId]
             );
             if (!challenger.length) return msg.reply(
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are not registered.\n╰═══════════════════════╯`
             );
             const c = challenger[0];
+            if (c.hp <= 0) return msg.reply(
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are dead. Use !respawn first.\n╰═══════════════════════╯`
+            );
 
             const [targets] = await db.execute(
                 `SELECT id, nickname, \`rank\`, role, strength, agility, intelligence, stamina, hp
@@ -55,26 +105,29 @@ module.exports = {
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ One or more mentioned players are not registered.\n╰═══════════════════════╯`
             );
 
-            const invalidTarget = targets.find(t => t.hp <= 0);
-            if (invalidTarget) return msg.reply(
-                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${invalidTarget.nickname}* is dead and cannot duel.\n╰═══════════════════════╯`
+            const deadTarget = targets.find(t => t.hp <= 0);
+            if (deadTarget) return msg.reply(
+                `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ *${deadTarget.nickname}* is dead and cannot duel.\n╰═══════════════════════╯`
             );
 
+            // Dungeon check — challenger
             const [inDungeonC] = await db.execute(
-                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1", [userId]
+                "SELECT 1 FROM dungeon_players WHERE player_id=? AND is_alive=1 LIMIT 1", [userId]
             );
             if (inDungeonC.length) return msg.reply(
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You are inside a dungeon.\n╰═══════════════════════╯`
             );
 
+            // Dungeon check — targets (fixed: check rows.length not rows[0].length)
             const [inDungeonTargets] = await db.execute(
-                `SELECT player_id FROM dungeon_players WHERE player_id IN (${targetIds.map(() => '?').join(',')}) AND is_alive=1`,
+                `SELECT player_id FROM dungeon_players WHERE player_id IN (${targetIds.map(() => '?').join(',')}) AND is_alive=1 LIMIT 1`,
                 targetIds
             );
-            if (inDungeonTargets.length && inDungeonTargets[0].length) return msg.reply(
+            if (inDungeonTargets.length) return msg.reply(
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ One or more targets are inside a dungeon.\n╰═══════════════════════╯`
             );
 
+            // Pending challenge check
             const [existing] = await db.execute(
                 `SELECT id FROM pvp_challenges WHERE challenger_id=? AND target_id IN (${targetIds.map(() => '?').join(',')}) AND status='pending'`,
                 [userId, ...targetIds]
@@ -84,12 +137,12 @@ module.exports = {
             );
 
             const teamKey = `${userId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            const placeholders = targetIds.map(() => '(?, ?, ?, ?)').join(',');
+            const placeholders = targetIds.map(() => '(?, ?, ?, ?, ?)').join(',');
             const params = [];
-            targetIds.forEach(id => params.push(userId, id, betAmount, teamKey));
+            targetIds.forEach(id => params.push(userId, id, betAmount, teamKey, mode));
 
             await db.execute(
-                `INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount, team_key) VALUES ${placeholders}`,
+                `INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount, team_key, duel_mode) VALUES ${placeholders}`,
                 params
             );
 
@@ -101,8 +154,13 @@ module.exports = {
                 `┃◆ • ${t.nickname} [${t.rank}] • ${t.role} • STR:${t.strength} AGI:${t.agility} INT:${t.intelligence} STA:${t.stamina}\n`
             ).join('');
 
+            const modeLabel = mode === 'party' ? '⚔️ PARTY DUEL CHALLENGE' : '⚔️ DUEL CHALLENGE';
+            const modeNote  = mode === 'party'
+                ? `┃◆ ⚔️ ${targetIds.length}v1 party duel! Each target must accept.\n`
+                : `┃◆ ⚔️ 1v1 solo duel!\n`;
+
             return msg.reply(
-                `╭══〘 ⚔️ DUEL CHALLENGE 〙══╮\n` +
+                `╭══〘 ${modeLabel} 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ *${c.nickname}* [${c.rank}] challenges:\n` +
                 `${targetLines}` +
@@ -112,10 +170,9 @@ module.exports = {
                 `┃◆ 💪 ${c.strength}  ⚡ ${c.agility}  🧠 ${c.intelligence}  🛡️ ${c.stamina}\n` +
                 `┃◆ \n` +
                 `${betLine}` +
+                `${modeNote}` +
                 `┃◆ ━━━━━━━━━━━━\n` +
-                `┃◆ ⚔️ Team duel awaits acceptance.\n` +
-                `┃◆ \n` +
-                `┃◆ Targets — respond:\n` +
+                `┃◆ Respond:\n` +
                 `┃◆ ✅ !accept @${c.nickname}\n` +
                 `┃◆ ❌ !decline @${c.nickname}\n` +
                 `┃◆ ⏳ Expires in 5 minutes\n` +
@@ -123,7 +180,7 @@ module.exports = {
                 `╰═══════════════════════════╯`
             );
         } catch (err) {
-            console.error(err);
+            console.error('duel error:', err);
             msg.reply(`══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ Duel failed.\n╰═══════════════════════╯`);
         }
     }

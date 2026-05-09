@@ -94,8 +94,11 @@ module.exports = {
                 );
             }
 
-            const targetIds = teamRows.map(row => row.target_id);
-            const result = await startPvPDuel(challengerId, targetIds, betAmount, client, msg);
+            const duelMode = teamRows[0]?.duel_mode || 'solo';
+            // teamA = [challenger], teamB = all targets
+            const teamAIds = [challengerId];
+            const teamBIds = teamRows.map(row => row.target_id);
+            const result = await startPvPDuel(teamAIds, teamBIds, betAmount, client, msg);
             if (result.error) {
                 if (betAmount > 0) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, challengerId]);
@@ -111,7 +114,8 @@ module.exports = {
             return;
         }
 
-        const result = await startPvPDuel(challengerId, userId, betAmount, client, msg);
+        // Solo duel — 1v1
+        const result = await startPvPDuel([challengerId], [userId], betAmount, client, msg);
         if (result.error) {
             if (betAmount > 0) {
                 await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, challengerId]);

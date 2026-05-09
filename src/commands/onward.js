@@ -200,6 +200,19 @@ module.exports = {
                 initStage(dungeon.id);
             } catch(e) {}
 
+            // ✅ Reset per-stage clan blessing state (Soul Shatter fires each stage)
+            try {
+                await db.execute(
+                    `UPDATE clan_blessing_state
+                     SET skill_count=0, blessing_used=0
+                     WHERE dungeon_id=?
+                       AND player_id IN (
+                         SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1
+                       )`,
+                    [dungeon.id, dungeon.id]
+                );
+            } catch(e) {}
+
             // ✅ Track stage clear — fire and forget
             (async () => {
                 try {

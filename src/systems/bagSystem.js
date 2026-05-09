@@ -1,9 +1,10 @@
 const db = require('../database/db');
 
 const BAGS = {
-    'Small Bag':  { slots: 5,  durability: 10, price: 300,  repair: 50  },
-    'Medium Bag': { slots: 10, durability: 20, price: 700,  repair: 100 },
-    'Large Bag':  { slots: 20, durability: 30, price: 1500, repair: 180 }
+    'Small Bag':    { slots: 5,  durability: 10,  price: 300,   repair: 50  },
+    'Medium Bag':   { slots: 10, durability: 20,  price: 700,   repair: 100 },
+    'Large Bag':    { slots: 20, durability: 30,  price: 1500,  repair: 180 },
+    'Prestige Bag': { slots: 30, durability: 500, price: 50000, repair: 500 }
 };
 
 async function ensureTables() {

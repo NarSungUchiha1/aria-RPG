@@ -224,12 +224,6 @@ function setTurn(duelKey, turnId) {
     }
 }
 
-function getDuelOpponent(playerId) {
-    const duel = activeDuels.get(playerId);
-    if (!duel) return null;
-    const opponentTeam = duel.teamA.includes(playerId) ? duel.teamB : duel.teamA;
-    return opponentTeam.length ? opponentTeam[0] : null;
-}
 
 function isPlayerInDuel(playerId) {
     return activeDuels.has(playerId);
@@ -439,11 +433,17 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 
     if (duelData.type === 'party') {
         const winners = duelData.teamA.includes(String(winnerId)) ? duelData.teamA : duelData.teamB;
-        const losers = duelData.teamA.includes(String(winnerId)) ? duelData.teamB : duelData.teamA;
+        const losers  = duelData.teamA.includes(String(winnerId)) ? duelData.teamB : duelData.teamA;
         const aliveWinners = winners.filter(id => duelData.hp[id] > 0);
-        const titleLines = [];
-        const survivorText = aliveWinners.map(id => `┃◆ • ${id}`).join('\n');
 
+        // Look up nicknames for all alive winners
+        const [winnerRows] = await db.execute(
+            `SELECT id, nickname FROM players WHERE id IN (${aliveWinners.map(() => '?').join(',')})`,
+            aliveWinners
+        ).catch(() => [[]]);
+        const nicknameMap = Object.fromEntries(winnerRows.map(r => [String(r.id), r.nickname]));
+
+        const titleLines = [];
         await db.execute(
             `UPDATE players SET pvp_wins = pvp_wins + 1 WHERE id IN (${winners.map(() => '?').join(',')})`,
             winners
@@ -455,18 +455,18 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 
         await Promise.all(aliveWinners.map(async id => {
             const newTitle = await checkAndGrantTitle(id);
-            if (newTitle) titleLines.push(`┃◆ 🎖️ ${id} earned: "${newTitle}"`);
+            const nick = nicknameMap[String(id)] || id;
+            if (newTitle) titleLines.push(`┃◆ 🎖️ ${nick} earned: "${newTitle}"`);
         }));
 
         await chat.sendMessage(
-            `╭══〘 🏆 TEAM DUEL OVER 〙══╮\n` +
+            `╭══〘 🏆 PARTY DUEL OVER 〙══╮\n` +
             `┃◆ \n` +
-            `┃◆ Team victory for ${winnerNick}'s side!\n` +
+            `┃◆ 🏆 ${winnerNick}'s team wins!\n` +
             `┃◆ \n` +
             `${titleLines.length ? titleLines.join('\n') + '\n' : ''}` +
-            `┃◆ \n` +
             `┃◆ ━━ SURVIVORS ━━\n` +
-            `${aliveWinners.map(id => `┃◆ • ${id}`).join('\n')}\n` +
+            `${aliveWinners.map(id => `┃◆ • ${nicknameMap[String(id)] || id}`).join('\n')}\n` +
             `┃◆ \n` +
             `╰═══════════════════════════╯`
         );
