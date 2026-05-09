@@ -112,10 +112,10 @@ module.exports = {
                     `┃★ ⚡ Agility: ${totalAgi}\n` +
                     `┃★ 🧠 Intelligence: ${totalInt}\n` +
                     `┃★ 🛡️ Stamina: ${totalSta}\n` +
+                    `┃★ 🔵 Fatigue: ${fatigueBar} ${fatigue}%\n` +
                     `┃★────────────\n` +
                     `┃★ ❤️ HP: ${p.hp}/${p.max_hp}` +
                     manaLineP +
-                    fatigueLine +
                     `\n┃★ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃★ ✨ SP: ${p.sp || 0}\n` +
                     `┃★────────────\n` +
@@ -135,10 +135,10 @@ module.exports = {
                     `┃◆ ⚡ Agility: ${totalAgi}\n` +
                     `┃◆ 🧠 Intelligence: ${totalInt}\n` +
                     `┃◆ 🛡️ Stamina: ${totalSta}\n` +
+                    `┃◆ 🔵 Fatigue: ${fatigueBar} ${fatigue}%\n` +
                     `┃◆────────────\n` +
                     `┃◆ ❤️ HP: ${p.hp}/${p.max_hp}` +
                     manaLine +
-                    fatigueLine +
                     `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃◆ ✨ SP: ${p.sp || 0}\n` +
                     `┃◆ 💰 Gold: ${gold}\n` +
