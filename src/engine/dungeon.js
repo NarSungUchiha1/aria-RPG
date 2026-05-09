@@ -596,7 +596,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     }
 
     const fatigueGain = Math.max(1, Math.ceil(damage / 20));
-    await increasePlayerFatigue(playerId, fatigueGain);
+    await increasePlayerFatigue(playerId, fatigueGain, player);
     tickBuffs('player', playerId);
 
     return {
@@ -670,7 +670,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     }
 
     const fatigueGain = Math.max(1, Math.ceil(damage / 18));
-    await increasePlayerFatigue(playerId, fatigueGain);
+    await increasePlayerFatigue(playerId, fatigueGain, player);
     tickBuffs('player', playerId);
 
     return {

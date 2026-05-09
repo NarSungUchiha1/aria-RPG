@@ -23,12 +23,44 @@ function formatFatigueBar(fatigue = 0) {
     return '🟦'.repeat(filled) + '▫️'.repeat(empty);
 }
 
-async function increasePlayerFatigue(playerId, amount = 1) {
+// ── STAMINA-BASED FATIGUE REDUCTION ────────────────────────────────────────
+// High stamina reduces fatigue gain, but only above baseline for that role
+// Max reduction: 30% (multiplier goes from 1.0 → 0.7)
+function getStaminaFatigueReduction(player = {}) {
+    const role = player.role || 'Berserker';
+    const stamina = Number(player.stamina) || 5;
+    
+    // Baseline stamina per role (from register.js initial stats)
+    const roleBaseline = {
+        Tank: 10,
+        Healer: 8,
+        Berserker: 5,
+        Assassin: 5,
+        Mage: 5
+    };
+    
+    const baseline = roleBaseline[role] || 5;
+    const excessStamina = Math.max(0, stamina - baseline);
+    
+    // Each point of excess stamina reduces fatigue gain by 0.2% (capped at 30% reduction)
+    const reductionPercent = Math.min(30, excessStamina * 0.2);
+    return Math.max(0.7, 1 - reductionPercent / 100);
+}
+
+async function increasePlayerFatigue(playerId, amount = 1, player = null) {
     const points = Math.max(0, Number(amount) || 0);
     if (!playerId || points === 0) return;
+    
+    // Apply stamina-based reduction if player object is provided
+    let adjustedPoints = points;
+    if (player) {
+        const staminaReduction = getStaminaFatigueReduction(player);
+        adjustedPoints = Math.max(1, Math.ceil(points * staminaReduction));
+    }
+    
     await db.execute(
         "UPDATE players SET fatigue = LEAST(100, GREATEST(0, COALESCE(fatigue, 0) + ?)) WHERE id=?",
-        [points, playerId]
+        [adjustedPoints, playerId]
     );
 }
 
@@ -57,6 +89,7 @@ module.exports = {
     clampFatigue,
     getFatigueMultiplier,
     formatFatigueBar,
+    getStaminaFatigueReduction,
     increasePlayerFatigue,
     recoverPlayerFatigue,
     ensureFatigueColumn
