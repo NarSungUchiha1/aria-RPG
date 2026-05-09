@@ -12,6 +12,7 @@ const db = require('../database/db');
 const PRESTIGE_STOCK = {
     // Consumables — more available
     'Void Elixir':      5,
+    'Fatigue Potion':   6,
     'Fracture Potion':  3,
     'Abyss Tonic':      2,
     'Prestige Bag':     2,
@@ -33,6 +34,7 @@ const PRESTIGE_ITEMS = {
     // ── ALL ROLES ─────────────────────────────────────────────────────────────
     consumables: [
         { name: 'Void Elixir',     price: 8000,  desc: 'Restores 60% HP. Void-infused.',  type: 'consumable' },
+        { name: 'Fatigue Potion',  price: 12000, desc: 'Reduces fatigue by 30 points.',   type: 'consumable' },
         { name: 'Fracture Potion', price: 15000, desc: 'Restores full HP. Rare.',          type: 'consumable' },
         { name: 'Abyss Tonic',     price: 25000, desc: '+50% damage for 3 turns.',         type: 'consumable' },
         { name: 'Prestige Bag',    price: 50000, desc: '30 slots. Near-indestructible.',   type: 'bag', slots: 30, durability: 500 }
