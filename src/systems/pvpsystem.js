@@ -304,7 +304,8 @@ async function handlePvPSkill(attackerId, move, targetId) {
         const newDefenderHp = Math.max(0, defenderHp - damage);
         data.hp[opponentId] = newDefenderHp;
 
-        await increasePlayerFatigue(attackerId, 6);
+        const fatigueGain = Math.max(2, Math.ceil(damage / 15));
+        await increasePlayerFatigue(attackerId, fatigueGain);
         if (newDefenderHp <= 0) {
             return await handleVictory(attackerId, opponentId, chat, data,
                 attacker.nickname, defender.nickname, attackerHp);

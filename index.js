@@ -736,6 +736,18 @@ cron.schedule('*/10 * * * *', async () => {
     } catch(e) { console.error('Mana regen error:', e.message); }
 });
 
+// ==================== FATIGUE RECOVERY ====================
+// Run every 10 mins to slowly recover player fatigue over time.
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        await db.execute(`
+            UPDATE players
+            SET fatigue = GREATEST(0, COALESCE(fatigue, 0) - 2)
+            WHERE fatigue > 0
+        `);
+    } catch(e) { console.error('Fatigue recovery error:', e.message); }
+});
+
 // ==================== VOID WAR AUTO-END ====================
 cron.schedule('*/10 * * * *', async () => {
     if (!isReady || !sock) return;

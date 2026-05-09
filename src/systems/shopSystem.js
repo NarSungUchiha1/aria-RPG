@@ -3,7 +3,7 @@ const itemStats = require('../data/itemStats');
 const weaponMoves = require('../data/weaponMoves');
 
 const CONSUMABLES = new Set([
-    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion', 'Fatigue Potion',
     'Small Bag', 'Medium Bag', 'Large Bag',
     'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
     'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
@@ -31,22 +31,22 @@ function shuffleArray(array, randFn) {
 
 const roleItemPools = {
     Tank: ["Shield","Armor Plate","Tower Shield","Vanguard Helm","Golemheart Gauntlets",
-           "Fortify Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm",
+           "Fortify Potion","Fatigue Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm",
            "Small Bag","Medium Bag","Large Bag"],
     Assassin: ["Dagger","Shadow Dagger","Twin Fang Blades","Wind Katana","Nightshade Bow",
-               "Poison Vial","Smoke Bomb","Silent Boots","Backstab Scroll","Cloak",
+               "Poison Vial","Fatigue Potion","Smoke Bomb","Silent Boots","Backstab Scroll","Cloak",
                "Small Bag","Medium Bag","Large Bag"],
     Mage: ["Spell Book","Arcane Staff","Frostbane Wand","Void Scepter","Celestial Orb",
-           "Mana Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak",
+           "Mana Potion","Fatigue Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak",
            "Small Bag","Medium Bag","Large Bag"],
     Healer: ["Healing Staff","Celestial Orb","Blessing Charm","Holy Water","Revive Scroll",
-             "Herb Kit","Divine Protection","Cleanse Potion","Mana Potion",
+             "Herb Kit","Divine Protection","Cleanse Potion","Mana Potion","Fatigue Potion",
              "Small Bag","Medium Bag","Large Bag"],
     Ranger: ["Bow","Nightshade Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion",
              "Camouflage Cloak","Wind Katana",
              "Small Bag","Medium Bag","Large Bag"],
     Berserker: ["Battle Axe","Rage Blade","Iron Greatsword","Warhammer","Dragonbone Mace",
-                "Rage Potion","War Cry Scroll","Blood Charm","Heavy Blade",
+                "Rage Potion","Fatigue Potion","War Cry Scroll","Blood Charm","Heavy Blade",
                 "Small Bag","Medium Bag","Large Bag"]
 };
 
@@ -67,7 +67,7 @@ const rankRequirements = {
 const fixedPrices = {
     // Consumables
     "Mana Potion": 150, "Potion": 100, "Fortify Potion": 120,
-    "Rage Potion": 130, "Eagle Eye Potion": 120, "Cleanse Potion": 110,
+    "Rage Potion": 130, "Fatigue Potion": 140, "Eagle Eye Potion": 120, "Cleanse Potion": 110,
     // Scrolls / misc
     "Taunt Scroll": 200, "Backstab Scroll": 200, "War Cry Scroll": 200,
     "Fire Scroll": 180, "Revive Scroll": 500,
@@ -122,6 +122,7 @@ function getMaxStockForItem(itemName) {
     const stockOverrides = {
         'Mana Potion': 10,
         'Potion':      10,
+        'Fatigue Potion': 8,
         'Small Bag':   5,
         'Medium Bag':  3,
         'Large Bag':   2

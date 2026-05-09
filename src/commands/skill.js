@@ -23,7 +23,7 @@ function requiresMana(move) {
 
 
 // ── CLAN BLESSING TRIGGER ────────────────────────────────────────────────────
-async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, extraData = {}) {
+async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, client = null, extraData = {}) {
     try {
         const clan = await getPlayerClan(playerId);
         if (!clan) return null;
@@ -225,7 +225,11 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         if (blessingMsg) {
-            await msg.reply(blessingMsg).catch(() => {});
+            if (client) {
+                await client.sendMessage(RAID_GROUP, { text: blessingMsg }).catch(() => {});
+            } else {
+                await msg.reply(blessingMsg).catch(() => {});
+            }
             // Update 12-hour cooldown timestamp
             await db.execute(
                 'UPDATE clan_blessing_state SET last_triggered=NOW() WHERE player_id=? AND dungeon_id=?',
@@ -503,43 +507,47 @@ module.exports = {
             }
 
             if (result.playerDied) {
-                // Fetch what was lost for the message
-                let lostMsg = '';
+                let phantomResult = null;
                 try {
-                    const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                    const lg = sess[0]?.session_gold || 0;
-                    const lx = sess[0]?.session_xp   || 0;
-                    if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
-                } catch(e) {}
-                const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
-                reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
-                try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
-
-                // Phantom Shift — fires AFTER death message as a separate resurrection message
-                try {
-                    const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
+                    phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg, client);
                     if (phantomResult) {
-                        // Undo death
-                        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
+                        const reviveHp = Math.max(1, Math.floor(player.max_hp * 0.6));
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                        reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;
                     }
-                } catch(e) { console.error('Phantom shift error:', e.message); }
+                } catch(e) {
+                    console.error('Phantom shift error:', e.message);
+                }
 
-                // Check if everyone is dead — close dungeon and spawn prestige
-                const [aliveCheck] = await db.execute(
-                    'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
-                    [dungeon.id]
-                );
-                if (aliveCheck[0].cnt === 0) {
-                    await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
-                    const { clearDungeonTimers } = require('../engine/dungeonTimer');
-                    clearDungeonTimers(dungeon.id);
-                    const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
-                    // Only spawn after NORMAL dungeons
-                    if (!dungeon.dungeon_rank?.startsWith('P')) {
-                        spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
+                if (!phantomResult) {
+                    // Fetch what was lost for the message
+                    let lostMsg = '';
+                    try {
+                        const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                        const lg = sess[0]?.session_gold || 0;
+                        const lx = sess[0]?.session_xp   || 0;
+                        if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
+                    } catch(e) {}
+                    const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
+                    reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
+                    try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
+
+                    // Check if everyone is dead — close dungeon and spawn prestige
+                    const [aliveCheck] = await db.execute(
+                        'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
+                        [dungeon.id]
+                    );
+                    if (aliveCheck[0].cnt === 0) {
+                        await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
+                        const { clearDungeonTimers } = require('../engine/dungeonTimer');
+                        clearDungeonTimers(dungeon.id);
+                        const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
+                        // Only spawn after NORMAL dungeons
+                        if (!dungeon.dungeon_rank?.startsWith('P')) {
+                            spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
+                        }
+                        reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                     }
-                    reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                 }
             }
 

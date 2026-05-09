@@ -40,6 +40,12 @@ const CONSUMABLES = {
         baseMana: 30,
         label: 'Mana Potion'
     },
+    'Fatigue Potion': {
+        type: 'fatigue',
+        emoji: '🔋',
+        baseReduce: 35,
+        label: 'Fatigue Potion'
+    },
 
     // ── CLEANSE ──────────────────────────────────────────
     'Cleanse Potion': {
@@ -311,6 +317,22 @@ module.exports = {
                     `┃◆ Grade: ${grade}\n` +
                     `┃◆ Mana restored: +${restore}\n` +
                     `┃◆ Mana: ${currentMana}/${maxMana} → ${newMana}/${maxMana}\n` +
+                    `┃◆ Consumed.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
+            // FATIGUE RECOVERY
+            if (def.type === 'fatigue') {
+                const reduction = gradeScale(def.baseReduce, grade);
+                const currentFatigue = Number(player.fatigue) || 0;
+                const newFatigue = Math.max(0, currentFatigue - reduction);
+                await db.execute('UPDATE players SET fatigue=? WHERE id=?', [newFatigue, userId]);
+                return msg.reply(
+                    `══〘 ${def.emoji} ${def.label.toUpperCase()} 〙══╮\n` +
+                    `┃◆ Grade: ${grade}\n` +
+                    `┃◆ Fatigue recovered: -${reduction}%\n` +
+                    `┃◆ Fatigue: ${currentFatigue}% → ${newFatigue}%\n` +
                     `┃◆ Consumed.\n` +
                     `╰═══════════════════════╯`
                 );

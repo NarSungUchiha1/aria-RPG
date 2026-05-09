@@ -4,7 +4,7 @@ const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank } = require('../
 const itemStats = require('../data/itemStats');
 
 const CONSUMABLES = new Set([
-    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion',
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion', 'Fatigue Potion',
     'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
     'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
     'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
