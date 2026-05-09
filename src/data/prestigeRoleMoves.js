@@ -26,11 +26,7 @@ module.exports = {
         { name: 'Void Backstab',    type: 'damage', stat: 'agility',  multiplier: 3.5, cooldown: 25,       cost: 10 },
         { name: 'Phantom Step',     type: 'buff',   effect: 'agility_up', value: 50, duration: 3,  cooldown: CD_RANKED, cost: 12 },
         { name: 'Void Venom',       type: 'debuff', effect: 'strength', value: -35, duration: 3,   cooldown: CD_RANKED, cost: 10 },
-        { name: 'Abyss Fatal',      type: 'damage', stat: 'agility',  multiplier: 4.0, ignore_defense: 0.5, cooldo0wn: 120
-            
-            
-            
-            , cost: 20 },
+        { name: 'Abyss Fatal',      type: 'damage', stat: 'agility',  multiplier: 4.0, ignore_defense: 0.5, cooldown: 120, cost: 20 },
         { name: 'Void Smoke',       type: 'debuff', effect: 'agility', value: -50, duration: 3,    cooldown: CD_RANKED, cost: 10 }
     ],
     Mage: [
@@ -51,10 +47,9 @@ module.exports = {
     ],
     Healer: [
         { name: 'Void Strike',      type: 'damage', stat: 'strength',      multiplier: 2.5, cooldown: 1,         cost: 0  },
-        { name: 'Void Heal',        type: 'heal',   stat: 'intelligence',  multiplier: 7.0, baseHeal: 80,        cooldown: CD_HEAL,   cost: 12 },
+        { name: 'Void Heal',        type: 'heal',   stat: 'intelligence',  multiplier: 7.0, baseHeal: 80,        cooldown: 120,   cost: 12 },
         { name: 'Void Blessing',    type: 'buff',   effect: 'stamina_up',  value: 60, duration: 3,              cooldown: CD_RANKED, cost: 18 },
         { name: 'Void Cleanse',     type: 'cleanse',                                                             cooldown: CD_HEAL,   cost: 8  },
         { name: 'Abyss Light',      type: 'heal',   stat: 'intelligence',  multiplier: 9.0, baseHeal: 150,       cooldown: CD_HEAL,   cost: 22 },
-        { name: 'Void Protection',  type: 'shield', value: 600,                              cooldown: CD_RANKED, cost: 15 }
-    ]
+    ] 
 };

@@ -210,7 +210,7 @@ async function buyPrestigeItem(playerId, itemName, role, prestigeLevel) {
              strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus,
              attack_bonus, defense_bonus, durability, max_durability, equipped)
              VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-            [playerId, item.name,
+            [playerId, item.name, 'P',
              item.stats?.strength || 0, item.stats?.agility || 0,
              item.stats?.intelligence || 0, item.stats?.stamina || 0,
              item.stats?.attack || 0, item.stats?.defense || 0,
