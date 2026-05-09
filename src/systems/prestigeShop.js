@@ -27,7 +27,7 @@ const PRESTIGE_STOCK = {
     // Additional Tank weapons
     'Void Earthbreaker': 2, 'Fracture Colossus': 2,
     // Additional Healer weapon
-    'Void Manalisk': 2,
+    'Void Manalisk': 5,
 };
 
 const PRESTIGE_ITEMS = {
@@ -73,7 +73,9 @@ const PRESTIGE_ITEMS = {
         { name: 'Abyss Tome',        price: 750000,   minPrestige: 1, stats: { intelligence: 1100, attack: 1000 }, durability: 350,
           desc: 'Contains spells from a civilisation that no longer exists.' },
         { name: "Malachar's Gospel", price: 3000000,  minPrestige: 2, stats: { intelligence: 2200, attack: 2000, stamina: 200 }, durability: 500,
-          desc: 'Malachar wrote this himself. It was found in the rubble.' }
+          desc: 'Malachar wrote this himself. It was found in the rubble.' },
+        { name: 'Void Manalisk',       price: 18000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
+          desc: 'A staff that channels void energy to restore mana. It hums with power.' },
     ],
 
     // ── TANK ──────────────────────────────────────────────────────────────────
