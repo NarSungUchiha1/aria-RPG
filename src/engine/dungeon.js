@@ -595,7 +595,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = Math.max(2, Math.ceil(damage / 15));
+    const fatigueGain = Math.max(1, Math.ceil(damage / 20));
     await increasePlayerFatigue(playerId, fatigueGain);
     tickBuffs('player', playerId);
 
@@ -669,7 +669,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = Math.max(3, Math.ceil(damage / 12));
+    const fatigueGain = Math.max(1, Math.ceil(damage / 18));
     await increasePlayerFatigue(playerId, fatigueGain);
     tickBuffs('player', playerId);
 

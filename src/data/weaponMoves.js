@@ -316,6 +316,11 @@ module.exports = {
         { name: 'Hungering Maw',   type: 'damage', stat: 'strength', multiplier: 3.0, hits: 2, cooldown: 5, cost: 28 },
         { name: 'Abyssal Roar',    type: 'debuff', effect: 'strength', value: -30, duration: 3, cooldown: 6, cost: 25 }
     ],
+    'Abyssal Reckoning': [
+        { name: 'Abyss Devour',    type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 3, cost: 30 },
+        { name: 'Hungering Maw',   type: 'damage', stat: 'strength', multiplier: 3.0, hits: 2, cooldown: 5, cost: 28 },
+        { name: 'Abyssal Roar',    type: 'debuff', effect: 'strength', value: -30, duration: 3, cooldown: 6, cost: 25 }
+    ],
     'Wraithblade': [
         { name: 'Wraith Cut',      type: 'damage', stat: 'agility', multiplier: 4.2, cooldown: 2, cost: 28 },
         { name: 'Ghost Walk',      type: 'buff',   effect: 'agility', value: 60, duration: 2, cooldown: 4, cost: 24 },

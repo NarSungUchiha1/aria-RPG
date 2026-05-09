@@ -1,8 +1,8 @@
 const db = require('../database/db');
 
 const FATIGUE_MAX = 100;
-const FATIGUE_MIN_MULTIPLIER = 0.5;
-const FATIGUE_PER_POINT = 0.005;
+const FATIGUE_MIN_MULTIPLIER = 0.6;
+const FATIGUE_PER_POINT = 0.003;
 const FATIGUE_RECOVERY_PER_TICK = 2;
 
 function clampFatigue(value = 0) {
@@ -11,13 +11,13 @@ function clampFatigue(value = 0) {
 
 function getFatigueMultiplier(player = {}) {
     const fatigue = clampFatigue(player.fatigue);
-    if (fatigue >= FATIGUE_MAX) return 0;
+    if (fatigue >= FATIGUE_MAX) return FATIGUE_MIN_MULTIPLIER;
     return Math.max(FATIGUE_MIN_MULTIPLIER, 1 - fatigue * FATIGUE_PER_POINT);
 }
 
 function formatFatigueBar(fatigue = 0) {
     const value = clampFatigue(fatigue);
-    const bars = 10;
+    const bars = 6;
     const filled = Math.round((value / FATIGUE_MAX) * bars);
     const empty = bars - filled;
     return '🟦'.repeat(filled) + '▫️'.repeat(empty);
