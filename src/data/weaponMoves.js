@@ -577,5 +577,6 @@ module.exports = {
         { name: 'Replica Grace',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, cooldown: 2, cost: 40 },
         { name: 'Echo of Grace',     type: 'heal',   stat: 'intelligence', multiplier: 15.0, cleanse: true, aoe: true, cooldown: 4, cost: 48 },
         { name: 'The Replica Grace', type: 'heal',   stat: 'intelligence', multiplier: 26.0, aoe: true,   cooldown: 6, cost: 55 }
-    ]
+    ],
+
 };

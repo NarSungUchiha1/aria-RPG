@@ -164,6 +164,11 @@ const CONSUMABLES = {
         duration: 3,
         label: 'Abyss Tonic'
     },
+    'Void Manalisk': {
+        type: 'mana_full',
+        emoji: '💙',
+        label: 'Void Manalisk'
+    },
 
     // ── DUNGEON COMBAT (requires active dungeon) ──────────
     'Poison Vial': {
@@ -182,7 +187,7 @@ const CONSUMABLES = {
     },
 };
 
-const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic', 'Fatigue Potion']);
+const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic', 'Fatigue Potion', 'Void Manalisk']);
 
 module.exports = {
     name: 'use',
@@ -269,7 +274,26 @@ module.exports = {
                 );
             }
 
-            // HP RESTORE
+            // PRESTIGE — FULL MANA (Void Manalisk)
+            if (def.type === 'mana_full') {
+                const maxMana     = Number(player.max_mana) || 0;
+                const currentMana = Number(player.mana)     || 0;
+                if (maxMana <= 0) return msg.reply(
+                    `╔══〘 💙 VOID MANALISK 〙══╗\n┃★ ❌ You don't use mana.\n╚════════════════════════════╝`
+                );
+                await db.execute('UPDATE players SET mana=? WHERE id=?', [maxMana, userId]);
+                return msg.reply(
+                    `╔══〘 💙 VOID MANALISK 〙══╗\n` +
+                    `┃★ The void crystallises into pure mana.\n` +
+                    `┃★ It floods through you all at once.\n` +
+                    `┃★ \n` +
+                    `┃★ 💙 Mana: ${currentMana} → ${maxMana}/${maxMana}\n` +
+                    `┃★ Fully restored.\n` +
+                    `╚════════════════════════════╝`
+                );
+            }
+
+
             if (def.type === 'heal') {
                 const restore = gradeScale(def.baseHp, grade);
                 const current = Number(player.hp);

@@ -33,11 +33,12 @@ const PRESTIGE_STOCK = {
 const PRESTIGE_ITEMS = {
     // ── ALL ROLES ─────────────────────────────────────────────────────────────
     consumables: [
-        { name: 'Void Elixir',     price: 8000,  desc: 'Restores 60% HP. Void-infused.',  type: 'consumable' },
-        { name: 'Fatigue Potion',  price: 12000, desc: 'Reduces fatigue by 30 points.',   type: 'consumable' },
-        { name: 'Fracture Potion', price: 15000, desc: 'Restores full HP. Rare.',          type: 'consumable' },
-        { name: 'Abyss Tonic',     price: 25000, desc: '+50% damage for 3 turns.',         type: 'consumable' },
-        { name: 'Prestige Bag',    price: 50000, desc: '30 slots. Near-indestructible.',   type: 'bag', slots: 30, durability: 500 }
+        { name: 'Void Elixir',     price: 8000,  desc: 'Restores 60% HP. Void-infused.',                    type: 'consumable' },
+        { name: 'Fatigue Potion',  price: 12000, desc: 'Reduces fatigue by 30 points.',                      type: 'consumable' },
+        { name: 'Fracture Potion', price: 15000, desc: 'Restores full HP. Rare.',                            type: 'consumable' },
+        { name: 'Abyss Tonic',     price: 25000, desc: '+50% damage for 3 turns.',                           type: 'consumable' },
+        { name: 'Void Manalisk',   price: 20000, desc: 'Instantly fills mana to maximum. Prestige only.',    type: 'consumable' },
+        { name: 'Prestige Bag',    price: 50000, desc: '30 slots. Near-indestructible.',                     type: 'bag', slots: 30, durability: 500 }
     ],
 
     // ── BERSERKER ─────────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ const PRESTIGE_ITEMS = {
           desc: 'Every swing tears a small hole in reality.' },
         { name: 'Abyss Annihilator', price: 750000,   minPrestige: 1, stats: { strength: 1100, attack: 1000 }, durability: 350,
           desc: 'It remembers every world it has ended.' },
-        { name: "Malachar's Fist",   price: 3000000,  minPrestige: 2, stats: { strength: 2200, attack: 2000, stamina: 300 }, durability: 500,
+        { name: "Malachar's Fist",   price: 3000000,  minPrestige: 1, stats: { strength: 2200, attack: 2000, stamina: 300 }, durability: 500,
           desc: 'Torn from Malachar\'s own gauntlet during the first war.' }
     ],
 
@@ -60,7 +61,7 @@ const PRESTIGE_ITEMS = {
           desc: 'Phases through armour. The void passes through everything.' },
         { name: 'Abyss Phantom',     price: 750000,   minPrestige: 1, stats: { agility: 1100, attack: 1050 }, durability: 350,
           desc: 'Invisible even when in use. The kill just happens.' },
-        { name: "Malachar's Shadow", price: 3000000,  minPrestige: 2, stats: { agility: 2200, attack: 2100, strength: 200 }, durability: 500,
+        { name: "Malachar's Shadow", price: 3000000,  minPrestige: 1, stats: { agility: 2200, attack: 2100, strength: 200 }, durability: 500,
           desc: 'This blade existed before its owner did.' }
     ],
 
@@ -72,10 +73,8 @@ const PRESTIGE_ITEMS = {
           desc: 'Each cast destabilises local space-time slightly.' },
         { name: 'Abyss Tome',        price: 750000,   minPrestige: 1, stats: { intelligence: 1100, attack: 1000 }, durability: 350,
           desc: 'Contains spells from a civilisation that no longer exists.' },
-        { name: "Malachar's Gospel", price: 3000000,  minPrestige: 2, stats: { intelligence: 2200, attack: 2000, stamina: 200 }, durability: 500,
+        { name: "Malachar's Gospel", price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, attack: 2000, stamina: 200 }, durability: 500,
           desc: 'Malachar wrote this himself. It was found in the rubble.' },
-        { name: 'Void Manalisk',       price: 18000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
-          desc: 'A staff that channels void energy to restore mana. It hums with power.' },
     ],
 
     // ── TANK ──────────────────────────────────────────────────────────────────
@@ -86,7 +85,7 @@ const PRESTIGE_ITEMS = {
           desc: 'Hits against it feel wrong. Like punching at something that isn\'t quite there.' },
         { name: 'Abyss Fortress',    price: 750000,   minPrestige: 1, stats: { stamina: 1100, defense: 1200 }, durability: 450,
           desc: 'Ancient. Pre-dates the Gates. Nobody knows who made it.' },
-        { name: "Malachar's Seal",   price: 3000000,  minPrestige: 2, stats: { stamina: 2200, defense: 2500, strength: 200 }, durability: 600,
+        { name: "Malachar's Seal",   price: 3000000,  minPrestige: 1, stats: { stamina: 2200, defense: 2500, strength: 200 }, durability: 600,
           desc: 'It was the original seal. Repurposed.' },
         { name: 'Void Earthbreaker',  price: 180000,   minPrestige: 1, stats: { stamina: 600, strength: 400, attack: 350 }, durability: 300,
           desc: 'A warhammer that channels void energy through sheer mass. The ground remembers every swing.' },
@@ -102,10 +101,8 @@ const PRESTIGE_ITEMS = {
           desc: 'The healing burns. But it works faster than anything else.' },
         { name: 'Abyss Lantern',     price: 750000,   minPrestige: 1, stats: { intelligence: 1100, stamina: 800 }, durability: 350,
           desc: 'Carries the light of a world that no longer exists. Still warm.' },
-        { name: "Malachar's Grace",  price: 3000000,  minPrestige: 2, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
+        { name: "Malachar's Grace",  price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
           desc: 'Malachar had healers. This belonged to the last one.' },
-        { name: 'Void Manalisk',       price: 18000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
-          desc: 'A staff that channels void energy to restore mana. It hums with power.' }
     ]
 };
 
