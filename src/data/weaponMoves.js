@@ -401,14 +401,14 @@ module.exports = {
 
     // ── PD TIER (stat ~1520, mult 2.7/5.3/10.5) ──────────────
     'Fracture Cleaver': [
-        { name: 'Reality Rend',      type: 'damage', stat: 'strength', multiplier: 2.7, cooldown: 2, cost: 25 },
-        { name: 'Fracture Wave',     type: 'damage', stat: 'strength', multiplier: 5.3, aoe: true,   cooldown: 4, cost: 28 },
-        { name: 'Cleave the Void',   type: 'damage', stat: 'strength', multiplier: 10.5, ignore_defense: 0.5, cooldown: 6, cost: 35 }
+        { name: 'Reality Rend',      type: 'damage', stat: 'strength', multiplier: 2.7, cooldown: 10, cost: 25 },
+        { name: 'Fracture Wave',     type: 'damage', stat: 'strength', multiplier: 5.3, aoe: true,   cooldown: 30, cost: 28 },
+        { name: 'Cleave the Void',   type: 'damage', stat: 'strength', multiplier: 7.5, ignore_defense: 0.5, cooldown: 100, cost: 35 }
     ],
     'Fracture Edge': [
-        { name: 'Phase Slash',       type: 'damage', stat: 'agility', multiplier: 2.7, ignore_defense: 0.4, cooldown: 2, cost: 25 },
-        { name: 'Fracture Cut',      type: 'damage', stat: 'agility', multiplier: 5.3, bleed: true, cooldown: 4, cost: 28 },
-        { name: 'Phantom Edge',      type: 'damage', stat: 'agility', multiplier: 10.5,             cooldown: 6, cost: 35 }
+        { name: 'Phase Slash',       type: 'damage', stat: 'agility', multiplier: 2.7, ignore_defense: 0.4, cooldown: 10, cost: 25 },
+        { name: 'Fracture Cut',      type: 'damage', stat: 'agility', multiplier: 5.3, bleed: true, cooldown: 60, cost: 28 },
+        { name: 'Phantom Edge',      type: 'damage', stat: 'agility', multiplier: 5.5,             cooldown: 120, cost: 35 }
     ],
     'Fracture Scepter': [
         { name: 'Scepter Beam',      type: 'damage', stat: 'intelligence', multiplier: 2.7, cooldown: 2, cost: 25 },
@@ -426,16 +426,16 @@ module.exports = {
         { name: 'Fracture Mend',     type: 'damage', stat: 'intelligence', multiplier: 2.7,             cooldown: 3, cost: 22 }
     ],
     'Fracture Colossus': [
-        { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',  multiplier: 4.0, cooldown: 2, cost: 30 },
-        { name: 'Fracture Slam',     type: 'damage', stat: 'stamina',  multiplier: 7.0, stun: true, aoe: true, cooldown: 4, cost: 38 },
-        { name: 'Titan Force',       type: 'buff',   effect: 'strength_up', value: 120, duration: 3, cooldown: 5, cost: 25 }
+        { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',  multiplier: 4.0, cooldown: 30, cost: 30 },
+        { name: 'Fracture Slam',     type: 'damage', stat: 'stamina',  multiplier: 7.0, stun: true, aoe: true, cooldown: 60, cost: 38 },
+        { name: 'Titan Force',       type: 'buff',   effect: 'strength_up', value: 120, duration: 3, cooldown: 120, cost: 25 }
     ],
 
     // ── PB TIER (stat ~3080, mult 5.9/11.6/23.0) ─────────────
     'Abyss Annihilator': [
-        { name: 'Annihilation',      type: 'damage', stat: 'strength', multiplier: 5.9, cooldown: 2, cost: 30 },
-        { name: 'Void Crush',        type: 'damage', stat: 'strength', multiplier: 11.6, stun: true, cooldown: 4, cost: 35 },
-        { name: 'Abyss Rampage',     type: 'damage', stat: 'strength', multiplier: 23.0,            cooldown: 6, cost: 45 }
+        { name: 'Annihilation',      type: 'damage', stat: 'strength', multiplier: 5.9, cooldown: 10, cost: 30 },
+        { name: 'Void Crush',        type: 'damage', stat: 'strength', multiplier: 11.6, stun: true, cooldown: 30, cost: 35 },
+        { name: 'Abyss Rampage',     type: 'damage', stat: 'strength', multiplier: 23.0,            cooldown: 120, cost: 45 }
     ],
     'Abyss Phantom': [
         { name: 'Phantom Kill',      type: 'damage', stat: 'agility', multiplier: 5.9, cooldown: 1, cost: 30 },

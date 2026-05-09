@@ -23,6 +23,10 @@ const PRESTIGE_STOCK = {
     'Abyss Annihilator': 1, 'Abyss Phantom': 1, 'Abyss Tome': 1, 'Abyss Fortress': 1, 'Abyss Lantern': 1,
     // PS weapons — only 1 ever
     "Malachar's Fist": 1, "Malachar's Shadow": 1, "Malachar's Gospel": 1, "Malachar's Seal": 1, "Malachar's Grace": 1,
+    // Additional Tank weapons
+    'Void Earthbreaker': 2, 'Fracture Colossus': 2,
+    // Additional Healer weapon
+    'Void Manalisk': 2,
 };
 
 const PRESTIGE_ITEMS = {
@@ -95,7 +99,9 @@ const PRESTIGE_ITEMS = {
         { name: 'Abyss Lantern',     price: 750000,   minPrestige: 1, stats: { intelligence: 1100, stamina: 800 }, durability: 350,
           desc: 'Carries the light of a world that no longer exists. Still warm.' },
         { name: "Malachar's Grace",  price: 3000000,  minPrestige: 2, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
-          desc: 'Malachar had healers. This belonged to the last one.' }
+          desc: 'Malachar had healers. This belonged to the last one.' },
+        { name: 'Void Manalisk',       price: 180000,   minPrestige: 1, stats: { intelligence: 700 }, durability: 300,
+          desc: 'A staff that channels void energy to restore mana. It hums with power.' }
     ]
 };
 
@@ -201,7 +207,7 @@ async function buyPrestigeItem(playerId, itemName, role, prestigeLevel) {
             `INSERT INTO inventory (player_id, item_name, item_type, quantity, grade,
              strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus,
              attack_bonus, defense_bonus, durability, max_durability, equipped)
-             VALUES (?, ?, 'weapon', 1, 'P', ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+             VALUES (?, ?, 'weapon', 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
             [playerId, item.name,
              item.stats?.strength || 0, item.stats?.agility || 0,
              item.stats?.intelligence || 0, item.stats?.stamina || 0,

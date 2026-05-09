@@ -24,7 +24,7 @@ module.exports = {
     Assassin: [
         { name: 'Void Strike',      type: 'damage', stat: 'strength', multiplier: 2.5, cooldown: 1,       cost: 0  },
         { name: 'Void Backstab',    type: 'damage', stat: 'agility',  multiplier: 3.5, cooldown: 25,       cost: 10 },
-        { name: 'Phantom Step',     type: 'buff',   effect: 'agility_up', value: 80, duration: 3,  cooldown: CD_RANKED, cost: 12 },
+        { name: 'Phantom Step',     type: 'buff',   effect: 'agility_up', value: 50, duration: 3,  cooldown: CD_RANKED, cost: 12 },
         { name: 'Void Venom',       type: 'debuff', effect: 'strength', value: -35, duration: 3,   cooldown: CD_RANKED, cost: 10 },
         { name: 'Abyss Fatal',      type: 'damage', stat: 'agility',  multiplier: 4.0, ignore_defense: 0.5, cooldo0wn: 120
             
