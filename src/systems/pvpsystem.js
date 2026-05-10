@@ -582,18 +582,17 @@ async function readyPartyDuel(leaderId, chat) {
     if (state.teamBLeader === lid) state.teamBReady = true;
 
     if (!state.teamAReady || !state.teamBReady) {
-        // Show who is still waiting
-        const waitingLeaderId  = !state.teamAReady ? state.teamALeader : state.teamBLeader;
+        const waitingLeaderId = !state.teamAReady ? state.teamALeader : state.teamBLeader;
         const [wRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [waitingLeaderId]);
         const waitingNick = wRow[0]?.nickname || waitingLeaderId;
         const rosterMsg = await buildRosterMessage(state);
         return { success: true, waiting: waitingNick, rosterMsg };
     }
 
-    // Both ready — launch
+    // Both ready — use state.chat which was properly resolved via msg.getChat() in accept.js
     clearTimeout(state.timer);
     partyAssembly.delete(state.assemblyKey);
-    await startPvPDuel(state.teamA, state.teamB, state.bet, null, null, chat);
+    await startPvPDuel(state.teamA, state.teamB, state.bet, null, null, state.chat);
     return { success: true, started: true };
 }
 
