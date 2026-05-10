@@ -18,9 +18,9 @@ module.exports = {
     Mage: [
         { name: "Strike",           type: "damage", stat: "strength",     multiplier: 1.0,                    cooldown: 1,   cost: 0  },
         { name: "Fireball",         type: "damage", stat: "intelligence", multiplier: 1.6,                    cooldown: 1,   cost: 8  },
-        { name: "Arcane Blast",     type: "damage", stat: "intelligence", multiplier: 1.4, aoe: true,         cooldown: 3,   cost: 12 },
-        { name: "Mana Shield",      type: "shield", value: 40, duration: 3,                                   cooldown: 5,   cost: 10 },
-        { name: "Frost Nova",       type: "damage", stat: "intelligence", multiplier: 1.2, freeze: true,      cooldown: 4,   cost: 9  },
+        { name: "Arcane Blast",     type: "damage", stat: "intelligence", multiplier: 1.4, aoe: true,         cooldown: 30,   cost: 12 },
+        { name: "Mana Shield",      type: "shield", value: 40, duration: 3,                                   cooldown: 30,   cost: 10 },
+        { name: "Frost Nova",       type: "damage", stat: "intelligence", multiplier: 1.2, freeze: true,      cooldown: 10,   cost: 9  },
         { name: "Arcane Intellect", type: "buff",   effect: "intelligence", value: 25, duration: 3,           cooldown: 45,  cost: 12 }
     ],
     Healer: [
