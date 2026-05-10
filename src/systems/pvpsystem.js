@@ -617,7 +617,8 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
     const turnOrder = createTurnOrder(teamAPlayers, teamBPlayers);
     const firstTurn = turnOrder[0];
     const firstPlayer = playersById[firstTurn];
-    const chat = await msg.getChat();
+    const chat = chatOverride || (msg ? await msg.getChat() : null);
+    if (!chat) return { error: "No chat context — duel could not start." };
 
     await setDuelActive(teamA, teamB, chat, betAmount, turnOrder);
     const duelKey = getDuelKey(teamA, teamB);
@@ -630,28 +631,29 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
     await startTurnTimer(duelKey, firstTurn, firstOpponent || opponentTeam[0], chat, 1);
 
     const betLine = betAmount > 0
-        ? `┃◆ 💰 Bet: ${betAmount} Gold each (pot: ${betAmount * 2})\n`
-        : `┃◆ 💰 No bet — honour duel\n`;
+        ? `┃◆ 💰 Bet: ${betAmount} Gold each — Pot: ${betAmount * 2} Gold\n`
+        : ``;
 
-    const formatMember = p => `┃◆ • ${p.nickname} [${p.rank}] • ${p.role} • STR:${p.strength} AGI:${p.agility} INT:${p.intelligence} STA:${p.stamina}\n`;
-    const teamAInfo = teamAPlayers.map(formatMember).join('');
-    const teamBInfo = teamBPlayers.map(formatMember).join('');
+    const formatMember = p =>
+        `┃◆  • ${p.nickname} [${p.rank}] ${p.role} — 💪${p.strength} ⚡${p.agility} 🧠${p.intelligence} 🛡️${p.stamina}`;
+    const teamAInfo = teamAPlayers.map(formatMember).join('\n');
+    const teamBInfo = teamBPlayers.map(formatMember).join('\n');
+
+    const teamALabel = teamA.length > 1 ? `🔵 Team ${teamAPlayers[0].nickname}` : `🔵 ${teamAPlayers[0].nickname}`;
+    const teamBLabel = teamB.length > 1 ? `🔴 Team ${teamBPlayers[0].nickname}` : `🔴 ${teamBPlayers[0].nickname}`;
 
     await chat.sendMessage(
         `╭══〘 ⚔️ DUEL BEGINS 〙══╮\n` +
-        `┃◆ ${teamA.length > 1 ? '*Team A*' : teamAPlayers[0].nickname} vs ${teamB.length > 1 ? '*Team B*' : teamBPlayers[0].nickname}\n` +
-        `┃◆ \n` +
-        `${teamAInfo}` +
+        `┃◆ ${teamALabel}\n` +
+        `${teamAInfo}\n` +
         `┃◆ ━━━━ ⚔️ VS ⚔️ ━━━━\n` +
-        `${teamBInfo}` +
-        `┃◆ \n` +
-        `${betLine}` +
+        `┃◆ ${teamBLabel}\n` +
+        `${teamBInfo}\n` +
         `┃◆ ━━━━━━━━━━━━\n` +
+        `${betLine}` +
         `┃◆ ⚡ ${firstPlayer.nickname} goes first!\n` +
-        `┃◆ ⏰ Each turn: 20 seconds to act\n` +
-        `┃◆ Miss your turn = forfeit the duel!\n` +
+        `┃◆ ⏰ 20s per turn — miss it and you forfeit.\n` +
         `┃◆ Use !attack <move> to fight.\n` +
-        `┃◆ \n` +
         `╰═══════════════════════════╯`
     );
 
@@ -845,7 +847,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         }
 
         const totalDmg = results.reduce((s, r) => s + r.dmg, 0);
-        const baseFatigue = Math.max(1, Math.ceil(totalDmg / 20));
+        const baseFatigue = Math.min(4, Math.max(1, Math.ceil(totalDmg / 120)));
         const fatigue = multiTargetFatigue(baseFatigue, numTargets);
         await increasePlayerFatigue(attackerId, fatigue, attacker);
         const [freshAttacker] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
@@ -1118,7 +1120,7 @@ async function handlePvPAttack(attackerId) {
     const newDefHp   = Math.max(0, data.hp[targetId] - damage);
     data.hp[targetId] = newDefHp;
 
-    const fatigueGain = Math.max(1, Math.ceil(damage / 20));
+    const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
     await increasePlayerFatigue(attackerId, fatigueGain, attacker);
 
     const nextTurnAfterMove = async () => {

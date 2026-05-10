@@ -152,22 +152,16 @@ module.exports = {
             if (mode === 'solo') {
                 const t = targets[0];
                 return msg.reply(
-                    `╭══〘 ⚔️  DUEL CHALLENGE 〙══╮\n` +
-                    `┃◆ \n` +
-                    `┃◆ 🔵 *${c.nickname}* [${c.rank}]\n` +
-                    `┃◆    ${c.role}\n` +
+                    `╭══〘 ⚔️ DUEL CHALLENGE 〙══╮\n` +
+                    `┃◆ 🔵 *${c.nickname}* [${c.rank}] ${c.role}\n` +
                     `┃◆    💪 ${c.strength}  ⚡ ${c.agility}  🧠 ${c.intelligence}  🛡️ ${c.stamina}\n` +
-                    `┃◆ \n` +
-                    `┃◆          ⚔️  *vs*\n` +
-                    `┃◆ \n` +
-                    `┃◆ 🔴 *${t.nickname}* [${t.rank}]\n` +
-                    `┃◆    ${t.role}\n` +
+                    `┃◆ ━━━━ ⚔️ vs ⚔️ ━━━━\n` +
+                    `┃◆ 🔴 *${t.nickname}* [${t.rank}] ${t.role}\n` +
                     `┃◆    💪 ${t.strength}  ⚡ ${t.agility}  🧠 ${t.intelligence}  🛡️ ${t.stamina}\n` +
-                    `┃◆ \n` +
-                    `${betLine}` +
                     `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `┃◆ ✅  !accept @${c.nickname}\n` +
-                    `┃◆ ❌  !decline @${c.nickname}\n` +
+                    `${betLine}` +
+                    `┃◆ ✅ !accept @${c.nickname}\n` +
+                    `┃◆ ❌ !decline @${c.nickname}\n` +
                     `┃◆ ⏳ Expires in 5 minutes\n` +
                     `╰════════════════════════════════╯`
                 );
@@ -175,38 +169,23 @@ module.exports = {
 
             // ── PARTY CHALLENGE ───────────────────────────────────────────────
             const challengedLines = targets.map(t =>
-                `┃◆    • *${t.nickname}* [${t.rank}] • ${t.role}`
+                `┃◆  • *${t.nickname}* [${t.rank}] ${t.role}`
             ).join('\n');
 
             return msg.reply(
-                `╭══〘 ⚔️  PARTY DUEL CHALLENGE 〙══╮\n` +
-                `┃◆ \n` +
-                `┃◆ 🔵 *${c.nickname}* [${c.rank}] is calling out:\n` +
-                `┃◆    ${c.role}  •  💪 ${c.strength}  ⚡ ${c.agility}\n` +
-                `┃◆ \n` +
+                `╭══〘 ⚔️ PARTY DUEL CHALLENGE 〙══╮\n` +
+                `┃◆ 🔵 *${c.nickname}* [${c.rank}] ${c.role} is calling out:\n` +
                 `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ 🔴  Players Challenged\n` +
-                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ 🔴 Players Challenged\n` +
                 `${challengedLines}\n` +
-                `┃◆ \n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
                 `${betLine}` +
+                `┃◆ 📋 HOW THIS WORKS\n` +
+                `┃◆ 1️⃣ Each player accepts: !accept @${c.nickname}\n` +
+                `┃◆ 2️⃣ Assembly opens — join a side: !joinparty @leader\n` +
+                `┃◆ 3️⃣ Leaders lock in: !startduel\n` +
                 `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ 📋  HOW THIS WORKS\n` +
-                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ \n` +
-                `┃◆ 1️⃣  Each challenged player accepts:\n` +
-                `┃◆       !accept @${c.nickname}\n` +
-                `┃◆ \n` +
-                `┃◆ 2️⃣  Once all accept — *Assembly phase* opens.\n` +
-                `┃◆       Both sides recruit allies & lock in.\n` +
-                `┃◆       Use: !joinparty @leader\n` +
-                `┃◆ \n` +
-                `┃◆ 3️⃣  Leaders confirm → *DUEL BEGINS.*\n` +
-                `┃◆       Use: !startduel\n` +
-                `┃◆ \n` +
-                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ ❌ To decline:  !decline @${c.nickname}\n` +
-                `┃◆ ⏳ Expires in 5 minutes\n` +
+                `┃◆ ❌ !decline @${c.nickname}  •  ⏳ 5 min\n` +
                 `╰═══════════════════════════════════╯`
             );
         } catch (err) {
