@@ -27,6 +27,17 @@ function formatFatigueBar(fatigue = 0) {
     return '🟦'.repeat(filled) + '▫️'.repeat(empty);
 }
 
+// ── ROLE-BASED FATIGUE RATE ────────────────────────────────────────────────
+// Tanks are built to sustain. They gain fatigue dramatically slower than other roles.
+// Every other role is 1.0 — Tanks generate only 22% of normal fatigue per hit.
+const ROLE_FATIGUE_RATE = {
+    Tank:      0.22,
+    Berserker: 1.0,
+    Assassin:  1.0,
+    Mage:      1.0,
+    Healer:    1.0
+};
+
 // ── STAMINA-BASED FATIGUE REDUCTION ────────────────────────────────────────
 // High stamina reduces fatigue gain, but only above baseline for that role
 // Max reduction: 30% (multiplier goes from 1.0 → 0.7)
@@ -54,14 +65,16 @@ function getStaminaFatigueReduction(player = {}) {
 async function increasePlayerFatigue(playerId, amount = 1, player = null) {
     const points = Math.max(0, Number(amount) || 0);
     if (!playerId || points === 0) return;
-    
-    // Apply stamina-based reduction if player object is provided
+
     let adjustedPoints = points;
     if (player) {
+        // Role multiplier first — Tanks barely tire
+        const roleMult = ROLE_FATIGUE_RATE[player.role] ?? 1.0;
+        // Then stamina reduction on top
         const staminaReduction = getStaminaFatigueReduction(player);
-        adjustedPoints = Math.max(1, Math.ceil(points * staminaReduction));
+        adjustedPoints = Math.max(1, Math.ceil(points * roleMult * staminaReduction));
     }
-    
+
     await db.execute(
         "UPDATE players SET fatigue = LEAST(100, GREATEST(0, COALESCE(fatigue, 0) + ?)) WHERE id=?",
         [adjustedPoints, playerId]

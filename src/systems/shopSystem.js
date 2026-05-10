@@ -122,7 +122,7 @@ function getMaxStockForItem(itemName) {
     const stockOverrides = {
         'Mana Potion': 10,
         'Potion':      10,
-        'Fatigue Potion': 8,
+        'Fatigue Potion': 7,
         'Small Bag':   5,
         'Medium Bag':  3,
         'Large Bag':   2

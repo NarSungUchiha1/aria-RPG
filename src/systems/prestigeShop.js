@@ -12,7 +12,7 @@ const db = require('../database/db');
 const PRESTIGE_STOCK = {
     // Consumables — more available
     'Void Elixir':      5,
-    'Fatigue Potion':   6,
+    'Fatigue Potion':   7,
     'Fracture Potion':  3,
     'Abyss Tonic':      2,
     'Prestige Bag':     2,
