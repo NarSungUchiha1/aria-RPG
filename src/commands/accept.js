@@ -103,7 +103,8 @@ module.exports = {
 
             // All accepted — enter assembly phase so both sides can recruit allies
             const teamBIds = allRows.map(row => row.target_id);
-            await startPartyAssembly(challengerId, teamBIds, betAmount, msg, `party_${challengerId}`);
+            const assemblyChat = await msg.getChat();
+            await startPartyAssembly(challengerId, teamBIds, betAmount, assemblyChat, `party_${challengerId}`);
             return;
         }
 
