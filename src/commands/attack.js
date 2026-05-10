@@ -16,8 +16,9 @@ module.exports = {
             `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ You are not in a duel.\n┃◆ Use !skill in dungeons.\n╰═══════════════════════╯`
         );
         if (args.length < 1) return msg.reply(
-            `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ Use: !attack <move>\n╰═══════════════════════╯`
+            `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ Use: !attack <move> [@target1] [@target2] ...\n╰═══════════════════════╯`
         );
+
         try {
             const [playerRows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
             if (!playerRows.length) return msg.reply(
@@ -26,16 +27,33 @@ module.exports = {
             const player = playerRows[0];
             const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
             const moves = getAllMoves(player, items);
-            const moveName = args.join(' ').toLowerCase();
-            const move = moves.find(m => m.name.toLowerCase() === moveName);
+
+            // ── Move name: match longest prefix that isn't a @mention ────────────
+            const nonMentionArgs = args.filter(a => !a.startsWith('@'));
+            let move = null;
+            for (let i = nonMentionArgs.length; i > 0; i--) {
+                const testName = nonMentionArgs.slice(0, i).join(' ');
+                const found = moves.find(m => m.name.toLowerCase() === testName.toLowerCase());
+                if (found) { move = found; break; }
+            }
             if (!move) return msg.reply(
-                `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ Unknown move: "${args.join(' ')}"\n┃◆ Use !moveset to see your moves.\n╰═══════════════════════╯`
+                `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ Unknown move: "${nonMentionArgs.join(' ')}"\n┃◆ Use !moveset to see your moves.\n╰═══════════════════════╯`
             );
+
             const cd = getMoveCooldown(userId, move.name);
             if (cd > 0) return msg.reply(
-                `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)\n╰═══════════════════════╯`
+                `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ⏳ ${move.name} on cooldown (${Math.ceil(cd / 1000)}s)\n╰═══════════════════════╯`
             );
-            const result = await handlePvPSkill(userId, move, null);
+
+            // ── Target IDs from @mentions (WhatsApp mentionedIds) ─────────────
+            const mentionedTargets = (msg.mentionedIds || [])
+                .map(id => id.replace(/@c\.us$/i, '').split('@')[0])
+                .filter(id => id && id !== String(userId));
+
+            // null = auto single target; array = multi-target (even single explicit)
+            const targetIds = mentionedTargets.length ? mentionedTargets : null;
+
+            const result = await handlePvPSkill(userId, move, targetIds);
             if (result.error) return msg.reply(
                 `══〘 ⚔️ ATTACK 〙══╮\n┃◆ ❌ ${result.error}\n╰═══════════════════════╯`
             );

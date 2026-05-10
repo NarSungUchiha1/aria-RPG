@@ -2,7 +2,7 @@ const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
-const { increasePlayerFatigue, getFatigueMultiplier } = require('./fatigueSystem');
+const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
 const { getPlayerClan, CLAN_BLESSINGS } = require('./clanSystem');
 
 // ── Duel State ────────────────────────────────────────────────────────────────
@@ -13,13 +13,39 @@ const duelPool    = new Map();
 const turnTimers  = new Map(); // duelKey -> timeout
 const duelBlessingStates = new Map();
 
-const DUEL_HP       = 1500;
+// ── Party Assembly State ──────────────────────────────────────────────────────
+// Holds both teams during the 2-minute assembly window before a party duel starts.
+// assemblyKey (= pvp_challenges.team_key) → { teamA, teamB, teamALeader, teamBLeader,
+//   teamAReady, teamBReady, bet, chat, timer }
+const partyAssembly = new Map();
+const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
-// Get effective duel HP for a player — prestige players use their real HP
+const DUEL_HP = 1500; // fallback only
+
+// Normal player duel HP scales with rank — S rank has more HP than F rank
+const RANK_DUEL_HP = {
+    F: 800,  E: 1000, D: 1350, C: 1750,
+    B: 2300, A: 2900, S: 3600
+};
+
+// PvP damage multiplier — stacks on top of calculateMoveDamage's stat-based output.
+// Creates a real power gap between ranks and an enormous gap between normal and prestige.
+const PVP_DMG_MULT = {
+    F: 1.0,  E: 1.1,  D: 1.25, C: 1.45,
+    B: 1.7,  A: 2.0,  S: 2.4,
+    PF: 3.2, PE: 3.6, PD: 4.0, PC: 4.4,
+    PB: 4.8, PA: 5.2, PS: 5.8
+};
+
+// Get effective duel HP — prestige players use their real max_hp, normal players use rank-scaled HP
 async function getDuelHp(playerId) {
-    const [rows] = await db.execute('SELECT max_hp, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?', [playerId]);
+    const [rows] = await db.execute(
+        'SELECT max_hp, COALESCE(prestige_level,0) as prestige_level, `rank` FROM players WHERE id=?',
+        [playerId]
+    );
     if (!rows.length) return DUEL_HP;
-    return rows[0].prestige_level > 0 ? Number(rows[0].max_hp) : DUEL_HP;
+    if (rows[0].prestige_level > 0) return Number(rows[0].max_hp);
+    return RANK_DUEL_HP[rows[0].rank] || DUEL_HP;
 }
 
 function normalizeIds(ids) {
@@ -364,8 +390,148 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
     return blessingMsg;
 }
 
+// ── PARTY ASSEMBLY ────────────────────────────────────────────────────────────
+
+async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey) {
+    // If an assembly already exists with this key, ignore
+    if (partyAssembly.has(assemblyKey)) return;
+
+    const teamALeader = String(challengerId);
+    const teamBLeader = String(enemyIds[0]);
+
+    const state = {
+        assemblyKey,
+        teamA:       [teamALeader],
+        teamB:       enemyIds.map(String),
+        teamALeader,
+        teamBLeader,
+        teamAReady:  false,
+        teamBReady:  false,
+        bet,
+        chat
+    };
+
+    // Auto-start after 2 minutes with whoever joined
+    state.timer = setTimeout(async () => {
+        if (!partyAssembly.has(assemblyKey)) return;
+        const s = partyAssembly.get(assemblyKey);
+        partyAssembly.delete(assemblyKey);
+        await chat.sendMessage(
+            `╭══〘 ⏰ PARTY ASSEMBLY TIMEOUT 〙══╮\n` +
+            `┃◆ Time's up! Starting with current rosters.\n` +
+            `╰═══════════════════════════════╯`
+        ).catch(() => {});
+        await startPvPDuel(s.teamA, s.teamB, s.bet, null, null, chat);
+    }, ASSEMBLY_TIMEOUT_MS);
+
+    partyAssembly.set(assemblyKey, state);
+
+    const [cRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [teamALeader]);
+    const [eRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [teamBLeader]);
+    const cNick = cRow[0]?.nickname || teamALeader;
+    const eNick = eRow[0]?.nickname || teamBLeader;
+
+    await chat.sendMessage(
+        `╭══〘 ⚔️ PARTY ASSEMBLY 〙══╮\n` +
+        `┃◆ \n` +
+        `┃◆ Both sides have *2 minutes* to assemble.\n` +
+        `┃◆ Max *5 players* per team.\n` +
+        `┃◆ \n` +
+        `┃◆ To join *${cNick}'s* team:\n` +
+        `┃◆   !joinparty @${cNick}\n` +
+        `┃◆ \n` +
+        `┃◆ To join *${eNick}'s* team:\n` +
+        `┃◆   !joinparty @${eNick}\n` +
+        `┃◆ \n` +
+        `┃◆ When your team is set:\n` +
+        `┃◆   !startduel\n` +
+        `┃◆ \n` +
+        `┃◆ ⏳ Auto-starts in 2 minutes.\n` +
+        `╰═══════════════════════════════╯`
+    ).catch(() => {});
+}
+
+function getAssemblyByLeader(leaderId) {
+    const lid = String(leaderId);
+    for (const [key, state] of partyAssembly) {
+        if (state.teamALeader === lid || state.teamBLeader === lid) return state;
+    }
+    return null;
+}
+
+function getAssemblyByPlayer(playerId) {
+    const pid = String(playerId);
+    for (const [key, state] of partyAssembly) {
+        if (state.teamA.includes(pid) || state.teamB.includes(pid)) return state;
+    }
+    return null;
+}
+
+async function joinPartyAssembly(joinerId, leaderTag) {
+    const jid = String(joinerId);
+    // Find assembly by leader tag (nickname or id)
+    let state = null;
+    for (const [, s] of partyAssembly) {
+        const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [s.teamALeader]);
+        const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [s.teamBLeader]);
+        const aNick = (aRow[0]?.nickname || '').toLowerCase();
+        const bNick = (bRow[0]?.nickname || '').toLowerCase();
+        const tag   = leaderTag.replace(/@/g, '').toLowerCase();
+        if (aNick === tag || s.teamALeader === leaderTag) { state = s; break; }
+        if (bNick === tag || s.teamBLeader === leaderTag) { state = s; break; }
+    }
+    if (!state) return { error: "No active party assembly found for that leader." };
+
+    if (state.teamA.includes(jid) || state.teamB.includes(jid))
+        return { error: "You are already in this party duel." };
+    if (isPlayerInDuel(jid))
+        return { error: "You are already in an active duel." };
+
+    // Determine which side this player is joining
+    const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamALeader]);
+    const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamBLeader]);
+    const aNick = (aRow[0]?.nickname || '').toLowerCase();
+    const tag   = leaderTag.replace(/@/g, '').toLowerCase();
+
+    const joiningA = aNick === tag || state.teamALeader === leaderTag;
+    const targetTeam = joiningA ? state.teamA : state.teamB;
+
+    if (targetTeam.length >= 5)
+        return { error: `That team is full (max 5 players).` };
+
+    targetTeam.push(jid);
+
+    const [jRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [jid]);
+    const jNick  = jRow[0]?.nickname || jid;
+    const teamTag = joiningA ? aRow[0]?.nickname : bRow[0]?.nickname;
+
+    return { success: true, jNick, teamTag, teamA: state.teamA, teamB: state.teamB };
+}
+
+async function readyPartyDuel(leaderId, chat) {
+    const lid = String(leaderId);
+    const state = getAssemblyByLeader(lid);
+    if (!state) return { error: "You are not a party leader in any active assembly." };
+
+    if (state.teamALeader === lid) state.teamAReady = true;
+    if (state.teamBLeader === lid) state.teamBReady = true;
+
+    if (!state.teamAReady || !state.teamBReady) {
+        const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamALeader]);
+        const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamBLeader]);
+        const waiting = !state.teamAReady ? aRow[0]?.nickname : bRow[0]?.nickname;
+        return { success: true, waiting };
+    }
+
+    // Both ready — start
+    clearTimeout(state.timer);
+    partyAssembly.delete(state.assemblyKey);
+    await startPvPDuel(state.teamA, state.teamB, state.bet, null, null, chat);
+    return { success: true, started: true };
+}
+
 // ── Duel Start ────────────────────────────────────────────────────────────────
-async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg) {
+async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOverride = null) {
     const teamA = Array.isArray(teamAIds) ? normalizeIds(teamAIds) : [String(teamAIds)];
     const teamB = Array.isArray(teamBIds) ? normalizeIds(teamBIds) : [String(teamBIds)];
     const allIds = [...new Set([...teamA, ...teamB])];
@@ -498,8 +664,8 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         `${titleLine}` +
         `┃◆ \n` +
         `┃◆ ━━ 📊 FINAL HP ━━\n` +
-        `┃◆ ${winnerNick}: ${winnerHp}/${DUEL_HP}\n` +
-        `┃◆ ${loserNick}: 0/${DUEL_HP}\n` +
+        `┃◆ ${winnerNick}: ${winnerHp}/${data.maxHp[winnerId] || DUEL_HP}\n` +
+        `┃◆ ${loserNick}: 0/${data.maxHp[loserId] || DUEL_HP}\n` +
         `┃◆ \n` +
         `╰═══════════════════════════╯`
     );
@@ -508,15 +674,15 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 }
 
 // ── Shared combat message ─────────────────────────────────────────────────────
-async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, damage, attackerHp, opponentHp, nextTurnNick, roundNum, extra = '') {
+async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, damage, attackerHp, opponentHp, nextTurnNick, roundNum, extra = '', attackerMaxHp = DUEL_HP, opponentMaxHp = DUEL_HP) {
     await chat.sendMessage(
         `══〘 ⚔️ DUEL — ROUND ${roundNum} 〙══╮\n` +
         `┃◆ ${narrate('skillDamage', { attacker: attackerNick, move: moveName, target: opponentNick, damage })}\n` +
         `┃◆ 💥 Damage: ${damage}\n` +
         `${extra}` +
         `┃◆────────────\n` +
-        `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${DUEL_HP}\n` +
-        `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${DUEL_HP}\n` +
+        `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${attackerMaxHp}\n` +
+        `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${opponentMaxHp}\n` +
         `┃◆────────────\n` +
         `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 20 seconds!\n` +
         `╰═══════════════════════╯`
@@ -524,7 +690,25 @@ async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, dam
 }
 
 // ── Handle Skill in Duel ──────────────────────────────────────────────────────
-async function handlePvPSkill(attackerId, move, targetId) {
+// ── Multi-target fatigue cost — hits 2 enemies? You'll feel it. ──────────────
+// 1 target: ×1  |  2: ×3  |  3: ×6  |  4: ×10  |  5: ×15
+const MULTI_FATIGUE_MULT = [0, 1, 3, 6, 10, 15];
+
+function multiTargetFatigue(baseFatigue, numTargets) {
+    const mult = MULTI_FATIGUE_MULT[Math.min(numTargets, 5)] || numTargets * 3;
+    return Math.ceil(baseFatigue * mult);
+}
+
+function fatigueWarning(fatigue) {
+    const f = clampFatigue(fatigue);
+    if (f >= 90) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *BREAKING POINT. Attacks deal 1 damage!*\n`;
+    if (f >= 75) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *The strain is overwhelming!*\n`;
+    if (f >= 50) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *You're pushing your limits!*\n`;
+    if (f >= 25) return `┃◆ 🔥 ${formatFatigueBar(f)} (${f}%) — you're getting tired.\n`;
+    return '';
+}
+
+async function handlePvPSkill(attackerId, move, targetIds) {
     const duel = activeDuels.get(attackerId);
     if (!duel) return { error: "You are not in a duel." };
     if (duel.turn !== attackerId) return { error: "It's not your turn!" };
@@ -533,23 +717,15 @@ async function handlePvPSkill(attackerId, move, targetId) {
     const data = duelPool.get(duel.duelKey);
     if (!data) return { error: "Duel data missing." };
 
-    targetId = targetId ? String(targetId) : getCurrentOpponentId(duel.duelKey, attackerId);
-    const opponentTeam = getOpponentTeam(duel.duelKey, attackerId);
-    if (!targetId) return { error: "No living opponent found." };
-    if (!opponentTeam || !opponentTeam.includes(targetId)) return { error: "You can only target your opponent in a duel." };
-    if (data.hp[targetId] <= 0) return { error: "That target is already defeated." };
-
     const [aRows] = await db.execute("SELECT * FROM players WHERE id=?", [attackerId]);
-    const [dRows] = await db.execute("SELECT * FROM players WHERE id=?", [targetId]);
-    if (!aRows.length || !dRows.length) return { error: "Player not found." };
-
-    const attacker = aRows[0];
-    const defender = dRows[0];
-    const [items]  = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [attackerId]);
-
+    if (!aRows.length) return { error: "Player not found." };
+    const attacker  = aRows[0];
+    const [items]   = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [attackerId]);
     const attackerHp = data.hp[attackerId];
-    const defenderHp = data.hp[targetId];
     const round = data.round;
+
+    const myTeam  = getTeamForPlayer(duel.duelKey, attackerId);
+    const oppTeam = getOpponentTeam(duel.duelKey, attackerId);
 
     const nextTurnAfterMove = async () => {
         const nextTurn = findNextAlivePlayer(duel.duelKey, attackerId);
@@ -558,95 +734,173 @@ async function handlePvPSkill(attackerId, move, targetId) {
         await startTurnTimer(duel.duelKey, nextTurn, getCurrentOpponentId(duel.duelKey, nextTurn), chat, data.round);
         return nextTurn;
     };
-
     const trackBlessings = async () => {
         await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => {});
         await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => {});
     };
 
+    // ── Normalise requested targets into arrays ───────────────────────────────
+    // rawTargets = null (auto), string (single), or string[] (multi)
+    const rawTargets = !targetIds
+        ? null
+        : Array.isArray(targetIds) ? targetIds.map(String) : [String(targetIds)];
+
     // ── DAMAGE ────────────────────────────────────────────────────────────────
     if (move.type === 'damage') {
-        const defenderForCalc = { ...defender, hp: defenderHp, max_hp: DUEL_HP };
-        let damage = calculateMoveDamage(attacker, move, defenderForCalc, items);
-        const startHp = await getDuelHp(targetId);
-        const maxDuelDamage = Math.floor(startHp * 0.15);
-        damage = Math.min(damage, maxDuelDamage);
-        const newDefenderHp = Math.max(0, defenderHp - damage);
-        data.hp[targetId] = newDefenderHp;
-
-        const fatigueGain = Math.max(1, Math.ceil(damage / 20));
-        await increasePlayerFatigue(attackerId, fatigueGain, attacker);
-
-        if (newDefenderHp <= 0) {
-            await triggerBlessingIfReadyInDuel('on_death', defender, data, { attackerId }).catch(() => {});
-            if (data.hp[targetId] > 0) {
-                data.round++;
-                const nextTurn = await nextTurnAfterMove();
-                await chat.sendMessage(
-                    `╭══〘 👻 PHANTOM SHIFT 〙══╮\n` +
-                    `┃◆ ${defender.nickname} refuses to fall and returns with vengeance!\n` +
-                    `┃◆ ⚡ Next turn: ${nextTurn || defender.nickname}\n` +
-                    `╰═══════════════════════╯`
-                ).catch(() => {});
-                return { success: true, nextTurn };
-            }
-
-            const remainingOpponents = opponentTeam.filter(id => data.hp[id] > 0);
-            if (remainingOpponents.length > 0) {
-                await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
-                data.round++;
-                const nextTurn = await nextTurnAfterMove();
-                const [nextRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]);
-                const nextName = nextRows[0]?.nickname || nextTurn;
-                await chat.sendMessage(
-                    `╭══〘 ☠️ DUEL KILL 〙══╮\n` +
-                    `┃◆ ${attacker.nickname} slays ${defender.nickname}!\n` +
-                    `┃◆ ⚡ Next turn: ${nextName}\n` +
-                    `╰═══════════════════════╯`
-                ).catch(() => {});
-                return { success: true, nextTurn };
-            }
-
-            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
-            return await handleVictory(attackerId, targetId, chat, data,
-                attacker.nickname, defender.nickname, attackerHp);
+        // Build valid enemy targets
+        let enemyTargets;
+        if (!rawTargets) {
+            const auto = getCurrentOpponentId(duel.duelKey, attackerId);
+            if (!auto) return { error: "No living opponent found." };
+            enemyTargets = [auto];
+        } else {
+            enemyTargets = rawTargets.filter(id => oppTeam?.includes(id) && data.hp[id] > 0);
+            if (!enemyTargets.length) return { error: "None of those targets are living opponents." };
         }
 
-        await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId, targetName: defender.nickname }).catch(() => {});
-        await triggerBlessingIfReadyInDuel('hp_below_30', defender, data).catch(() => {});
-        await trackBlessings();
+        const numTargets = enemyTargets.length;
+        const pvpMult = PVP_DMG_MULT[attacker.rank] || 1.0;
+        const results = [];
+        let allDefeated = [];
 
+        for (const tid of enemyTargets) {
+            const [dRows] = await db.execute("SELECT * FROM players WHERE id=?", [tid]);
+            if (!dRows.length) continue;
+            const def = dRows[0];
+            const defHp = data.hp[tid];
+            const defForCalc = { ...def, hp: defHp, max_hp: data.maxHp[tid] };
+            let dmg = calculateMoveDamage(attacker, move, defForCalc, items);
+            dmg = Math.max(1, Math.floor(dmg * pvpMult));
+            const newHp = Math.max(0, defHp - dmg);
+            data.hp[tid] = newHp;
+            results.push({ tid, nick: def.nickname, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
+            if (newHp <= 0) allDefeated.push({ tid, nick: def.nickname, def });
+        }
+
+        const totalDmg = results.reduce((s, r) => s + r.dmg, 0);
+        const baseFatigue = Math.max(1, Math.ceil(totalDmg / 20));
+        const fatigue = multiTargetFatigue(baseFatigue, numTargets);
+        await increasePlayerFatigue(attackerId, fatigue, attacker);
+        const [freshAttacker] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
+        const currentFatigue = freshAttacker[0]?.fatigue || 0;
+
+        // Build message
+        const dmgLines = results.map(r => `┃◆ 💥 ${r.nick}: ${r.dmg} damage  ❤️ ${r.newHp}/${r.maxHp}`).join('\n');
+        const totalLine = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} damage across ${numTargets} targets\n` : '';
+        const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : (currentFatigue >= 25 ? fatigueWarning(currentFatigue) : '');
+
+        // Handle defeated targets
+        for (const { tid, nick, def } of allDefeated) {
+            await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => {});
+        }
+
+        // Check remaining opponents
+        const survivingOpponents = oppTeam?.filter(id => data.hp[id] > 0) || [];
+        if (survivingOpponents.length === 0) {
+            // All enemies down — duel over
+            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
+            const firstDefeated = allDefeated[0];
+            const loserNick = allDefeated.map(d => d.nick).join(' & ');
+            await chat.sendMessage(
+                `╭══〘 ⚔️ DUEL — ROUND ${round} 〙══╮\n` +
+                `${dmgLines}\n${totalLine}` +
+                `${fatigueWarn}` +
+                `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
+                `╰═══════════════════════╯`
+            ).catch(() => {});
+            return await handleVictory(attackerId, allDefeated[0]?.tid || oppTeam[0], chat, data,
+                attacker.nickname, loserNick, attackerHp);
+        }
+
+        if (allDefeated.length > 0) {
+            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
+            data.round++;
+            const nextTurn = await nextTurnAfterMove();
+            const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+            const nextName = nRows[0]?.nickname || nextTurn;
+            await chat.sendMessage(
+                `╭══〘 ☠️ DUEL KILL 〙══╮\n` +
+                `${dmgLines}\n${totalLine}` +
+                `${fatigueWarn}` +
+                `┃◆ ${allDefeated.map(d => d.nick).join(', ')} ${allDefeated.length > 1 ? 'are' : 'is'} defeated!\n` +
+                `┃◆ ⚡ Next: ${nextName}\n` +
+                `╰═══════════════════════╯`
+            ).catch(() => {});
+            return { success: true, nextTurn };
+        }
+
+        await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => {});
+        await trackBlessings();
         data.round++;
         const nextTurn = await nextTurnAfterMove();
-        const [nextRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [null];
-        const nextTurnName = nextRows?.[0]?.nickname || defender.nickname;
-        await sendCombatMessage(chat,
-            attacker.nickname, defender.nickname, move.name, damage,
-            attackerHp, newDefenderHp, nextTurnName, round
+        const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+        const nextTurnName = nRows[0]?.nickname || 'next player';
+
+        await chat.sendMessage(
+            `══〘 ⚔️ DUEL — ROUND ${round} 〙══╮\n` +
+            `┃◆ ${narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results.map(r => r.nick).join(' & '), damage: totalDmg })}\n` +
+            `${dmgLines}\n${totalLine}` +
+            `${fatigueWarn}` +
+            `┃◆────────────\n` +
+            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
+            `┃◆────────────\n` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
+            `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
     }
 
     // ── HEAL ──────────────────────────────────────────────────────────────────
     if (move.type === 'heal') {
-        if (targetId && targetId !== attackerId) return { error: "You can only heal yourself in a duel." };
-        const heal = calculateHeal(attacker, move);
-        const newHp = Math.min(DUEL_HP, attackerHp + heal);
-        data.hp[attackerId] = newHp;
-        await triggerBlessingIfReadyInDuel('on_healed', attacker, data, { healAmount: heal }).catch(() => {});
-        await trackBlessings();
+        // Targets must be alive allies (or self if none specified)
+        let healTargets;
+        if (!rawTargets) {
+            healTargets = [attackerId]; // self-heal by default
+        } else {
+            healTargets = rawTargets.filter(id => myTeam?.includes(id) && data.hp[id] > 0);
+            if (!healTargets.length) return { error: "Heal targets must be alive allies." };
+        }
 
+        const numTargets = healTargets.length;
+        const results = [];
+        let totalHealed = 0;
+
+        for (const tid of healTargets) {
+            const [tRows] = await db.execute("SELECT * FROM players WHERE id=?", [tid]);
+            if (!tRows.length) continue;
+            const tPlayer = tRows[0];
+            const healAmt = calculateHeal(attacker, move);
+            const oldHp   = data.hp[tid];
+            const newHp   = Math.min(data.maxHp[tid], oldHp + healAmt);
+            data.hp[tid]  = newHp;
+            results.push({ tid, nick: tPlayer.nickname, healAmt: newHp - oldHp, newHp, maxHp: data.maxHp[tid] });
+            totalHealed += newHp - oldHp;
+            if (tid === attackerId) {
+                await triggerBlessingIfReadyInDuel('on_healed', attacker, data, { healAmount: healAmt }).catch(() => {});
+            }
+        }
+
+        const baseFatigue = Math.max(1, Math.ceil(totalHealed / 15));
+        const fatigue = multiTargetFatigue(baseFatigue, numTargets);
+        await increasePlayerFatigue(attackerId, fatigue, attacker);
+        const [freshA] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
+        const currentFatigue = freshA[0]?.fatigue || 0;
+
+        const healLines = results.map(r => `┃◆ 💚 ${r.nick}: +${r.healAmt} HP  ❤️ ${r.newHp}/${r.maxHp}`).join('\n');
+        const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : (currentFatigue >= 25 ? fatigueWarning(currentFatigue) : '');
+
+        await trackBlessings();
         data.round++;
         const nextTurn = await nextTurnAfterMove();
-        const [nextRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [null];
-        const nextTurnName = nextRows?.[0]?.nickname || defender.nickname;
+        const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+        const nextTurnName = nRows[0]?.nickname || 'next player';
 
         await chat.sendMessage(
             `══〘 💚 DUEL HEAL — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('heal', { healer: attacker.nickname, target: attacker.nickname, heal })}\n` +
-            `┃◆────────────\n` +
-            `┃◆ ❤️ ${attacker.nickname}: ${newHp}/${DUEL_HP}\n` +
-            `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
+            `┃◆ ${narrate('heal', { healer: attacker.nickname, target: results.map(r => r.nick).join(' & '), heal: totalHealed })}\n` +
+            `${healLines}\n` +
+            `${numTargets > 1 ? `┃◆ ━━ Total healed: ${totalHealed}\n` : ''}` +
+            `${fatigueWarn}` +
             `┃◆────────────\n` +
             `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
             `╰═══════════════════════╯`
@@ -656,21 +910,103 @@ async function handlePvPSkill(attackerId, move, targetId) {
 
     // ── BUFF ──────────────────────────────────────────────────────────────────
     if (move.type === 'buff') {
-        if (targetId && targetId !== attackerId) return { error: "You can only buff yourself in a duel." };
-        applyBuff('player', attackerId, { type: 'buff', stat: move.effect, value: move.value, duration: move.duration });
-        await trackBlessings();
+        let buffTargets;
+        if (!rawTargets) {
+            buffTargets = [attackerId]; // self-buff
+        } else {
+            buffTargets = rawTargets.filter(id => myTeam?.includes(id) && data.hp[id] > 0);
+            if (!buffTargets.length) return { error: "Buff targets must be alive allies." };
+        }
 
+        const numTargets = buffTargets.length;
+        const statName = (move.effect || '').toLowerCase().replace(/_up$/, '');
+        const pctLabel = move.percent ? `${move.value}%` : `+${move.value}`;
+        const results = [];
+
+        for (const tid of buffTargets) {
+            const [tRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [tid]);
+            applyBuff('player', tid, {
+                type: 'buff',
+                stat: statName,
+                value: move.value,
+                percent: move.percent || false,
+                duration: move.duration || 3
+            });
+            results.push(tRows[0]?.nickname || tid);
+        }
+
+        const baseFatigue = 8 * numTargets;
+        const fatigue = multiTargetFatigue(baseFatigue, numTargets);
+        await increasePlayerFatigue(attackerId, fatigue, attacker);
+        const [freshA] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
+        const currentFatigue = freshA[0]?.fatigue || 0;
+        const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : '';
+
+        await trackBlessings();
         data.round++;
         const nextTurn = await nextTurnAfterMove();
-        const [nextRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [null];
-        const nextTurnName = nextRows?.[0]?.nickname || defender.nickname;
+        const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+        const nextTurnName = nRows[0]?.nickname || 'next player';
 
         await chat.sendMessage(
             `══〘 ⬆️ DUEL BUFF — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('buff', { caster: attacker.nickname, target: attacker.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration })}\n` +
+            `┃◆ ${narrate('buff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n` +
+            `┃◆ ${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 3} turns\n` +
+            `${fatigueWarn}` +
             `┃◆────────────\n` +
-            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${DUEL_HP}\n` +
-            `┃◆ ❤️ ${defender.nickname}: ${defenderHp}/${DUEL_HP}\n` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
+            `╰═══════════════════════╯`
+        );
+        return { success: true, nextTurn };
+    }
+
+    // ── DEBUFF ────────────────────────────────────────────────────────────────
+    if (move.type === 'debuff') {
+        let debuffTargets;
+        if (!rawTargets) {
+            const auto = getCurrentOpponentId(duel.duelKey, attackerId);
+            if (!auto) return { error: "No living opponent found." };
+            debuffTargets = [auto];
+        } else {
+            debuffTargets = rawTargets.filter(id => oppTeam?.includes(id) && data.hp[id] > 0);
+            if (!debuffTargets.length) return { error: "Debuff targets must be living opponents." };
+        }
+
+        const numTargets = debuffTargets.length;
+        const statName = (move.effect || '').toLowerCase();
+        const results = [];
+
+        for (const tid of debuffTargets) {
+            const [tRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [tid]);
+            applyBuff('player', tid, {
+                type: 'debuff',
+                stat: statName,
+                value: move.value,   // already negative
+                percent: move.percent || false,
+                duration: move.duration || 2
+            });
+            results.push(tRows[0]?.nickname || tid);
+        }
+
+        const baseFatigue = 6 * numTargets;
+        const fatigue = multiTargetFatigue(baseFatigue, numTargets);
+        await increasePlayerFatigue(attackerId, fatigue, attacker);
+        const [freshA] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
+        const currentFatigue = freshA[0]?.fatigue || 0;
+        const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : '';
+
+        await trackBlessings();
+        data.round++;
+        const nextTurn = await nextTurnAfterMove();
+        const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+        const nextTurnName = nRows[0]?.nickname || 'next player';
+        const pctLabel = move.percent ? `${Math.abs(move.value)}%` : Math.abs(move.value);
+
+        await chat.sendMessage(
+            `══〘 ⬇️ DUEL DEBUFF — ROUND ${round} 〙══╮\n` +
+            `┃◆ ${narrate('debuff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: Math.abs(move.value), duration: move.duration || 2 })}\n` +
+            `┃◆ -${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 2} turns\n` +
+            `${fatigueWarn}` +
             `┃◆────────────\n` +
             `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
             `╰═══════════════════════╯`
@@ -707,7 +1043,8 @@ async function handlePvPAttack(attackerId) {
     const baseDmg  = Number(attacker.strength) + Math.floor(weaponBonus * 0.5);
     const defence  = Number(defender.stamina) || 0;
     const fatigueMultiplier = getFatigueMultiplier(attacker);
-    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier));
+    const pvpMult  = PVP_DMG_MULT[attacker.rank] || 1.0;
+    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier * pvpMult));
     const round    = data.round;
 
     const attackerHp = data.hp[attackerId];
@@ -770,7 +1107,8 @@ async function handlePvPAttack(attackerId) {
     const nextTurn = await nextTurnAfterMove();
     await sendCombatMessage(chat,
         attacker.nickname, defender.nickname, 'Basic Attack', damage,
-        attackerHp, newDefHp, defender.nickname, round
+        attackerHp, newDefHp, defender.nickname, round, '',
+        data.maxHp[attackerId], data.maxHp[targetId]
     );
     return { success: true, nextTurn };
 }
@@ -782,5 +1120,9 @@ module.exports = {
     isPlayerInDuel,
     getDuelOpponent,
     clearDuelActive,
-    DUEL_HP
+    DUEL_HP,
+    startPartyAssembly,
+    joinPartyAssembly,
+    readyPartyDuel,
+    getAssemblyByPlayer
 };

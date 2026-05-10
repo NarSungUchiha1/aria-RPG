@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { startPvPDuel } = require('../systems/pvpsystem');
+const { startPvPDuel, startPartyAssembly } = require('../systems/pvpsystem');
 
 async function ensureTable() {
     await db.execute(`
@@ -95,7 +95,16 @@ module.exports = {
             }
 
             const duelMode = teamRows[0]?.duel_mode || 'solo';
-            // teamA = [challenger], teamB = all targets
+            const assemblyKey = teamRows[0]?.team_key;
+
+            if (duelMode === 'party') {
+                // Enter assembly phase — both sides recruit allies before duel starts
+                const teamBIds = teamRows.map(row => row.target_id);
+                await startPartyAssembly(challengerId, teamBIds, betAmount, msg, assemblyKey);
+                return;
+            }
+
+            // Solo multi-challenge (rare) — start immediately
             const teamAIds = [challengerId];
             const teamBIds = teamRows.map(row => row.target_id);
             const result = await startPvPDuel(teamAIds, teamBIds, betAmount, client, msg);
