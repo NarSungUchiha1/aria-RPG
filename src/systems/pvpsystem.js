@@ -518,24 +518,28 @@ async function buildRosterMessage(state) {
     );
 }
 
+function normalizeId(id) {
+    return String(id || '').replace(/@[^@]+$/, '').split('@')[0].trim();
+}
+
 function getAssemblyByLeader(leaderId) {
-    const lid = String(leaderId);
-    for (const [key, state] of partyAssembly) {
-        if (state.teamALeader === lid || state.teamBLeader === lid) return state;
+    const lid = normalizeId(leaderId);
+    for (const [, state] of partyAssembly) {
+        if (normalizeId(state.teamALeader) === lid || normalizeId(state.teamBLeader) === lid) return state;
     }
     return null;
 }
 
 function getAssemblyByPlayer(playerId) {
-    const pid = String(playerId);
-    for (const [key, state] of partyAssembly) {
-        if (state.teamA.includes(pid) || state.teamB.includes(pid)) return state;
+    const pid = normalizeId(playerId);
+    for (const [, state] of partyAssembly) {
+        if (state.teamA.map(normalizeId).includes(pid) || state.teamB.map(normalizeId).includes(pid)) return state;
     }
     return null;
 }
 
 async function joinPartyAssembly(joinerId, leaderTag) {
-    const jid = String(joinerId);
+    const jid = normalizeId(joinerId);
     let state = null;
     let joiningA = false;
 
@@ -544,13 +548,13 @@ async function joinPartyAssembly(joinerId, leaderTag) {
         const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [s.teamBLeader]);
         const aNick = (aRow[0]?.nickname || '').toLowerCase();
         const bNick = (bRow[0]?.nickname || '').toLowerCase();
-        const tag   = leaderTag.replace(/@/g, '').toLowerCase();
-        if (aNick === tag || s.teamALeader === leaderTag) { state = s; joiningA = true;  break; }
-        if (bNick === tag || s.teamBLeader === leaderTag) { state = s; joiningA = false; break; }
+        const tag   = normalizeId(leaderTag).toLowerCase();
+        if (aNick === tag || normalizeId(s.teamALeader) === normalizeId(leaderTag)) { state = s; joiningA = true;  break; }
+        if (bNick === tag || normalizeId(s.teamBLeader) === normalizeId(leaderTag)) { state = s; joiningA = false; break; }
     }
     if (!state) return { error: "No active party assembly found for that leader.\nMake sure you spell the nickname exactly as it appears." };
 
-    if (state.teamA.includes(jid) || state.teamB.includes(jid))
+    if (state.teamA.map(normalizeId).includes(jid) || state.teamB.map(normalizeId).includes(jid))
         return { error: "You are already in this party duel." };
     if (isPlayerInDuel(jid))
         return { error: "You are already in an active duel." };
@@ -561,11 +565,9 @@ async function joinPartyAssembly(joinerId, leaderTag) {
 
     targetTeam.push(jid);
 
-    // Build full roster to return for display
     const rosterMsg = await buildRosterMessage(state);
     const [jRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [jid]);
     const jNick  = jRow[0]?.nickname || jid;
-
     const [lRow] = await db.execute('SELECT nickname FROM players WHERE id=?',
         [joiningA ? state.teamALeader : state.teamBLeader]);
     const leaderNick = lRow[0]?.nickname || (joiningA ? state.teamALeader : state.teamBLeader);
@@ -853,81 +855,86 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const [freshAttacker] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
         const currentFatigue = freshAttacker[0]?.fatigue || 0;
 
-        // ── 1. SEND ATTACK MESSAGE ────────────────────────────────────────────
-        const dmgLines = results.map(r =>
+        // ── Build display lines ────────────────────────────────────────────
+        const dmgLines   = results.map(r =>
             `┃◆ 💥 ${r.nick} [${r.rank}]: -${r.dmg} HP  (${r.newHp <= 0 ? '💀 0' : r.newHp}/${r.maxHp})`
         ).join('\n');
-        const totalLine = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets\n` : '';
+        const totalLine  = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets\n` : '';
         const fatigueWarn = fatigueWarning(currentFatigue);
-        const narrateLine = narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
+        const narrative  = narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
 
-        // Resolve next turn BEFORE sending message so we can include it inline
-        await trackBlessings();
-        data.round++;
-        const nextTurn = await nextTurnAfterMove();
-        const [nRowsEarly] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
-        const nextTurnName = nRowsEarly[0]?.nickname || 'next player';
-
-        // ── 1. ATTACK MESSAGE (includes next-turn — single message, no double send) ──
-        await chat.sendMessage(
-            `╭══〘 ⚔️ ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrateLine}\n` +
-            `┃◆ ━━━━━━━━━━━━━━━━\n` +
-            `${dmgLines}\n` +
-            `${totalLine}` +
-            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
-            `${fatigueWarn}` +
-            `┃◆ ━━━━━━━━━━━━━━━━\n` +
-            `┃◆ ⚡ *${nextTurnName}'s turn!*  ⏰ 45 seconds\n` +
-            `╰═══════════════════════════╯`
-        );
-
-        // ── 2. CLAN BLESSING (fires AFTER attack message) ─────────────────────
+        // ── Collect blessings (don't send yet) ────────────────────────────
+        const pendingBlMsgs = [];
         for (const { tid, def } of allDefeated) {
             const bl = await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => null);
-            if (bl) await chat.sendMessage(bl.message).catch(() => {});
+            if (bl?.message) pendingBlMsgs.push(bl.message);
         }
-
         if (allDefeated.length > 0) {
             const bl = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
-            if (bl) {
-                const oppTeamIds = data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA;
-                const fieldLines = oppTeamIds.map(id => {
+            if (bl?.message) {
+                const oppIds = data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA;
+                const fieldLines = oppIds.map(id => {
                     const r = results.find(r => r.tid === id);
                     return `┃◆  • ${r?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`;
-                });
-                const blessingKilled = (bl.killedIds || []);
-                await chat.sendMessage(
-                    `${bl.message}\n` +
-                    `┃◆ ━━ Field State ━━\n` +
-                    `${fieldLines.join('\n')}\n` +
-                    `${blessingKilled.length ? `┃◆ ☠️ ${blessingKilled.length} more fell to the blessing!\n` : ''}` +
-                    `╰═══════════════════════════╯`
-                ).catch(() => {});
-                blessingKilled.forEach(id => {
+                }).join('\n');
+                const extra = (bl.killedIds || []).length ? `┃◆ ☠️ ${bl.killedIds.length} more fell!\n` : '';
+                pendingBlMsgs.push(`${bl.message}\n┃◆ ━━ Field ━━\n${fieldLines}\n${extra}╰════════════════╯`);
+                (bl.killedIds || []).forEach(id => {
                     if (!allDefeated.find(d => d.tid === id))
                         allDefeated.push({ tid: id, nick: id, rank: '?', def: {} });
                 });
             }
         }
-
         const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => null);
-        if (bl25) await chat.sendMessage(bl25.message).catch(() => {});
+        if (bl25?.message) pendingBlMsgs.push(bl25.message);
+        await trackBlessings();
 
-        // ── 3. CHECK VICTORY ──────────────────────────────────────────────────
-        const survivingOpponents = (data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA).filter(id => data.hp[id] > 0);
+        // ── Check surviving opponents AFTER all blessings ─────────────────
+        const oppSide = data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA;
+        const survivingOpponents = oppSide.filter(id => data.hp[id] > 0);
+        const duelOver = survivingOpponents.length === 0;
 
-        if (survivingOpponents.length === 0) {
+        // ── Advance turn ONLY if duel continues ────────────────────────────
+        let nextTurn     = null;
+        let nextTurnLine = '';
+        if (!duelOver) {
+            data.round++;
+            nextTurn = await nextTurnAfterMove();
+            const [nRow] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+            const nextNick = nRow[0]?.nickname || 'next player';
+            nextTurnLine = `┃◆ ━━━━━━━━━━━━━━━━\n┃◆ ⚡ *${nextNick}'s turn!*  ⏰ 45 seconds\n`;
+        }
+
+        // ── 1. ATTACK MESSAGE ──────────────────────────────────────────────
+        await chat.sendMessage(
+            `╭══〘 ⚔️ ROUND ${round} 〙══╮\n` +
+            `┃◆ ${narrative}\n` +
+            `┃◆ ━━━━━━━━━━━━━━━━\n` +
+            `${dmgLines}\n` +
+            `${totalLine}` +
+            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
+            `${fatigueWarn}` +
+            `${nextTurnLine}` +
+            `╰═══════════════════════════╯`
+        );
+
+        // ── 2. BLESSING MESSAGES ───────────────────────────────────────────
+        for (const bMsg of pendingBlMsgs) {
+            await chat.sendMessage(bMsg).catch(() => {});
+        }
+
+        // ── 3. VICTORY ─────────────────────────────────────────────────────
+        if (duelOver) {
             const loserNick = allDefeated.map(d => d.nick).join(' & ');
             return await handleVictory(attackerId, allDefeated[0]?.tid || enemyTargets[0], chat, data,
                 attacker.nickname, loserNick, attackerHp);
         }
 
-        // ── 4. KILL ANNOUNCEMENTS (mid-fight, opponents remain) ───────────────
+        // ── 4. KILL ANNOUNCEMENTS (mid-fight, opponents remain) ───────────
         if (allDefeated.length > 0) {
             await chat.sendMessage(
                 `╭══〘 ☠️ ELIMINATED 〙══╮\n` +
-                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] has been defeated!`).join('\n')}\n` +
+                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] defeated!`).join('\n')}\n` +
                 `┃◆ ${survivingOpponents.length} opponent(s) remain.\n` +
                 `╰═══════════════════════════╯`
             ).catch(() => {});
