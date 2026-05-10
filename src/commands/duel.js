@@ -10,14 +10,13 @@ async function ensureTable() {
             target_id     VARCHAR(50) NOT NULL,
             bet_amount    INT DEFAULT 0,
             status        ENUM('pending','accepted','declined') DEFAULT 'pending',
-            team_key      VARCHAR(64) DEFAULT NULL,
-            duel_mode     ENUM('solo','party') DEFAULT 'solo',
+            duel_type     ENUM('solo','party') DEFAULT 'solo',
             created_at    DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
 
-    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS team_key  VARCHAR(64)            DEFAULT NULL`).catch(() => {});
-    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS duel_mode ENUM('solo','party')  DEFAULT 'solo'`).catch(() => {});
+    // Add duel_type column for tables that predate it (no IF NOT EXISTS — compatible with older MySQL)
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN duel_type ENUM('solo','party') DEFAULT 'solo'`).catch(() => {});
 }
 
 module.exports = {
@@ -136,13 +135,12 @@ module.exports = {
                 `══〘 ⚔️ DUEL 〙══╮\n┃◆ ❌ You already have a pending challenge to one of those players.\n╰═══════════════════════╯`
             );
 
-            const teamKey = `${userId}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-            const placeholders = targetIds.map(() => '(?, ?, ?, ?, ?)').join(',');
+            const placeholders = targetIds.map(() => '(?, ?, ?, ?)').join(',');
             const params = [];
-            targetIds.forEach(id => params.push(userId, id, betAmount, teamKey, mode));
+            targetIds.forEach(id => params.push(userId, id, betAmount, mode));
 
             await db.execute(
-                `INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount, team_key, duel_mode) VALUES ${placeholders}`,
+                `INSERT INTO pvp_challenges (challenger_id, target_id, bet_amount, duel_type) VALUES ${placeholders}`,
                 params
             );
 
