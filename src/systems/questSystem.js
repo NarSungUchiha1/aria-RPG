@@ -33,6 +33,11 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
+    // ── Migrate: add id column if the table existed before this version ──────
+    await db.execute(
+        `ALTER TABLE player_quests ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST`
+    ).catch(() => {}); // silently ignored if column already exists
+
     // ── Seed quests if table is empty ─────────────────────────────────────────
     const [count] = await db.execute('SELECT COUNT(*) as cnt FROM quests').catch(() => [[{ cnt: 1 }]]);
     if (count[0].cnt > 0) return;
@@ -211,16 +216,15 @@ async function updateQuestProgress(playerId, objectiveType, amount = 1, client =
 
 // ── CLAIM QUEST REWARDS ──────────────────────────────────────────────────────
 async function claimQuestRewards(playerId, questId, client) {
-    // Grab the specific unclaimed row (latest match) — prevents cross-day collision
+    // Find the specific unclaimed row — order by assigned_date DESC so we get the most recent
+    // Uses assigned_date instead of id so this works even if the id column migration hasn't run yet
     const [pq] = await db.execute(
-        `SELECT id as pq_id FROM player_quests
+        `SELECT player_id FROM player_quests
          WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
-         ORDER BY id DESC LIMIT 1`,
+         ORDER BY assigned_date DESC LIMIT 1`,
         [playerId, questId]
     );
     if (!pq.length) return { error: "Quest not completed or already claimed." };
-
-    const pqId = pq[0].pq_id;
 
     const [quest] = await db.execute("SELECT * FROM quests WHERE id=?", [questId]);
     if (!quest.length) return { error: "Quest not found." };
@@ -240,8 +244,13 @@ async function claimQuestRewards(playerId, questId, client) {
     if (q.reward_title) {
         await db.execute("UPDATE players SET title=? WHERE id=?", [q.reward_title, playerId]).catch(() => {});
     }
-    // Mark this specific row only
-    await db.execute("UPDATE player_quests SET claimed=1 WHERE id=?", [pqId]);
+    // UPDATE with ORDER BY + LIMIT 1 targets only the most recent unclaimed row
+    await db.execute(
+        `UPDATE player_quests SET claimed=1
+         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
+         ORDER BY assigned_date DESC LIMIT 1`,
+        [playerId, questId]
+    );
     return { quest: q };
 }
 
