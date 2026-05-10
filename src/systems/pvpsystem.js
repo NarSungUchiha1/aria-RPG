@@ -386,8 +386,8 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
     }
 
     if (!blessingMsg) return null;
-    await data.chat.sendMessage(blessingMsg).catch(() => {});
-    return blessingMsg;
+    // Return the message — caller sends it in the correct sequence (AFTER the attack message)
+    return { message: blessingMsg, killedIds: aliveEnemies.filter(id => data.hp[id] <= 0) };
 }
 
 // ── PARTY ASSEMBLY ────────────────────────────────────────────────────────────
@@ -666,76 +666,75 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     clearTurnTimer(duelKey);
     clearDuelActiveByKey(duelKey);
 
+    // ── PARTY VICTORY ─────────────────────────────────────────────────────────
     if (duelData.type === 'party') {
         const winners = duelData.teamA.includes(String(winnerId)) ? duelData.teamA : duelData.teamB;
         const losers  = duelData.teamA.includes(String(winnerId)) ? duelData.teamB : duelData.teamA;
         const aliveWinners = winners.filter(id => duelData.hp[id] > 0);
 
-        // Look up nicknames for all alive winners
         const [winnerRows] = await db.execute(
-            `SELECT id, nickname FROM players WHERE id IN (${aliveWinners.map(() => '?').join(',')})`,
-            aliveWinners
+            `SELECT id, nickname, \`rank\` FROM players WHERE id IN (${winners.map(() => '?').join(',')})`,
+            winners
         ).catch(() => [[]]);
-        const nicknameMap = Object.fromEntries(winnerRows.map(r => [String(r.id), r.nickname]));
+        const nicknameMap = Object.fromEntries(winnerRows.map(r => [String(r.id), r]));
+
+        await db.execute(`UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id IN (${winners.map(() => '?').join(',')})`, winners);
+        await db.execute(`UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id IN (${losers.map(() => '?').join(',')})`, losers);
 
         const titleLines = [];
-        await db.execute(
-            `UPDATE players SET pvp_wins = pvp_wins + 1 WHERE id IN (${winners.map(() => '?').join(',')})`,
-            winners
-        );
-        await db.execute(
-            `UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id IN (${losers.map(() => '?').join(',')})`,
-            losers
-        );
-
         await Promise.all(aliveWinners.map(async id => {
             const newTitle = await checkAndGrantTitle(id);
-            const nick = nicknameMap[String(id)] || id;
-            if (newTitle) titleLines.push(`┃◆ 🎖️ ${nick} earned: "${newTitle}"`);
+            const p = nicknameMap[String(id)];
+            if (newTitle) titleLines.push(`┃◆ 🎖️ ${p?.nickname || id} earned: "${newTitle}"`);
         }));
+
+        const survivorLines = aliveWinners.map(id => {
+            const p = nicknameMap[String(id)];
+            return `┃◆  • ${p?.nickname || id} [${p?.rank || '?'}] — ❤️ ${duelData.hp[id]}/${duelData.maxHp[id]}`;
+        }).join('\n');
 
         await chat.sendMessage(
             `╭══〘 🏆 PARTY DUEL OVER 〙══╮\n` +
-            `┃◆ \n` +
-            `┃◆ 🏆 ${winnerNick}'s team wins!\n` +
-            `┃◆ \n` +
-            `${titleLines.length ? titleLines.join('\n') + '\n' : ''}` +
-            `┃◆ ━━ SURVIVORS ━━\n` +
-            `${aliveWinners.map(id => `┃◆ • ${nicknameMap[String(id)] || id}`).join('\n')}\n` +
-            `┃◆ \n` +
+            `┃◆ ⚔️ ${winnerNick}'s team stands victorious!\n` +
+            `┃◆ ━━━━━━━━━━━━━━━━\n` +
+            `┃◆ 🟢 Survivors\n` +
+            `${survivorLines}\n` +
+            `${titleLines.length ? `┃◆ ━━━━━━━━━━━━━━━━\n${titleLines.join('\n')}\n` : ''}` +
             `╰═══════════════════════════╯`
         );
-
         return { winner: winners };
     }
 
+    // ── SOLO VICTORY ──────────────────────────────────────────────────────────
     await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [winnerId]);
     await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [loserId]);
 
-    // Bet payout — winner gets the full pot
+    const [wRow] = await db.execute("SELECT `rank`, prestige_level FROM players WHERE id=?", [winnerId]);
+    const [lRow] = await db.execute("SELECT `rank`, prestige_level FROM players WHERE id=?", [loserId]);
+    const wRank  = wRow[0]?.rank || '?';
+    const lRank  = lRow[0]?.rank || '?';
+
     let betLine = '';
     if (duelData.bet > 0) {
         await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [duelData.bet * 2, winnerId]);
-        betLine = `┃◆ 💰 Winnings: ${duelData.bet * 2} Gold\n`;
+        betLine = `┃◆ 💰 Prize: ${duelData.bet * 2} Gold claimed\n`;
     }
 
     await trackPvPWin(winnerId);
     const newTitle = await checkAndGrantTitle(winnerId);
-    const titleLine = newTitle ? `┃◆ 🎖️ Title earned: "${newTitle}"\n` : '';
+    const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"\n` : '';
 
     await chat.sendMessage(
         `╭══〘 🏆 DUEL OVER 〙══╮\n` +
-        `┃◆ \n` +
         `┃◆ ${narrate('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
-        `┃◆ \n` +
-        `┃◆ 🏆 Winner: ${winnerNick}\n` +
+        `┃◆ ━━━━━━━━━━━━━━━━\n` +
+        `┃◆ 🥇 *${winnerNick}* [${wRank}] WINS\n` +
+        `┃◆ 💀 ${loserNick} [${lRank}] defeated\n` +
+        `┃◆ ━━━━━━━━━━━━━━━━\n` +
+        `┃◆ ❤️ ${winnerNick}: ${winnerHp}/${duelData.maxHp[winnerId] || DUEL_HP}\n` +
+        `┃◆ 💀 ${loserNick}: 0/${duelData.maxHp[loserId] || DUEL_HP}\n` +
         `${betLine}` +
         `${titleLine}` +
-        `┃◆ \n` +
-        `┃◆ ━━ 📊 FINAL HP ━━\n` +
-        `┃◆ ${winnerNick}: ${winnerHp}/${data.maxHp[winnerId] || DUEL_HP}\n` +
-        `┃◆ ${loserNick}: 0/${data.maxHp[loserId] || DUEL_HP}\n` +
-        `┃◆ \n` +
         `╰═══════════════════════════╯`
     );
 
@@ -804,8 +803,10 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         return nextTurn;
     };
     const trackBlessings = async () => {
-        await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => {});
-        await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => {});
+        const b1 = await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => null);
+        if (b1) await chat.sendMessage(b1.message).catch(() => {});
+        const b2 = await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => null);
+        if (b2) await chat.sendMessage(b2.message).catch(() => {});
     };
 
     // ── Normalise requested targets into arrays ───────────────────────────────
@@ -842,8 +843,8 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             dmg = Math.max(1, Math.floor(dmg * pvpMult));
             const newHp = Math.max(0, defHp - dmg);
             data.hp[tid] = newHp;
-            results.push({ tid, nick: def.nickname, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
-            if (newHp <= 0) allDefeated.push({ tid, nick: def.nickname, def });
+            results.push({ tid, nick: def.nickname, rank: def.rank, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
+            if (newHp <= 0) allDefeated.push({ tid, nick: def.nickname, rank: def.rank, def });
         }
 
         const totalDmg = results.reduce((s, r) => s + r.dmg, 0);
@@ -853,69 +854,87 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const [freshAttacker] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
         const currentFatigue = freshAttacker[0]?.fatigue || 0;
 
-        // Build message
-        const dmgLines = results.map(r => `┃◆ 💥 ${r.nick}: ${r.dmg} damage  ❤️ ${r.newHp}/${r.maxHp}`).join('\n');
-        const totalLine = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} damage across ${numTargets} targets\n` : '';
-        const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : (currentFatigue >= 25 ? fatigueWarning(currentFatigue) : '');
+        // ── 1. SEND ATTACK MESSAGE ────────────────────────────────────────────
+        const dmgLines = results.map(r =>
+            `┃◆ 💥 ${r.nick} [${r.rank}]: -${r.dmg} HP  (${r.newHp <= 0 ? '💀 0' : r.newHp}/${r.maxHp})`
+        ).join('\n');
+        const totalLine = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets\n` : '';
+        const fatigueWarn = fatigueWarning(currentFatigue);
+        const narrateLine = narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
 
-        // Handle defeated targets
-        for (const { tid, nick, def } of allDefeated) {
-            await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => {});
+        await chat.sendMessage(
+            `╭══〘 ⚔️ ROUND ${round} 〙══╮\n` +
+            `┃◆ ${narrateLine}\n` +
+            `┃◆ ━━━━━━━━━━━━━━━━\n` +
+            `${dmgLines}\n` +
+            `${totalLine}` +
+            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
+            `${fatigueWarn}` +
+            `╰═══════════════════════════╯`
+        );
+
+        // ── 2. CLAN BLESSING (fires AFTER attack message) ─────────────────────
+        // Check on_death for each defeated enemy first
+        for (const { tid, def } of allDefeated) {
+            const bl = await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => null);
+            if (bl) await chat.sendMessage(bl.message).catch(() => {});
         }
 
-        // Check remaining opponents
-        const survivingOpponents = oppTeam?.filter(id => data.hp[id] > 0) || [];
+        // Check on_kill blessing for attacker after eliminating someone
+        if (allDefeated.length > 0) {
+            const bl = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
+            if (bl) {
+                // Show blessing effect on remaining enemies
+                const fieldLines = data.teamA.includes(String(attackerId))
+                    ? data.teamB.map(id => `┃◆  • ${results.find(r=>r.tid===id)?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`)
+                    : data.teamA.map(id => `┃◆  • ${results.find(r=>r.tid===id)?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`);
+                const blessingKilled = (bl.killedIds || []);
+                await chat.sendMessage(
+                    `${bl.message}\n` +
+                    `┃◆ ━━ Field State ━━\n` +
+                    `${fieldLines.join('\n')}\n` +
+                    `${blessingKilled.length ? `┃◆ ☠️ ${blessingKilled.length} more fell to the blessing!\n` : ''}` +
+                    `╰═══════════════════════════╯`
+                ).catch(() => {});
+                // Recompute defeated after blessing
+                blessingKilled.forEach(id => {
+                    if (!allDefeated.find(d => d.tid === id)) {
+                        allDefeated.push({ tid: id, nick: id, rank: '?', def: {} });
+                    }
+                });
+            }
+        }
+
+        // enemy_below_25 blessing
+        const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => null);
+        if (bl25) await chat.sendMessage(bl25.message).catch(() => {});
+
+        // ── 3. CHECK VICTORY ──────────────────────────────────────────────────
+        const survivingOpponents = (data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA).filter(id => data.hp[id] > 0);
+
         if (survivingOpponents.length === 0) {
-            // All enemies down — duel over
-            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
-            const firstDefeated = allDefeated[0];
             const loserNick = allDefeated.map(d => d.nick).join(' & ');
-            await chat.sendMessage(
-                `╭══〘 ⚔️ DUEL — ROUND ${round} 〙══╮\n` +
-                `${dmgLines}\n${totalLine}` +
-                `${fatigueWarn}` +
-                `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
-                `╰═══════════════════════╯`
-            ).catch(() => {});
-            return await handleVictory(attackerId, allDefeated[0]?.tid || oppTeam[0], chat, data,
+            return await handleVictory(attackerId, allDefeated[0]?.tid || enemyTargets[0], chat, data,
                 attacker.nickname, loserNick, attackerHp);
         }
 
+        // ── 4. KILL ANNOUNCEMENTS (mid-fight, opponents remain) ───────────────
         if (allDefeated.length > 0) {
-            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
-            data.round++;
-            const nextTurn = await nextTurnAfterMove();
-            const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
-            const nextName = nRows[0]?.nickname || nextTurn;
             await chat.sendMessage(
-                `╭══〘 ☠️ DUEL KILL 〙══╮\n` +
-                `${dmgLines}\n${totalLine}` +
-                `${fatigueWarn}` +
-                `┃◆ ${allDefeated.map(d => d.nick).join(', ')} ${allDefeated.length > 1 ? 'are' : 'is'} defeated!\n` +
-                `┃◆ ⚡ Next: ${nextName}\n` +
-                `╰═══════════════════════╯`
+                `╭══〘 ☠️ ELIMINATED 〙══╮\n` +
+                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] has been defeated!`).join('\n')}\n` +
+                `┃◆ ${survivingOpponents.length} opponent(s) remain.\n` +
+                `╰═══════════════════════════╯`
             ).catch(() => {});
-            return { success: true, nextTurn };
         }
 
-        await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => {});
         await trackBlessings();
         data.round++;
         const nextTurn = await nextTurnAfterMove();
         const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
         const nextTurnName = nRows[0]?.nickname || 'next player';
 
-        await chat.sendMessage(
-            `══〘 ⚔️ DUEL — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results.map(r => r.nick).join(' & '), damage: totalDmg })}\n` +
-            `${dmgLines}\n${totalLine}` +
-            `${fatigueWarn}` +
-            `┃◆────────────\n` +
-            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
-            `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
-            `╰═══════════════════════╯`
-        );
+        await chat.sendMessage(`┃◆ ⚡ *${nextTurnName}'s turn!*  ⏰ 20 seconds — use !attack <move>`);
         return { success: true, nextTurn };
     }
 
@@ -945,7 +964,8 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             results.push({ tid, nick: tPlayer.nickname, healAmt: newHp - oldHp, newHp, maxHp: data.maxHp[tid] });
             totalHealed += newHp - oldHp;
             if (tid === attackerId) {
-                await triggerBlessingIfReadyInDuel('on_healed', attacker, data, { healAmount: healAmt }).catch(() => {});
+                const bl = await triggerBlessingIfReadyInDuel('on_healed', attacker, data, { healAmount: healAmt }).catch(() => null);
+                if (bl) await chat.sendMessage(bl.message).catch(() => {});
             }
         }
 
@@ -1132,14 +1152,15 @@ async function handlePvPAttack(attackerId) {
     };
 
     if (newDefHp <= 0) {
-        await triggerBlessingIfReadyInDuel('on_death', defender, data, { attackerId }).catch(() => {});
+        const blDeath = await triggerBlessingIfReadyInDuel('on_death', defender, data, { attackerId }).catch(() => null);
+        if (blDeath) await chat.sendMessage(blDeath.message).catch(() => {});
         if (data.hp[targetId] > 0) {
             data.round++;
             const nextTurn = await nextTurnAfterMove();
             await chat.sendMessage(
                 `╭══〘 👻 PHANTOM SHIFT 〙══╮\n` +
                 `┃◆ ${defender.nickname} refuses to fall and returns with vengeance!\n` +
-                `┃◆ ⚡ Next turn: ${nextTurn || defender.nickname}\n` +
+                `┃◆ ❤️ Revived — next: ${nextTurn || defender.nickname}\n` +
                 `╰═══════════════════════╯`
             ).catch(() => {});
             return { success: true, nextTurn };
@@ -1148,29 +1169,36 @@ async function handlePvPAttack(attackerId) {
         const opponentTeam = getOpponentTeam(duel.duelKey, attackerId);
         const remainingOpponents = opponentTeam ? opponentTeam.filter(id => data.hp[id] > 0) : [];
         if (remainingOpponents.length > 0) {
-            await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
+            const blKill = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
+            if (blKill) await chat.sendMessage(blKill.message).catch(() => {});
             data.round++;
             const nextTurn = await nextTurnAfterMove();
             const [nextRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [null];
             const nextName = nextRows?.[0]?.nickname || nextTurn;
             await chat.sendMessage(
-                `╭══〘 ☠️ DUEL KILL 〙══╮\n` +
-                `┃◆ ${attacker.nickname} slays ${defender.nickname}!\n` +
-                `┃◆ ⚡ Next turn: ${nextName}\n` +
+                `╭══〘 ☠️ ELIMINATED 〙══╮\n` +
+                `┃◆ 💀 ${defender.nickname} has been defeated!\n` +
+                `┃◆ ${remainingOpponents.length} opponent(s) remain.\n` +
+                `┃◆ ⚡ Next: ${nextName}\n` +
                 `╰═══════════════════════╯`
             ).catch(() => {});
             return { success: true, nextTurn };
         }
 
-        await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => {});
+        const blKill = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
+        if (blKill) await chat.sendMessage(blKill.message).catch(() => {});
         return await handleVictory(attackerId, targetId, chat, data,
             attacker.nickname, defender.nickname, attackerHp);
     }
 
-    await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId, targetName: defender.nickname }).catch(() => {});
-    await triggerBlessingIfReadyInDuel('hp_below_30', defender, data).catch(() => {});
-    await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => {});
-    await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => {});
+    const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId, targetName: defender.nickname }).catch(() => null);
+    if (bl25) await chat.sendMessage(bl25.message).catch(() => {});
+    const blLow = await triggerBlessingIfReadyInDuel('hp_below_30', defender, data).catch(() => null);
+    if (blLow) await chat.sendMessage(blLow.message).catch(() => {});
+    const bl5 = await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => null);
+    if (bl5) await chat.sendMessage(bl5.message).catch(() => {});
+    const blAll = await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => null);
+    if (blAll) await chat.sendMessage(blAll.message).catch(() => {});
 
     data.round++;
     const nextTurn = await nextTurnAfterMove();
