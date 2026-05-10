@@ -145,37 +145,69 @@ module.exports = {
             );
 
             const betLine = betAmount > 0
-                ? `┃◆ 💰 Bet: ${betAmount} Gold each  •  Pot: ${betAmount * 2} Gold\n`
-                : `┃◆ 💰 No bet — honour duel\n`;
+                ? `┃◆ 💰 Bet: *${betAmount} Gold* each  —  Pot: *${betAmount * 2} Gold*\n`
+                : ``;
 
-            const targetLines = targets.map(t =>
-                `┃◆ • ${t.nickname} [${t.rank}] • ${t.role} • STR:${t.strength} AGI:${t.agility} INT:${t.intelligence} STA:${t.stamina}\n`
-            ).join('');
+            // ── SOLO CHALLENGE ────────────────────────────────────────────────
+            if (mode === 'solo') {
+                const t = targets[0];
+                return msg.reply(
+                    `╭══〘 ⚔️  DUEL CHALLENGE 〙══╮\n` +
+                    `┃◆ \n` +
+                    `┃◆ 🔵 *${c.nickname}* [${c.rank}]\n` +
+                    `┃◆    ${c.role}\n` +
+                    `┃◆    💪 ${c.strength}  ⚡ ${c.agility}  🧠 ${c.intelligence}  🛡️ ${c.stamina}\n` +
+                    `┃◆ \n` +
+                    `┃◆          ⚔️  *vs*\n` +
+                    `┃◆ \n` +
+                    `┃◆ 🔴 *${t.nickname}* [${t.rank}]\n` +
+                    `┃◆    ${t.role}\n` +
+                    `┃◆    💪 ${t.strength}  ⚡ ${t.agility}  🧠 ${t.intelligence}  🛡️ ${t.stamina}\n` +
+                    `┃◆ \n` +
+                    `${betLine}` +
+                    `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◆ ✅  !accept @${c.nickname}\n` +
+                    `┃◆ ❌  !decline @${c.nickname}\n` +
+                    `┃◆ ⏳ Expires in 5 minutes\n` +
+                    `╰════════════════════════════════╯`
+                );
+            }
 
-            const modeLabel = mode === 'party' ? '⚔️ PARTY DUEL CHALLENGE' : '⚔️ DUEL CHALLENGE';
-            const modeNote  = mode === 'party'
-                ? `┃◆ ⚔️ ${targetIds.length}v1 party duel! Each target must accept.\n`
-                : `┃◆ ⚔️ 1v1 solo duel!\n`;
+            // ── PARTY CHALLENGE ───────────────────────────────────────────────
+            const challengedLines = targets.map(t =>
+                `┃◆    • *${t.nickname}* [${t.rank}] • ${t.role}`
+            ).join('\n');
 
             return msg.reply(
-                `╭══〘 ${modeLabel} 〙══╮\n` +
+                `╭══〘 ⚔️  PARTY DUEL CHALLENGE 〙══╮\n` +
                 `┃◆ \n` +
-                `┃◆ *${c.nickname}* [${c.rank}] challenges:\n` +
-                `${targetLines}` +
+                `┃◆ 🔵 *${c.nickname}* [${c.rank}] is calling out:\n` +
+                `┃◆    ${c.role}  •  💪 ${c.strength}  ⚡ ${c.agility}\n` +
                 `┃◆ \n` +
-                `┃◆ ── *${c.nickname}* ──\n` +
-                `┃◆ 🎭 ${c.role}\n` +
-                `┃◆ 💪 ${c.strength}  ⚡ ${c.agility}  🧠 ${c.intelligence}  🛡️ ${c.stamina}\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ 🔴  Players Challenged\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `${challengedLines}\n` +
                 `┃◆ \n` +
                 `${betLine}` +
-                `${modeNote}` +
-                `┃◆ ━━━━━━━━━━━━\n` +
-                `┃◆ Respond:\n` +
-                `┃◆ ✅ !accept @${c.nickname}\n` +
-                `┃◆ ❌ !decline @${c.nickname}\n` +
-                `┃◆ ⏳ Expires in 5 minutes\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ 📋  HOW THIS WORKS\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
                 `┃◆ \n` +
-                `╰═══════════════════════════╯`
+                `┃◆ 1️⃣  Each challenged player accepts:\n` +
+                `┃◆       !accept @${c.nickname}\n` +
+                `┃◆ \n` +
+                `┃◆ 2️⃣  Once all accept — *Assembly phase* opens.\n` +
+                `┃◆       Both sides recruit allies & lock in.\n` +
+                `┃◆       Use: !joinparty @leader\n` +
+                `┃◆ \n` +
+                `┃◆ 3️⃣  Leaders confirm → *DUEL BEGINS.*\n` +
+                `┃◆       Use: !startduel\n` +
+                `┃◆ \n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ ❌ To decline:  !decline @${c.nickname}\n` +
+                `┃◆ ⏳ Expires in 5 minutes\n` +
+                `╰═══════════════════════════════════╯`
             );
         } catch (err) {
             console.error('duel error:', err);
