@@ -393,7 +393,6 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
 // ── PARTY ASSEMBLY ────────────────────────────────────────────────────────────
 
 async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey) {
-    // If an assembly already exists with this key, ignore
     if (partyAssembly.has(assemblyKey)) return;
 
     const teamALeader = String(challengerId);
@@ -401,12 +400,12 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
 
     const state = {
         assemblyKey,
-        teamA:       [teamALeader],
-        teamB:       enemyIds.map(String),
+        teamA:      [teamALeader],
+        teamB:      enemyIds.map(String),
         teamALeader,
         teamBLeader,
-        teamAReady:  false,
-        teamBReady:  false,
+        teamAReady: false,
+        teamBReady: false,
         bet,
         chat
     };
@@ -416,39 +415,107 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
         if (!partyAssembly.has(assemblyKey)) return;
         const s = partyAssembly.get(assemblyKey);
         partyAssembly.delete(assemblyKey);
+        const rosterMsg = await buildRosterMessage(s);
         await chat.sendMessage(
-            `╭══〘 ⏰ PARTY ASSEMBLY TIMEOUT 〙══╮\n` +
-            `┃◆ Time's up! Starting with current rosters.\n` +
-            `╰═══════════════════════════════╯`
+            `╭══〘 ⏰ TIME'S UP — DUEL STARTING 〙══╮\n` +
+            `┃◆ \n` +
+            `┃◆ 2 minutes passed — starting with current rosters!\n` +
+            `┃◆ \n` +
+            `${rosterMsg}` +
+            `╰═══════════════════════════════════╯`
         ).catch(() => {});
         await startPvPDuel(s.teamA, s.teamB, s.bet, null, null, chat);
     }, ASSEMBLY_TIMEOUT_MS);
 
     partyAssembly.set(assemblyKey, state);
 
-    const [cRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [teamALeader]);
-    const [eRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [teamBLeader]);
-    const cNick = cRow[0]?.nickname || teamALeader;
-    const eNick = eRow[0]?.nickname || teamBLeader;
+    // Fetch leader nicknames + ranks
+    const [cRows] = await db.execute('SELECT nickname, `rank` FROM players WHERE id=?', [teamALeader]);
+    const [eRows] = await db.execute(
+        `SELECT id, nickname, \`rank\` FROM players WHERE id IN (${enemyIds.map(() => '?').join(',')})`,
+        enemyIds
+    );
+    const cNick  = cRows[0]?.nickname || teamALeader;
+    const cRank  = cRows[0]?.rank     || '?';
+    const eNickMap = Object.fromEntries(eRows.map(r => [String(r.id), { nick: r.nickname, rank: r.rank }]));
+
+    const teamBLines = enemyIds.map(id => {
+        const p = eNickMap[String(id)];
+        return `┃◆    • ${p?.nick || id} [${p?.rank || '?'}]`;
+    }).join('\n');
+
+    const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Gold per side\n┃◆ \n` : '';
 
     await chat.sendMessage(
-        `╭══〘 ⚔️ PARTY ASSEMBLY 〙══╮\n` +
+        `╭══〘 ⚔️  PARTY DUEL — ASSEMBLY PHASE 〙══╮\n` +
         `┃◆ \n` +
-        `┃◆ Both sides have *2 minutes* to assemble.\n` +
-        `┃◆ Max *5 players* per team.\n` +
+        `┃◆ All challenges accepted! Both sides now have\n` +
+        `┃◆ *2 minutes* to assemble their full team.\n` +
+        `┃◆ Max *5 players* per side.\n` +
         `┃◆ \n` +
-        `┃◆ To join *${cNick}'s* team:\n` +
-        `┃◆   !joinparty @${cNick}\n` +
+        `${betLine}` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `┃◆ 📋  HOW TO JOIN\n` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
         `┃◆ \n` +
-        `┃◆ To join *${eNick}'s* team:\n` +
-        `┃◆   !joinparty @${eNick}\n` +
+        `┃◆ Join *${cNick}*'s side:\n` +
+        `┃◆    !joinparty @${cNick}\n` +
         `┃◆ \n` +
-        `┃◆ When your team is set:\n` +
-        `┃◆   !startduel\n` +
+        `┃◆ Join *${eRows[0]?.nickname || teamBLeader}*'s side:\n` +
+        `┃◆    !joinparty @${eRows[0]?.nickname || teamBLeader}\n` +
         `┃◆ \n` +
-        `┃◆ ⏳ Auto-starts in 2 minutes.\n` +
-        `╰═══════════════════════════════╯`
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `┃◆ 🏁  STARTING THE DUEL\n` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `┃◆ \n` +
+        `┃◆ When your team is set, the *leader* types:\n` +
+        `┃◆    !startduel\n` +
+        `┃◆ Duel begins once *both* leaders confirm.\n` +
+        `┃◆ \n` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+        `┃◆ 🔵  Team ${cNick} (1/5)\n` +
+        `┃◆    • ${cNick} [${cRank}] 👑 Leader\n` +
+        `┃◆ \n` +
+        `┃◆ 🔴  Team ${eRows[0]?.nickname || teamBLeader} (${enemyIds.length}/5)\n` +
+        `${teamBLines}\n` +
+        `┃◆ \n` +
+        `┃◆ ⏳ Auto-starts in 2 min if leaders don't confirm.\n` +
+        `╰════════════════════════════════════════╯`
     ).catch(() => {});
+}
+
+// ── Build a live roster display for both teams ────────────────────────────────
+async function buildRosterMessage(state) {
+    const fetchTeam = async (ids, leaderId) => {
+        if (!ids.length) return [];
+        const [rows] = await db.execute(
+            `SELECT id, nickname, \`rank\` FROM players WHERE id IN (${ids.map(() => '?').join(',')})`,
+            ids
+        );
+        const map = Object.fromEntries(rows.map(r => [String(r.id), r]));
+        return ids.map(id => {
+            const p = map[id];
+            const isLeader = String(id) === String(leaderId);
+            return `┃◆    • ${p?.nickname || id} [${p?.rank || '?'}]${isLeader ? ' 👑' : ''}`;
+        });
+    };
+
+    const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamALeader]);
+    const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamBLeader]);
+    const aNick = aRow[0]?.nickname || state.teamALeader;
+    const bNick = bRow[0]?.nickname || state.teamBLeader;
+
+    const aLines = await fetchTeam(state.teamA, state.teamALeader);
+    const bLines = await fetchTeam(state.teamB, state.teamBLeader);
+
+    return (
+        `┃◆ 🔵  Team ${aNick} (${state.teamA.length}/5)${state.teamAReady ? ' ✅ Ready' : ''}\n` +
+        `${aLines.join('\n')}\n` +
+        `┃◆ \n` +
+        `┃◆ 🔴  Team ${bNick} (${state.teamB.length}/5)${state.teamBReady ? ' ✅ Ready' : ''}\n` +
+        `${bLines.join('\n')}\n` +
+        `┃◆ \n`
+    );
 }
 
 function getAssemblyByLeader(leaderId) {
@@ -469,61 +536,61 @@ function getAssemblyByPlayer(playerId) {
 
 async function joinPartyAssembly(joinerId, leaderTag) {
     const jid = String(joinerId);
-    // Find assembly by leader tag (nickname or id)
     let state = null;
+    let joiningA = false;
+
     for (const [, s] of partyAssembly) {
         const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [s.teamALeader]);
         const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [s.teamBLeader]);
         const aNick = (aRow[0]?.nickname || '').toLowerCase();
         const bNick = (bRow[0]?.nickname || '').toLowerCase();
         const tag   = leaderTag.replace(/@/g, '').toLowerCase();
-        if (aNick === tag || s.teamALeader === leaderTag) { state = s; break; }
-        if (bNick === tag || s.teamBLeader === leaderTag) { state = s; break; }
+        if (aNick === tag || s.teamALeader === leaderTag) { state = s; joiningA = true;  break; }
+        if (bNick === tag || s.teamBLeader === leaderTag) { state = s; joiningA = false; break; }
     }
-    if (!state) return { error: "No active party assembly found for that leader." };
+    if (!state) return { error: "No active party assembly found for that leader.\nMake sure you spell the nickname exactly as it appears." };
 
     if (state.teamA.includes(jid) || state.teamB.includes(jid))
         return { error: "You are already in this party duel." };
     if (isPlayerInDuel(jid))
         return { error: "You are already in an active duel." };
 
-    // Determine which side this player is joining
-    const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamALeader]);
-    const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamBLeader]);
-    const aNick = (aRow[0]?.nickname || '').toLowerCase();
-    const tag   = leaderTag.replace(/@/g, '').toLowerCase();
-
-    const joiningA = aNick === tag || state.teamALeader === leaderTag;
     const targetTeam = joiningA ? state.teamA : state.teamB;
-
     if (targetTeam.length >= 5)
-        return { error: `That team is full (max 5 players).` };
+        return { error: `That side is full (max 5 players).` };
 
     targetTeam.push(jid);
 
+    // Build full roster to return for display
+    const rosterMsg = await buildRosterMessage(state);
     const [jRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [jid]);
     const jNick  = jRow[0]?.nickname || jid;
-    const teamTag = joiningA ? aRow[0]?.nickname : bRow[0]?.nickname;
 
-    return { success: true, jNick, teamTag, teamA: state.teamA, teamB: state.teamB };
+    const [lRow] = await db.execute('SELECT nickname FROM players WHERE id=?',
+        [joiningA ? state.teamALeader : state.teamBLeader]);
+    const leaderNick = lRow[0]?.nickname || (joiningA ? state.teamALeader : state.teamBLeader);
+
+    return { success: true, jNick, leaderNick, rosterMsg };
 }
 
 async function readyPartyDuel(leaderId, chat) {
     const lid = String(leaderId);
     const state = getAssemblyByLeader(lid);
-    if (!state) return { error: "You are not a party leader in any active assembly." };
+    if (!state) return { error: "You are not a party leader in any active assembly.\nOnly the challenger and the first enemy to accept can use !startduel." };
 
     if (state.teamALeader === lid) state.teamAReady = true;
     if (state.teamBLeader === lid) state.teamBReady = true;
 
     if (!state.teamAReady || !state.teamBReady) {
-        const [aRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamALeader]);
-        const [bRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [state.teamBLeader]);
-        const waiting = !state.teamAReady ? aRow[0]?.nickname : bRow[0]?.nickname;
-        return { success: true, waiting };
+        // Show who is still waiting
+        const waitingLeaderId  = !state.teamAReady ? state.teamALeader : state.teamBLeader;
+        const [wRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [waitingLeaderId]);
+        const waitingNick = wRow[0]?.nickname || waitingLeaderId;
+        const rosterMsg = await buildRosterMessage(state);
+        return { success: true, waiting: waitingNick, rosterMsg };
     }
 
-    // Both ready — start
+    // Both ready — launch
     clearTimeout(state.timer);
     partyAssembly.delete(state.assemblyKey);
     await startPvPDuel(state.teamA, state.teamB, state.bet, null, null, chat);

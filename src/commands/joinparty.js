@@ -4,17 +4,22 @@ module.exports = {
     name: 'joinparty',
     async execute(msg, args, { userId }) {
         if (!msg.mentionedIds?.length && !args[0]) return msg.reply(
-            `══〘 ⚔️ JOIN PARTY 〙══╮\n` +
-            `┃◆ ❌ Mention the party leader.\n` +
-            `┃◆ Example: !joinparty @leader\n` +
-            `╰═══════════════════════╯`
+            `╭══〘 ⚔️  JOIN PARTY 〙══╮\n` +
+            `┃◆ \n` +
+            `┃◆ Mention the leader of the side you want to join.\n` +
+            `┃◆ \n` +
+            `┃◆ Example:\n` +
+            `┃◆    !joinparty @Challenger\n` +
+            `┃◆    !joinparty @Enemy\n` +
+            `┃◆ \n` +
+            `┃◆ Check the assembly message for leader names.\n` +
+            `╰════════════════════════════════╯`
         );
 
-        // Check if already in an assembly
         if (getAssemblyByPlayer(userId)) return msg.reply(
-            `══〘 ⚔️ JOIN PARTY 〙══╮\n` +
+            `╭══〘 ⚔️  JOIN PARTY 〙══╮\n` +
             `┃◆ ❌ You are already in a party assembly.\n` +
-            `╰═══════════════════════╯`
+            `╰════════════════════════════════╯`
         );
 
         const leaderTag = msg.mentionedIds?.[0]
@@ -24,21 +29,25 @@ module.exports = {
         const result = await joinPartyAssembly(userId, leaderTag);
 
         if (result.error) return msg.reply(
-            `══〘 ⚔️ JOIN PARTY 〙══╮\n┃◆ ❌ ${result.error}\n╰═══════════════════════╯`
+            `╭══〘 ⚔️  JOIN PARTY 〙══╮\n` +
+            `┃◆ ❌ ${result.error}\n` +
+            `╰════════════════════════════════╯`
         );
 
-        const teamACount = result.teamA.length;
-        const teamBCount = result.teamB.length;
-
         return msg.reply(
-            `══〘 ⚔️ JOIN PARTY 〙══╮\n` +
-            `┃◆ ✅ *${result.jNick}* joined *${result.teamTag}*'s side!\n` +
+            `╭══〘 ⚔️  JOINED — ${result.leaderNick.toUpperCase()}'S SIDE 〙══╮\n` +
             `┃◆ \n` +
-            `┃◆ Side A: ${teamACount}/5 players\n` +
-            `┃◆ Side B: ${teamBCount}/5 players\n` +
+            `┃◆ ✅ *${result.jNick}* is now on *${result.leaderNick}*'s team!\n` +
             `┃◆ \n` +
-            `┃◆ When your team is ready: !startduel\n` +
-            `╰═══════════════════════╯`
+            `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `┃◆ 📋  CURRENT ROSTERS\n` +
+            `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `┃◆ \n` +
+            `${result.rosterMsg}` +
+            `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+            `┃◆ Leaders — lock in when ready:\n` +
+            `┃◆    !startduel\n` +
+            `╰════════════════════════════════╯`
         );
     }
 };
