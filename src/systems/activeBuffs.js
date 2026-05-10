@@ -25,14 +25,22 @@ function getBuffs(targetType, targetId) {
 
 function getBuffModifiers(targetType, targetId) {
     const buffs = getBuffs(targetType, targetId);
-    const mods = { strength: 0, agility: 0, intelligence: 0, stamina: 0, attack: 0, defense: 0, shield: 0 };
+    const mods = {
+        strength: 0, agility: 0, intelligence: 0, stamina: 0,
+        attack: 0, defense: 0, shield: 0,
+        // Percentage boosts (flat % added to stat before multipliers)
+        strength_pct: 0, agility_pct: 0, intelligence_pct: 0,
+        stamina_pct: 0, attack_pct: 0, defense_pct: 0
+    };
     for (const buff of buffs) {
         if (buff.type === 'buff' || buff.type === 'debuff') {
             const stat = buff.stat;
             if (stat === 'all') {
                 for (const key of Object.keys(mods)) {
-                    if (key !== 'shield') mods[key] += buff.value;
+                    if (!key.endsWith('_pct') && key !== 'shield') mods[key] += buff.value;
                 }
+            } else if (buff.percent && mods[stat + '_pct'] !== undefined) {
+                mods[stat + '_pct'] += buff.value;
             } else if (mods[stat] !== undefined) {
                 mods[stat] += buff.value;
             }

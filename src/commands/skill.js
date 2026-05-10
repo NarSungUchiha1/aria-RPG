@@ -611,11 +611,13 @@ module.exports = {
                     type: 'buff',
                     stat: statName,
                     value: move.value,
+                    percent: move.percent || false,
                     duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
+                const pctLabel = move.percent ? `${move.value}%` : `+${move.value}`;
                 const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
-                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ ${pctLabel} ${move.effect.replace(/_up$/, '').toUpperCase()} for ${move.duration || 3} turns\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
 
@@ -632,7 +634,8 @@ module.exports = {
             applyBuff('enemy', targetEnemy.id, {
                 type: 'debuff',
                 stat: statName,
-                value: -move.value,
+                value: move.value,   // already negative in move definition (e.g. -50), do NOT negate
+                percent: move.percent || false,
                 duration: move.duration || 2
             });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);

@@ -1,8 +1,7 @@
 const db = require('../database/db');
 
 const FATIGUE_MAX = 100;
-const FATIGUE_MIN_MULTIPLIER = 0.6;
-const FATIGUE_PER_POINT = 0.003;
+const FATIGUE_MIN_MULTIPLIER = 0.02;  // ~1 damage at full fatigue
 const FATIGUE_RECOVERY_PER_TICK = 2;
 
 function clampFatigue(value = 0) {
@@ -11,8 +10,13 @@ function clampFatigue(value = 0) {
 
 function getFatigueMultiplier(player = {}) {
     const fatigue = clampFatigue(player.fatigue);
+    if (fatigue === 0) return 1.0;
     if (fatigue >= FATIGUE_MAX) return FATIGUE_MIN_MULTIPLIER;
-    return Math.max(FATIGUE_MIN_MULTIPLIER, 1 - fatigue * FATIGUE_PER_POINT);
+    // Quadratic falloff — gentle early, steep near 100
+    const normalized = fatigue / FATIGUE_MAX;               // 0 → 1
+    const multiplier  = 1 - (normalized ** 2) * (1 - FATIGUE_MIN_MULTIPLIER);
+    return Math.max(FATIGUE_MIN_MULTIPLIER, multiplier);
+    // fatigue 25 → ~87%  |  50 → ~76%  |  75 → ~57%  |  90 → ~33%  |  100 → 2%
 }
 
 function formatFatigueBar(fatigue = 0) {
@@ -84,7 +88,6 @@ async function ensureFatigueColumn() {
 module.exports = {
     FATIGUE_MAX,
     FATIGUE_MIN_MULTIPLIER,
-    FATIGUE_PER_POINT,
     FATIGUE_RECOVERY_PER_TICK,
     clampFatigue,
     getFatigueMultiplier,
