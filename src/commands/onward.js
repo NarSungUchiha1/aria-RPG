@@ -191,7 +191,21 @@ module.exports = {
 ╰═══════════════════════╯`);
             }
 
-            // ── ADVANCE STAGE ──
+            // ── ADVANCE STAGE — atomic so only one player triggers it ──
+            // Uses a conditional UPDATE: only succeeds if stage_cleared is still 1.
+            // If two players call !onward at the same time, only one wins.
+            const [lockResult] = await db.execute(
+                "UPDATE dungeon SET stage_cleared=2 WHERE id=? AND stage_cleared=1",
+                [dungeon.id]
+            );
+            if (lockResult.affectedRows === 0) {
+                return msg.reply(
+                    `══〘 🧭 ONWARD 〙══╮\n` +
+                    `┃◆ Stage is already advancing — hold on!\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
             const next = dungeon.stage + 1;
             await advanceStage(dungeon.id, next);
 

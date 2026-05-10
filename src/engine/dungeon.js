@@ -758,6 +758,8 @@ async function addDamageContribution(dungeonId, enemyId, playerId, damage) {
 // =======================
 async function advanceStage(dungeonId, nextStage) {
     await db.execute("UPDATE dungeon SET stage=?, stage_cleared=0 WHERE id=?", [nextStage, dungeonId]);
+    // Clean up dead enemies from previous stages before spawning new ones
+    await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=? AND current_hp <= 0", [dungeonId]);
     const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
     const rank = dungeon[0]?.dungeon_rank;
     if (rank && rank.startsWith('P')) {
