@@ -9,12 +9,13 @@ async function ensureTable() {
             target_id     VARCHAR(50) NOT NULL,
             bet_amount    INT DEFAULT 0,
             status        ENUM('pending','accepted','declined') DEFAULT 'pending',
-            team_key      VARCHAR(64) DEFAULT NULL,
+            duel_type     ENUM('solo','party') DEFAULT 'solo',
             created_at    DATETIME DEFAULT NOW()
         )
     `).catch(() => {});
 
-    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN IF NOT EXISTS team_key VARCHAR(64) DEFAULT NULL`).catch(() => {});
+    // Migrate tables that predate duel_type column
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN duel_type ENUM('solo','party') DEFAULT 'solo'`).catch(() => {});
 }
 
 module.exports = {
@@ -48,7 +49,7 @@ module.exports = {
         }
 
         const betAmount = challenge[0].bet_amount || 0;
-        const teamKey = challenge[0].team_key;
+        const duelType  = challenge[0].duel_type || 'solo';
 
         if (betAmount > 0) {
             const [challengerGold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [challengerId]);
@@ -77,12 +78,18 @@ module.exports = {
 
         await db.execute("UPDATE pvp_challenges SET status='accepted' WHERE id=?", [challenge[0].id]);
 
-        if (teamKey) {
-            const [teamRows] = await db.execute(
-                "SELECT * FROM pvp_challenges WHERE team_key=? ORDER BY id ASC",
-                [teamKey]
+        // ── PARTY DUEL — group by challenger_id (replaces team_key) ──────────
+        if (duelType === 'party') {
+            // All party challenges sent by this challenger in the last 10 minutes
+            const [allRows] = await db.execute(
+                `SELECT * FROM pvp_challenges
+                 WHERE challenger_id=? AND duel_type='party'
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                 ORDER BY id ASC`,
+                [challengerId]
             );
-            const pending = teamRows.filter(row => row.status === 'pending');
+
+            const pending = allRows.filter(row => row.status === 'pending');
             if (pending.length > 0) {
                 const waitingIds = pending.map(row => row.target_id);
                 return msg.reply(
@@ -94,38 +101,15 @@ module.exports = {
                 );
             }
 
-            const duelMode = teamRows[0]?.duel_mode || 'solo';
-            const assemblyKey = teamRows[0]?.team_key;
-
-            if (duelMode === 'party') {
-                // Enter assembly phase — both sides recruit allies before duel starts
-                const teamBIds = teamRows.map(row => row.target_id);
-                await startPartyAssembly(challengerId, teamBIds, betAmount, msg, assemblyKey);
-                return;
-            }
-
-            // Solo multi-challenge (rare) — start immediately
-            const teamAIds = [challengerId];
-            const teamBIds = teamRows.map(row => row.target_id);
-            const result = await startPvPDuel(teamAIds, teamBIds, betAmount, client, msg);
-            if (result.error) {
-                if (betAmount > 0) {
-                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, challengerId]);
-                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, userId]);
-                }
-                return msg.reply(
-                    `══〘 ⚔️ ACCEPT 〙══╮\n` +
-                    `┃◆ ❌ ${result.error}\n` +
-                    `${betAmount > 0 ? '┃◆ 💰 Bets have been refunded.\n' : ''}` +
-                    `╰═══════════════════════╯`
-                );
-            }
+            // All accepted — enter assembly phase so both sides can recruit allies
+            const teamBIds = allRows.map(row => row.target_id);
+            await startPartyAssembly(challengerId, teamBIds, betAmount, msg, `party_${challengerId}`);
             return;
         }
 
-        // Solo duel — 1v1
+        // ── SOLO DUEL — 1v1, start immediately ───────────────────────────────
         const result = await startPvPDuel([challengerId], [userId], betAmount, client, msg);
-        if (result.error) {
+        if (result?.error) {
             if (betAmount > 0) {
                 await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, challengerId]);
                 await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, userId]);
