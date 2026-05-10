@@ -141,9 +141,9 @@ module.exports = {
         { name: 'Inferno',         type: 'damage', stat: 'intelligence', multiplier: 4.5, cooldown: 5, cost: 22 }
     ],
     'Bulwark of Stone': [
-        { name: 'Stone Slam',      type: 'damage', stat: 'stamina',  multiplier: 1.8, cooldown: 1, cost: 0 },
-        { name: 'Granite Shield',  type: 'shield', value: 400,                         cooldown: 4, cost: 14 },
-        { name: 'Mountain Crush',  type: 'damage', stat: 'stamina',  multiplier: 3.2, stun: true, cooldown: 5, cost: 18 }
+        { name: 'Stone Slam',      type: 'damage', stat: 'stamina',  multiplier: 1.8, cooldown: 15, cost: 0 },
+        { name: 'Granite Shield',  type: 'shield', value: 400,                         cooldown: 120, cost: 14 },
+        { name: 'Mountain Crush',  type: 'damage', stat: 'stamina',  multiplier: 3.2, stun: true, cooldown: 150, cost: 18 }
     ],
 
     // ── B RANK ────────────────────────────────────────────────
@@ -153,14 +153,14 @@ module.exports = {
         { name: 'Star Fall',       type: 'damage', stat: 'intelligence', multiplier: 5.0, aoe: true,   cooldown: 5, cost: 22 }
     ],
     'Abyssal Greatsword': [
-        { name: 'Abyss Slash',     type: 'damage', stat: 'strength', multiplier: 2.3, cooldown: 1, cost: 0 },
-        { name: 'Abyssal Rend',    type: 'damage', stat: 'strength', multiplier: 3.5, def_reduction: 30, cooldown: 3, cost: 16 },
-        { name: 'Void Cleave',     type: 'damage', stat: 'strength', multiplier: 5.5, cooldown: 5, cost: 22 }
+        { name: 'Abyss Slash',     type: 'damage', stat: 'strength', multiplier: 2.3, cooldown: 15, cost: 0 },
+        { name: 'Abyssal Rend',    type: 'damage', stat: 'strength', multiplier: 3.5, def_reduction: 30, cooldown: 60, cost: 16 },
+        { name: 'Void Cleave',     type: 'damage', stat: 'strength', multiplier: 5.5, cooldown: 120, cost: 22 }
     ],
     'Voidreaper Dagger': [
-        { name: 'Reaper Slash',    type: 'damage', stat: 'agility',  multiplier: 2.3, cooldown: 1, cost: 0 },
-        { name: "Reaper's Mark",   type: 'debuff', effect: 'defense', value: -35, duration: 3, cooldown: 3, cost: 16 },
-        { name: 'Void Drain',      type: 'damage', stat: 'agility',  multiplier: 4.5, ignore_defense: 0.5, cooldown: 5, cost: 22 }
+        { name: 'Reaper Slash',    type: 'damage', stat: 'agility',  multiplier: 2.3, cooldown: 15, cost: 0 },
+        { name: "Reaper's Mark",   type: 'debuff', effect: 'defense', value: -35, duration: 3, cooldown: 60, cost: 16 },
+        { name: 'Void Drain',      type: 'damage', stat: 'agility',  multiplier: 4.5, ignore_defense: 0.5, cooldown: 120, cost: 22 }
     ],
     'Staff of the Eternal': [
         { name: 'Eternal Bolt',    type: 'damage', stat: 'intelligence', multiplier: 2.2, cooldown: 1, cost: 12 },
@@ -174,14 +174,14 @@ module.exports = {
     ],
     // Healer B rank crafted
     'Splint Mace': [
-        { name: 'Mace Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 0 },
-        { name: 'Splint Mend',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, baseHeal: 50, cooldown: 3, cost: 14 },
-        { name: 'Bone Mend',       type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 5, cost: 20 }
+        { name: 'Mace Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
+        { name: 'Splint Mend',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, baseHeal: 50, cooldown: 60, cost: 14 },
+        { name: 'Bone Mend',       type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 120, cost: 20 }
     ],
     'Ember Chalice': [
-        { name: 'Chalice Strike',  type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 0 },
-        { name: 'Ember Heal',      type: 'heal',   stat: 'intelligence', multiplier: 6.0, baseHeal: 60, cooldown: 2, cost: 14 },
-        { name: 'Burning Mend',    type: 'heal',   stat: 'intelligence', multiplier: 9.0, aoe: true,   cooldown: 5, cost: 22 }
+        { name: 'Chalice Strike',  type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
+        { name: 'Ember Heal',      type: 'heal',   stat: 'intelligence', multiplier: 6.0, baseHeal: 60, cooldown: 60, cost: 14 },
+        { name: 'Burning Mend',    type: 'heal',   stat: 'intelligence', multiplier: 9.0, aoe: true,   cooldown: 120, cost: 22 }
     ],
     'Soul Lantern': [
         { name: 'Lantern Strike',  type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 0 },
@@ -189,9 +189,9 @@ module.exports = {
         { name: 'Lantern Glow',    type: 'heal',   stat: 'intelligence', multiplier: 10.0, cleanse: true, cooldown: 5, cost: 24 }
     ],
     'Cradle of Life': [
-        { name: 'Life Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 0 },
-        { name: 'Cradle Heal',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 2, cost: 18 },
-        { name: 'Cradle Strike',   type: 'damage', stat: 'intelligence', multiplier: 2.5,              cooldown: 3, cost: 18 }
+        { name: 'Life Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
+        { name: 'Cradle Heal',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 150, cost: 18 },
+        { name: 'Cradle Strike',   type: 'damage', stat: 'intelligence', multiplier: 2.5,              cooldown: 60, cost: 18 }
     ],
 
     // ── A RANK ────────────────────────────────────────────────
@@ -312,9 +312,9 @@ module.exports = {
 
     // ── FORGED — LEGENDARY ────────────────────────────────────
     'Maw of the Abyss': [
-        { name: 'Abyss Devour',    type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 3, cost: 30 },
-        { name: 'Hungering Maw',   type: 'damage', stat: 'strength', multiplier: 3.0, hits: 2, cooldown: 5, cost: 28 },
-        { name: 'Abyssal Roar',    type: 'debuff', effect: 'strength', value: -30, duration: 3, cooldown: 6, cost: 25 }
+        { name: 'Abyss Devour',    type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 15, cost: 30 },
+        { name: 'Hungering Maw',   type: 'damage', stat: 'strength', multiplier: 3.0, hits: 2, cooldown: 60, cost: 28 },
+        { name: 'Abyssal Roar',    type: 'debuff', effect: 'strength', value: -30, duration: 3, cooldown: 120, cost: 25 }
     ],
     'Abyssal Reckoning': [
         { name: 'Abyss Devour',    type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 3, cost: 30 },
@@ -369,46 +369,46 @@ module.exports = {
 
     // Berserker
     'Void Crusher': [
-        { name: 'Void Smash',        type: 'damage', stat: 'strength', multiplier: 1.3, cooldown: 2, cost: 20 },
-        { name: 'Bone Fracture',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 30, cooldown: 3, cost: 22 },
-        { name: "Berserker's Void",  type: 'buff',   effect: 'strength_up', value: 40, duration: 3, cooldown: 5, cost: 18 }
+        { name: 'Void Smash',        type: 'damage', stat: 'strength', multiplier: 1.3, cooldown: 15, cost: 20 },
+        { name: 'Bone Fracture',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 30, cooldown: 60, cost: 22 },
+        { name: "Berserker's Void",  type: 'buff',   effect: 'strength_up', value: 40, duration: 3, cooldown: 120, cost: 18 }
     ],
     // Assassin
     'Void Fang': [
-        { name: 'Void Pierce',       type: 'damage', stat: 'agility', multiplier: 1.3, cooldown: 1, cost: 18 },
-        { name: 'Fang Strike',       type: 'damage', stat: 'agility', multiplier: 2.5, bleed: true, cooldown: 3, cost: 20 },
-        { name: 'Shadow of the Void',type: 'buff',   effect: 'agility_up', value: 40, duration: 3, cooldown: 5, cost: 16 }
+        { name: 'Void Pierce',       type: 'damage', stat: 'agility', multiplier: 1.3, cooldown: 15, cost: 18 },
+        { name: 'Fang Strike',       type: 'damage', stat: 'agility', multiplier: 2.5, bleed: true, cooldown: 60, cost: 20 },
+        { name: 'Shadow of the Void',type: 'buff',   effect: 'agility_up', value: 40, duration: 3, cooldown: 120, cost: 16 }
     ],
     // Mage
     'Void Codex': [
-        { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 1.3, cooldown: 2, cost: 20 },
-        { name: 'Codex Blast',       type: 'damage', stat: 'intelligence', multiplier: 2.5, aoe: true,   cooldown: 4, cost: 25 },
-        { name: 'Mana Void',         type: 'damage', stat: 'intelligence', multiplier: 5.0,             cooldown: 6, cost: 30 }
+        { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 1.3, cooldown: 15, cost: 20 },
+        { name: 'Codex Blast',       type: 'damage', stat: 'intelligence', multiplier: 2.5, aoe: true,   cooldown: 60, cost: 25 },
+        { name: 'Mana Void',         type: 'damage', stat: 'intelligence', multiplier: 5.0,             cooldown: 120, cost: 30 }
     ],
     // Tank
     'Void Bulwark': [
-        { name: 'Void Shield Wall',  type: 'buff',   effect: 'defense_up', value: 60, duration: 3, cooldown: 5, cost: 18 },
-        { name: 'Bulwark Smash',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 20, cooldown: 3, cost: 22 },
-        { name: 'Void Absorption',   type: 'shield', value: 500,                        cooldown: 5, cost: 20 }
+        { name: 'Void Shield Wall',  type: 'buff',   effect: 'defense_up', value: 60, duration: 3, cooldown: 15, cost: 18 },
+        { name: 'Bulwark Smash',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 20, cooldown: 60, cost: 22 },
+        { name: 'Void Absorption',   type: 'shield', value: 500,                        cooldown: 120, cost: 20 }
     ],
     // Healer
     'Void Mend': [
-        { name: 'Void Heal',         type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 2, cost: 20 },
-        { name: 'Mend Wound',        type: 'heal',   stat: 'intelligence', multiplier: 4.0, cleanse: true, cooldown: 4, cost: 22 },
-        { name: 'Void Pulse',        type: 'damage', stat: 'intelligence', multiplier: 2.5,               cooldown: 3, cost: 18 }
+        { name: 'Void Heal',         type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 15, cost: 20 },
+        { name: 'Mend Wound',        type: 'heal',   stat: 'intelligence', multiplier: 4.0, cleanse: true, cooldown: 60, cost: 22 },
+        { name: 'Void Pulse',        type: 'damage', stat: 'intelligence', multiplier: 2.5,               cooldown: 120, cost: 18 }
     ],
     // Tank damage
     'Void Earthbreaker': [
-        { name: 'Seismic Slam',      type: 'damage', stat: 'stamina',   multiplier: 2.5, stun: true,    cooldown: 2, cost: 22 },
-        { name: 'Void Quake',        type: 'damage', stat: 'stamina',   multiplier: 2.0, aoe: true,     cooldown: 3, cost: 28 },
-        { name: 'Earthbreaker Blow', type: 'damage', stat: 'strength',  multiplier: 5.0, def_reduction: 40, cooldown: 5, cost: 30 }
+        { name: 'Seismic Slam',      type: 'damage', stat: 'stamina',   multiplier: 2.5, stun: true,    cooldown: 15, cost: 22 },
+        { name: 'Void Quake',        type: 'damage', stat: 'stamina',   multiplier: 2.0, aoe: true,     cooldown: 60, cost: 28 },
+        { name: 'Earthbreaker Blow', type: 'damage', stat: 'strength',  multiplier: 5.0, def_reduction: 40, cooldown: 120, cost: 30 }
     ],
 
     // ── PD TIER (stat ~1520, mult 2.7/5.3/10.5) ──────────────
     'Fracture Cleaver': [
         { name: 'Reality Rend',      type: 'damage', stat: 'strength', multiplier: 2.7, cooldown: 10, cost: 25 },
-        { name: 'Fracture Wave',     type: 'damage', stat: 'strength', multiplier: 5.3, aoe: true,   cooldown: 30, cost: 28 },
-        { name: 'Cleave the Void',   type: 'damage', stat: 'strength', multiplier: 7.5, ignore_defense: 0.5, cooldown: 100, cost: 35 }
+        { name: 'Fracture Wave',     type: 'damage', stat: 'strength', multiplier: 5.3, aoe: true,   cooldown: 60, cost: 28 },
+        { name: 'Cleave the Void',   type: 'damage', stat: 'strength', multiplier: 7.5, ignore_defense: 0.5, cooldown: 120, cost: 35 }
     ],
     'Fracture Edge': [
         { name: 'Phase Slash',       type: 'damage', stat: 'agility', multiplier: 2.7, ignore_defense: 0.4, cooldown: 10, cost: 25 },
@@ -416,19 +416,19 @@ module.exports = {
         { name: 'Phantom Edge',      type: 'damage', stat: 'agility', multiplier: 5.5,             cooldown: 120, cost: 35 }
     ],
     'Fracture Scepter': [
-        { name: 'Scepter Beam',      type: 'damage', stat: 'intelligence', multiplier: 2.7, cooldown: 2, cost: 25 },
-        { name: 'Fracture Pulse',    type: 'damage', stat: 'intelligence', multiplier: 5.3, aoe: true,   cooldown: 4, cost: 30 },
-        { name: 'Reality Shatter',   type: 'damage', stat: 'intelligence', multiplier: 10.5, ignore_defense: 0.5, cooldown: 6, cost: 35 }
+        { name: 'Scepter Beam',      type: 'damage', stat: 'intelligence', multiplier: 2.7, cooldown: 15, cost: 25 },
+        { name: 'Fracture Pulse',    type: 'damage', stat: 'intelligence', multiplier: 5.3, aoe: true,   cooldown: 60, cost: 30 },
+        { name: 'Reality Shatter',   type: 'damage', stat: 'intelligence', multiplier: 10.5, ignore_defense: 0.5, cooldown: 120, cost: 35 }
     ],
     'Fracture Rampart': [
-        { name: 'Rampart Charge',    type: 'damage', stat: 'strength', multiplier: 2.7, stun: true, cooldown: 3, cost: 28 },
-        { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 100, duration: 3, cooldown: 4, cost: 25 },
-        { name: 'Phase Block',       type: 'shield', value: 1000,                       cooldown: 5, cost: 30 }
+        { name: 'Rampart Charge',    type: 'damage', stat: 'strength', multiplier: 2.7, stun: true, cooldown: 15, cost: 28 },
+        { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 100, duration: 3, cooldown: 60, cost: 25 },
+        { name: 'Phase Block',       type: 'shield', value: 1000,                       cooldown: 120, cost: 30 }
     ],
     'Fracture Chalice': [
-        { name: 'Burning Heal',      type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 2, cost: 25 },
-        { name: 'Chalice Burst',     type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 4, cost: 30 },
-        { name: 'Fracture Mend',     type: 'damage', stat: 'intelligence', multiplier: 2.7,             cooldown: 3, cost: 22 }
+        { name: 'Burning Heal',      type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 45, cost: 25 },
+        { name: 'Chalice Burst',     type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 120, cost: 30 },
+        { name: 'Fracture Mend',     type: 'damage', stat: 'intelligence', multiplier: 2.7,             cooldown: 20, cost: 22 }
     ],
     'Fracture Colossus': [
         { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',  multiplier: 4.0, cooldown: 30, cost: 30 },
@@ -439,55 +439,55 @@ module.exports = {
     // ── PB TIER (stat ~3080, mult 5.9/11.6/23.0) ─────────────
     'Abyss Annihilator': [
         { name: 'Annihilation',      type: 'damage', stat: 'strength', multiplier: 5.9, cooldown: 10, cost: 30 },
-        { name: 'Void Crush',        type: 'damage', stat: 'strength', multiplier: 11.6, stun: true, cooldown: 30, cost: 35 },
+        { name: 'Void Crush',        type: 'damage', stat: 'strength', multiplier: 11.6, stun: true, cooldown: 60, cost: 35 },
         { name: 'Abyss Rampage',     type: 'damage', stat: 'strength', multiplier: 23.0,            cooldown: 120, cost: 45 }
     ],
     'Abyss Phantom': [
-        { name: 'Phantom Kill',      type: 'damage', stat: 'agility', multiplier: 5.9, cooldown: 1, cost: 30 },
-        { name: 'Invisible Strike',  type: 'damage', stat: 'agility', multiplier: 11.6, ignore_defense: 0.8, cooldown: 3, cost: 38 },
-        { name: 'Void Blur',         type: 'damage', stat: 'agility', multiplier: 23.0,             cooldown: 6, cost: 48 }
+        { name: 'Phantom Kill',      type: 'damage', stat: 'agility', multiplier: 5.9, cooldown: 15, cost: 30 },
+        { name: 'Invisible Strike',  type: 'damage', stat: 'agility', multiplier: 11.6, ignore_defense: 0.8, cooldown: 30, cost: 38 },
+        { name: 'Void Blur',         type: 'damage', stat: 'agility', multiplier: 23.0,             cooldown: 120, cost: 48 }
     ],
     'Abyss Tome': [
-        { name: 'Tome Incantation',  type: 'damage', stat: 'intelligence', multiplier: 5.9, cooldown: 2, cost: 30 },
-        { name: 'Lost Spell',        type: 'damage', stat: 'intelligence', multiplier: 11.6,            cooldown: 4, cost: 35 },
-        { name: 'Abyss Curse',       type: 'debuff', effect: 'intelligence', value: -80, duration: 3,  cooldown: 6, cost: 28 }
+        { name: 'Tome Incantation',  type: 'damage', stat: 'intelligence', multiplier: 5.9, cooldown: 15, cost: 30 },
+        { name: 'Lost Spell',        type: 'damage', stat: 'intelligence', multiplier: 11.6,            cooldown: 30, cost: 35 },
+        { name: 'Abyss Curse',       type: 'debuff', effect: 'intelligence', value: -80, duration: 3,  cooldown: 120, cost: 28 }
     ],
     'Abyss Fortress': [
-        { name: 'Fortress Strike',   type: 'damage', stat: 'strength', multiplier: 5.0, def_reduction: 60, cooldown: 3, cost: 30 },
-        { name: 'Ancient Ward',      type: 'buff',   effect: 'defense_up', value: 200, duration: 4,       cooldown: 4, cost: 28 },
-        { name: 'Impenetrable',      type: 'shield', value: 2500,                                         cooldown: 5, cost: 38 }
+        { name: 'Fortress Strike',   type: 'damage', stat: 'strength', multiplier: 5.0, def_reduction: 60, cooldown: 15, cost: 30 },
+        { name: 'Ancient Ward',      type: 'buff',   effect: 'defense_up', value: 200, duration: 4,       cooldown: 60, cost: 28 },
+        { name: 'Impenetrable',      type: 'shield', value: 2500,                                         cooldown: 120, cost: 38 }
     ],
     'Abyss Lantern': [
-        { name: 'Ancient Light',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, cooldown: 2, cost: 30 },
-        { name: 'Lantern Glow',      type: 'heal',   stat: 'intelligence', multiplier: 9.0, cleanse: true, aoe: true, cooldown: 4, cost: 38 },
-        { name: 'Lost World Heal',   type: 'heal',   stat: 'intelligence', multiplier: 14.0,             cooldown: 6, cost: 40 }
+        { name: 'Ancient Light',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, cooldown: 15, cost: 30 },
+        { name: 'Lantern Glow',      type: 'heal',   stat: 'intelligence', multiplier: 9.0, cleanse: true, aoe: true, cooldown: 60, cost: 38 },
+        { name: 'Lost World Heal',   type: 'heal',   stat: 'intelligence', multiplier: 14.0,             cooldown: 120, cost: 40 }
     ],
 
     // ── PS TIER (stat ~7200, mult 11.4/22.7/45.0) ────────────
     "Malachar's Fist": [
-        { name: 'Fist of Malachar',  type: 'damage', stat: 'strength', multiplier: 11.4, cooldown: 2, cost: 40 },
-        { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 22.7, aoe: true, stun: true, cooldown: 4, cost: 48 },
-        { name: 'The First War',     type: 'damage', stat: 'strength', multiplier: 45.0, ignore_defense: 1.0, cooldown: 6, cost: 60 }
+        { name: 'Fist of Malachar',  type: 'damage', stat: 'strength', multiplier: 11.4, cooldown: 15, cost: 40 },
+        { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 22.7, aoe: true, stun: true, cooldown: 60, cost: 48 },
+        { name: 'The First War',     type: 'damage', stat: 'strength', multiplier: 45.0, ignore_defense: 1.0, cooldown: 120, cost: 60 }
     ],
     "Malachar's Shadow": [
-        { name: 'Shadow of Malachar',type: 'damage', stat: 'agility', multiplier: 11.4, cooldown: 1, cost: 40 },
-        { name: 'The First Shadow',  type: 'damage', stat: 'agility', multiplier: 22.7, bleed: true, ignore_defense: 0.6, cooldown: 3, cost: 48 },
-        { name: 'Eternal Dark',      type: 'damage', stat: 'agility', multiplier: 45.0,             cooldown: 6, cost: 60 }
+        { name: 'Shadow of Malachar',type: 'damage', stat: 'agility', multiplier: 11.4, cooldown: 15, cost: 40 },
+        { name: 'The First Shadow',  type: 'damage', stat: 'agility', multiplier: 22.7, bleed: true, ignore_defense: 0.6, cooldown: 60, cost: 48 },
+        { name: 'Eternal Dark',      type: 'damage', stat: 'agility', multiplier: 45.0,             cooldown: 120, cost: 60 }
     ],
     "Malachar's Gospel": [
-        { name: 'Gospel of Ruin',    type: 'damage', stat: 'intelligence', multiplier: 11.4, cooldown: 2, cost: 40 },
-        { name: 'Written in Void',   type: 'damage', stat: 'intelligence', multiplier: 22.7, ignore_defense: 0.8, cooldown: 4, cost: 48 },
-        { name: 'The Last Word',     type: 'damage', stat: 'intelligence', multiplier: 45.0, aoe: true, cooldown: 6, cost: 60 }
+        { name: 'Gospel of Ruin',    type: 'damage', stat: 'intelligence', multiplier: 11.4, cooldown: 15, cost: 40 },
+        { name: 'Written in Void',   type: 'damage', stat: 'intelligence', multiplier: 22.7, ignore_defense: 0.8, cooldown: 60, cost: 48 },
+        { name: 'The Last Word',     type: 'damage', stat: 'intelligence', multiplier: 45.0, aoe: true, cooldown: 120, cost: 60 }
     ],
     "Malachar's Seal": [
-        { name: 'Seal Breaker',      type: 'damage', stat: 'strength', multiplier: 10.0, ignore_defense: 0.5, cooldown: 3, cost: 40 },
-        { name: 'Original Seal',     type: 'buff',   effect: 'defense_up', value: 350, duration: 4,           cooldown: 4, cost: 35 },
-        { name: 'Void Barrier',      type: 'shield', value: 6000,                                             cooldown: 5, cost: 48 }
+        { name: 'Seal Breaker',      type: 'damage', stat: 'strength', multiplier: 10.0, ignore_defense: 0.5, cooldown: 15, cost: 40 },
+        { name: 'Original Seal',     type: 'buff',   effect: 'defense_up', value: 350, duration: 4,           cooldown: 60, cost: 35 },
+        { name: 'Void Barrier',      type: 'shield', value: 6000,                                             cooldown: 120, cost: 48 }
     ],
     "Malachar's Grace": [
-        { name: 'Grace of Malachar', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 2, cost: 40 },
-        { name: "Healer's Last Stand",type: 'heal',  stat: 'intelligence', multiplier: 22.7, aoe: true,   cooldown: 4, cost: 48 },
-        { name: 'Infinite Mercy',    type: 'heal',   stat: 'intelligence', multiplier: 38.0, cleanse: true, aoe: true, cooldown: 6, cost: 55 }
+        { name: 'Grace of Malachar', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 15, cost: 40 },
+        { name: "Healer's Last Stand",type: 'heal',  stat: 'intelligence', multiplier: 22.7, aoe: true,   cooldown: 60, cost: 48 },
+        { name: 'Infinite Mercy',    type: 'heal',   stat: 'intelligence', multiplier: 38.0, cleanse: true, aoe: true, cooldown: 120, cost: 55 }
     ],
 
     // ══════════════════════════════════════════════════════════
@@ -496,36 +496,36 @@ module.exports = {
 
     // ── BERSERKER PRESTIGE FORGED ──────────────────────────────
     'Void Ravager': [
-        { name: 'Void Ravage',       type: 'damage', stat: 'strength', multiplier: 1.8, cooldown: 2, cost: 20 },
-        { name: 'Rend Reality',      type: 'damage', stat: 'strength', multiplier: 3.2, def_reduction: 25, cooldown: 4, cost: 25 },
-        { name: 'Void Rampage',      type: 'damage', stat: 'strength', multiplier: 5.5, aoe: true,  cooldown: 6, cost: 32 }
+        { name: 'Void Ravage',       type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 15, cost: 20 },
+        { name: 'Rend Reality',      type: 'damage', stat: 'strength', multiplier: 11.2, def_reduction: 25, cooldown: 120, cost: 25 },
+        { name: 'Void Rampage',      type: 'damage', stat: 'strength', multiplier: 8.5, aoe: true,  cooldown: 60, cost: 32 }
     ],
     'Fracture Titan Blade': [
-        { name: 'Titan Cleave',      type: 'damage', stat: 'strength', multiplier: 3.5, cooldown: 3, cost: 28 },
-        { name: 'Fracture Slash',    type: 'damage', stat: 'strength', multiplier: 6.0, ignore_defense: 0.5, cooldown: 5, cost: 32 },
-        { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 11.0, stun: true, cooldown: 7, cost: 45 }
+        { name: 'Titan Cleave',      type: 'damage', stat: 'strength', multiplier: 3.5, cooldown: 15, cost: 28 },
+        { name: 'Fracture Slash',    type: 'damage', stat: 'strength', multiplier: 6.0, ignore_defense: 0.5, cooldown: 60, cost: 32 },
+        { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 11.0, stun: true, cooldown: 120, cost: 45 }
     ],
     'Malachars Replica': [
-        { name: 'Replica Strike',    type: 'damage', stat: 'strength', multiplier: 8.0, cooldown: 3, cost: 40 },
-        { name: 'Echoing Blow',      type: 'damage', stat: 'strength', multiplier: 15.0, def_reduction: 50, cooldown: 5, cost: 48 },
-        { name: 'The Replica War',   type: 'damage', stat: 'strength', multiplier: 28.0, aoe: true,  cooldown: 8, cost: 55 }
+        { name: 'Replica Strike',    type: 'damage', stat: 'strength', multiplier: 8.0, cooldown: 15, cost: 40 },
+        { name: 'Echoing Blow',      type: 'damage', stat: 'strength', multiplier: 15.0, def_reduction: 50, cooldown: 60, cost: 48 },
+        { name: 'The Replica War',   type: 'damage', stat: 'strength', multiplier: 28.0, aoe: true,  cooldown: 120, cost: 55 }
     ],
 
     // ── ASSASSIN PRESTIGE FORGED ──────────────────────────────
     'Void Phantom Blade': [
-        { name: 'Phantom Slash',     type: 'damage', stat: 'agility', multiplier: 1.8, cooldown: 1, cost: 20 },
-        { name: 'Phase Rend',        type: 'damage', stat: 'agility', multiplier: 3.2, ignore_defense: 0.4, cooldown: 3, cost: 25 },
-        { name: 'Void Teleport',     type: 'damage', stat: 'agility', multiplier: 5.5, bleed: true, cooldown: 5, cost: 32 }
+        { name: 'Phantom Slash',     type: 'damage', stat: 'agility', multiplier: 1.8, cooldown: 15, cost: 20 },
+        { name: 'Phase Rend',        type: 'damage', stat: 'agility', multiplier: 3.2, ignore_defense: 0.4, cooldown: 60, cost: 25 },
+        { name: 'Void Teleport',     type: 'damage', stat: 'agility', multiplier: 5.5, bleed: true, cooldown: 120, cost: 32 }
     ],
     'Fracture Reaper': [
-        { name: 'Reaper Strike',     type: 'damage', stat: 'agility', multiplier: 3.5, cooldown: 2, cost: 28 },
-        { name: 'Fracture Sever',    type: 'damage', stat: 'agility', multiplier: 6.2, ignore_defense: 0.6, cooldown: 4, cost: 32 },
-        { name: 'Void Harvest',      type: 'damage', stat: 'agility', multiplier: 11.5, cooldown: 6, cost: 45 }
+        { name: 'Reaper Strike',     type: 'damage', stat: 'agility', multiplier: 3.5, cooldown: 15, cost: 28 },
+        { name: 'Fracture Sever',    type: 'damage', stat: 'agility', multiplier: 6.2, ignore_defense: 0.6, cooldown: 60, cost: 32 },
+        { name: 'Void Harvest',      type: 'damage', stat: 'agility', multiplier: 11.5, cooldown: 120, cost: 45 }
     ],
     'Malachars Shadow Replica': [
-        { name: 'Shadow Strike',     type: 'damage', stat: 'agility', multiplier: 8.0, cooldown: 1, cost: 40 },
-        { name: 'Void Echo',         type: 'damage', stat: 'agility', multiplier: 15.5, bleed: true, cooldown: 3, cost: 48 },
-        { name: 'The Replica Shadow',type: 'damage', stat: 'agility', multiplier: 29.0, ignore_defense: 0.8, cooldown: 6, cost: 55 }
+        { name: 'Shadow Strike',     type: 'damage', stat: 'agility', multiplier: 8.0, cooldown: 15, cost: 40 },
+        { name: 'Void Echo',         type: 'damage', stat: 'agility', multiplier: 15.5, bleed: true, cooldown: 60, cost: 48 },
+        { name: 'The Replica Shadow',type: 'damage', stat: 'agility', multiplier: 29.0, ignore_defense: 0.8, cooldown: 120, cost: 55 }
     ],
 
     // ── MAGE PRESTIGE FORGED ────────────────────────────────────
@@ -547,31 +547,31 @@ module.exports = {
 
     // ── TANK PRESTIGE FORGED ────────────────────────────────────
     'Void Aegis': [
-        { name: 'Void Guard',        type: 'buff',   effect: 'defense_up', value: 70, duration: 3, cooldown: 4, cost: 20 },
-        { name: 'Void Bash',         type: 'damage', stat: 'stamina', multiplier: 1.8, stun: true, cooldown: 3, cost: 22 },
-        { name: 'Void Wall',         type: 'shield', value: 700,                        cooldown: 5, cost: 28 }
+        { name: 'Void Guard',        type: 'buff',   effect: 'defense_up', value: 70, duration: 3, cooldown: 45, cost: 20 },
+        { name: 'Void Bash',         type: 'damage', stat: 'stamina', multiplier: 1.8, stun: true, cooldown: 60, cost: 22 },
+        { name: 'Void Wall',         type: 'shield', value: 700,                        cooldown: 120, cost: 28 }
     ],
     'Fracture Fortress Shield': [
-        { name: 'Fortress Strike',   type: 'damage', stat: 'stamina', multiplier: 3.5, stun: true, cooldown: 4, cost: 28 },
-        { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 120, duration: 3, cooldown: 5, cost: 30 },
-        { name: 'Fortress Collapse', type: 'shield', value: 1500,                      cooldown: 6, cost: 38 }
+        { name: 'Fortress Strike',   type: 'damage', stat: 'stamina', multiplier: 3.5, stun: true, cooldown: 15, cost: 28 },
+        { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 120, duration: 3, cooldown: 60, cost: 30 },
+        { name: 'Fortress Collapse', type: 'shield', value: 1500,                      cooldown: 120, cost: 38 }
     ],
     'Void Colossus Gauntlet': [
-        { name: 'Colossus Punch',    type: 'damage', stat: 'strength', multiplier: 7.5, stun: true, cooldown: 4, cost: 40 },
-        { name: 'Void Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 5, cost: 35 },
-        { name: 'Colossus Slam',     type: 'shield', value: 3000, aoe: true,           cooldown: 7, cost: 48 }
+        { name: 'Colossus Punch',    type: 'damage', stat: 'strength', multiplier: 7.5, stun: true, cooldown: 15, cost: 40 },
+        { name: 'Void Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 60, cost: 35 },
+        { name: 'Colossus Slam',     type: 'shield', value: 3000, aoe: true,           cooldown: 120, cost: 48 }
     ],
 
     // ── HEALER PRESTIGE FORGED ──────────────────────────────────
     'Void Sanctuary Staff': [
-        { name: 'Sanctuary Heal',    type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 2, cost: 20 },
-        { name: 'Void Light',        type: 'heal',   stat: 'intelligence', multiplier: 3.5, cleanse: true, cooldown: 4, cost: 25 },
-        { name: 'Void Sanctuary',    type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 6, cost: 32 }
+        { name: 'Sanctuary Heal',    type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 15, cost: 20 },
+        { name: 'Void Light',        type: 'heal',   stat: 'intelligence', multiplier: 3.5, cleanse: true, cooldown: 60, cost: 25 },
+        { name: 'Void Sanctuary',    type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 120, cost: 32 }
     ],
     'Fracture Life Chalice': [
-        { name: 'Life Sip',          type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 2, cost: 28 },
-        { name: 'Fracture Mend',     type: 'heal',   stat: 'intelligence', multiplier: 6.5, cleanse: true, cooldown: 4, cost: 32 },
-        { name: 'Chalice Overflow',  type: 'heal',   stat: 'intelligence', multiplier: 12.0, aoe: true,   cooldown: 6, cost: 45 }
+        { name: 'Life Sip',          type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 15, cost: 28 },
+        { name: 'Fracture Mend',     type: 'heal',   stat: 'intelligence', multiplier: 6.5, cleanse: true, cooldown: 60, cost: 32 },
+        { name: 'Chalice Overflow',  type: 'heal',   stat: 'intelligence', multiplier: 12.0, aoe: true,   cooldown: 120, cost: 45 }
     ],
     'Malachars Grace Replica': [
         { name: 'Replica Grace',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, cooldown: 2, cost: 40 },
