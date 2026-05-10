@@ -142,7 +142,7 @@ function clearDuelActiveByKey(duelKey) {
     [...data.teamA, ...data.teamB].forEach(id => clearDuelBlessingState(id));
 }
 
-const TURN_LIMIT_MS = 20000; // 20 seconds per turn
+const TURN_LIMIT_MS = 45000; // 45 seconds per turn
 
 function getDuelKey(p1, p2) {
     if (Array.isArray(p1) || Array.isArray(p2)) {
@@ -188,7 +188,7 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
                 `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
                 `┃◆ \n` +
                 `┃◆ *${pNick}* ran out of time!\n` +
-                `┃◆ They had 20 seconds to act.\n` +
+                `┃◆ They had 45 seconds to act.\n` +
                 `┃◆ \n` +
                 `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
                 `┃◆ 🏆 *${oNick}* wins by default!\n` +
@@ -651,7 +651,7 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
         `┃◆ ━━━━━━━━━━━━\n` +
         `${betLine}` +
         `┃◆ ⚡ ${firstPlayer.nickname} goes first!\n` +
-        `┃◆ ⏰ 20s per turn — miss it and you forfeit.\n` +
+        `┃◆ ⏰ 45s per turn — miss it and you forfeit.\n` +
         `┃◆ Use !attack <move> to fight.\n` +
         `╰═══════════════════════════╯`
     );
@@ -751,7 +751,7 @@ async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, dam
         `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${attackerMaxHp}\n` +
         `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${opponentMaxHp}\n` +
         `┃◆────────────\n` +
-        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 20 seconds!\n` +
+        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 45 seconds!\n` +
         `╰═══════════════════════╯`
     );
 }
@@ -861,6 +861,14 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const fatigueWarn = fatigueWarning(currentFatigue);
         const narrateLine = narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
 
+        // Resolve next turn BEFORE sending message so we can include it inline
+        await trackBlessings();
+        data.round++;
+        const nextTurn = await nextTurnAfterMove();
+        const [nRowsEarly] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
+        const nextTurnName = nRowsEarly[0]?.nickname || 'next player';
+
+        // ── 1. ATTACK MESSAGE (includes next-turn — single message, no double send) ──
         await chat.sendMessage(
             `╭══〘 ⚔️ ROUND ${round} 〙══╮\n` +
             `┃◆ ${narrateLine}\n` +
@@ -869,24 +877,25 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             `${totalLine}` +
             `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
             `${fatigueWarn}` +
+            `┃◆ ━━━━━━━━━━━━━━━━\n` +
+            `┃◆ ⚡ *${nextTurnName}'s turn!*  ⏰ 45 seconds\n` +
             `╰═══════════════════════════╯`
         );
 
         // ── 2. CLAN BLESSING (fires AFTER attack message) ─────────────────────
-        // Check on_death for each defeated enemy first
         for (const { tid, def } of allDefeated) {
             const bl = await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => null);
             if (bl) await chat.sendMessage(bl.message).catch(() => {});
         }
 
-        // Check on_kill blessing for attacker after eliminating someone
         if (allDefeated.length > 0) {
             const bl = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
             if (bl) {
-                // Show blessing effect on remaining enemies
-                const fieldLines = data.teamA.includes(String(attackerId))
-                    ? data.teamB.map(id => `┃◆  • ${results.find(r=>r.tid===id)?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`)
-                    : data.teamA.map(id => `┃◆  • ${results.find(r=>r.tid===id)?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`);
+                const oppTeamIds = data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA;
+                const fieldLines = oppTeamIds.map(id => {
+                    const r = results.find(r => r.tid === id);
+                    return `┃◆  • ${r?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`;
+                });
                 const blessingKilled = (bl.killedIds || []);
                 await chat.sendMessage(
                     `${bl.message}\n` +
@@ -895,16 +904,13 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                     `${blessingKilled.length ? `┃◆ ☠️ ${blessingKilled.length} more fell to the blessing!\n` : ''}` +
                     `╰═══════════════════════════╯`
                 ).catch(() => {});
-                // Recompute defeated after blessing
                 blessingKilled.forEach(id => {
-                    if (!allDefeated.find(d => d.tid === id)) {
+                    if (!allDefeated.find(d => d.tid === id))
                         allDefeated.push({ tid: id, nick: id, rank: '?', def: {} });
-                    }
                 });
             }
         }
 
-        // enemy_below_25 blessing
         const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => null);
         if (bl25) await chat.sendMessage(bl25.message).catch(() => {});
 
@@ -927,13 +933,6 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             ).catch(() => {});
         }
 
-        await trackBlessings();
-        data.round++;
-        const nextTurn = await nextTurnAfterMove();
-        const [nRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
-        const nextTurnName = nRows[0]?.nickname || 'next player';
-
-        await chat.sendMessage(`┃◆ ⚡ *${nextTurnName}'s turn!*  ⏰ 20 seconds — use !attack <move>`);
         return { success: true, nextTurn };
     }
 
@@ -990,7 +989,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             `${numTargets > 1 ? `┃◆ ━━ Total healed: ${totalHealed}\n` : ''}` +
             `${fatigueWarn}` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
@@ -1042,7 +1041,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             `┃◆ ${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 3} turns\n` +
             `${fatigueWarn}` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
@@ -1096,7 +1095,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             `┃◆ -${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 2} turns\n` +
             `${fatigueWarn}` +
             `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 20 seconds!\n` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
