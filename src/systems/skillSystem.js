@@ -134,7 +134,8 @@ function calculateHeal(player, move) {
     const buffValue = typeof buffMods[statUsed] === 'number' ? buffMods[statUsed] : 0;
     const statValue = baseStat + buffValue;
     const multiplier = move.multiplier || 1;
-    return Math.floor(statValue * multiplier);
+    const baseHeal   = move.baseHeal   || 0;
+    return Math.floor(statValue * multiplier + baseHeal);
 }
 
 module.exports = {

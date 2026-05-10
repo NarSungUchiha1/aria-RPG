@@ -20,32 +20,16 @@ const duelBlessingStates = new Map();
 const partyAssembly = new Map();
 const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
-const DUEL_HP = 1500; // fallback only
+const DUEL_HP = 2000; // fixed for ALL players — no rank or prestige HP scaling
 
-// Normal player duel HP scales with rank — S rank has more HP than F rank
-const RANK_DUEL_HP = {
-    F: 800,  E: 1000, D: 1350, C: 1750,
-    B: 2300, A: 2900, S: 3600
-};
+// ── PvP damage is 80% of the move's base output ───────────────────────────────
+// The rank gap comes from raw stat differences — no artificial amplifier needed.
+// A PS prestige player naturally hits harder because their STR/AGI/INT is much higher.
+const PVP_DAMAGE_SCALE = 0.80;
 
-// PvP damage multiplier — stacks on top of calculateMoveDamage's stat-based output.
-// Creates a real power gap between ranks and an enormous gap between normal and prestige.
-const PVP_DMG_MULT = {
-    F: 1.0,  E: 1.1,  D: 1.25, C: 1.45,
-    B: 1.7,  A: 2.0,  S: 2.4,
-    PF: 3.2, PE: 3.6, PD: 4.0, PC: 4.4,
-    PB: 4.8, PA: 5.2, PS: 5.8
-};
-
-// Get effective duel HP — prestige players use their real max_hp, normal players use rank-scaled HP
+// getDuelHp — always 2000, regardless of rank or prestige
 async function getDuelHp(playerId) {
-    const [rows] = await db.execute(
-        'SELECT max_hp, COALESCE(prestige_level,0) as prestige_level, `rank` FROM players WHERE id=?',
-        [playerId]
-    );
-    if (!rows.length) return DUEL_HP;
-    if (rows[0].prestige_level > 0) return Number(rows[0].max_hp);
-    return RANK_DUEL_HP[rows[0].rank] || DUEL_HP;
+    return DUEL_HP;
 }
 
 function normalizeIds(ids) {
@@ -830,7 +814,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         }
 
         const numTargets = enemyTargets.length;
-        const pvpMult = PVP_DMG_MULT[attacker.rank] || 1.0;
+        // PvP caps at 80% — no rank multiplier, gap from raw stats only
         const results = [];
         let allDefeated = [];
 
@@ -841,7 +825,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const defHp = data.hp[tid];
             const defForCalc = { ...def, hp: defHp, max_hp: data.maxHp[tid] };
             let dmg = calculateMoveDamage(attacker, move, defForCalc, items);
-            dmg = Math.max(1, Math.floor(dmg * pvpMult));
+            dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
             const newHp = Math.max(0, defHp - dmg);
             data.hp[tid] = newHp;
             results.push({ tid, nick: def.nickname, rank: def.rank, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
@@ -1137,8 +1121,8 @@ async function handlePvPAttack(attackerId) {
     const baseDmg  = Number(attacker.strength) + Math.floor(weaponBonus * 0.5);
     const defence  = Number(defender.stamina) || 0;
     const fatigueMultiplier = getFatigueMultiplier(attacker);
-    const pvpMult  = PVP_DMG_MULT[attacker.rank] || 1.0;
-    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier * pvpMult));
+    // PvP caps at 80%
+    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier * PVP_DAMAGE_SCALE));
     const round    = data.round;
 
     const attackerHp = data.hp[attackerId];
