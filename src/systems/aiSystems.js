@@ -67,35 +67,51 @@ STYLE RULES:
 }
 
 
-// ── Call Gemini (free tier) ───────────────────────────────────────────────────
+// ── Global Gemini rate limiter — max 10 calls per minute ─────────────────────
+const geminiCallLog = [];
+function canCallGemini() {
+    const now = Date.now();
+    // Remove calls older than 60 seconds
+    while (geminiCallLog.length && geminiCallLog[0] < now - 60000) geminiCallLog.shift();
+    if (geminiCallLog.length >= 10) return false; // at limit
+    geminiCallLog.push(now);
+    return true;
+}
+
+// ── Call Groq — completely free, no credit card, 30 req/min ──────────────────
 async function callGemini(userMessage, systemPrompt) {
-    const apiKey = process.env.GEMINI_API_KEY || '';
+    // Named callGemini so nothing else in the codebase needs to change
+    const apiKey = process.env.GROQ_API_KEY || '';
     if (!apiKey) {
-        console.error('[ARIA] GEMINI_API_KEY is not set!');
-        throw new Error('GEMINI_API_KEY not set');
+        console.error('[ARIA] GROQ_API_KEY is not set!');
+        throw new Error('GROQ_API_KEY not set');
     }
+    if (!canCallGemini()) throw new Error('rate limit — try again shortly');
 
-    // gemini-2.0-flash-lite is the current free tier model
-    const model = 'gemini-2.0-flash-lite';
-    const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents:          [{ role: 'user', parts: [{ text: userMessage }] }],
-            generationConfig:  { maxOutputTokens: 300, temperature: 0.85 }
+            model:       'llama-3.1-8b-instant', // free, very fast
+            max_tokens:  300,
+            temperature: 0.85,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user',   content: userMessage  }
+            ]
         })
     });
 
     if (!response.ok) {
         const errText = await response.text().catch(() => '');
-        console.error(`[ARIA] Gemini error ${response.status}:`, errText.substring(0, 200));
-        throw new Error(`Gemini ${response.status}`);
+        console.error(`[ARIA] Groq error ${response.status}:`, errText.substring(0, 200));
+        throw new Error(`Groq ${response.status}`);
     }
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    return data.choices?.[0]?.message?.content?.trim() || '';
 }
 
 // ── Get player context ────────────────────────────────────────────────────────
@@ -221,10 +237,10 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 const { narrate: staticNarrate } = require('../utils/narrator');
 
 async function narrateAI(type, vars) {
-    // Cache by type + move so the same skill gets consistent flavour, refreshing every 30s
+    // Cache by type + move so the same skill gets consistent flavour, refreshing every 5 minutes
     const cacheKey = `${type}_${vars.move || vars.stat || vars.enemy || ''}`;
     const cached   = narrateCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < 30000) return cached.text;
+    if (cached && Date.now() - cached.ts < 300000) return cached.text; // 5 min cache
 
     const staticText = staticNarrate(type, vars);
 
