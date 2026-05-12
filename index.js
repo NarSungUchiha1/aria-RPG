@@ -416,13 +416,32 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
+            // ── @Aria mention handler ─────────────────────────────────────────
+            // Fires when someone tags the bot in a message (no ! needed)
+            const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+            const botNumber     = normalizeId(sock.user?.id || '');
+            const botMentioned  = botNumber && mentionedJids.some(j => normalizeId(j) === botNumber);
+
+            if (botMentioned && !text.startsWith('!')) {
+                // Strip the @mention tag from text to get the actual question
+                const question = text.replace(/@\d+/g, '').trim();
+                const { handleAriaCommand } = require('./src/systems/aiSystem');
+                await handleAriaCommand(sock, jid, msg, userId, question);
+                return;
+            }
+
             if (!text.startsWith('!')) return;
 
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
 
             const command = commands.get(cmdName);
-            if (!command) return;
+            if (!command) {
+                // Route unknown !commands to AI — it'll try to help or explain
+                const { handleUnknownCommand } = require('./src/systems/aiSystem');
+                await handleUnknownCommand(sock, jid, msg, userId, cmdName, args);
+                return;
+            }
 
             // Block check
             if (BLOCKED_USERS.has(userId)) return;
