@@ -67,14 +67,17 @@ STYLE RULES:
 }
 
 
-// ── Call Gemini Flash (free tier — 1,500 requests/day) ───────────────────────
+// ── Call Gemini (free tier) ───────────────────────────────────────────────────
 async function callGemini(userMessage, systemPrompt) {
     const apiKey = process.env.GEMINI_API_KEY || '';
     if (!apiKey) {
-        console.error('[ARIA] GEMINI_API_KEY is not set in environment variables!');
+        console.error('[ARIA] GEMINI_API_KEY is not set!');
         throw new Error('GEMINI_API_KEY not set');
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    // gemini-2.0-flash-lite is the current free tier model
+    const model = 'gemini-2.0-flash-lite';
+    const url   = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
         method:  'POST',
@@ -89,7 +92,7 @@ async function callGemini(userMessage, systemPrompt) {
     if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error(`[ARIA] Gemini error ${response.status}:`, errText.substring(0, 200));
-        throw new Error(`Gemini ${response.status}: ${errText.substring(0, 100)}`);
+        throw new Error(`Gemini ${response.status}`);
     }
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
