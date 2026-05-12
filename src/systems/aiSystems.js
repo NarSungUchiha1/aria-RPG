@@ -70,7 +70,11 @@ STYLE RULES:
 // ── Call Gemini Flash (free tier — 1,500 requests/day) ───────────────────────
 async function callGemini(userMessage, systemPrompt) {
     const apiKey = process.env.GEMINI_API_KEY || '';
-    const url    = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    if (!apiKey) {
+        console.error('[ARIA] GEMINI_API_KEY is not set in environment variables!');
+        throw new Error('GEMINI_API_KEY not set');
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
         method:  'POST',
@@ -78,11 +82,15 @@ async function callGemini(userMessage, systemPrompt) {
         body: JSON.stringify({
             systemInstruction: { parts: [{ text: systemPrompt }] },
             contents:          [{ role: 'user', parts: [{ text: userMessage }] }],
-            generationConfig:  { maxOutputTokens: 220, temperature: 0.8 }
+            generationConfig:  { maxOutputTokens: 300, temperature: 0.85 }
         })
     });
 
-    if (!response.ok) throw new Error(`Gemini API ${response.status}`);
+    if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        console.error(`[ARIA] Gemini error ${response.status}:`, errText.substring(0, 200));
+        throw new Error(`Gemini ${response.status}: ${errText.substring(0, 100)}`);
+    }
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
 }
@@ -153,15 +161,20 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     const owner        = isOwner(userId);
     const isPrivileged = owner || isAdmin;
 
-    // ── Owner/Admin — full power mode ─────────────────────────────────────────
+    // ── Owner/Admin — full power mode (only for instruction-like messages) ─────
     if (isPrivileged && question?.trim()) {
-        const { handleAdminCommand } = require('./adminAI');
-        const handled = await handleAdminCommand(
-            sock, jid, msg, userId, question,
-            (prompt, sys) => callGemini(prompt, sys),
-            blockedSet
-        ).catch(() => false);
-        if (handled) return;
+        // Only route to adminAI if the message looks like a command/query
+        // Casual chat ("how are you", "nothing just checking") stays as friendly chat
+        const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|announce|check|show|list|stats|leaderboard|gold|rank|prestige|wipe|xp|sp|fatigue|heal|restore|item|dungeon|clan|how many|who has|who is|top |players?)\b/i;
+        if (ADMIN_KEYWORDS.test(question)) {
+            const { handleAdminCommand } = require('./adminAI');
+            const handled = await handleAdminCommand(
+                sock, jid, msg, userId, question,
+                (prompt, sys) => callGemini(prompt, sys),
+                blockedSet
+            ).catch(() => false);
+            if (handled) return;
+        }
     }
 
     // ── Cooldown (skip for owner/admin) ───────────────────────────────────────

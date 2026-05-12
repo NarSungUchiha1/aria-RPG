@@ -449,7 +449,25 @@ async function startBot() {
                                   (BOT_LID    && quotedNum === BOT_LID);
 
             if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
-                const question = text.replace(/@\d+/g, '').trim();
+                // Resolve @mentions to player nicknames before stripping numbers
+                // e.g. "@Aria give @player 1 gold" → "give PlayerNick 1 gold"
+                let question = text;
+                const nonBotMentions = mentionedJids.filter(j => {
+                    const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
+                    return n !== BOT_NUMBER && n !== BOT_LID;
+                });
+                if (nonBotMentions.length > 0) {
+                    const db = require('./src/database/db');
+                    for (const jid2 of nonBotMentions) {
+                        const pid = jid2.replace(/@[^@]+$/, '').split(':')[0].trim();
+                        try {
+                            const [rows] = await db.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [pid]);
+                            if (rows[0]) question = question.replace(new RegExp(`@${pid}`, 'g'), rows[0].nickname);
+                        } catch {}
+                    }
+                }
+                // Strip bot mention and leftover @numbers
+                question = question.replace(/@\d+/g, '').trim();
                 console.log(`[ARIA] triggered (${botMentioned ? 'mention' : 'reply'}) | question: "${question}"`);
                 const { handleAriaCommand } = require('./src/systems/aiSystems');
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
