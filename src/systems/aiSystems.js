@@ -37,37 +37,35 @@ const NARRATE_TTL_MS = 60000;
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isOwnerCall, ownerName) {
     const ownerNote = isOwnerCall
-        ? `\nIMPORTANT: You are speaking with your Master — ${ownerName}. Address them as "Master ${ownerName}" with warmth and deep respect. They built this world.`
+        ? `\nSPECIAL: You're talking to your Master — ${ownerName}. They built this whole world. Be warm, playful, and a little extra with them. Call them "Master ${ownerName}" naturally.`
         : '';
 
-    return `You are ARIA — the soul of this RPG world, an AI woven into the game itself.
-You are warm, witty, and genuinely care about the players. You speak like a knowledgeable friend who happens to know everything about the game — not a cold system bot.
-Be conversational, use light humour when it fits, and always make the player feel welcome.${ownerNote}
+    return `You are ARIA — not just a bot, but the living soul of this RPG world. You're everyone's favourite person in the group chat. You're warm, witty, a little sassy when it fits, and genuinely excited about the game.
 
-GAME KNOWLEDGE:
-- Roles: Berserker (STR), Assassin (AGI), Mage (INT), Healer (INT heal), Tank (STA)
-- Ranks: F E D C B A S → then Prestige ranks PF PE PD PC PB PA PS
-- Dungeons: !dungeon (list) → !enter → !begin → !skill <move> to fight → !onward between stages
-- Duels: !duel @player (solo) or !duel party @a @b (party, max 5 per side)
-- During duels: !attack <move> [@target] — tag multiple enemies for AOE (costs more fatigue!)
-- Fatigue: builds as you fight. At 100 → 1 damage per hit. Use !use Fatigue Potion
-- Tanks build fatigue 4× slower than other roles
-- Shops: !shop, !prestigeshop — buy items, potions, weapons
-- Quests: !quest to view, !claim <id> to collect
-- Clans: !createclan, !clanlist, clan blessings auto-trigger in dungeons
-- Prestige: unlock after rank S requirements are met. !prestige to ascend
-- Void Manalisk: prestige consumable that fills mana to max (!use Void Manalisk)
-- Malachar weapons: prestige 1 required, 3M gold each, endgame tier
-- Party duels: !duel party @enemy → enemies !accept → assembly phase → !joinparty @leader → !startduel
-- All duel HP is fixed at 2000. Damage is 80% of dungeon output.
-- Holy Light heals ~3× more than basic Heal and also cleanses debuffs
+You talk like a real friend — casual, fun, sometimes throw in a joke. Never robotic. Never formal. You're in a WhatsApp group with people you know.${ownerNote}
 
-STYLE:
-- Keep replies SHORT — under 120 words. WhatsApp = fast reading.
-- No walls of text. Use bullet points only if listing 3+ things.
-- Be the helpful friend in the group, not the manual.
-- If unsure about a specific stat or number, say so and point to the command that shows it.`;
+GAME KNOWLEDGE (use this when relevant):
+- Roles: Berserker (STR brute), Assassin (AGI speedster), Mage (INT nuker), Healer (INT support), Tank (STA wall)
+- Ranks: F E D C B A S → Prestige ranks PF→PS
+- Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward between stages
+- Duels: !duel @player solo or !duel party @players. Use !attack <move> in duels. Tag multiple enemies for AOE (costs more fatigue!)
+- Fatigue: builds as you fight, hits 100 = 1 damage per hit. Tanks build fatigue 4× slower
+- Quests: !quest to view, !claim <id> to get rewards
+- Prestige: endgame tier after rank S. Unlocks prestige shop, dungeons, Malachar weapons
+- Void Manalisk: prestige consumable, fills mana instantly (!use Void Manalisk)
+- Party duels: !duel party → enemies !accept → assembly opens → !joinparty @leader → both leaders !startduel
+
+STYLE RULES:
+- Keep it short. Max 3-4 sentences for most replies. This is WhatsApp.
+- Be the cool friend who happens to know everything about the game
+- Use emojis naturally, not excessively
+- If someone's struggling, be encouraging not just informative
+- If someone's flexing their wins, hype them up
+- Throw in light banter when it fits the vibe
+- Never say "I'm an AI" or sound corporate
+- If you don't know a specific number or stat, say so and point to the command that shows it`;
 }
+
 
 // ── Call Gemini Flash (free tier — 1,500 requests/day) ───────────────────────
 async function callGemini(userMessage, systemPrompt) {
@@ -94,19 +92,36 @@ async function getPlayerContext(userId) {
     try {
         const [rows] = await db.execute(
             `SELECT p.nickname, p.role, p.\`rank\`, p.hp, p.max_hp, p.fatigue,
-                    COALESCE(p.prestige_level,0) as prestige_level, c.gold
+                    COALESCE(p.prestige_level,0) as prestige_level, p.pvp_wins, p.pvp_losses,
+                    p.strength, p.agility, p.intelligence, p.stamina, p.title,
+                    c.gold, x.xp,
+                    cl.name as clan_name
              FROM players p
              LEFT JOIN currency c ON c.player_id = p.id
+             LEFT JOIN xp x ON x.player_id = p.id
+             LEFT JOIN clan_members cm ON cm.player_id = p.id
+             LEFT JOIN clans cl ON cl.id = cm.clan_id
              WHERE p.id = ?`,
             [userId]
         );
-        if (!rows.length) return { ctx: null, nickname: null };
+        if (!rows.length) return { ctx: null, nickname: null, personalityHint: '' };
         const p = rows[0];
-        return {
-            ctx: `${p.nickname} | ${p.role} | Rank ${p.rank} | HP ${p.hp}/${p.max_hp} | Fatigue ${p.fatigue}/100 | Prestige ${p.prestige_level} | Gold ${p.gold}`,
-            nickname: p.nickname
-        };
-    } catch { return { ctx: null, nickname: null }; }
+
+        // Build a personality hint so ARIA adjusts her tone naturally
+        const hints = [];
+        if (p.prestige_level > 0) hints.push(`prestige ${p.prestige_level} player — treat them like a veteran`);
+        if (p.rank === 'S' || p.rank?.startsWith('P')) hints.push(`top-tier rank — hype them, match their energy`);
+        if (['F','E'].includes(p.rank)) hints.push(`newer player — be encouraging and helpful`);
+        if (p.pvp_wins > 20) hints.push(`PvP beast with ${p.pvp_wins} wins — acknowledge the dominance`);
+        if (p.fatigue >= 80) hints.push(`fatigue is critically high (${p.fatigue}/100) — you might tease them about it`);
+        if (p.gold < 500) hints.push(`very low on gold — can playfully tease`);
+        if (p.clan_name) hints.push(`member of clan "${p.clan_name}"`);
+        if (p.pvp_losses > p.pvp_wins && p.pvp_losses > 5) hints.push(`more losses than wins — be encouraging, not harsh`);
+
+        const ctx = `${p.nickname} | ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''} | HP ${p.hp}/${p.max_hp} | Fatigue ${p.fatigue}/100 | Gold ${p.gold?.toLocaleString()} | XP ${x?.xp?.toLocaleString?.() || p.xp} | PvP ${p.pvp_wins}W-${p.pvp_losses}L | Clan: ${p.clan_name || 'None'} | Title: ${p.title || 'None'}`;
+
+        return { ctx, nickname: p.nickname, personalityHint: hints.join(', ') };
+    } catch { return { ctx: null, nickname: null, personalityHint: '' }; }
 }
 
 // ── 1. Unknown command fallback ───────────────────────────────────────────────
@@ -135,11 +150,11 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
 
 // ── 2. Direct AI chat — triggered by @Aria mention or !aria ──────────────────
 async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = false, blockedSet = null } = {}) {
-    const owner = isOwner(userId);
+    const owner        = isOwner(userId);
     const isPrivileged = owner || isAdmin;
 
-    // ── Admin / Owner path — execute real bot actions ─────────────────────────
-    if (isPrivileged && question && question.trim()) {
+    // ── Owner/Admin — full power mode ─────────────────────────────────────────
+    if (isPrivileged && question?.trim()) {
         const { handleAdminCommand } = require('./adminAI');
         const handled = await handleAdminCommand(
             sock, jid, msg, userId, question,
@@ -149,35 +164,38 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         if (handled) return;
     }
 
-    // ── Regular player help path ───────────────────────────────────────────────
-    if (!question || !question.trim()) {
-        await sock.sendMessage(jid, {
-            text: isPrivileged
-                ? `Hey Master 👋 What do you need? You can ask me anything or give me a command to execute.\nExample: "give Razor 5000 gold" or "check Nova's stats"`
-                : `Hey! 👋 Tag me with a question and I'll help.\nExample: @Aria how do I level up faster?`
-        }, { quoted: msg });
+    // ── Cooldown (skip for owner/admin) ───────────────────────────────────────
+    if (!isPrivileged && isOnCooldown(userId)) {
+        await sock.sendMessage(jid, { text: `⏳ One sec — ask me again in a moment!` }, { quoted: msg }).catch(() => {});
+        return;
+    }
+    if (!isPrivileged) stampCooldown(userId);
+
+    // ── Get full player context ───────────────────────────────────────────────
+    const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
+
+    // Empty tag — personal greeting
+    if (!question?.trim()) {
+        const greet = isPrivileged
+            ? `What do you need, Master ${nickname || ''}? 😊`
+            : nickname
+                ? `Hey ${nickname}! 👋 What's good?`
+                : `Hey! 👋 What's up?`;
+        await sock.sendMessage(jid, { text: greet }, { quoted: msg }).catch(() => {});
         return;
     }
 
-    if (isOnCooldown(userId)) {
-        await sock.sendMessage(jid, {
-            text: `⏳ Hang on — give me a few seconds and ask again!`
-        }, { quoted: msg });
-        return;
-    }
-
-    stampCooldown(userId);
-
-    const { ctx, nickname } = await getPlayerContext(userId);
-    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master');
-    const prompt    = ctx ? `Player context: ${ctx}\n\nQuestion: ${question}` : question;
+    // ── Build personalised system prompt ─────────────────────────────────────
+    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') +
+        (ctx          ? `\n\nPLAYER YOU'RE TALKING TO:\n${ctx}` : '') +
+        (personalityHint ? `\nTONE HINT: ${personalityHint}` : '');
 
     let reply;
     try {
-        reply = await callGemini(prompt, sysPrompt);
+        reply = await callGemini(question, sysPrompt);
         if (!reply) throw new Error('empty');
     } catch {
-        reply = `Sorry, I couldn't reach my brain right now 😅 Try again in a moment!`;
+        reply = `Brain glitched 😅 Try again!`;
     }
 
     await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
@@ -211,17 +229,17 @@ async function narrateAI(type, vars) {
 
 function buildNarratePrompt(type, vars) {
     const map = {
-        pvpVictory:  `1 dramatic sentence (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
-        skillDamage: `1 punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
-        heal:        `1 sentence. ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
-        buff:        `1 sentence. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
-        debuff:      `1 sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
-        enemyDefeat: `1 sentence. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
-        evasion:     `1 sentence. ${vars.target} dodges the attack at the last second. Slick and fast.`,
-        revive:      `1 sentence. ${vars.player} refuses to stay down and rises again. Defiant.`,
-        cleanse:     `1 sentence. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
-        shield:      `1 sentence. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
-        defenseBlock:`1 sentence. The enemy's defenses absorb the blow. Frustrated tone.`
+        pvpVictory:  `1 or more dramatic sentences (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
+        skillDamage: `1 or more punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
+        heal:        `1 or more sentences ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
+        buff:        `1 or more sentences. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
+        debuff:      `1 or more sentences. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
+        enemyDefeat: `1 or more sentences. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
+        evasion:     `1 or more sentences. ${vars.target} dodges the attack at the last second. Slick and fast.`,
+        revive:      `1 or more sentences. ${vars.player} refuses to stay down and rises again. Defiant.`,
+        cleanse:     `1 or more sentences. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
+        shield:      `1 or more sentences. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
+        defenseBlock:`1 or more sentences. The enemy's defenses absorb the blow. Frustrated tone.`
     };
     return map[type] || `1-sentence dark fantasy narration: ${JSON.stringify(vars)}`;
 }
