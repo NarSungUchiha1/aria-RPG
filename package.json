@@ -4,14 +4,16 @@
   "description": "A WhatsApp RPG bot",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "postinstall": "node silence-logs.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.1",
     "@whiskeysockets/baileys": "^6.7.9",
     "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "mysql2": "^3.2.0",
-    "node-cron": "^3.0.3",
+    "node-cron": "^4.2.1",
     "pino": "^9.0.0",
     "qrcode": "^1.5.4"
   },

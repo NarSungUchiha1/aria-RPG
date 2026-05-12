@@ -1,7 +1,14 @@
 const db = require('../database/db');
 const getUserId = require('../utils/getUserId');
-const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank } = require('../systems/shopSystem');
+const { getPlayerShop, decreaseStock, clearShopCacheForRoleRank, isItemAllowedForRank } = require('../systems/shopSystem');
 const itemStats = require('../data/itemStats');
+
+const CONSUMABLES = new Set([
+    'Potion', 'Mana Potion', 'Fortify Potion', 'Rage Potion', 'Eagle Eye Potion', 'Cleanse Potion', 'Fatigue Potion',
+    'Revive Scroll', 'Fire Scroll', 'Backstab Scroll', 'Taunt Scroll', 'War Cry Scroll',
+    'Poison Vial', 'Smoke Bomb', 'Herb Kit', 'Holy Water', 'Elixir',
+    'Blood Charm', 'Blessing Charm', 'Arrow Bundle', 'Trap Kit', 'Divine Protection',
+]);
 
 module.exports = {
     name: 'buy',
@@ -14,6 +21,14 @@ module.exports = {
             const [player] = await db.execute("SELECT role, `rank` FROM players WHERE id=?", [userId]);
             if (!player.length) return msg.reply("❌ Not registered.");
 
+            const [inDungeon] = await db.execute(
+                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
+                [userId]
+            );
+            if (inDungeon.length) {
+                return msg.reply("❌ You cannot access the shop while inside a dungeon.");
+            }
+
             const shop = await getPlayerShop(userId, player[0].role, player[0].rank);
             const item = shop.find(i => i.id === choice);
             if (!item) return msg.reply("❌ Item not found.");
@@ -21,6 +36,9 @@ module.exports = {
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
             if (gold < item.price) return msg.reply("❌ Not enough gold.");
+            if (!isItemAllowedForRank(item.name, player[0].rank)) {
+                return msg.reply(`❌ Your rank is too low to buy ${item.name}.`);
+            }
 
             const [stockRow] = await db.execute("SELECT stock FROM shop_stock WHERE item_name = ?", [item.name]);
             if (!stockRow.length || stockRow[0].stock <= 0) {
@@ -28,8 +46,29 @@ module.exports = {
             }
 
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
-            
-            const itemType = item.name.includes('Potion') ? 'consumable' : item.stat;
+
+            // ✅ Bags go to inventory as equippable items
+            const BAGS_SET = new Set(['Small Bag', 'Medium Bag', 'Large Bag']);
+            if (BAGS_SET.has(item.name)) {
+                const { BAGS } = require('../systems/bagSystem');
+                const bagData = BAGS[item.name];
+                await db.execute(
+                    `INSERT INTO inventory (player_id, item_name, item_type, durability, max_durability, equipped)
+                     VALUES (?, ?, 'bag', ?, ?, 0)`,
+                    [userId, item.name, bagData.durability, bagData.durability]
+                );
+                return msg.reply(
+                    `══〘 🛒 BUY 〙══╮\n` +
+                    `┃◆ ✅ ${item.name} purchased!\n` +
+                    `┃◆ 💰 -${item.price} Gold\n` +
+                    `┃◆ 📦 ${bagData.slots} slots • ${bagData.durability} durability\n` +
+                    `┃◆ Use !equip to equip it.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
+            // ✅ Consumables always stored as 'consumable', gear uses its stat type
+            const itemType = CONSUMABLES.has(item.name) ? 'consumable' : item.stat;
             const [result] = await db.execute(
                 "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES (?, ?, ?, 1, 0)",
                 [userId, item.name, itemType]
@@ -37,32 +76,39 @@ module.exports = {
 
             const itemData = itemStats[item.name];
             if (itemData) {
+                // ✅ Apply bonuses matching player's current rank — item comes pre-upgraded to rank grade
+                const RANK_ORDER = ['F','E','D','C','B','A','S'];
+                const { getGradeIncrementCount, durabilityValues } = require('../data/weaponGrades');
+                const playerRank     = player[0].rank || 'F';
+                const incrementCount = getGradeIncrementCount(playerRank);
+                const dur            = durabilityValues[playerRank] || 100;
+
                 await db.execute(
-                    `UPDATE inventory SET 
-                        grade = 'F',
-                        strength_bonus = ?,
-                        agility_bonus = ?,
+                    `UPDATE inventory SET
+                        grade              = ?,
+                        strength_bonus     = ?,
+                        agility_bonus      = ?,
                         intelligence_bonus = ?,
-                        stamina_bonus = ?,
-                        attack_bonus = ?,
-                        defense_bonus = ?,
-                        durability = 100,
-                        max_durability = 100
+                        stamina_bonus      = ?,
+                        attack_bonus       = ?,
+                        defense_bonus      = ?,
+                        durability         = ?,
+                        max_durability     = ?
                      WHERE id = ?`,
                     [
-                        itemData.base?.strength || 0,
-                        itemData.base?.agility || 0,
-                        itemData.base?.intelligence || 0,
-                        itemData.base?.stamina || 0,
-                        itemData.base?.attack || 0,
-                        itemData.base?.defense || 0,
-                        result.insertId
+                        playerRank,
+                        (itemData.base?.strength     || 0) + (itemData.increment?.strength     || 0) * incrementCount,
+                        (itemData.base?.agility       || 0) + (itemData.increment?.agility      || 0) * incrementCount,
+                        (itemData.base?.intelligence  || 0) + (itemData.increment?.intelligence || 0) * incrementCount,
+                        (itemData.base?.stamina        || 0) + (itemData.increment?.stamina      || 0) * incrementCount,
+                        (itemData.base?.attack         || 0) + (itemData.increment?.attack       || 0) * incrementCount,
+                        (itemData.base?.defense        || 0) + (itemData.increment?.defense      || 0) * incrementCount,
+                        dur, dur, result.insertId
                     ]
                 );
             }
 
             await decreaseStock(item.name);
-            // Clear the shop cache for this role+rank so next !shop shows updated stock
             clearShopCacheForRoleRank(player[0].role, player[0].rank);
 
             return msg.reply(`══〘 ✅ PURCHASE SUCCESS 〙══╮

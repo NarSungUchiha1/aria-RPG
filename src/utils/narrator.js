@@ -133,6 +133,12 @@ const narrationTemplates = {
         "The echoes of battle fade. {boss} is slain, and the dungeon's treasures are yours!"
     ],
 
+    // Revive / resurrection
+    revive: [
+        "{player} was struck down, only to be pulled back by a phantom force at the last moment!",
+        "Death touched {player}, but an unseen power dragged them back into the fight!",
+        "{player}'s spirit flared, snapping them back from the edge of oblivion!"
+    ],
     // PvP victory
     pvpVictory: [
         "💀 {winner} stands triumphant over {loser}! The crowd (if there was one) goes wild!",

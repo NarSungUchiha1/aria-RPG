@@ -1,62 +1,126 @@
 const db = require('../database/db');
-const getUserId = require('../utils/getUserId');
-const { startPvPDuel } = require('../systems/pvpsystem');
+const { startPvPDuel, startPartyAssembly } = require('../systems/pvpsystem');
+
+async function ensureTable() {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS pvp_challenges (
+            id            INT AUTO_INCREMENT PRIMARY KEY,
+            challenger_id VARCHAR(50) NOT NULL,
+            target_id     VARCHAR(50) NOT NULL,
+            bet_amount    INT DEFAULT 0,
+            status        ENUM('pending','accepted','declined') DEFAULT 'pending',
+            duel_type     ENUM('solo','party') DEFAULT 'solo',
+            created_at    DATETIME DEFAULT NOW()
+        )
+    `).catch(() => {});
+
+    // Migrate tables that predate duel_type column
+    await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN duel_type ENUM('solo','party') DEFAULT 'solo'`).catch(() => {});
+}
 
 module.exports = {
     name: 'accept',
     async execute(msg, args, { userId, client }) {
-        if (args.length < 1) {
-            return msg.reply("❌ Use: !accept @challenger");
-        }
-
         let challengerId = null;
         if (msg.mentionedIds.length > 0) {
             challengerId = msg.mentionedIds[0].replace(/@c\.us/g, "").split("@")[0];
         } else {
-            return msg.reply("❌ You must mention the challenger.");
+            return msg.reply(
+                `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                `┃◆ ❌ Mention the challenger.\n` +
+                `┃◆ Use: !accept @challenger\n` +
+                `╰═══════════════════════╯`
+            );
         }
 
-        // Find pending challenge
+        await ensureTable();
+
         const [challenge] = await db.execute(
-            "SELECT * FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending' AND expires_at > NOW()",
+            "SELECT * FROM pvp_challenges WHERE challenger_id=? AND target_id=? AND status='pending' ORDER BY id DESC LIMIT 1",
             [challengerId, userId]
         );
         if (!challenge.length) {
-            return msg.reply("❌ No pending challenge from that player.");
+            return msg.reply(
+                `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                `┃◆ ❌ No pending challenge from that player.\n` +
+                `┃◆ It may have expired.\n` +
+                `╰═══════════════════════╯`
+            );
         }
 
-        const betAmount = challenge[0].bet_amount;
+        const betAmount = challenge[0].bet_amount || 0;
+        const duelType  = challenge[0].duel_type || 'solo';
 
-        // Deduct bet from both players (if any)
         if (betAmount > 0) {
+            const [challengerGold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [challengerId]);
+            const [targetGold]     = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
+
+            if (!challengerGold.length || challengerGold[0].gold < betAmount) {
+                return msg.reply(
+                    `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                    `┃◆ ❌ Challenger no longer has enough gold.\n` +
+                    `┃◆ Bet: ${betAmount} Gold\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+            if (!targetGold.length || targetGold[0].gold < betAmount) {
+                return msg.reply(
+                    `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                    `┃◆ ❌ You don't have enough gold.\n` +
+                    `┃◆ Bet: ${betAmount} Gold\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [betAmount, challengerId]);
             await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [betAmount, userId]);
         }
 
-        // Mark challenge as accepted
         await db.execute("UPDATE pvp_challenges SET status='accepted' WHERE id=?", [challenge[0].id]);
 
-        // Start the duel (bet amount is passed for record-keeping; actual pot is handled in victory)
-        const result = await startPvPDuel(challengerId, userId, betAmount, client, msg);
-        if (result.error) {
-            return msg.reply(`❌ ${result.error}`);
-        }
+        // ── PARTY DUEL — group by challenger_id (replaces team_key) ──────────
+        if (duelType === 'party') {
+            // All party challenges sent by this challenger in the last 10 minutes
+            const [allRows] = await db.execute(
+                `SELECT * FROM pvp_challenges
+                 WHERE challenger_id=? AND duel_type='party'
+                   AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                 ORDER BY id ASC`,
+                [challengerId]
+            );
 
-        // If duel ended immediately (e.g., one player already dead), handle
-        if (result.winner) {
-            const loser = result.winner === challengerId ? userId : challengerId;
-            // Update wins/losses
-            await db.execute("UPDATE players SET pvp_wins = pvp_wins + 1 WHERE id=?", [result.winner]);
-            await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [loser]);
-
-            // Transfer total bet to winner
-            if (betAmount > 0) {
-                await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount * 2, result.winner]);
+            const pending = allRows.filter(row => row.status === 'pending');
+            if (pending.length > 0) {
+                const waitingIds = pending.map(row => row.target_id);
+                return msg.reply(
+                    `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                    `┃◆ ✅ Challenge accepted.\n` +
+                    `┃◆ Waiting on ${pending.length} more player(s) to accept.\n` +
+                    `┃◆ Pending: ${waitingIds.map(id => `@${id}`).join(', ')}\n` +
+                    `╰═══════════════════════╯`
+                );
             }
 
-            // Clean up challenge
-            await db.execute("DELETE FROM pvp_challenges WHERE id=?", [challenge[0].id]);
+            // All accepted — enter assembly phase so both sides can recruit allies
+            const teamBIds = allRows.map(row => row.target_id);
+            const assemblyChat = await msg.getChat();
+            await startPartyAssembly(challengerId, teamBIds, betAmount, assemblyChat, `party_${challengerId}`);
+            return;
         }
-        // If duel is ongoing, it will be resolved later by attack commands
+
+        // ── SOLO DUEL — 1v1, start immediately ───────────────────────────────
+        const result = await startPvPDuel([challengerId], [userId], betAmount, client, msg);
+        if (result?.error) {
+            if (betAmount > 0) {
+                await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, challengerId]);
+                await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [betAmount, userId]);
+            }
+            return msg.reply(
+                `══〘 ⚔️ ACCEPT 〙══╮\n` +
+                `┃◆ ❌ ${result.error}\n` +
+                `${betAmount > 0 ? '┃◆ 💰 Bets have been refunded.\n' : ''}` +
+                `╰═══════════════════════╯`
+            );
+        }
     }
 };
