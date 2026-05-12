@@ -408,8 +408,17 @@ async function startBot() {
             }
         });
 
-        sock.ev.on('messages.upsert', async ({ messages }) => {
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
             const msg = messages[0];
+            if (!msg) return;
+
+            // ── Broad debug ────────────────────────────────────────────────────
+            const rawText = msg.message?.conversation ||
+                            msg.message?.extendedTextMessage?.text ||
+                            msg.message?.imageMessage?.caption || "";
+            const rawMentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+            console.log(`[MSG] fromMe=${msg.key.fromMe} | from=${msg.key.participant||msg.key.remoteJid} | text="${rawText.substring(0,30)}" | mentioned=${JSON.stringify(rawMentioned)} | BOT=${BOT_NUMBER} | types=${Object.keys(msg.message||{}).join(',')}`);
+
             if (!msg.message || msg.key.fromMe) return;
 
             const jid = msg.key.remoteJid;
@@ -420,11 +429,9 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
-            // ── Broad debug — log every incoming message (temp, remove later) ──
-            const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            console.log(`[MSG] from=${userId} | text="${text.substring(0,40)}" | mentioned=${JSON.stringify(mentionedJids)} | BOT=${BOT_NUMBER} | types=${Object.keys(msg.message||{}).join(',')}`);
-
             // ── @Aria mention handler ─────────────────────────────────────────
+            const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+            // Support both @s.whatsapp.net and @lid formats
             const botMentioned = BOT_NUMBER && (
                 mentionedJids.some(j => j.replace(/@[^@]+$/, '').split(':')[0].trim() === BOT_NUMBER) ||
                 text.includes(`@${BOT_NUMBER}`)
