@@ -1,4 +1,4 @@
-const { handleAriaCommand } = require('../systems/aiSystem');
+const { handleAriaCommand } = require('../systems/aiSystems');
 
 module.exports = {
     name: 'aria',
