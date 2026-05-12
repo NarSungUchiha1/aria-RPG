@@ -24,7 +24,8 @@ let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
 let sock = null;
-let BOT_NUMBER = ''; // set once when connection opens — used for @Aria mention detection
+let BOT_NUMBER = ''; // phone number from sock.user.id
+let BOT_LID    = ''; // linked device ID from sock.user.lid — this is what appears in @mentions
 
 // ✅ Simple player cache — reduces DB hits on every command
 const playerCache = new Map();
@@ -334,10 +335,11 @@ async function startBot() {
                     setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
-                // Store bot number once — reliably available after connection
-                const rawId = sock.user?.id || '';
+                const rawId  = sock.user?.id  || '';
+                const rawLid = sock.user?.lid || '';
                 BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
-                console.log(`✅ ARIA ONLINE | bot number: ${BOT_NUMBER}`);
+                BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
+                console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
                 lastQR = '';
                 lastPairingCode = '';
@@ -431,11 +433,13 @@ async function startBot() {
 
             // ── @Aria mention handler ─────────────────────────────────────────
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            // Support both @s.whatsapp.net and @lid formats
-            const botMentioned = BOT_NUMBER && (
-                mentionedJids.some(j => j.replace(/@[^@]+$/, '').split(':')[0].trim() === BOT_NUMBER) ||
-                text.includes(`@${BOT_NUMBER}`)
-            );
+            // Check both phone number AND linked device ID — WhatsApp uses @lid in group mentions
+            const botMentioned = mentionedJids.some(j => {
+                const jNum = j.replace(/@[^@]+$/, '').split(':')[0].trim();
+                return (BOT_NUMBER && jNum === BOT_NUMBER) ||
+                       (BOT_LID    && jNum === BOT_LID);
+            }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
+               || (BOT_LID    && text.includes(`@${BOT_LID}`));
 
             if (botMentioned) {
                 const question = text.replace(/@\d+/g, '').trim();
