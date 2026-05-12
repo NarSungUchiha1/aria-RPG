@@ -24,6 +24,7 @@ let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
 let sock = null;
+let BOT_NUMBER = ''; // set once when connection opens — used for @Aria mention detection
 
 // ✅ Simple player cache — reduces DB hits on every command
 const playerCache = new Map();
@@ -333,7 +334,10 @@ async function startBot() {
                     setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
-                console.log('✅ ARIA ONLINE');
+                // Store bot number once — reliably available after connection
+                const rawId = sock.user?.id || '';
+                BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
+                console.log(`✅ ARIA ONLINE | bot number: ${BOT_NUMBER}`);
                 isReady = true;
                 lastQR = '';
                 lastPairingCode = '';
@@ -417,17 +421,15 @@ async function startBot() {
                          msg.message.imageMessage?.caption || "";
 
             // ── @Aria mention handler ─────────────────────────────────────────
-            // Fires when someone tags the bot in a message (no ! needed)
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            // sock.user.id can be "23480123:0@s.whatsapp.net" — strip the :N device suffix
-            const botRaw    = sock.user?.id || '';
-            const botNumber = botRaw.replace(/@[^@]+$/, '').split(':')[0].trim();
-            const botMentioned = botNumber && mentionedJids.some(j =>
-                j.replace(/@[^@]+$/, '').split(':')[0].trim() === botNumber
+            const botMentioned  = BOT_NUMBER && (
+                mentionedJids.some(j => j.replace(/@[^@]+$/, '').split(':')[0].trim() === BOT_NUMBER) ||
+                text.includes(`@${BOT_NUMBER}`)
             );
 
             if (botMentioned) {
                 const question = text.replace(/@\d+/g, '').trim();
+                console.log(`[ARIA] mention by ${userId} | question: "${question}"`);
                 const { handleAriaCommand } = require('./src/systems/aiSystems');
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
                 await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
@@ -655,11 +657,20 @@ cron.schedule('*/5 * * * *', async () => {
 });
 
 process.on('uncaughtException', (err) => {
+    if (err.message?.includes('Connection Closed') || err.output?.statusCode === 428) {
+        console.log('⚠️ Connection dropped — bot will reconnect automatically.');
+        return;
+    }
     console.error('💥 UNCAUGHT EXCEPTION:', err.message);
     console.error(err.stack);
 });
 
 process.on('unhandledRejection', (reason) => {
+    const msg = reason?.message || String(reason);
+    if (msg.includes('Connection Closed') || reason?.output?.statusCode === 428) {
+        console.log('⚠️ Send failed (connection was closed) — ignoring, will reconnect.');
+        return;
+    }
     console.error('💥 UNHANDLED REJECTION:', reason);
 });
 
