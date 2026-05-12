@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
+const { narrateAI } = require('./aiSystem');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
@@ -20,15 +21,20 @@ const duelBlessingStates = new Map();
 const partyAssembly = new Map();
 const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
-const DUEL_HP = 2000; // fixed for ALL players — no rank or prestige HP scaling
+const DUEL_HP = 10000; // normal players fixed duel HP
 
-// ── PvP damage is 80% of the move's base output ───────────────────────────────
-// The rank gap comes from raw stat differences — no artificial amplifier needed.
-// A PS prestige player naturally hits harder because their STR/AGI/INT is much higher.
-const PVP_DAMAGE_SCALE = 0.80;
+// ── PvP damage is 95% of the move's base output ───────────────────────────────
+const PVP_DAMAGE_SCALE = 0.95;
 
-// getDuelHp — always 2000, regardless of rank or prestige
+// getDuelHp — 10k for normal players, 70k for prestige
 async function getDuelHp(playerId) {
+    try {
+        const [rows] = await db.execute(
+            'SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?',
+            [playerId]
+        );
+        if (rows[0]?.prestige_level > 0) return 70000;
+    } catch {}
     return DUEL_HP;
 }
 
@@ -711,7 +717,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 
     await chat.sendMessage(
         `╭══〘 🏆 DUEL OVER 〙══╮\n` +
-        `┃◆ ${narrate('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
+        `┃◆ ${await narrateAI('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
         `┃◆ ━━━━━━━━━━━━━━━━\n` +
         `┃◆ 🥇 *${winnerNick}* [${wRank}] WINS\n` +
         `┃◆ 💀 ${loserNick} [${lRank}] defeated\n` +
@@ -730,7 +736,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, damage, attackerHp, opponentHp, nextTurnNick, roundNum, extra = '', attackerMaxHp = DUEL_HP, opponentMaxHp = DUEL_HP) {
     await chat.sendMessage(
         `══〘 ⚔️ DUEL — ROUND ${roundNum} 〙══╮\n` +
-        `┃◆ ${narrate('skillDamage', { attacker: attackerNick, move: moveName, target: opponentNick, damage })}\n` +
+        `┃◆ ${await narrateAI('skillDamage', { attacker: attackerNick, move: moveName, target: opponentNick, damage })}\n` +
         `┃◆ 💥 Damage: ${damage}\n` +
         `${extra}` +
         `┃◆────────────\n` +
@@ -845,7 +851,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         ).join('\n');
         const totalLine  = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets\n` : '';
         const fatigueWarn = fatigueWarning(currentFatigue);
-        const narrative  = narrate('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
+        const narrative  = await narrateAI('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
 
         // ── Collect blessings (don't send yet) ────────────────────────────
         const pendingBlMsgs = [];
@@ -975,7 +981,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
 
         await chat.sendMessage(
             `══〘 💚 DUEL HEAL — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('heal', { healer: attacker.nickname, target: results.map(r => r.nick).join(' & '), heal: totalHealed })}\n` +
+            `┃◆ ${await narrateAI('heal', { healer: attacker.nickname, target: results.map(r => r.nick).join(' & '), heal: totalHealed })}\n` +
             `${healLines}\n` +
             `${numTargets > 1 ? `┃◆ ━━ Total healed: ${totalHealed}\n` : ''}` +
             `${fatigueWarn}` +
@@ -1028,7 +1034,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
 
         await chat.sendMessage(
             `══〘 ⬆️ DUEL BUFF — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('buff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n` +
+            `┃◆ ${await narrateAI('buff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n` +
             `┃◆ ${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 3} turns\n` +
             `${fatigueWarn}` +
             `┃◆────────────\n` +
@@ -1082,7 +1088,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
 
         await chat.sendMessage(
             `══〘 ⬇️ DUEL DEBUFF — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrate('debuff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: Math.abs(move.value), duration: move.duration || 2 })}\n` +
+            `┃◆ ${await narrateAI('debuff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: Math.abs(move.value), duration: move.duration || 2 })}\n` +
             `┃◆ -${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 2} turns\n` +
             `${fatigueWarn}` +
             `┃◆────────────\n` +

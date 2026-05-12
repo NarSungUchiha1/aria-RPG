@@ -183,34 +183,47 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
 }
 
-// ── 3. AI-enhanced narration ──────────────────────────────────────────────────
+// ── 3. AI narration — real-time with 800ms timeout fallback ──────────────────
 const { narrate: staticNarrate } = require('../utils/narrator');
 
-async function narrateAI(type, vars, { useAI = false } = {}) {
-    const staticText = staticNarrate(type, vars);
-    if (!useAI) return staticText;
-
-    const cacheKey = `${type}_${JSON.stringify(vars)}`;
+async function narrateAI(type, vars) {
+    // Cache by type + move so the same skill gets consistent flavour, refreshing every 30s
+    const cacheKey = `${type}_${vars.move || vars.stat || vars.enemy || ''}`;
     const cached   = narrateCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < NARRATE_TTL_MS) return cached.text;
+    if (cached && Date.now() - cached.ts < 30000) return cached.text;
 
-    const sysPrompt = buildSystemPrompt(false, '');
-    callGemini(buildNarratePrompt(type, vars), sysPrompt)
-        .then(text => { if (text) narrateCache.set(cacheKey, { text, ts: Date.now() }); })
-        .catch(() => {});
+    const staticText = staticNarrate(type, vars);
+
+    try {
+        // Race Gemini against 800ms — AI text if fast enough, static if slow
+        const aiText = await Promise.race([
+            callGemini(buildNarratePrompt(type, vars), buildSystemPrompt(false, '')),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 800))
+        ]);
+        if (aiText && aiText.trim()) {
+            narrateCache.set(cacheKey, { text: aiText.trim(), ts: Date.now() });
+            return aiText.trim();
+        }
+    } catch {}
 
     return staticText;
 }
 
 function buildNarratePrompt(type, vars) {
     const map = {
-        pvpVictory:  `1 dramatic sentence: ${vars.winner} defeats ${vars.loser} in a duel. Dark fantasy tone.`,
-        skillDamage: `1 punchy sentence: ${vars.attacker} uses ${vars.move} on ${vars.target} for ${vars.damage} damage.`,
-        heal:        `1 warm sentence: ${vars.healer} heals ${vars.target} for ${vars.heal} HP.`,
-        buff:        `1 impactful sentence: ${vars.caster} buffs ${vars.target}'s ${vars.stat} with ${vars.move}.`,
-        debuff:      `1 menacing sentence: ${vars.caster} weakens ${vars.target}'s ${vars.stat} with ${vars.move}.`
+        pvpVictory:  `1 dramatic sentence (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
+        skillDamage: `1 punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
+        heal:        `1 sentence. ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
+        buff:        `1 sentence. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
+        debuff:      `1 sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
+        enemyDefeat: `1 sentence. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
+        evasion:     `1 sentence. ${vars.target} dodges the attack at the last second. Slick and fast.`,
+        revive:      `1 sentence. ${vars.player} refuses to stay down and rises again. Defiant.`,
+        cleanse:     `1 sentence. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
+        shield:      `1 sentence. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
+        defenseBlock:`1 sentence. The enemy's defenses absorb the blow. Frustrated tone.`
     };
-    return map[type] || `One-sentence dark fantasy narration for: ${JSON.stringify(vars)}`;
+    return map[type] || `1-sentence dark fantasy narration: ${JSON.stringify(vars)}`;
 }
 
 module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI };

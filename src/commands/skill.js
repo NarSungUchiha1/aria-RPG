@@ -15,6 +15,7 @@ const { getPlayerClan, CLAN_BLESSINGS, getPlayerBlessingState, updateBlessingSta
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
 const { narrate } = require('../utils/narrator');
+const { narrateAI } = require('../systems/aiSystem');
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
@@ -342,7 +343,7 @@ module.exports = {
                 triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, null, { healAmount: heal }).catch(() => {});
             }
 
-            const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+            const healMsg = await narrateAI('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
@@ -394,10 +395,10 @@ module.exports = {
             let reply = `══〘 ⚔️ SKILL 〙══╮\n`;
             
             if (result.evaded) {
-                const evadeMsg = narrate('evasion', { target: targetEnemy.name });
+                const evadeMsg = await narrateAI('evasion', { target: targetEnemy.name });
                 reply += `┃◆ ${evadeMsg}\n`;
             } else {
-                const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
+                const skillMsg = await narrateAI('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
                 reply += `┃◆ ${skillMsg}\n`;
             }
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
@@ -443,7 +444,7 @@ module.exports = {
                 } catch(e) {}
             }
             if (targetEnemy.def > 0) {
-                const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
+                const defenseMsg = await narrateAI('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
@@ -498,7 +499,7 @@ module.exports = {
                         await client.sendMessage(RAID_GROUP, { text });
 
                     } catch(e) { console.error('Stage drop error:', e.message); }
-                })();                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
+                })();                const defeatMsg = await narrateAI('enemyDefeat', { enemy: targetEnemy.name });
                 reply += `┃◆ ${defeatMsg}\n`;
                 if (result.rewardDistribution) {
                     reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
@@ -526,7 +527,7 @@ module.exports = {
                         // dungeon_players has no hp column — HP is tracked in players table (set inside triggerBlessingIfReady)
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
                         player.hp = reviveHp;
-                        const reviveNarrative = narrate('revive', { player: player.nickname });
+                        const reviveNarrative = await narrateAI('revive', { player: player.nickname });
                         reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${reviveNarrative}\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;
                     }
                 } catch(e) {
@@ -588,7 +589,7 @@ module.exports = {
             if (move.type === 'cleanse') {
                 clearBuffs('player', targetPlayer.id);
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-                const cleanseMsg = narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
+                const cleanseMsg = await narrateAI('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
                 return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${cleanseMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 
@@ -601,7 +602,7 @@ module.exports = {
                     duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
+                const shieldMsg = await narrateAI('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 
@@ -616,7 +617,7 @@ module.exports = {
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
                 const pctLabel = move.percent ? `${move.value}%` : `+${move.value}`;
-                const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
+                const buffMsg = await narrateAI('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
                 return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ ${pctLabel} ${move.effect.replace(/_up$/, '').toUpperCase()} for ${move.duration || 3} turns\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
@@ -640,7 +641,7 @@ module.exports = {
             });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
 
-            const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
+            const debuffMsg = await narrateAI('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
             // Track shield contribution for tanks
             if (move.type === 'shield') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'shield', 1); } catch(e) {} }
