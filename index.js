@@ -431,8 +431,11 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
-            // ── @Aria mention handler ─────────────────────────────────────────
+            // ── @Aria mention handler + reply detection ───────────────────────
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+            const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
+            const quotedNum = quotedParticipant.replace(/@[^@]+$/, '').split(':')[0].trim();
+
             // Check both phone number AND linked device ID — WhatsApp uses @lid in group mentions
             const botMentioned = mentionedJids.some(j => {
                 const jNum = j.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -441,9 +444,13 @@ async function startBot() {
             }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
                || (BOT_LID    && text.includes(`@${BOT_LID}`));
 
-            if (botMentioned) {
+            // Also trigger when someone replies directly to one of ARIA's messages
+            const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
+                                  (BOT_LID    && quotedNum === BOT_LID);
+
+            if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
                 const question = text.replace(/@\d+/g, '').trim();
-                console.log(`[ARIA] triggered | question: "${question}"`);
+                console.log(`[ARIA] triggered (${botMentioned ? 'mention' : 'reply'}) | question: "${question}"`);
                 const { handleAriaCommand } = require('./src/systems/aiSystems');
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
                 await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
