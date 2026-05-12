@@ -301,6 +301,9 @@ module.exports = {
         }
 
         const dungeon = await getActiveDungeon();
+        // PA/PB/PS dungeons: reduce all cooldowns by 40% (multiply by 0.6)
+        const HIGH_PRESTIGE_RANKS = new Set(['PA','PB','PS']);
+        const cdMult = (dungeon && HIGH_PRESTIGE_RANKS.has(dungeon.dungeon_rank)) ? 0.6 : 1.0;
 
         async function resolvePlayerTarget(targetArg) {
             if (!targetArg) return player;
@@ -335,7 +338,7 @@ module.exports = {
 
             const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
-            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
             // Track every_5_skills blessing
             if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
             // Abyssal Hunger — fires on the TARGET when healed
@@ -378,7 +381,7 @@ module.exports = {
             }
 
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
-            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 2) * cdMult), player.rank);
 
             const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
             let weaponBroke = false;
@@ -588,7 +591,7 @@ module.exports = {
             let actualCd;
             if (move.type === 'cleanse') {
                 clearBuffs('player', targetPlayer.id);
-                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
                 const cleanseMsg = await narrateAI('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
                 return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${cleanseMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
@@ -601,7 +604,7 @@ module.exports = {
                     value: shieldValue,
                     duration: move.duration || 3
                 });
-                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
+                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 4) * cdMult), player.rank);
                 const shieldMsg = await narrateAI('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
@@ -615,7 +618,7 @@ module.exports = {
                     percent: move.percent || false,
                     duration: move.duration || 3
                 });
-                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
+                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 4) * cdMult), player.rank);
                 const pctLabel = move.percent ? `${move.value}%` : `+${move.value}`;
                 const buffMsg = await narrateAI('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
                 return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ ${pctLabel} ${move.effect.replace(/_up$/, '').toUpperCase()} for ${move.duration || 3} turns\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
@@ -639,7 +642,7 @@ module.exports = {
                 percent: move.percent || false,
                 duration: move.duration || 2
             });
-            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
 
             const debuffMsg = await narrateAI('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
@@ -685,7 +688,7 @@ module.exports = {
                 duration
             });
 
-            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
             try { trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
 
             return msg.reply(

@@ -268,7 +268,7 @@ module.exports = {
             };
 
             // Reset stage timer only — overall timer keeps running from begin/auto-start
-            await resetStageTimer(dungeon.id, client, targetChat, failCallback);
+            await resetStageTimer(dungeon.id, client, targetChat, failCallback, dungeon.dungeon_rank);
 
             await msg.reply(`══〘 🧭 STAGE ${next}/${maxStage} 〙══╮
 ┃◆ The stone door grinds open, revealing a deeper darkness. The air grows colder, and new threats stir in the shadows.

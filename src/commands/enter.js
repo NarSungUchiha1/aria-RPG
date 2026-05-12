@@ -82,7 +82,7 @@ async function beginDungeon(dungeonId, client) {
             }
         };
 
-        await startDungeonTimers(dungeonId, client, targetChat, failCallback);
+        await startDungeonTimers(dungeonId, client, targetChat, failCallback, dungeon[0].dungeon_rank);
 
         // ── Message 1: Dungeon begins ──
         await client.sendMessage(RAID_GROUP, {
@@ -232,12 +232,12 @@ module.exports = {
             const currentPlayers = count[0].cnt;
             
             // ✅ Raider limit by dungeon rank
-            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
+            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:5, PE:7, PD:8, PC:8, PB:10, PA:10, PS:10 };
             const maxRaiders = MAX_RAIDERS[dungeon.dungeon_rank] || 3;
             if (currentPlayers >= maxRaiders) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
-                    `┃◆ ❌ Dungeon is full (5/5).\n` +
+                    `┃◆ ❌ Dungeon is full (${currentPlayers}/${maxRaiders}).\n` +
                     `┃◆ Wait for the next one.\n` +
                     `╰═══════════════════════╯`
                 );
@@ -337,7 +337,7 @@ module.exports = {
                         `╭══〘 ⚔️ RAIDER JOINED 〙══╮\n` +
                         `┃◆ \n` +
                         `┃◆ 👤 ${player[0].nickname} has entered the dungeon!\n` +
-                        `┃◆ 👥 Raiders: ${newCount}/5\n` +
+                        `┃◆ 👥 Raiders: ${newCount}/${maxRaiders}\n` +
                         `┃◆ 🏰 Rank: ${dungeon.dungeon_rank}\n` +
                         `┃◆ \n` +
                         (isFirstPlayer ? `┃◆ ⏱️ Auto-starts in ${AUTO_START_MINUTES} minutes!\n` : '') +
@@ -350,7 +350,7 @@ module.exports = {
                     `══〘 🏰 DUNGEON ENTERED 〙══╮\n` +
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
-                    `┃◆ 👥 Raiders: ${newCount}/5\n` +
+                    `┃◆ 👥 Raiders: ${newCount}/${maxRaiders}\n` +
                     `┃◆ 📅 Entries left today: ${remaining}/15\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
@@ -391,7 +391,7 @@ module.exports = {
             return msg.reply(
                 `╭══〘 🏰 DUNGEON ALERT 〙══╮\n` +
                 `┃◆ Rank: ${dungeon.dungeon_rank}\n` +
-                `┃◆ Raiders: ${currentPlayers}/5\n` +
+                `┃◆ Raiders: ${currentPlayers}/${maxRaiders}\n` +
                 `${entryLine}` +
                 `┃◆────────────\n` +
                 `┃◆ ⚠️ Are you ready to enter?\n` +

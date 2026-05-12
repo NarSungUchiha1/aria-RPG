@@ -72,7 +72,7 @@ module.exports = {
                 }
             };
 
-            await startDungeonTimers(dungeon.id, client, targetChat, failCallback);
+            await startDungeonTimers(dungeon.id, client, targetChat, failCallback, dungeon.dungeon_rank);
 
             if (isPrestige) {
                 await msg.reply(
