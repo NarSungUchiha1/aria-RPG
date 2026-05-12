@@ -419,14 +419,18 @@ async function startBot() {
             // ── @Aria mention handler ─────────────────────────────────────────
             // Fires when someone tags the bot in a message (no ! needed)
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            const botNumber     = normalizeId(sock.user?.id || '');
-            const botMentioned  = botNumber && mentionedJids.some(j => normalizeId(j) === botNumber);
+            // sock.user.id can be "23480123:0@s.whatsapp.net" — strip the :N device suffix
+            const botRaw    = sock.user?.id || '';
+            const botNumber = botRaw.replace(/@[^@]+$/, '').split(':')[0].trim();
+            const botMentioned = botNumber && mentionedJids.some(j =>
+                j.replace(/@[^@]+$/, '').split(':')[0].trim() === botNumber
+            );
 
-            if (botMentioned && !text.startsWith('!')) {
-                // Strip the @mention tag from text to get the actual question
+            if (botMentioned) {
                 const question = text.replace(/@\d+/g, '').trim();
-                const { handleAriaCommand } = require('./src/systems/aiSystem');
-                await handleAriaCommand(sock, jid, msg, userId, question);
+                const { handleAriaCommand } = require('./src/systems/aiSystems');
+                const isAdmin = (global.ADMINS || ADMINS).includes(userId);
+                await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
                 return;
             }
 
@@ -438,7 +442,7 @@ async function startBot() {
             const command = commands.get(cmdName);
             if (!command) {
                 // Route unknown !commands to AI — it'll try to help or explain
-                const { handleUnknownCommand } = require('./src/systems/aiSystem');
+                const { handleUnknownCommand } = require('./src/systems/aiSystems');
                 await handleUnknownCommand(sock, jid, msg, userId, cmdName, args);
                 return;
             }
