@@ -420,16 +420,19 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
-            // ── @Aria mention handler ─────────────────────────────────────────
+            // ── Broad debug — log every incoming message (temp, remove later) ──
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            const botMentioned  = BOT_NUMBER && (
+            console.log(`[MSG] from=${userId} | text="${text.substring(0,40)}" | mentioned=${JSON.stringify(mentionedJids)} | BOT=${BOT_NUMBER} | types=${Object.keys(msg.message||{}).join(',')}`);
+
+            // ── @Aria mention handler ─────────────────────────────────────────
+            const botMentioned = BOT_NUMBER && (
                 mentionedJids.some(j => j.replace(/@[^@]+$/, '').split(':')[0].trim() === BOT_NUMBER) ||
                 text.includes(`@${BOT_NUMBER}`)
             );
 
             if (botMentioned) {
                 const question = text.replace(/@\d+/g, '').trim();
-                console.log(`[ARIA] mention by ${userId} | question: "${question}"`);
+                console.log(`[ARIA] triggered | question: "${question}"`);
                 const { handleAriaCommand } = require('./src/systems/aiSystems');
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
                 await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
