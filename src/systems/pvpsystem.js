@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
-const { narrateAI } = require('./aiSystem');
+const { narrateAI } = require('./aiSystems');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
