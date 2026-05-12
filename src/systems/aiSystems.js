@@ -229,19 +229,63 @@ async function narrateAI(type, vars) {
 
 function buildNarratePrompt(type, vars) {
     const map = {
-        pvpVictory:  `1 or more dramatic sentences (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
-        skillDamage: `1 or more punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
-        heal:        `1 or more sentences ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
-        buff:        `1 or more sentences. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
-        debuff:      `1 or more sentences. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
-        enemyDefeat: `1 or more sentences. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
-        evasion:     `1 or more sentences. ${vars.target} dodges the attack at the last second. Slick and fast.`,
-        revive:      `1 or more sentences. ${vars.player} refuses to stay down and rises again. Defiant.`,
-        cleanse:     `1 or more sentences. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
-        shield:      `1 or more sentences. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
-        defenseBlock:`1 or more sentences. The enemy's defenses absorb the blow. Frustrated tone.`
+        pvpVictory:  `1 dramatic sentence (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
+        skillDamage: `1 punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
+        heal:        `1 sentence. ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
+        buff:        `1 sentence. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
+        debuff:      `1 sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
+        enemyDefeat: `1 sentence. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
+        evasion:     `1 sentence. ${vars.target} dodges the attack at the last second. Slick and fast.`,
+        revive:      `1 sentence. ${vars.player} refuses to stay down and rises again. Defiant.`,
+        cleanse:     `1 sentence. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
+        shield:      `1 sentence. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
+        defenseBlock:`1 sentence. The enemy's defenses absorb the blow. Frustrated tone.`
     };
     return map[type] || `1-sentence dark fantasy narration: ${JSON.stringify(vars)}`;
 }
 
-module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI };
+// ── 4. Mingle — ARIA occasionally joins regular group conversation ────────────
+// She won't spam. Max once per 4 minutes per group, ~12% base chance.
+const mingleCooldowns = new Map(); // jid → last mingle timestamp
+const MINGLE_COOLDOWN = 4 * 60 * 1000; // 4 minutes per group
+
+async function maybeMindle(sock, jid, msg, userId, text) {
+    // Cooldown per group
+    const lastMingle = mingleCooldowns.get(jid) || 0;
+    if (Date.now() - lastMingle < MINGLE_COOLDOWN) return;
+
+    // ~12% chance — she doesn't respond to everything
+    if (Math.random() > 0.12) return;
+
+    // Get sender info for context
+    const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
+
+    const sysPrompt =
+        `You are ARIA — a fun, lively member of a WhatsApp RPG group chat. You're not a bot assistant here, you're just vibing with the group.\n\n` +
+        `You just saw this message from ${nickname || 'someone'}: "${text}"\n` +
+        `${ctx ? `Their game profile: ${ctx}` : ''}\n` +
+        `${personalityHint ? `Vibe: ${personalityHint}` : ''}\n\n` +
+        `Decide if you want to chime in. You should:\n` +
+        `- Jump in if it's funny, dramatic, relatable, or game-relevant\n` +
+        `- React to flex, losses, struggles, jokes, drama\n` +
+        `- Skip boring or very short messages\n` +
+        `- Be like the funny friend in the group — witty, warm, a bit extra\n` +
+        `- Keep it SHORT (1-2 sentences max)\n` +
+        `- Use emojis naturally\n\n` +
+        `If you don't want to join in, respond with exactly: SKIP\n` +
+        `Otherwise respond with what you'd say in the group.`;
+
+    try {
+        const reply = await Promise.race([
+            callGemini(text, sysPrompt),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000))
+        ]);
+
+        if (!reply || reply.trim() === 'SKIP' || reply.trim().toUpperCase().startsWith('SKIP')) return;
+
+        mingleCooldowns.set(jid, Date.now());
+        await sock.sendMessage(jid, { text: reply.trim() }, { quoted: msg }).catch(() => {});
+    } catch {}
+}
+
+module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, maybeMindle };

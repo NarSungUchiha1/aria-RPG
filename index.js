@@ -457,7 +457,20 @@ async function startBot() {
                 return;
             }
 
-            if (!text.startsWith('!')) return;
+            if (!text.startsWith('!')) {
+                // ── ARIA mingle — she occasionally joins regular group chat ───
+                // Only on group messages with real text, not stickers/images
+                const isGroupMsg = jid.endsWith('@g.us');
+                const hasRealText = text.length > 12 && !text.startsWith('!');
+                const messageTypes = Object.keys(msg.message || {});
+                const isTextOnly = messageTypes.some(t => ['conversation','extendedTextMessage'].includes(t));
+
+                if (isGroupMsg && hasRealText && isTextOnly) {
+                    const { maybeMindle } = require('./src/systems/aiSystems');
+                    await maybeMindle(sock, jid, msg, userId, text).catch(() => {});
+                }
+                return;
+            }
 
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
