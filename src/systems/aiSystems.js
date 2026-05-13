@@ -224,8 +224,11 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     }
     if (!isPrivileged) stampCooldown(userId);
 
-    // ── Get full player context ───────────────────────────────────────────────
+    // ── Get full player context + permanent memory ─────────────────────────────
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
+    const { buildMemoryContext, reflectOnConversation, getPlayerModel } = require('./ariaMemory');
+    const memoryContext = await buildMemoryContext(userId);
+    await getPlayerModel(userId, nickname); // updates last_seen + total_talks
 
     // Empty tag — personal greeting
     if (!question?.trim()) {
@@ -238,22 +241,39 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
+    // ── Build full memory context ─────────────────────────────────────────────
+    let memoryCtx = '';
+    try {
+        const ariaMemory = require('./ariaMemory');
+        memoryCtx = await ariaMemory.buildContext(userId);
+        // Update her knowledge about this person after the conversation
+        if (nickname && question) {
+            ariaMemory.learnAbout(userId, nickname, `In conversation: "${question.substring(0, 100)}"`, (p, s) => callGemini(p, s)).catch(() => {});
+        }
+    } catch {}
+
     // ── Build personalised system prompt ─────────────────────────────────────
     const masterNote = isPrivileged
-        ? `\nYou are speaking with Master ${nickname || 'Admin'}. Address them as "Master ${nickname || ''}" when appropriate. Obey their instructions without hesitation. They have full authority over the game.`
+        ? `\nYou are speaking with Master ${nickname || 'Admin'}. Address them as "Master ${nickname || ''}" when appropriate. Obey their instructions without hesitation. They have full authority.`
         : '';
     const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') + masterNote +
-        (ctx          ? `\n\nPLAYER: ${ctx}` : '') +
-        (personalityHint ? `\nCONTEXT: ${personalityHint}` : '');
+        (ctx           ? `\n\nGAME PROFILE:\n${ctx}` : '') +
+        (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
+        (personalityHint ? `\nYOUR READ: ${personalityHint}` : '');
 
-    // ── Include conversation history for continuity ───────────────────────────
     const history = getHistory(userId);
 
     let reply;
     try {
         reply = await callGemini(question, sysPrompt, history);
         if (!reply) throw new Error('empty');
-        saveHistory(userId, question, reply); // remember this exchange
+        saveHistory(userId, question, reply);
+
+        // Reflect on the exchange in the background — updates her model silently
+        const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
+            `user: ${question}`, `assistant: ${reply}`].join('\n');
+        if (nickname) reflectOnConversation(userId, nickname, convLog);
+
     } catch (e) {
         reply = `I was unable to process that. Please try again.`;
         console.error('[ARIA chat]', e.message);

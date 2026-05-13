@@ -729,6 +729,10 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         `╰═══════════════════════════╯`
     );
 
+    // ARIA witnesses the duel outcome
+    const { witnessDuelResult } = require('./ariaAwareness');
+    witnessDuelResult(winnerId, winnerNick, loserId, loserNick, duelData.type || 'solo').catch(() => {});
+
     return { winner: winnerId };
 }
 

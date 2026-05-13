@@ -341,6 +341,10 @@ async function startBot() {
                 BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
+
+                // Init ARIA's memory tables
+                const { ensureMemoryTables } = require('./src/systems/ariaMemory');
+                await ensureMemoryTables().catch(() => {});
                 lastQR = '';
                 lastPairingCode = '';
 
@@ -414,13 +418,6 @@ async function startBot() {
             const msg = messages[0];
             if (!msg) return;
 
-            // ── Broad debug ────────────────────────────────────────────────────
-            const rawText = msg.message?.conversation ||
-                            msg.message?.extendedTextMessage?.text ||
-                            msg.message?.imageMessage?.caption || "";
-            const rawMentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-            console.log(`[MSG] fromMe=${msg.key.fromMe} | from=${msg.key.participant||msg.key.remoteJid} | text="${rawText.substring(0,30)}" | mentioned=${JSON.stringify(rawMentioned)} | BOT=${BOT_NUMBER} | types=${Object.keys(msg.message||{}).join(',')}`);
-
             if (!msg.message || msg.key.fromMe) return;
 
             const jid = msg.key.remoteJid;
@@ -450,7 +447,6 @@ async function startBot() {
 
             if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
                 // Resolve @mentions to player nicknames before stripping numbers
-                // e.g. "@Aria give @player 1 gold" → "give PlayerNick 1 gold"
                 let question = text;
                 const nonBotMentions = mentionedJids.filter(j => {
                     const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -476,14 +472,24 @@ async function startBot() {
             }
 
             if (!text.startsWith('!')) {
-                // ── ARIA mingle — she occasionally joins regular group chat ───
-                // Only on group messages with real text, not stickers/images
-                const isGroupMsg = jid.endsWith('@g.us');
-                const hasRealText = text.length > 12 && !text.startsWith('!');
-                const messageTypes = Object.keys(msg.message || {});
-                const isTextOnly = messageTypes.some(t => ['conversation','extendedTextMessage'].includes(t));
+                // ── ARIA witnesses everything silently ────────────────────────
+                const isGroupMsg  = jid.endsWith('@g.us');
+                const hasRealText = text.length > 8;
+                const isTextOnly  = Object.keys(msg.message || {}).some(t =>
+                    ['conversation','extendedTextMessage'].includes(t)
+                );
 
                 if (isGroupMsg && hasRealText && isTextOnly) {
+                    const db2 = require('./src/database/db');
+                    db2.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId])
+                        .then(([rows]) => {
+                            const nick = rows[0]?.nickname;
+                            if (nick) {
+                                const { witnessMessage } = require('./src/systems/ariaAwareness');
+                                witnessMessage(userId, nick, text).catch(() => {});
+                            }
+                        }).catch(() => {});
+
                     const { maybeMindle } = require('./src/systems/aiSystems');
                     await maybeMindle(sock, jid, msg, userId, text).catch(() => {});
                 }
