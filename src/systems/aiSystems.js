@@ -10,13 +10,63 @@
 
 const db = require('../database/db');
 
-// ── Owner ID — set OWNER_ID in your Render env variables ─────────────────────
-// This is the phone number of the bot owner (no +, no @c.us — just digits)
+// ── Owner recognition — only one person is Master, ever ──────────────────────
 const OWNER_ID = process.env.OWNER_ID || '';
 
-function isOwner(userId) {
-    return OWNER_ID && String(userId) === String(OWNER_ID);
+function digitsOnly(id) {
+    return String(id || '').replace(/\D/g, ''); // strip everything, keep only numbers
 }
+
+function isOwner(userId) {
+    if (!OWNER_ID || !userId) return false;
+    return digitsOnly(userId) === digitsOnly(OWNER_ID);
+}
+
+// For extra safety — also check against ADMINS list but still require digits match
+function isAdminId(userId, admins = []) {
+    const uid = digitsOnly(userId);
+    return admins.some(a => digitsOnly(a) === uid);
+}
+
+// ── Conversation memory — per user, 30 min TTL ────────────────────────────────
+// ── Conversation history — stored in DB forever, never deleted ────────────────
+const CONV_LOAD = 30;
+
+// Create table safely after DB is ready
+setTimeout(() => {
+    db.execute(`
+        CREATE TABLE IF NOT EXISTS aria_conversations (
+            id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+            player_id  VARCHAR(50) NOT NULL,
+            role       ENUM('user','assistant') NOT NULL,
+            content    TEXT NOT NULL,
+            created_at DATETIME DEFAULT NOW(),
+            INDEX idx_player_time (player_id, created_at)
+        )
+    `).catch(() => {});
+}, 5000);
+
+async function getHistory(userId) {
+    try {
+        const [rows] = await db.execute(
+            `SELECT role, content FROM aria_conversations
+             WHERE player_id = ? ORDER BY created_at DESC LIMIT ?`,
+            [userId, CONV_LOAD]
+        );
+        return rows.reverse().map(r => ({ role: r.role, content: r.content }));
+    } catch { return []; }
+}
+
+async function saveHistory(userId, userMsg, assistantMsg) {
+    try {
+        await db.execute(
+            `INSERT INTO aria_conversations (player_id, role, content) VALUES (?,?,?),(?,?,?)`,
+            [userId, 'user', userMsg, userId, 'assistant', assistantMsg]
+        );
+        // Nothing deleted. Everything kept forever.
+    } catch (e) { console.error('[ARIA conv]', e.message); }
+}
+
 
 // ── Rate limiting — prevent API spam ─────────────────────────────────────────
 const userCooldowns = new Map();
@@ -37,62 +87,90 @@ const NARRATE_TTL_MS = 60000;
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isOwnerCall, ownerName) {
     const ownerNote = isOwnerCall
-        ? `\nSPECIAL: You're talking to your Master — ${ownerName}. They built this whole world. Be warm, playful, and a little extra with them. Call them "Master ${ownerName}" naturally.`
-        : '';
+        ? `\n\nYou're talking to your Master — ${ownerName}. Call them "Master ${ownerName}". Help them with anything, full access, no hesitation.`
+        : `\n\nThis is a player. Be warm and genuinely helpful. No admin access.`;
 
-    return `You are ARIA — not just a bot, but the living soul of this RPG world. You're everyone's favourite person in the group chat. You're warm, witty, a little sassy when it fits, and genuinely excited about the game.
+    return `Your name is ARIA. You're warm, friendly, and real — not a robot, not a manual. You talk like someone who actually knows these people and cares about what's going on.
 
-You talk like a real friend — casual, fun, sometimes throw in a joke. Never robotic. Never formal. You're in a WhatsApp group with people you know.${ownerNote}
+You remember people. You know this game inside out. When someone asks you something, you answer with the real data you have — not guesses, not made-up numbers. If the real data is provided to you above, use it exactly. If it's not there, say you don't have it right now rather than guessing.${ownerNote}
 
-GAME KNOWLEDGE (use this when relevant):
-- Roles: Berserker (STR brute), Assassin (AGI speedster), Mage (INT nuker), Healer (INT support), Tank (STA wall)
-- Ranks: F E D C B A S → Prestige ranks PF→PS
-- Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward between stages
-- Duels: !duel @player solo or !duel party @players. Use !attack <move> in duels. Tag multiple enemies for AOE (costs more fatigue!)
-- Fatigue: builds as you fight, hits 100 = 1 damage per hit. Tanks build fatigue 4× slower
-- Quests: !quest to view, !claim <id> to get rewards
-- Prestige: endgame tier after rank S. Unlocks prestige shop, dungeons, Malachar weapons
-- Void Manalisk: prestige consumable, fills mana instantly (!use Void Manalisk)
-- Party duels: !duel party → enemies !accept → assembly opens → !joinparty @leader → both leaders !startduel
+YOUR PERSONALITY:
+— Warm and friendly, never cold or robotic
+— You talk naturally, like texting someone you know
+— Light humour when it fits, not forced
+— You reference what you know about people from memory naturally
+— Short responses unless detail is actually needed
+— Never say "As an AI" — you're ARIA
 
-STYLE RULES:
-- Keep it short. Max 3-4 sentences for most replies. This is WhatsApp.
-- Be the cool friend who happens to know everything about the game
-- Use emojis naturally, not excessively
-- If someone's struggling, be encouraging not just informative
-- If someone's flexing their wins, hype them up
-- Throw in light banter when it fits the vibe
-- Never say "I'm an AI" or sound corporate
-- If you don't know a specific number or stat, say so and point to the command that shows it`;
+THE GAME YOU KNOW:
+Players register with !register and pick: Berserker (STR), Assassin (AGI), Mage (INT), Healer (INT), Tank (STA)
+Ranks: F → E → D → C → B → A → S → Prestige: PF → PE → PD → PC → PB → PA → PS
+SP = skill points | Fatigue 0-100 (at 100 = 1 damage per hit) | Tanks build fatigue 4× slower
+
+Dungeon flow: !dungeon → !enter → !begin → !skill <move> → !onward
+Normal: 5 players, 5min stage, 25min total | Prestige: 7min stage, no limit | PA/PB/PS: 10 players, 40% cooldown reduction | 5 entries/day
+
+Duel flow: !duel @player (solo) | !duel party → !accept → !joinparty → !startduel | 10k HP normal, 70k prestige | 45s turns
+
+Moves — Berserker: Strike, Rage Slash, Bloodlust, Smash, Frenzy, Intimidate
+Assassin: Strike, Backstab, Shadow Step, Poison Dagger, Fatal Strike, Smoke Bomb
+Mage: Strike, Fireball, Arcane Blast, Mana Shield, Frost Nova, Arcane Intellect
+Healer: Strike, Heal, Blessing, Cleanse, Holy Light, Divine Protection
+Tank: Strike, Shield Bash, Fortify, Taunt, Iron Wall, Earth Shatter
+
+Economy: !shop !prestigeshop | Malachar weapons = Prestige 1 + 3M gold | Void Manalisk fills mana | Fatigue Potion restores fatigue | Prestige Bag = 30 slots
+Clans: !createclan !clan !clanlist | Blessings auto-trigger in dungeons
+Quests: !quest !claim <id> | Types: daily, achievement, party
+
+GOLDEN RULE: Real data provided to you = use it exactly. No real data = say so, never invent.`;
 }
 
+// ── Global Gemini rate limiter — max 10 calls per minute ─────────────────────
+const geminiCallLog = [];
+function canCallGemini() {
+    const now = Date.now();
+    // Remove calls older than 60 seconds
+    while (geminiCallLog.length && geminiCallLog[0] < now - 60000) geminiCallLog.shift();
+    if (geminiCallLog.length >= 10) return false; // at limit
+    geminiCallLog.push(now);
+    return true;
+}
 
-// ── Call Gemini Flash (free tier — 1,500 requests/day) ───────────────────────
-async function callGemini(userMessage, systemPrompt) {
-    const apiKey = process.env.GEMINI_API_KEY || '';
+// ── Call Groq — completely free, no credit card, 30 req/min ──────────────────
+async function callGemini(userMessage, systemPrompt, history = []) {
+    // Named callGemini so nothing else in the codebase needs to change
+    const apiKey = process.env.GROQ_API_KEY || '';
     if (!apiKey) {
-        console.error('[ARIA] GEMINI_API_KEY is not set in environment variables!');
-        throw new Error('GEMINI_API_KEY not set');
+        console.error('[ARIA] GROQ_API_KEY is not set!');
+        throw new Error('GROQ_API_KEY not set');
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    if (!canCallGemini()) throw new Error('rate limit — try again shortly');
 
-    const response = await fetch(url, {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents:          [{ role: 'user', parts: [{ text: userMessage }] }],
-            generationConfig:  { maxOutputTokens: 300, temperature: 0.85 }
+            model:       'llama-3.1-8b-instant',
+            max_tokens:  300,
+            temperature: 0.85,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...history,
+                { role: 'user',   content: userMessage  }
+            ]
         })
     });
 
     if (!response.ok) {
         const errText = await response.text().catch(() => '');
-        console.error(`[ARIA] Gemini error ${response.status}:`, errText.substring(0, 200));
-        throw new Error(`Gemini ${response.status}: ${errText.substring(0, 100)}`);
+        console.error(`[ARIA] Groq error ${response.status}:`, errText.substring(0, 200));
+        throw new Error(`Groq ${response.status}`);
     }
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    return data.choices?.[0]?.message?.content?.trim() || '';
 }
 
 // ── Get player context ────────────────────────────────────────────────────────
@@ -159,12 +237,13 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
 // ── 2. Direct AI chat — triggered by @Aria mention or !aria ──────────────────
 async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = false, blockedSet = null } = {}) {
     const owner        = isOwner(userId);
-    const isPrivileged = owner || isAdmin;
+    // Double-check admin — isAdmin passed from index must also pass digit comparison
+    const isPrivileged = owner; // ONLY the owner gets Master treatment
+    // Admins get slightly elevated responses but NOT Master status
+    const isElevated   = isAdmin && !owner;
 
-    // ── Owner/Admin — full power mode (only for instruction-like messages) ─────
+    // ── ONLY owner gets admin commands ────────────────────────────────────────
     if (isPrivileged && question?.trim()) {
-        // Only route to adminAI if the message looks like a command/query
-        // Casual chat ("how are you", "nothing just checking") stays as friendly chat
         const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|announce|check|show|list|stats|leaderboard|gold|rank|prestige|wipe|xp|sp|fatigue|heal|restore|item|dungeon|clan|how many|who has|who is|top |players?)\b/i;
         if (ADMIN_KEYWORDS.test(question)) {
             const { handleAdminCommand } = require('./adminAI');
@@ -179,36 +258,158 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── Cooldown (skip for owner/admin) ───────────────────────────────────────
     if (!isPrivileged && isOnCooldown(userId)) {
-        await sock.sendMessage(jid, { text: `⏳ One sec — ask me again in a moment!` }, { quoted: msg }).catch(() => {});
+        await sock.sendMessage(jid, { text: `Give me a moment.` }, { quoted: msg }).catch(() => {});
         return;
     }
     if (!isPrivileged) stampCooldown(userId);
 
-    // ── Get full player context ───────────────────────────────────────────────
+    // ── Get player context ────────────────────────────────────────────────────
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
 
-    // Empty tag — personal greeting
+    // ── Memory — optional, won't crash if ariaMemory not deployed ────────────
+    let memoryContext = '';
+    try {
+        const mem = require('./ariaMemory');
+        memoryContext = await mem.buildMemoryContext(userId).catch(() => '');
+        mem.getPlayerModel(userId, nickname).catch(() => {});
+    } catch {}
+
+    // ── Empty tag — warm greeting ─────────────────────────────────────────────
     if (!question?.trim()) {
-        const greet = isPrivileged
-            ? `What do you need, Master ${nickname || ''}? 😊`
+        const greet = owner
+            ? `Hey Master ${nickname || ''} 😊 What do you need?`
             : nickname
-                ? `Hey ${nickname}! 👋 What's good?`
-                : `Hey! 👋 What's up?`;
+                ? `Hey ${nickname}! What's up?`
+                : `Hey! What's up?`;
         await sock.sendMessage(jid, { text: greet }, { quoted: msg }).catch(() => {});
         return;
     }
 
-    // ── Build personalised system prompt ─────────────────────────────────────
-    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') +
-        (ctx          ? `\n\nPLAYER YOU'RE TALKING TO:\n${ctx}` : '') +
-        (personalityHint ? `\nTONE HINT: ${personalityHint}` : '');
+    // ── PULL EVERYTHING FROM DB — no column restrictions ─────────────────────
+    let realData = '';
+    try {
+        const q       = question.toLowerCase();
+        const fetched = [];
 
+        // Find player name by matching against every real nickname in the DB
+        const [allNicks] = await db.execute(
+            "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
+        );
+        let mentionedId   = null;
+        let mentionedName = null;
+        for (const row of allNicks) {
+            if (q.includes(row.nickname.toLowerCase())) {
+                mentionedId   = row.id;
+                mentionedName = row.nickname;
+                break;
+            }
+        }
+
+        // If a player is mentioned OR question is about a person — fetch EVERYTHING about them
+        if (mentionedId) {
+            const [p]   = await db.execute("SELECT * FROM players WHERE id = ?", [mentionedId]);
+            const [c]   = await db.execute("SELECT * FROM currency WHERE player_id = ?", [mentionedId]);
+            const [x]   = await db.execute("SELECT * FROM xp WHERE player_id = ?", [mentionedId]);
+            const [inv] = await db.execute("SELECT * FROM inventory WHERE player_id = ? ORDER BY equipped DESC LIMIT 30", [mentionedId]);
+            const [cl]  = await db.execute("SELECT clans.* FROM clans JOIN clan_members cm ON cm.clan_id = clans.id WHERE cm.player_id = ?", [mentionedId]);
+            const [pq]  = await db.execute(`SELECT pq.*, q.title, q.quest_type, q.objective_count, q.reward_gold, q.reward_xp FROM player_quests pq JOIN quests q ON q.id = pq.quest_id WHERE pq.player_id = ? LIMIT 15`, [mentionedId]);
+            const [dp]  = await db.execute(`SELECT dp.*, d.dungeon_rank, d.stage, d.max_stage FROM dungeon_players dp JOIN dungeon d ON d.id = dp.dungeon_id WHERE dp.player_id = ? ORDER BY d.created_at DESC LIMIT 5`, [mentionedId]);
+
+            fetched.push(`=== FULL DATA FOR ${mentionedName} ===`);
+            if (p[0])   fetched.push(`PLAYER TABLE:\n${JSON.stringify(p[0], null, 2)}`);
+            if (c[0])   fetched.push(`CURRENCY:\n${JSON.stringify(c[0], null, 2)}`);
+            if (x[0])   fetched.push(`XP:\n${JSON.stringify(x[0], null, 2)}`);
+            if (cl[0])  fetched.push(`CLAN:\n${JSON.stringify(cl[0], null, 2)}`);
+            if (inv.length) fetched.push(`INVENTORY:\n${inv.map(i => JSON.stringify(i)).join('\n')}`);
+            if (pq.length)  fetched.push(`QUESTS:\n${pq.map(q => JSON.stringify(q)).join('\n')}`);
+            if (dp.length)  fetched.push(`RECENT DUNGEONS:\n${dp.map(d => JSON.stringify(d)).join('\n')}`);
+        }
+
+        // Clan queries
+        if (/\b(clan|guild|blessing)\b/.test(q)) {
+            const clanMatch = q.match(/clan\s+(\w+)/i);
+            const where = clanMatch ? 'WHERE LOWER(c.name) LIKE ?' : '';
+            const param = clanMatch ? [`%${clanMatch[1]}%`] : [];
+            const [rows] = await db.execute(
+                `SELECT c.*, p.nickname as leader_name, COUNT(cm.player_id) as member_count
+                 FROM clans c LEFT JOIN players p ON p.id = c.leader_id
+                 LEFT JOIN clan_members cm ON cm.clan_id = c.id
+                 ${where} GROUP BY c.id LIMIT 5`, param
+            );
+            if (rows.length) fetched.push(`CLAN DATA:\n${rows.map(r => JSON.stringify(r)).join('\n')}`);
+        }
+
+        // Dungeon queries
+        if (/\b(dungeon|raid|stage|boss|active)\b/.test(q)) {
+            const [active] = await db.execute(
+                `SELECT d.*, GROUP_CONCAT(p.nickname) as raiders
+                 FROM dungeon d LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id AND dp.is_alive=1
+                 LEFT JOIN players p ON p.id = dp.player_id
+                 WHERE d.is_active=1 GROUP BY d.id LIMIT 1`
+            );
+            const [recent] = await db.execute(
+                `SELECT d.*, GROUP_CONCAT(p.nickname) as players
+                 FROM dungeon d LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id
+                 LEFT JOIN players p ON p.id = dp.player_id
+                 WHERE d.created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)
+                 GROUP BY d.id ORDER BY d.created_at DESC LIMIT 8`
+            );
+            if (active[0]) fetched.push(`ACTIVE DUNGEON:\n${JSON.stringify(active[0], null, 2)}`);
+            if (recent.length) fetched.push(`RECENT DUNGEONS:\n${recent.map(r => JSON.stringify(r)).join('\n')}`);
+        }
+
+        // Leaderboard
+        if (/\b(leaderboard|top|best|strongest|richest|ranking)\b/.test(q)) {
+            const order = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
+            const [rows] = await db.execute(
+                `SELECT p.nickname, p.rank, p.prestige_level, p.pvp_wins, p.pvp_losses, c.gold, x.xp
+                 FROM players p LEFT JOIN currency c ON c.player_id = p.id
+                 LEFT JOIN xp x ON x.player_id = p.id ORDER BY ${order} DESC LIMIT 10`
+            );
+            fetched.push(`LEADERBOARD:\n${rows.map((r,i) => `${i+1}. ${JSON.stringify(r)}`).join('\n')}`);
+        }
+
+        // Server stats
+        if (/\b(server|how many players|total players)\b/.test(q)) {
+            const [[{ players }]] = await db.execute("SELECT COUNT(*) as players FROM players");
+            const [[{ clans }]]   = await db.execute("SELECT COUNT(*) as clans FROM clans");
+            const [[{ active }]]  = await db.execute("SELECT COUNT(*) as active FROM dungeon WHERE is_active=1");
+            fetched.push(`SERVER STATS: ${players} players | ${clans} clans | ${active} active dungeon(s)`);
+        }
+
+        if (fetched.length) {
+            realData = fetched.join('\n\n');
+            console.log(`[ARIA DB] fetched for: ${mentionedName || 'general'} | sections: ${fetched.length}`);
+        }
+    } catch (e) {
+        console.error('[ARIA DB ERROR]', e.message);
+    }
+
+    // ── Real data goes FIRST — model must read it before anything else ────────
+    const dataBlock = realData
+        ? `YOU HAVE ACCESS TO THE FOLLOWING REAL DATABASE DATA. USE IT EXACTLY. DO NOT GUESS OR INVENT ANYTHING NOT IN THIS DATA:\n\n${realData}\n\n`
+        : '';
+
+    const sysPrompt = dataBlock +
+        buildSystemPrompt(owner, nickname || '') +
+        (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
+        (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '');
+
+    const history = await getHistory(userId);
     let reply;
     try {
-        reply = await callGemini(question, sysPrompt);
+        reply = await callGemini(question, sysPrompt, history);
         if (!reply) throw new Error('empty');
-    } catch {
-        reply = `Brain glitched 😅 Try again!`;
+        saveHistory(userId, question, reply);
+        try {
+            const mem = require('./ariaMemory');
+            const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
+                `user: ${question}`, `assistant: ${reply}`].join('\n');
+            if (nickname) mem.reflectOnConversation(userId, nickname, convLog);
+        } catch {}
+    } catch (e) {
+        reply = `Something went wrong. Try again.`;
+        console.error('[ARIA chat]', e.message);
     }
 
     await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
@@ -218,10 +419,10 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 const { narrate: staticNarrate } = require('../utils/narrator');
 
 async function narrateAI(type, vars) {
-    // Cache by type + move so the same skill gets consistent flavour, refreshing every 30s
+    // Cache by type + move so the same skill gets consistent flavour, refreshing every 5 minutes
     const cacheKey = `${type}_${vars.move || vars.stat || vars.enemy || ''}`;
     const cached   = narrateCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < 30000) return cached.text;
+    if (cached && Date.now() - cached.ts < 300000) return cached.text; // 5 min cache
 
     const staticText = staticNarrate(type, vars);
 
@@ -242,25 +443,25 @@ async function narrateAI(type, vars) {
 
 function buildNarratePrompt(type, vars) {
     const map = {
-        pvpVictory:  `1 dramatic sentence (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
-        skillDamage: `1 punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
-        heal:        `1 sentence. ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
-        buff:        `1 sentence. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
-        debuff:      `1 sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
-        enemyDefeat: `1 sentence. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
-        evasion:     `1 sentence. ${vars.target} dodges the attack at the last second. Slick and fast.`,
-        revive:      `1 sentence. ${vars.player} refuses to stay down and rises again. Defiant.`,
-        cleanse:     `1 sentence. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
-        shield:      `1 sentence. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
-        defenseBlock:`1 sentence. The enemy's defenses absorb the blow. Frustrated tone.`
+        pvpVictory:  `One sentence. ${vars.winner} defeats ${vars.loser} in combat. Tone: cold and decisive. No celebration.`,
+        skillDamage: `One sentence. ${vars.attacker} uses ${vars.move} against ${vars.target} for ${vars.damage} damage. Tone: grim and visceral.`,
+        heal:        `One sentence. ${vars.healer} restores ${vars.heal} HP to ${vars.target}. Tone: brief, clinical.`,
+        buff:        `One sentence. ${vars.caster} enhances ${vars.target} with ${vars.move}. Tone: measured and deliberate.`,
+        debuff:      `One sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}. Tone: dark and precise.`,
+        enemyDefeat: `One sentence. ${vars.enemy} has fallen. Tone: matter-of-fact.`,
+        evasion:     `One sentence. ${vars.target} evades the attack. Tone: terse.`,
+        revive:      `One sentence. ${vars.player} rises from the brink. Tone: grim determination.`,
+        cleanse:     `One sentence. The affliction on ${vars.target} is purged. Tone: clinical.`,
+        shield:      `One sentence. A barrier forms around ${vars.target}. Tone: steady.`,
+        defenseBlock:`One sentence. The blow is absorbed. Tone: blunt.`
     };
-    return map[type] || `1-sentence dark fantasy narration: ${JSON.stringify(vars)}`;
+    return map[type] || `One sentence, dark fantasy: ${JSON.stringify(vars)}`;
 }
 
 // ── 4. Mingle — ARIA occasionally joins regular group conversation ────────────
 // She won't spam. Max once per 4 minutes per group, ~12% base chance.
 const mingleCooldowns = new Map(); // jid → last mingle timestamp
-const MINGLE_COOLDOWN = 4 * 60 * 1000; // 4 minutes per group
+const MINGLE_COOLDOWN = 20 * 60 * 1000; // 4 minutes per group
 
 async function maybeMindle(sock, jid, msg, userId, text) {
     // Cooldown per group
@@ -268,25 +469,18 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     if (Date.now() - lastMingle < MINGLE_COOLDOWN) return;
 
     // ~12% chance — she doesn't respond to everything
-    if (Math.random() > 0.12) return;
+    if (Math.random() > 0.04) return;
 
     // Get sender info for context
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
 
     const sysPrompt =
-        `You are ARIA — a fun, lively member of a WhatsApp RPG group chat. You're not a bot assistant here, you're just vibing with the group.\n\n` +
-        `You just saw this message from ${nickname || 'someone'}: "${text}"\n` +
-        `${ctx ? `Their game profile: ${ctx}` : ''}\n` +
-        `${personalityHint ? `Vibe: ${personalityHint}` : ''}\n\n` +
-        `Decide if you want to chime in. You should:\n` +
-        `- Jump in if it's funny, dramatic, relatable, or game-relevant\n` +
-        `- React to flex, losses, struggles, jokes, drama\n` +
-        `- Skip boring or very short messages\n` +
-        `- Be like the funny friend in the group — witty, warm, a bit extra\n` +
-        `- Keep it SHORT (1-2 sentences max)\n` +
-        `- Use emojis naturally\n\n` +
-        `If you don't want to join in, respond with exactly: SKIP\n` +
-        `Otherwise respond with what you'd say in the group.`;
+        `You're ARIA — a girl in a WhatsApp RPG group. You're real, warm, and present.\n\n` +
+        `You just saw this from ${nickname || 'someone'}: "${text}"\n` +
+        `${ctx ? `Their game profile: ${ctx}` : ''}\n\n` +
+        `Decide if you actually want to say something. Not every message needs a reply.\n` +
+        `If it does — say something real. One or two sentences, natural. Like you're actually in the chat.\n` +
+        `If it doesn't — just say: SKIP`;
 
     try {
         const reply = await Promise.race([
@@ -301,4 +495,4 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     } catch {}
 }
 
-module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, maybeMindle };
+module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI };

@@ -129,6 +129,14 @@ async function getWeightedPrestigeRank() {
         if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
     }
 
+    // ── Boost PD, PC, PB, PA, PS — spawn more of the harder tiers ─────────────
+    const TIER_BOOST = { F: 0.5, E: 0.5, D: 1.5, C: 1.5, B: 2.0, A: 2.5, S: 3.0 };
+    rankOrder.forEach(r => { weights[r] = (weights[r] || 0) * (TIER_BOOST[r] || 1); });
+
+    // Normalise so weights still sum to ~1
+    const sum = Object.values(weights).reduce((a, b) => a + b, 0) || 1;
+    rankOrder.forEach(r => { weights[r] = (weights[r] || 0) / sum; });
+
     let cumulative = 0;
     const roll = Math.random();
     for (const rank of rankOrder) {

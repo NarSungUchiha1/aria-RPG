@@ -15,7 +15,7 @@ const { getPlayerClan, CLAN_BLESSINGS, getPlayerBlessingState, updateBlessingSta
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
 const { narrate } = require('../utils/narrator');
-const { narrateAI } = require('../systems/aiSystem');
+const { narrateAI } = require('../systems/aiSystems');
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||

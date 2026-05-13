@@ -136,8 +136,12 @@ async function getPlayerQuests(playerId) {
 // ── ASSIGN DAILY QUESTS ──────────────────────────────────────────────────────
 async function assignDailyQuests(playerId) {
     const today = new Date().toISOString().split('T')[0];
+
+    // Check for TODAY's daily quests specifically — not party/achievement
     const [existing] = await db.execute(
-        "SELECT * FROM player_quests WHERE player_id=? AND assigned_date=?",
+        `SELECT pq.id FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND pq.assigned_date=? AND q.quest_type='daily'`,
         [playerId, today]
     );
     if (existing.length) return;
@@ -196,35 +200,58 @@ async function assignDailyQuests(playerId) {
 // ── UPDATE QUEST PROGRESS ────────────────────────────────────────────────────
 async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
     await assignDailyQuests(playerId).catch(() => {});
-    // Cap progress at objective_count, never exceed it
+    const today = new Date().toISOString().split('T')[0];
+
+    // Update daily quests for TODAY only — not old unfinished ones
     await db.execute(
         `UPDATE player_quests pq
          JOIN quests q ON pq.quest_id = q.id
          SET pq.progress = LEAST(q.objective_count, pq.progress + ?)
          WHERE pq.player_id = ? AND q.objective_type = ?
-           AND pq.completed = 0`,
-        [amount, playerId, objectiveType]
+           AND pq.completed = 0 AND (q.quest_type != 'daily' OR pq.assigned_date = ?)`,
+        [amount, playerId, objectiveType, today]
     );
-    await db.execute(
-        `UPDATE player_quests pq
+
+    // Mark completed
+    const [justCompleted] = await db.execute(
+        `SELECT pq.quest_id, q.title FROM player_quests pq
          JOIN quests q ON pq.quest_id = q.id
-         SET pq.completed = 1
-         WHERE pq.player_id = ? AND pq.progress >= q.objective_count AND pq.completed = 0`,
+         WHERE pq.player_id = ? AND pq.progress >= q.objective_count
+           AND pq.completed = 0`,
         [playerId]
     );
+
+    if (justCompleted.length) {
+        await db.execute(
+            `UPDATE player_quests pq
+             JOIN quests q ON pq.quest_id = q.id
+             SET pq.completed = 1
+             WHERE pq.player_id = ? AND pq.progress >= q.objective_count AND pq.completed = 0`,
+            [playerId]
+        );
+        // Notify player of completions
+        if (client) {
+            for (const q of justCompleted) {
+                await client.sendMessage(client.info?.wid?._serialized || '', {
+                    text: `╭══〘 ✅ QUEST COMPLETE 〙══╮\n┃◆ "${q.title}" completed!\n┃◆ Use !claim ${q.quest_id} to collect your reward.\n╰═══════════════════════╯`
+                }).catch(() => {});
+            }
+        }
+    }
 }
 
 // ── CLAIM QUEST REWARDS ──────────────────────────────────────────────────────
 async function claimQuestRewards(playerId, questId, client) {
-    // Find the specific unclaimed row — order by assigned_date DESC so we get the most recent
-    // Uses assigned_date instead of id so this works even if the id column migration hasn't run yet
+    // Find the specific unclaimed completed row
+    // Use COALESCE so NULL dates sort consistently
     const [pq] = await db.execute(
-        `SELECT player_id FROM player_quests
+        `SELECT id FROM player_quests
          WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
-         ORDER BY assigned_date DESC LIMIT 1`,
+         ORDER BY COALESCE(assigned_date, '9999-12-31') DESC LIMIT 1`,
         [playerId, questId]
     );
     if (!pq.length) return { error: "Quest not completed or already claimed." };
+    const rowId = pq[0].id;
 
     const [quest] = await db.execute("SELECT * FROM quests WHERE id=?", [questId]);
     if (!quest.length) return { error: "Quest not found." };
@@ -244,12 +271,10 @@ async function claimQuestRewards(playerId, questId, client) {
     if (q.reward_title) {
         await db.execute("UPDATE players SET title=? WHERE id=?", [q.reward_title, playerId]).catch(() => {});
     }
-    // UPDATE with ORDER BY + LIMIT 1 targets only the most recent unclaimed row
+    // Mark claimed using the specific row id — no ORDER BY needed
     await db.execute(
-        `UPDATE player_quests SET claimed=1
-         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
-         ORDER BY assigned_date DESC LIMIT 1`,
-        [playerId, questId]
+        `UPDATE player_quests SET claimed=1 WHERE id=?`,
+        [rowId]
     );
     return { quest: q };
 }

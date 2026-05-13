@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
-const { narrateAI } = require('./aiSystem');
+const { narrateAI } = require('./aiSystems');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
@@ -728,6 +728,10 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         `${titleLine}` +
         `╰═══════════════════════════╯`
     );
+
+    // ARIA witnesses the duel outcome
+    const { witnessDuelResult } = require('./ariaAwareness');
+    witnessDuelResult(winnerId, winnerNick, loserId, loserNick, duelData.type || 'solo').catch(() => {});
 
     return { winner: winnerId };
 }

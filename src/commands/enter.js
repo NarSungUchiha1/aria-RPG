@@ -232,7 +232,7 @@ module.exports = {
             const currentPlayers = count[0].cnt;
             
             // ✅ Raider limit by dungeon rank
-            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:5, PE:7, PD:8, PC:8, PB:10, PA:10, PS:10 };
+            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 };
             const maxRaiders = MAX_RAIDERS[dungeon.dungeon_rank] || 3;
             if (currentPlayers >= maxRaiders) {
                 return msg.reply(
@@ -351,7 +351,7 @@ module.exports = {
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
                     `┃◆ 👥 Raiders: ${newCount}/${maxRaiders}\n` +
-                    `┃◆ 📅 Entries left today: ${remaining}/15\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/${dailyLimit}\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
                     `┃◆ 🛒 !shop  •  📦 !equip\n` +
@@ -379,7 +379,8 @@ module.exports = {
                 );
                 const todayCount = entryLog[0]?.count || 0;
                 let dl2 = 5; try { const { getCurrentChapter: gch } = require('../systems/loreSystem'); const chNum = await gch(); if (chNum >= 3) dl2 = 15; } catch(e) {} const remaining = dl2 - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/15\n`;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/
+`;
             }
 
             const confirmTimer = setTimeout(() => {

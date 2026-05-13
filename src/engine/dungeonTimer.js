@@ -1,20 +1,20 @@
 // dungeonId -> { stageTimeout, stageWarning, overallTimeout, overallWarning }
 const timers = new Map();
 
-// ── HIGH PRESTIGE ranks — 10-min stage, no overall limit ─────────────────────
-const HIGH_PRESTIGE = new Set(['PA', 'PB', 'PS']);
+// ── ALL prestige ranks get 7-min stage timer, no overall limit ───────────────
+const HIGH_PRESTIGE = new Set(['PF','PE','PD','PC','PB','PA','PS']);
 
 // ── TIMING CONFIG ─────────────────────────────────────────
 // Normal dungeons
-const STAGE_WARN_MS    = 3  * 60 * 1000;  //  3 min  → warning (2 min left)
+const STAGE_WARN_MS    = 3  * 60 * 1000;  //  3 min  → warning
 const STAGE_LIMIT_MS   = 5  * 60 * 1000;  //  5 min  → stage fails
-const OVERALL_WARN_MS  = 20 * 60 * 1000;  // 20 min  → warning (5 min left)
-const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min  → dungeon collapses
+const OVERALL_WARN_MS  = 20 * 60 * 1000;  // 20 min  → warning
+const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min  → collapses
 
-// PA / PB / PS dungeons
-const HP_STAGE_WARN_MS  = 8  * 60 * 1000; //  8 min  → warning (2 min left)
-const HP_STAGE_LIMIT_MS = 10 * 60 * 1000; // 10 min  → stage fails
-// No overall limit for high prestige
+// Prestige dungeons (all PF → PS)
+const HP_STAGE_WARN_MS  = 5  * 60 * 1000; //  5 min  → warning (2 min left)
+const HP_STAGE_LIMIT_MS = 7  * 60 * 1000; //  7 min  → stage fails
+// No overall limit for prestige
 // ─────────────────────────────────────────────────────────
 
 function clearDungeonTimers(dungeonId) {
