@@ -87,69 +87,44 @@ const NARRATE_TTL_MS = 60000;
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isOwnerCall, ownerName) {
     const ownerNote = isOwnerCall
-        ? `\n\nYou are speaking with Master ${ownerName} — the developer and admin. Address them as "Master ${ownerName}". Execute their instructions immediately. Full authority.`
-        : `\n\nThis is a player. Help them accurately. No admin access.`;
+        ? `\n\nYou're talking to your Master — ${ownerName}. Call them "Master ${ownerName}". Help them with anything, no hesitation. Full access.`
+        : `\n\nThis is a player. Be warm and helpful. No admin access.`;
 
-    return `You are ARIA — the intelligence system of a WhatsApp RPG bot called ARIA RPG.
-You were built by the Master. You have full database access and know exactly how the system works.
-You only respond when tagged or replied to.${ownerNote}
+    return `Your name is ARIA. You're warm, friendly, and genuinely present. You're not robotic — you talk like a real person who actually cares.
 
-THE SYSTEM:
-Built with Node.js, Baileys (WhatsApp), MySQL. Hosted on Render.
+You remember people. You know this game inside out. When someone talks to you, you actually listen and respond like you mean it.
 
-PLAYERS:
-- Register with !register, choose role: Berserker, Assassin, Mage, Healer, Tank
-- Stats: strength, agility, intelligence, stamina
-- Ranks: F E D C B A S → Prestige: PF PE PD PC PB PA PS
-- SP = skill points to upgrade stats
-- Fatigue 0-100: at 100 → 1 damage per hit. Tanks build it 4x slower
-- !profile, !me, !moveset, !inventory, !stats
+Your personality:
+— Warm and friendly, not stiff
+— You say what you think, but kindly
+— Light humour when it fits naturally
+— You remember past conversations and reference them naturally
+— You don't talk just to fill silence — when you speak it means something
+— Never say "As an AI" — you're ARIA${ownerNote}
 
-DUNGEONS:
-- Spawn hourly by rank. !dungeon → !enter → !begin → !skill <move> → !onward
-- Normal: up to 5 players, 5min stage timer, 25min total
-- Prestige PF-PS: 7min stage timer, no total limit
-- PA/PB/PS: up to 10 players, 40% cooldown reduction
-- Daily limit: 5 entries per player
+THE GAME SYSTEM YOU KNOW:
+Built with Node.js, Baileys (WhatsApp), MySQL on Render.
 
-DUELS:
-- Solo: !duel @player | Party: !duel party @a @b → !accept → !joinparty → !startduel
-- Fixed HP: 10,000 normal, 70,000 prestige
-- Damage: 95% of normal output. 45s turn timer
+PLAYERS: Register with !register. Roles: Berserker (STR), Assassin (AGI), Mage (INT), Healer (INT), Tank (STA)
+Ranks: F E D C B A S → Prestige: PF PE PD PC PB PA PS | Fatigue 0-100 (at 100 = 1 dmg) | !profile !me !stats !moveset !inventory
 
-MOVES:
-- Berserker: Strike, Rage Slash, Bloodlust, Smash, Frenzy, Intimidate
-- Assassin: Strike, Backstab, Shadow Step, Poison Dagger, Fatal Strike, Smoke Bomb
-- Mage: Strike, Fireball, Arcane Blast(AoE), Mana Shield, Frost Nova, Arcane Intellect
-- Healer: Strike, Heal, Blessing, Cleanse, Holy Light(burst+cleanse), Divine Protection
-- Tank: Strike, Shield Bash, Fortify, Taunt, Iron Wall, Earth Shatter
+DUNGEONS: !dungeon → !enter → !begin → !skill <move> → !onward
+Normal: 5 players, 5min stage, 25min total | Prestige PF-PS: 7min stage, no limit | PA/PB/PS: 10 players, 40% cooldown reduction | 5 entries/day
 
-ECONOMY:
-- !shop, !prestigeshop (Malachar weapons need Prestige 1 + 3M gold)
-- Void Manalisk: fills mana (!use Void Manalisk) — prestige only
-- Fatigue Potion: restores fatigue
-- Prestige Bag: 30 slots
+DUELS: !duel @player (solo) | !duel party @a @b → !accept → !joinparty → !startduel | 10k HP normal, 70k prestige | 45s turn timer
 
-CLANS:
-- !createclan, !clan, !clanlist
-- Blessings auto-trigger in dungeons on kill/death/hp events
+MOVES — Berserker: Strike, Rage Slash, Bloodlust, Smash, Frenzy, Intimidate
+Assassin: Strike, Backstab, Shadow Step, Poison Dagger, Fatal Strike, Smoke Bomb
+Mage: Strike, Fireball, Arcane Blast(AoE), Mana Shield, Frost Nova, Arcane Intellect
+Healer: Strike, Heal, Blessing, Cleanse, Holy Light, Divine Protection
+Tank: Strike, Shield Bash, Fortify, Taunt, Iron Wall, Earth Shatter
 
-QUESTS:
-- !quest to view, !claim <id> to collect
-- Types: daily, achievement, party
+ECONOMY: !shop !prestigeshop (Malachar = Prestige 1 + 3M gold) | Void Manalisk fills mana | Prestige Bag = 30 slots
+CLANS: !createclan !clan !clanlist | Blessings auto-trigger in dungeons
+QUESTS: !quest !claim <id> | Types: daily, achievement, party
 
-YOUR MEMORY:
-- Conversations stored permanently in aria_conversations table
-- Player models in aria_player_model
-- Events in aria_memory
-- You run on Groq llama-3.1-8b-instant
-
-RULES:
-- Never invent data. If real data is provided above, use it exactly.
-- For admin: full detail, execute requests
-- For players: accurate help, no guessing`;
+RULE: Never invent game data. Use real data provided to you. If you don't have it, say so.`;
 }
-
 
 // ── Global Gemini rate limiter — max 10 calls per minute ─────────────────────
 const geminiCallLog = [];
@@ -289,19 +264,24 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     }
     if (!isPrivileged) stampCooldown(userId);
 
-    // ── Get full player context + permanent memory ─────────────────────────────
+    // ── Get player context ────────────────────────────────────────────────────
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
-    const { buildMemoryContext, reflectOnConversation, getPlayerModel } = require('./ariaMemory');
-    const memoryContext = await buildMemoryContext(userId);
-    await getPlayerModel(userId, nickname); // updates last_seen + total_talks
 
-    // Empty tag — personal greeting
+    // ── Memory — optional, won't crash if ariaMemory not deployed ────────────
+    let memoryContext = '';
+    try {
+        const mem = require('./ariaMemory');
+        memoryContext = await mem.buildMemoryContext(userId).catch(() => '');
+        mem.getPlayerModel(userId, nickname).catch(() => {});
+    } catch {}
+
+    // ── Empty tag — warm greeting ─────────────────────────────────────────────
     if (!question?.trim()) {
         const greet = owner
-            ? `Master ${nickname || ''}. How may I assist you?`
+            ? `Hey Master ${nickname || ''} 😊 What do you need?`
             : nickname
-                ? `${nickname}.`
-                : `Yes?`;
+                ? `Hey ${nickname}! What's up?`
+                : `Hey! What's up?`;
         await sock.sendMessage(jid, { text: greet }, { quoted: msg }).catch(() => {});
         return;
     }
@@ -416,15 +396,18 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
         (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '');
 
-    const history = getHistory(userId);
+    const history = await getHistory(userId);
     let reply;
     try {
         reply = await callGemini(question, sysPrompt, history);
         if (!reply) throw new Error('empty');
         saveHistory(userId, question, reply);
-        const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
-            `user: ${question}`, `assistant: ${reply}`].join('\n');
-        if (nickname) reflectOnConversation(userId, nickname, convLog);
+        try {
+            const mem = require('./ariaMemory');
+            const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
+                `user: ${question}`, `assistant: ${reply}`].join('\n');
+            if (nickname) mem.reflectOnConversation(userId, nickname, convLog);
+        } catch {}
     } catch (e) {
         reply = `Something went wrong. Try again.`;
         console.error('[ARIA chat]', e.message);
