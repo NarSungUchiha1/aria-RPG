@@ -253,86 +253,104 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
-    // ── Build system prompt ───────────────────────────────────────────────────
-    const DB_SCHEMA = `
-players: id, nickname, role, rank(F/E/D/C/B/A/S/PF-PS), hp, max_hp, strength, agility,
-  intelligence, stamina, fatigue(0-100), sp, prestige_level, pvp_wins, pvp_losses, title
-currency: player_id, gold
-xp: player_id, xp
-inventory: player_id, item_name, item_type, quantity, equipped
-dungeon: id, dungeon_rank, stage, max_stage, is_active, stage_cleared, created_at
-dungeon_players: player_id, dungeon_id, is_alive, session_gold, session_xp
-clans: id, name, leader_id, blessing_type
-clan_members: clan_id, player_id
-pvp_challenges: challenger_id, target_id, status, duel_type, created_at
-quests: id, title, quest_type, reward_gold, reward_xp
-player_quests: player_id, quest_id, progress, completed, claimed`;
+    // ── AUTO-FETCH real data before ARIA says a word ──────────────────────────
+    // We decide what to fetch based on the question. AI just presents it.
+    let realData = '';
+    try {
+        const { runTool } = require('./ariaTools');
+        const q = question.toLowerCase();
+        const fetched = [];
 
+        // 1. Find any player name in the question by checking against real nicknames
+        const [allNicks] = await db.execute(
+            "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
+        );
+        let mentionedPlayerId = null;
+        let mentionedPlayerName = null;
+        for (const row of allNicks) {
+            if (q.includes(row.nickname.toLowerCase())) {
+                mentionedPlayerId   = row.id;
+                mentionedPlayerName = row.nickname;
+                break;
+            }
+        }
+
+        // 2. Fetch what the question is actually about
+        const wantsStats    = /\b(stat|profile|info|status|strength|agility|hp|health|stamina|intelligence)\b/.test(q);
+        const wantsPvp      = /\b(pvp|duel|win|loss|fight|record|battle)\b/.test(q);
+        const wantsGold     = /\b(gold|money|rich|broke|currency)\b/.test(q);
+        const wantsXp       = /\b(xp|experience|level|progress)\b/.test(q);
+        const wantsClan     = /\b(clan|guild|team|blessing)\b/.test(q);
+        const wantsDungeon  = /\b(dungeon|raid|stage|boss|clear)\b/.test(q);
+        const wantsBoard    = /\b(leaderboard|top|best|strongest|richest|most wins)\b/.test(q);
+        const wantsInventory= /\b(inventory|bag|item|equipment|weapon|gear)\b/.test(q);
+        const wantsQuests   = /\b(quest|mission|task|daily|objective)\b/.test(q);
+        const wantsServer   = /\b(server|total players|how many players|active)\b/.test(q);
+
+        if (mentionedPlayerName && (wantsStats || wantsPvp || wantsGold || wantsXp || wantsInventory || wantsQuests || !wantsClan && !wantsDungeon && !wantsBoard)) {
+            const d = await runTool('get_player', { name: mentionedPlayerName });
+            fetched.push(`${mentionedPlayerName}'s stats:\n${d}`);
+        }
+        if (mentionedPlayerName && wantsPvp) {
+            const d = await runTool('get_pvp', { name: mentionedPlayerName });
+            fetched.push(`${mentionedPlayerName}'s PvP:\n${d}`);
+        }
+        if (mentionedPlayerName && wantsInventory) {
+            const d = await runTool('get_inventory', { name: mentionedPlayerName });
+            fetched.push(d);
+        }
+        if (mentionedPlayerName && wantsQuests) {
+            const d = await runTool('get_quests', { name: mentionedPlayerName });
+            fetched.push(d);
+        }
+        if (wantsClan) {
+            // Try to find a clan name in the question
+            const clanMatch = q.match(/clan\s+([a-z0-9_]+)/i);
+            const d = await runTool('get_clan', { name: clanMatch?.[1] || '' });
+            fetched.push(`Clan info:\n${d}`);
+        }
+        if (wantsDungeon) {
+            const [active, history] = await Promise.all([
+                runTool('get_active_dungeon'),
+                runTool('get_dungeon_history')
+            ]);
+            fetched.push(`Active dungeon: ${active}\nRecent history:\n${history}`);
+        }
+        if (wantsBoard) {
+            const type = /gold|rich/.test(q) ? 'gold' : /pvp|win/.test(q) ? 'pvp' : 'xp';
+            const d = await runTool('get_leaderboard', { type });
+            fetched.push(d);
+        }
+        if (wantsServer) {
+            const d = await runTool('get_server_stats');
+            fetched.push(d);
+        }
+
+        if (fetched.length) {
+            realData = `\n\n--- REAL DATA FROM DATABASE ---\n${fetched.join('\n\n')}\n--- END REAL DATA ---\n\nUse ONLY the data above to answer. Do not add, guess, or invent anything.`;
+        }
+    } catch (e) {
+        console.error('[ARIA data fetch]', e.message);
+    }
+
+    // ── Build prompt and call AI once ────────────────────────────────────────
     const sysPrompt = buildSystemPrompt(owner, nickname || '') +
         (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
         (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
         (personalityHint ? `\nYOUR READ: ${personalityHint}` : '') +
-        `\n\nDATABASE ACCESS:
-When you need real game data to answer something, include a SQL query in your response like this:
-[SQL: SELECT nickname, role, rank FROM players WHERE LOWER(nickname) = 'playername' LIMIT 1]
-
-Rules for SQL:
-- SELECT only — no inserts, updates, or deletes
-- Always LIMIT results (max 20)
-- Use it whenever someone asks about stats, gold, XP, PvP, clans, dungeons, quests, rankings
-- If you include SQL, write your response around it — the real results will replace it
-- NEVER invent numbers. If you need data, use SQL. If you don't have SQL results, say you don't have that info.
-
-DB Schema:\n${DB_SCHEMA}`;
+        realData;
 
     const history = getHistory(userId);
-
     let reply;
     try {
-        // ── Step 1: ARIA decides if she needs data and writes SQL ─────────────
-        const raw = await callGemini(question, sysPrompt, history);
-        if (!raw) throw new Error('empty');
-
-        const sqlTags = [...raw.matchAll(/\[SQL:\s*([\s\S]+?)\]/gi)];
-
-        if (!sqlTags.length) {
-            // No data needed — plain response
-            reply = raw;
-        } else {
-            // ── Step 2: Execute the SQL and feed real results back ────────────
-            let dataResults = '';
-            for (const match of sqlTags) {
-                try {
-                    const sql = match[1].trim().replace(/;$/, '');
-                    if (!/^SELECT/i.test(sql)) continue;
-                    const limited = /LIMIT/i.test(sql) ? sql : `${sql} LIMIT 20`;
-                    const [rows] = await db.execute(limited);
-                    if (rows.length === 0) {
-                        dataResults += '\n[No results found for that query]';
-                    } else {
-                        const keys = Object.keys(rows[0]);
-                        dataResults += '\n' + rows.map(r =>
-                            keys.map(k => `${k}: ${r[k] ?? '—'}`).join(' | ')
-                        ).join('\n');
-                    }
-                } catch (e) {
-                    dataResults += `\n[Query error: ${e.message}]`;
-                }
-            }
-
-            // ── Step 3: Feed real results back so ARIA answers accurately ─────
-            const finalPrompt = `${question}\n\nReal data from the database:\n${dataResults.trim()}\n\nNow answer naturally using only this real data.`;
-            reply = await callGemini(finalPrompt, buildSystemPrompt(owner, nickname || '') + (ctx ? `\nYOUR PROFILE:\n${ctx}` : ''), history);
-            if (!reply) reply = raw.replace(/\[SQL:[\s\S]*?\]/gi, '').trim();
-        }
-
+        reply = await callGemini(question, sysPrompt, history);
+        if (!reply) throw new Error('empty');
         saveHistory(userId, question, reply);
         const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
             `user: ${question}`, `assistant: ${reply}`].join('\n');
         if (nickname) reflectOnConversation(userId, nickname, convLog);
-
     } catch (e) {
-        reply = `Something went wrong on my end. Try again.`;
+        reply = `Something went wrong. Try again.`;
         console.error('[ARIA chat]', e.message);
     }
 
