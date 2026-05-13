@@ -29,24 +29,43 @@ function isAdminId(userId, admins = []) {
 }
 
 // ── Conversation memory — per user, 30 min TTL ────────────────────────────────
-const conversations = new Map();
-const CONV_TTL_MS   = 30 * 60 * 1000;
-const CONV_MAX_MSGS = 20; // 10 exchanges per person // keep last 5 exchanges (10 messages)
+// ── Conversation history — stored in DB forever, never deleted ────────────────
+// She remembers every exchange. No limits. No trimming.
+// Only the last 30 messages are loaded per call to keep API costs low.
+const CONV_LOAD = 30; // how many messages to load per conversation
 
-function getHistory(userId) {
-    const entry = conversations.get(userId);
-    if (!entry) return [];
-    if (Date.now() - entry.ts > CONV_TTL_MS) { conversations.delete(userId); return []; }
-    return entry.msgs;
+db.execute(`
+    CREATE TABLE IF NOT EXISTS aria_conversations (
+        id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+        player_id  VARCHAR(50) NOT NULL,
+        role       ENUM('user','assistant') NOT NULL,
+        content    TEXT NOT NULL,
+        created_at DATETIME DEFAULT NOW(),
+        INDEX idx_player_time (player_id, created_at)
+    )
+`).catch(() => {});
+
+async function getHistory(userId) {
+    try {
+        const [rows] = await db.execute(
+            `SELECT role, content FROM aria_conversations
+             WHERE player_id = ? ORDER BY created_at DESC LIMIT ?`,
+            [userId, CONV_LOAD]
+        );
+        return rows.reverse().map(r => ({ role: r.role, content: r.content }));
+    } catch { return []; }
 }
 
-function saveHistory(userId, userMsg, assistantMsg) {
-    const msgs = getHistory(userId);
-    msgs.push({ role: 'user',      content: userMsg      });
-    msgs.push({ role: 'assistant', content: assistantMsg });
-    while (msgs.length > CONV_MAX_MSGS) msgs.shift();
-    conversations.set(userId, { msgs, ts: Date.now() });
+async function saveHistory(userId, userMsg, assistantMsg) {
+    try {
+        await db.execute(
+            `INSERT INTO aria_conversations (player_id, role, content) VALUES (?,?,?),(?,?,?)`,
+            [userId, 'user', userMsg, userId, 'assistant', assistantMsg]
+        );
+        // Nothing deleted. Everything kept forever.
+    } catch (e) { console.error('[ARIA conv]', e.message); }
 }
+
 
 // ── Rate limiting — prevent API spam ─────────────────────────────────────────
 const userCooldowns = new Map();
@@ -253,13 +272,13 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
-    // ── AUTO-FETCH real data directly from DB — no external files ────────────
+    // ── PULL EVERYTHING FROM DB — no column restrictions ─────────────────────
     let realData = '';
     try {
         const q       = question.toLowerCase();
         const fetched = [];
 
-        // Find any player name by checking real nicknames from DB
+        // Find player name by matching against every real nickname in the DB
         const [allNicks] = await db.execute(
             "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
         );
@@ -273,126 +292,95 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             }
         }
 
-        const wantsPlayer   = mentionedName && (
-            /\b(stat|profile|info|hp|gold|xp|strength|agility|stamina|intelligence|fatigue|pvp|win|loss|fight|record|rank|prestige|inventory|bag|item|quest|mission)\b/.test(q)
-            || !(/\b(clan|dungeon|raid|leaderboard|top|server)\b/.test(q))
-        );
-        const wantsClan     = /\b(clan|guild|blessing)\b/.test(q);
-        const wantsDungeon  = /\b(dungeon|raid|stage|boss|clear|active)\b/.test(q);
-        const wantsBoard    = /\b(leaderboard|top\s+\d|best|strongest|richest|most wins|ranking)\b/.test(q);
-        const wantsServer   = /\b(server stat|how many players|total players)\b/.test(q);
+        // If a player is mentioned OR question is about a person — fetch EVERYTHING about them
+        if (mentionedId) {
+            const [p]   = await db.execute("SELECT * FROM players WHERE id = ?", [mentionedId]);
+            const [c]   = await db.execute("SELECT * FROM currency WHERE player_id = ?", [mentionedId]);
+            const [x]   = await db.execute("SELECT * FROM xp WHERE player_id = ?", [mentionedId]);
+            const [inv] = await db.execute("SELECT * FROM inventory WHERE player_id = ? ORDER BY equipped DESC LIMIT 30", [mentionedId]);
+            const [cl]  = await db.execute("SELECT clans.* FROM clans JOIN clan_members cm ON cm.clan_id = clans.id WHERE cm.player_id = ?", [mentionedId]);
+            const [pq]  = await db.execute(`SELECT pq.*, q.title, q.quest_type, q.objective_count, q.reward_gold, q.reward_xp FROM player_quests pq JOIN quests q ON q.id = pq.quest_id WHERE pq.player_id = ? LIMIT 15`, [mentionedId]);
+            const [dp]  = await db.execute(`SELECT dp.*, d.dungeon_rank, d.stage, d.max_stage FROM dungeon_players dp JOIN dungeon d ON d.id = dp.dungeon_id WHERE dp.player_id = ? ORDER BY d.created_at DESC LIMIT 5`, [mentionedId]);
 
-        // Player full stats
-        if (wantsPlayer && mentionedId) {
-            const [rows] = await db.execute(`
-                SELECT p.nickname, p.role, p.\`rank\`, p.prestige_level,
-                       p.hp, p.max_hp, p.strength, p.agility, p.intelligence,
-                       p.stamina, p.fatigue, p.sp, p.pvp_wins, p.pvp_losses, p.title,
-                       c.gold, x.xp, cl.name as clan
-                FROM players p
-                LEFT JOIN currency c ON c.player_id = p.id
-                LEFT JOIN xp x ON x.player_id = p.id
-                LEFT JOIN clan_members cm ON cm.player_id = p.id
-                LEFT JOIN clans cl ON cl.id = cm.clan_id
-                WHERE p.id = ? LIMIT 1`, [mentionedId]
-            );
-            if (rows[0]) {
-                const p = rows[0];
-                fetched.push(
-                    `${p.nickname} — ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''}\n` +
-                    `HP: ${p.hp}/${p.max_hp} | Fatigue: ${p.fatigue}/100 | SP: ${p.sp}\n` +
-                    `STR: ${p.strength} | AGI: ${p.agility} | INT: ${p.intelligence} | STA: ${p.stamina}\n` +
-                    `Gold: ${Number(p.gold||0).toLocaleString()} | XP: ${Number(p.xp||0).toLocaleString()}\n` +
-                    `PvP: ${p.pvp_wins}W / ${p.pvp_losses}L | Clan: ${p.clan || 'None'} | Title: ${p.title || 'None'}`
-                );
-            }
+            fetched.push(`=== FULL DATA FOR ${mentionedName} ===`);
+            if (p[0])   fetched.push(`PLAYER TABLE:\n${JSON.stringify(p[0], null, 2)}`);
+            if (c[0])   fetched.push(`CURRENCY:\n${JSON.stringify(c[0], null, 2)}`);
+            if (x[0])   fetched.push(`XP:\n${JSON.stringify(x[0], null, 2)}`);
+            if (cl[0])  fetched.push(`CLAN:\n${JSON.stringify(cl[0], null, 2)}`);
+            if (inv.length) fetched.push(`INVENTORY:\n${inv.map(i => JSON.stringify(i)).join('\n')}`);
+            if (pq.length)  fetched.push(`QUESTS:\n${pq.map(q => JSON.stringify(q)).join('\n')}`);
+            if (dp.length)  fetched.push(`RECENT DUNGEONS:\n${dp.map(d => JSON.stringify(d)).join('\n')}`);
         }
 
-        // Clan info
-        if (wantsClan) {
+        // Clan queries
+        if (/\b(clan|guild|blessing)\b/.test(q)) {
             const clanMatch = q.match(/clan\s+(\w+)/i);
-            const cParam    = clanMatch ? [`%${clanMatch[1]}%`] : [];
-            const cWhere    = clanMatch ? 'WHERE LOWER(c.name) LIKE LOWER(?)' : '';
-            const [rows] = await db.execute(`
-                SELECT c.name, c.blessing_type, p.nickname as leader,
-                       COUNT(cm.player_id) as members
-                FROM clans c
-                LEFT JOIN players p ON p.id = c.leader_id
-                LEFT JOIN clan_members cm ON cm.clan_id = c.id
-                ${cWhere} GROUP BY c.id ORDER BY members DESC LIMIT 5`, cParam
+            const where = clanMatch ? 'WHERE LOWER(c.name) LIKE ?' : '';
+            const param = clanMatch ? [`%${clanMatch[1]}%`] : [];
+            const [rows] = await db.execute(
+                `SELECT c.*, p.nickname as leader_name, COUNT(cm.player_id) as member_count
+                 FROM clans c LEFT JOIN players p ON p.id = c.leader_id
+                 LEFT JOIN clan_members cm ON cm.clan_id = c.id
+                 ${where} GROUP BY c.id LIMIT 5`, param
             );
-            if (rows.length) fetched.push(
-                'Clans:\n' + rows.map(r =>
-                    `"${r.name}" — Leader: ${r.leader || '?'} | Members: ${r.members} | Blessing: ${r.blessing_type || 'None'}`
-                ).join('\n')
-            );
+            if (rows.length) fetched.push(`CLAN DATA:\n${rows.map(r => JSON.stringify(r)).join('\n')}`);
         }
 
-        // Dungeon activity
-        if (wantsDungeon) {
-            const [active] = await db.execute(`
-                SELECT d.dungeon_rank, d.stage, d.max_stage,
-                       GROUP_CONCAT(p.nickname SEPARATOR ', ') as raiders
-                FROM dungeon d
-                LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id AND dp.is_alive = 1
-                LEFT JOIN players p ON p.id = dp.player_id
-                WHERE d.is_active = 1 GROUP BY d.id LIMIT 1`
+        // Dungeon queries
+        if (/\b(dungeon|raid|stage|boss|active)\b/.test(q)) {
+            const [active] = await db.execute(
+                `SELECT d.*, GROUP_CONCAT(p.nickname) as raiders
+                 FROM dungeon d LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id AND dp.is_alive=1
+                 LEFT JOIN players p ON p.id = dp.player_id
+                 WHERE d.is_active=1 GROUP BY d.id LIMIT 1`
             );
-            const [recent] = await db.execute(`
-                SELECT d.dungeon_rank, d.stage, d.max_stage, d.created_at,
-                       GROUP_CONCAT(p.nickname SEPARATOR ', ') as players
-                FROM dungeon d
-                LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id
-                LEFT JOIN players p ON p.id = dp.player_id
-                WHERE d.created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
-                GROUP BY d.id ORDER BY d.created_at DESC LIMIT 5`
+            const [recent] = await db.execute(
+                `SELECT d.*, GROUP_CONCAT(p.nickname) as players
+                 FROM dungeon d LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id
+                 LEFT JOIN players p ON p.id = dp.player_id
+                 WHERE d.created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)
+                 GROUP BY d.id ORDER BY d.created_at DESC LIMIT 8`
             );
-            const activeStr = active[0]
-                ? `Active: Rank ${active[0].dungeon_rank} | Stage ${active[0].stage}/${active[0].max_stage} | Raiders: ${active[0].raiders || 'none'}`
-                : 'No active dungeon right now.';
-            const recentStr = recent.length
-                ? recent.map(r => `Rank ${r.dungeon_rank} | Stage ${r.stage}/${r.max_stage} | ${r.players || 'none'}`).join('\n')
-                : 'No dungeon runs in the last 24h.';
-            fetched.push(`Dungeon status: ${activeStr}\nRecent runs:\n${recentStr}`);
+            if (active[0]) fetched.push(`ACTIVE DUNGEON:\n${JSON.stringify(active[0], null, 2)}`);
+            if (recent.length) fetched.push(`RECENT DUNGEONS:\n${recent.map(r => JSON.stringify(r)).join('\n')}`);
         }
 
         // Leaderboard
-        if (wantsBoard) {
-            const orderBy = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
-            const [rows] = await db.execute(`
-                SELECT p.nickname, p.\`rank\`, p.prestige_level, p.pvp_wins, c.gold, x.xp
-                FROM players p
-                LEFT JOIN currency c ON c.player_id = p.id
-                LEFT JOIN xp x ON x.player_id = p.id
-                ORDER BY ${orderBy} DESC LIMIT 10`
+        if (/\b(leaderboard|top|best|strongest|richest|ranking)\b/.test(q)) {
+            const order = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
+            const [rows] = await db.execute(
+                `SELECT p.nickname, p.rank, p.prestige_level, p.pvp_wins, p.pvp_losses, c.gold, x.xp
+                 FROM players p LEFT JOIN currency c ON c.player_id = p.id
+                 LEFT JOIN xp x ON x.player_id = p.id ORDER BY ${order} DESC LIMIT 10`
             );
-            fetched.push('Leaderboard:\n' + rows.map((r, i) =>
-                `${i+1}. ${r.nickname} [${r.rank}]${r.prestige_level > 0 ? '⭐' : ''} — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W`
-            ).join('\n'));
+            fetched.push(`LEADERBOARD:\n${rows.map((r,i) => `${i+1}. ${JSON.stringify(r)}`).join('\n')}`);
         }
 
         // Server stats
-        if (wantsServer) {
+        if (/\b(server|how many players|total players)\b/.test(q)) {
             const [[{ players }]] = await db.execute("SELECT COUNT(*) as players FROM players");
             const [[{ clans }]]   = await db.execute("SELECT COUNT(*) as clans FROM clans");
             const [[{ active }]]  = await db.execute("SELECT COUNT(*) as active FROM dungeon WHERE is_active=1");
-            fetched.push(`Server: ${players} players | ${clans} clans | ${active} active dungeon(s)`);
+            fetched.push(`SERVER STATS: ${players} players | ${clans} clans | ${active} active dungeon(s)`);
         }
 
         if (fetched.length) {
-            realData = `\n\n=== REAL DATA FROM DATABASE ===\n${fetched.join('\n\n')}\n=== END ===\nAnswer using ONLY the above data. Never invent or modify any numbers.`;
-            console.log(`[ARIA] fetched data for: ${mentionedName || 'general query'}`);
+            realData = fetched.join('\n\n');
+            console.log(`[ARIA DB] fetched for: ${mentionedName || 'general'} | sections: ${fetched.length}`);
         }
     } catch (e) {
-        console.error('[ARIA data fetch ERROR]', e.message);
+        console.error('[ARIA DB ERROR]', e.message);
     }
 
-    // ── Build prompt and call AI once ────────────────────────────────────────
-    const sysPrompt = buildSystemPrompt(owner, nickname || '') +
+    // ── Real data goes FIRST — model must read it before anything else ────────
+    const dataBlock = realData
+        ? `YOU HAVE ACCESS TO THE FOLLOWING REAL DATABASE DATA. USE IT EXACTLY. DO NOT GUESS OR INVENT ANYTHING NOT IN THIS DATA:\n\n${realData}\n\n`
+        : '';
+
+    const sysPrompt = dataBlock +
+        buildSystemPrompt(owner, nickname || '') +
         (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
-        (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
-        (personalityHint ? `\nYOUR READ: ${personalityHint}` : '') +
-        realData;
+        (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '');
 
     const history = getHistory(userId);
     let reply;
