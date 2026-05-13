@@ -253,33 +253,86 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
-    // ── Fetch REAL game data — she never guesses ──────────────────────────────
-    const { buildGameContext } = require('./ariaDataFetch');
-    const gameData = await buildGameContext(question, userId).catch(() => '');
+    // ── Build system prompt ───────────────────────────────────────────────────
+    const DB_SCHEMA = `
+players: id, nickname, role, rank(F/E/D/C/B/A/S/PF-PS), hp, max_hp, strength, agility,
+  intelligence, stamina, fatigue(0-100), sp, prestige_level, pvp_wins, pvp_losses, title
+currency: player_id, gold
+xp: player_id, xp
+inventory: player_id, item_name, item_type, quantity, equipped
+dungeon: id, dungeon_rank, stage, max_stage, is_active, stage_cleared, created_at
+dungeon_players: player_id, dungeon_id, is_alive, session_gold, session_xp
+clans: id, name, leader_id, blessing_type
+clan_members: clan_id, player_id
+pvp_challenges: challenger_id, target_id, status, duel_type, created_at
+quests: id, title, quest_type, reward_gold, reward_xp
+player_quests: player_id, quest_id, progress, completed, claimed`;
 
-    // ── Build personalised system prompt ─────────────────────────────────────
-    // Only the verified owner (digitsOnly match) gets Master treatment
     const sysPrompt = buildSystemPrompt(owner, nickname || '') +
         (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
         (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
         (personalityHint ? `\nYOUR READ: ${personalityHint}` : '') +
-        gameData; // real DB data injected last — highest priority
+        `\n\nDATABASE ACCESS:
+When you need real game data to answer something, include a SQL query in your response like this:
+[SQL: SELECT nickname, role, rank FROM players WHERE LOWER(nickname) = 'playername' LIMIT 1]
+
+Rules for SQL:
+- SELECT only — no inserts, updates, or deletes
+- Always LIMIT results (max 20)
+- Use it whenever someone asks about stats, gold, XP, PvP, clans, dungeons, quests, rankings
+- If you include SQL, write your response around it — the real results will replace it
+- NEVER invent numbers. If you need data, use SQL. If you don't have SQL results, say you don't have that info.
+
+DB Schema:\n${DB_SCHEMA}`;
 
     const history = getHistory(userId);
 
     let reply;
     try {
-        reply = await callGemini(question, sysPrompt, history);
-        if (!reply) throw new Error('empty');
-        saveHistory(userId, question, reply);
+        // ── Step 1: ARIA decides if she needs data and writes SQL ─────────────
+        const raw = await callGemini(question, sysPrompt, history);
+        if (!raw) throw new Error('empty');
 
-        // Reflect on the exchange in the background — updates her model silently
+        const sqlTags = [...raw.matchAll(/\[SQL:\s*([\s\S]+?)\]/gi)];
+
+        if (!sqlTags.length) {
+            // No data needed — plain response
+            reply = raw;
+        } else {
+            // ── Step 2: Execute the SQL and feed real results back ────────────
+            let dataResults = '';
+            for (const match of sqlTags) {
+                try {
+                    const sql = match[1].trim().replace(/;$/, '');
+                    if (!/^SELECT/i.test(sql)) continue;
+                    const limited = /LIMIT/i.test(sql) ? sql : `${sql} LIMIT 20`;
+                    const [rows] = await db.execute(limited);
+                    if (rows.length === 0) {
+                        dataResults += '\n[No results found for that query]';
+                    } else {
+                        const keys = Object.keys(rows[0]);
+                        dataResults += '\n' + rows.map(r =>
+                            keys.map(k => `${k}: ${r[k] ?? '—'}`).join(' | ')
+                        ).join('\n');
+                    }
+                } catch (e) {
+                    dataResults += `\n[Query error: ${e.message}]`;
+                }
+            }
+
+            // ── Step 3: Feed real results back so ARIA answers accurately ─────
+            const finalPrompt = `${question}\n\nReal data from the database:\n${dataResults.trim()}\n\nNow answer naturally using only this real data.`;
+            reply = await callGemini(finalPrompt, buildSystemPrompt(owner, nickname || '') + (ctx ? `\nYOUR PROFILE:\n${ctx}` : ''), history);
+            if (!reply) reply = raw.replace(/\[SQL:[\s\S]*?\]/gi, '').trim();
+        }
+
+        saveHistory(userId, question, reply);
         const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
             `user: ${question}`, `assistant: ${reply}`].join('\n');
         if (nickname) reflectOnConversation(userId, nickname, convLog);
 
     } catch (e) {
-        reply = `I was unable to process that. Please try again.`;
+        reply = `Something went wrong on my end. Try again.`;
         console.error('[ARIA chat]', e.message);
     }
 
