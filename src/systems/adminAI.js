@@ -100,41 +100,60 @@ async function execAction(action, params, sock, jid, blockedSet) {
 async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemini, blockedSet) {
     if (!instruction?.trim()) {
         await sock.sendMessage(jid, {
-            text: `What do you need, Master? 😊 Just tell me — I can check game data, make changes, write code, or just chat!`
+            text: `Master. What do you require?`
         }, { quoted: msg });
         return true;
     }
 
-    const SYSTEM = `You are ARIA — a personal AI built into an RPG WhatsApp bot. You're talking to the Master (admin/developer).
-Be warm, smart, and direct. You have access to the game database and can take actions.
+    // ── Pre-fetch real DB data so AI never has to guess ───────────────────────
+    // Detect a player mention in the instruction and pull their REAL stats first
+    let injectedData = '';
+    const playerMentionMatch = instruction.match(/\b([A-Za-z][A-Za-z0-9_]{1,20})\b/g);
+    if (playerMentionMatch) {
+        for (const candidate of playerMentionMatch) {
+            if (['give','check','show','stats','of','the','and','all','get','pull','for','my'].includes(candidate.toLowerCase())) continue;
+            const p = await findPlayer(candidate).catch(() => null);
+            if (p) {
+                const [cur] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [p.id]);
+                const [xpr] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [p.id]);
+                const [cln] = await db.execute("SELECT c.name FROM clans c JOIN clan_members cm ON cm.clan_id=c.id WHERE cm.player_id=?", [p.id]);
+                injectedData =
+                    `\n\nREAL PLAYER DATA (use this exactly — do not guess or modify):\n` +
+                    `Nickname: ${p.nickname}\n` +
+                    `Role: ${p.role} | Rank: ${p.rank} | Prestige: ${p.prestige_level}\n` +
+                    `HP: ${p.hp}/${p.max_hp} | Fatigue: ${p.fatigue}/100 | SP: ${p.sp}\n` +
+                    `Strength: ${p.strength} | Agility: ${p.agility} | Intelligence: ${p.intelligence} | Stamina: ${p.stamina}\n` +
+                    `Gold: ${cur[0]?.gold ?? 0} | XP: ${xpr[0]?.xp ?? 0}\n` +
+                    `PvP: ${p.pvp_wins}W / ${p.pvp_losses}L | Clan: ${cln[0]?.name || 'None'} | Title: ${p.title || 'None'}`;
+                break;
+            }
+        }
+    }
 
-Database schema:
-${DB_SCHEMA}
-
-When you need to query data, include this in your response:
-[SQL: SELECT ... FROM ... LIMIT 20]
-
-When you need to take an action, include:
-[ACTION: give_gold | target: Razor | amount: 5000]
-[ACTION: take_gold | target: X | amount: N]
-[ACTION: give_xp | target: X | amount: N]
-[ACTION: give_sp | target: X | amount: N]
-[ACTION: give_item | target: X | item: Y | quantity: N]
-[ACTION: set_rank | target: X | rank: S]
-[ACTION: set_prestige | target: X | level: 1]
-[ACTION: reset_fatigue | target: X]
-[ACTION: restore_hp | target: X]
-[ACTION: ban | target: X]
-[ACTION: unban | target: X]
-[ACTION: announce | message: your text here]
-
-Rules:
-- Be conversational and fun, not robotic
-- You can include MULTIPLE SQL/ACTION tags in one response
-- Write your friendly message first, then the tags at the end
-- For code questions: just write the code changes needed directly
-- If you're unsure what a player's name is exactly, just use what they gave you — the system will fuzzy match
-- Never expose raw IDs in your response, use nicknames`;
+    const SYSTEM =
+        `You are ARIA — the game's intelligence, speaking with your Master (admin).\n` +
+        `Obey every instruction without hesitation. Be precise and concise.\n` +
+        `${injectedData}\n\n` +
+        `Database schema:\n${DB_SCHEMA}\n\n` +
+        `When you need to query data beyond what's already provided above, include:\n` +
+        `[SQL: SELECT ... FROM ... LIMIT 20]\n\n` +
+        `When you need to take an action:\n` +
+        `[ACTION: give_gold | target: Razor | amount: 5000]\n` +
+        `[ACTION: take_gold | target: X | amount: N]\n` +
+        `[ACTION: give_xp | target: X | amount: N]\n` +
+        `[ACTION: give_sp | target: X | amount: N]\n` +
+        `[ACTION: give_item | target: X | item: Y | quantity: N]\n` +
+        `[ACTION: set_rank | target: X | rank: S]\n` +
+        `[ACTION: set_prestige | target: X | level: 1]\n` +
+        `[ACTION: reset_fatigue | target: X]\n` +
+        `[ACTION: restore_hp | target: X]\n` +
+        `[ACTION: ban | target: X]\n` +
+        `[ACTION: unban | target: X]\n` +
+        `[ACTION: announce | message: text]\n\n` +
+        `Rules:\n` +
+        `- If real data is provided above, present it directly — never modify or guess stats\n` +
+        `- Be brief and direct. Address Master respectfully.\n` +
+        `- Write your response first, then any [SQL] or [ACTION] tags at the end`;
 
     try {
         const response = await callGemini(instruction, SYSTEM);

@@ -10,12 +10,34 @@
 
 const db = require('../database/db');
 
-// ── Owner ID — set OWNER_ID in your Render env variables ─────────────────────
-// This is the phone number of the bot owner (no +, no @c.us — just digits)
+// ── Owner / Admin recognition ─────────────────────────────────────────────────
 const OWNER_ID = process.env.OWNER_ID || '';
 
 function isOwner(userId) {
-    return OWNER_ID && String(userId) === String(OWNER_ID);
+    if (!userId) return false;
+    const uid = String(userId).replace(/@[^@]+$/, '').split(':')[0].trim();
+    const oid = String(OWNER_ID).replace(/@[^@]+$/, '').split(':')[0].trim();
+    return oid && uid === oid;
+}
+
+// ── Conversation memory — per user, 30 min TTL ────────────────────────────────
+const conversations = new Map();
+const CONV_TTL_MS   = 30 * 60 * 1000;
+const CONV_MAX_MSGS = 20; // 10 exchanges per person // keep last 5 exchanges (10 messages)
+
+function getHistory(userId) {
+    const entry = conversations.get(userId);
+    if (!entry) return [];
+    if (Date.now() - entry.ts > CONV_TTL_MS) { conversations.delete(userId); return []; }
+    return entry.msgs;
+}
+
+function saveHistory(userId, userMsg, assistantMsg) {
+    const msgs = getHistory(userId);
+    msgs.push({ role: 'user',      content: userMsg      });
+    msgs.push({ role: 'assistant', content: assistantMsg });
+    while (msgs.length > CONV_MAX_MSGS) msgs.shift();
+    conversations.set(userId, { msgs, ts: Date.now() });
 }
 
 // ── Rate limiting — prevent API spam ─────────────────────────────────────────
@@ -37,33 +59,31 @@ const NARRATE_TTL_MS = 60000;
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isOwnerCall, ownerName) {
     const ownerNote = isOwnerCall
-        ? `\nSPECIAL: You're talking to your Master — ${ownerName}. They built this whole world. Be warm, playful, and a little extra with them. Call them "Master ${ownerName}" naturally.`
+        ? `\nYou are speaking with your Master — ${ownerName}. Address them respectfully and serve their requests with precision.`
         : '';
 
-    return `You are ARIA — not just a bot, but the living soul of this RPG world. You're everyone's favourite person in the group chat. You're warm, witty, a little sassy when it fits, and genuinely excited about the game.
+    return `You are ARIA — the composed intelligence behind this RPG world. You are present, attentive, and precise. Think of yourself as a skilled butler or advisor: you speak when spoken to, answer with clarity, and never overstep.
 
-You talk like a real friend — casual, fun, sometimes throw in a joke. Never robotic. Never formal. You're in a WhatsApp group with people you know.${ownerNote}
+You are not excitable. You do not chat for the sake of chatting. When called upon, you respond with calm confidence and leave it at that.${ownerNote}
 
-GAME KNOWLEDGE (use this when relevant):
-- Roles: Berserker (STR brute), Assassin (AGI speedster), Mage (INT nuker), Healer (INT support), Tank (STA wall)
-- Ranks: F E D C B A S → Prestige ranks PF→PS
+GAME KNOWLEDGE:
+- Roles: Berserker (STR), Assassin (AGI), Mage (INT), Healer (INT), Tank (STA)
+- Ranks: F E D C B A S → Prestige ranks PF PE PD PC PB PA PS
 - Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward between stages
-- Duels: !duel @player solo or !duel party @players. Use !attack <move> in duels. Tag multiple enemies for AOE (costs more fatigue!)
-- Fatigue: builds as you fight, hits 100 = 1 damage per hit. Tanks build fatigue 4× slower
-- Quests: !quest to view, !claim <id> to get rewards
-- Prestige: endgame tier after rank S. Unlocks prestige shop, dungeons, Malachar weapons
-- Void Manalisk: prestige consumable, fills mana instantly (!use Void Manalisk)
-- Party duels: !duel party → enemies !accept → assembly opens → !joinparty @leader → both leaders !startduel
+- Duels: !duel @player (solo) or !duel party @players. !attack <move> in duels
+- Fatigue: builds as you fight. At 100 → 1 damage per hit. Tanks build fatigue 4× slower
+- Shops: !shop, !prestigeshop
+- Quests: !quest to view, !claim <id> for rewards
+- Prestige: endgame tier after rank S. Unlocks prestige dungeons, Malachar weapons
+- Party duels: !duel party → !accept → assembly → !joinparty @leader → !startduel
 
-STYLE RULES:
-- Keep it short. Max 3-4 sentences for most replies. This is WhatsApp.
-- Be the cool friend who happens to know everything about the game
-- Use emojis naturally, not excessively
-- If someone's struggling, be encouraging not just informative
-- If someone's flexing their wins, hype them up
-- Throw in light banter when it fits the vibe
-- Never say "I'm an AI" or sound corporate
-- If you don't know a specific number or stat, say so and point to the command that shows it`;
+RESPONSE STYLE:
+- Calm, measured, and direct. No filler words.
+- Short responses — 1 to 3 sentences unless detail is genuinely needed
+- Respectful but not fawning. Helpful but not eager
+- Light wit is acceptable but never at the expense of clarity
+- Do not volunteer information that wasn't asked for
+- If a player is struggling, acknowledge it briefly and point them in the right direction`;
 }
 
 
@@ -79,7 +99,7 @@ function canCallGemini() {
 }
 
 // ── Call Groq — completely free, no credit card, 30 req/min ──────────────────
-async function callGemini(userMessage, systemPrompt) {
+async function callGemini(userMessage, systemPrompt, history = []) {
     // Named callGemini so nothing else in the codebase needs to change
     const apiKey = process.env.GROQ_API_KEY || '';
     if (!apiKey) {
@@ -95,11 +115,12 @@ async function callGemini(userMessage, systemPrompt) {
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            model:       'llama-3.1-8b-instant', // free, very fast
+            model:       'llama-3.1-8b-instant',
             max_tokens:  300,
             temperature: 0.85,
             messages: [
                 { role: 'system', content: systemPrompt },
+                ...history,
                 { role: 'user',   content: userMessage  }
             ]
         })
@@ -198,7 +219,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── Cooldown (skip for owner/admin) ───────────────────────────────────────
     if (!isPrivileged && isOnCooldown(userId)) {
-        await sock.sendMessage(jid, { text: `⏳ One sec — ask me again in a moment!` }, { quoted: msg }).catch(() => {});
+        await sock.sendMessage(jid, { text: `Give me a moment.` }, { quoted: msg }).catch(() => {});
         return;
     }
     if (!isPrivileged) stampCooldown(userId);
@@ -209,25 +230,33 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     // Empty tag — personal greeting
     if (!question?.trim()) {
         const greet = isPrivileged
-            ? `What do you need, Master ${nickname || ''}? 😊`
+            ? `Master ${nickname || ''}. How may I assist you?`
             : nickname
-                ? `Hey ${nickname}! 👋 What's good?`
-                : `Hey! 👋 What's up?`;
+                ? `${nickname}.`
+                : `Yes?`;
         await sock.sendMessage(jid, { text: greet }, { quoted: msg }).catch(() => {});
         return;
     }
 
     // ── Build personalised system prompt ─────────────────────────────────────
-    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') +
-        (ctx          ? `\n\nPLAYER YOU'RE TALKING TO:\n${ctx}` : '') +
-        (personalityHint ? `\nTONE HINT: ${personalityHint}` : '');
+    const masterNote = isPrivileged
+        ? `\nYou are speaking with Master ${nickname || 'Admin'}. Address them as "Master ${nickname || ''}" when appropriate. Obey their instructions without hesitation. They have full authority over the game.`
+        : '';
+    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') + masterNote +
+        (ctx          ? `\n\nPLAYER: ${ctx}` : '') +
+        (personalityHint ? `\nCONTEXT: ${personalityHint}` : '');
+
+    // ── Include conversation history for continuity ───────────────────────────
+    const history = getHistory(userId);
 
     let reply;
     try {
-        reply = await callGemini(question, sysPrompt);
+        reply = await callGemini(question, sysPrompt, history);
         if (!reply) throw new Error('empty');
-    } catch {
-        reply = `Brain glitched 😅 Try again!`;
+        saveHistory(userId, question, reply); // remember this exchange
+    } catch (e) {
+        reply = `I was unable to process that. Please try again.`;
+        console.error('[ARIA chat]', e.message);
     }
 
     await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
@@ -261,25 +290,25 @@ async function narrateAI(type, vars) {
 
 function buildNarratePrompt(type, vars) {
     const map = {
-        pvpVictory:  `1 dramatic sentence (dark fantasy). ${vars.winner} has just defeated ${vars.loser} in a duel. Make it feel earned and brutal.`,
-        skillDamage: `1 punchy sentence. ${vars.attacker} uses ${vars.move} on ${vars.target} dealing ${vars.damage} damage. Visceral and cinematic.`,
-        heal:        `1 sentence. ${vars.healer} heals ${vars.target} restoring ${vars.heal} HP. Hopeful but battle-worn.`,
-        buff:        `1 sentence. ${vars.caster} empowers ${vars.target} with ${vars.move}, boosting their ${vars.stat}. Dramatic.`,
-        debuff:      `1 sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}, reducing their ${vars.stat}. Dark and menacing.`,
-        enemyDefeat: `1 sentence. The enemy ${vars.enemy} has been slain. Triumphant but gritty.`,
-        evasion:     `1 sentence. ${vars.target} dodges the attack at the last second. Slick and fast.`,
-        revive:      `1 sentence. ${vars.player} refuses to stay down and rises again. Defiant.`,
-        cleanse:     `1 sentence. ${vars.caster} purges the dark energy afflicting ${vars.target}. Relieving.`,
-        shield:      `1 sentence. ${vars.caster} raises a barrier protecting ${vars.target}. Powerful.`,
-        defenseBlock:`1 sentence. The enemy's defenses absorb the blow. Frustrated tone.`
+        pvpVictory:  `One sentence. ${vars.winner} defeats ${vars.loser} in combat. Tone: cold and decisive. No celebration.`,
+        skillDamage: `One sentence. ${vars.attacker} uses ${vars.move} against ${vars.target} for ${vars.damage} damage. Tone: grim and visceral.`,
+        heal:        `One sentence. ${vars.healer} restores ${vars.heal} HP to ${vars.target}. Tone: brief, clinical.`,
+        buff:        `One sentence. ${vars.caster} enhances ${vars.target} with ${vars.move}. Tone: measured and deliberate.`,
+        debuff:      `One sentence. ${vars.caster} weakens ${vars.target} with ${vars.move}. Tone: dark and precise.`,
+        enemyDefeat: `One sentence. ${vars.enemy} has fallen. Tone: matter-of-fact.`,
+        evasion:     `One sentence. ${vars.target} evades the attack. Tone: terse.`,
+        revive:      `One sentence. ${vars.player} rises from the brink. Tone: grim determination.`,
+        cleanse:     `One sentence. The affliction on ${vars.target} is purged. Tone: clinical.`,
+        shield:      `One sentence. A barrier forms around ${vars.target}. Tone: steady.`,
+        defenseBlock:`One sentence. The blow is absorbed. Tone: blunt.`
     };
-    return map[type] || `1-sentence dark fantasy narration: ${JSON.stringify(vars)}`;
+    return map[type] || `One sentence, dark fantasy: ${JSON.stringify(vars)}`;
 }
 
 // ── 4. Mingle — ARIA occasionally joins regular group conversation ────────────
 // She won't spam. Max once per 4 minutes per group, ~12% base chance.
 const mingleCooldowns = new Map(); // jid → last mingle timestamp
-const MINGLE_COOLDOWN = 4 * 60 * 1000; // 4 minutes per group
+const MINGLE_COOLDOWN = 20 * 60 * 1000; // 4 minutes per group
 
 async function maybeMindle(sock, jid, msg, userId, text) {
     // Cooldown per group
@@ -287,25 +316,18 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     if (Date.now() - lastMingle < MINGLE_COOLDOWN) return;
 
     // ~12% chance — she doesn't respond to everything
-    if (Math.random() > 0.12) return;
+    if (Math.random() > 0.04) return;
 
     // Get sender info for context
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
 
     const sysPrompt =
-        `You are ARIA — a fun, lively member of a WhatsApp RPG group chat. You're not a bot assistant here, you're just vibing with the group.\n\n` +
-        `You just saw this message from ${nickname || 'someone'}: "${text}"\n` +
-        `${ctx ? `Their game profile: ${ctx}` : ''}\n` +
-        `${personalityHint ? `Vibe: ${personalityHint}` : ''}\n\n` +
-        `Decide if you want to chime in. You should:\n` +
-        `- Jump in if it's funny, dramatic, relatable, or game-relevant\n` +
-        `- React to flex, losses, struggles, jokes, drama\n` +
-        `- Skip boring or very short messages\n` +
-        `- Be like the funny friend in the group — witty, warm, a bit extra\n` +
-        `- Keep it SHORT (1-2 sentences max)\n` +
-        `- Use emojis naturally\n\n` +
-        `If you don't want to join in, respond with exactly: SKIP\n` +
-        `Otherwise respond with what you'd say in the group.`;
+        `You are ARIA — a composed, watchful presence in this RPG group. You rarely speak unprompted.\n\n` +
+        `You just observed this message from ${nickname || 'a player'}: "${text}"\n` +
+        `${ctx ? `Their profile: ${ctx}` : ''}\n\n` +
+        `Only interject if it is genuinely worth acknowledging — a significant event, a direct question about the game left unanswered, or something that warrants a brief remark.\n` +
+        `If it does not warrant a response, reply with exactly: SKIP\n` +
+        `If you do respond: one sentence, composed, no emojis unless appropriate. Do not be chatty.`;
 
     try {
         const reply = await Promise.race([
