@@ -36,19 +36,16 @@ module.exports = {
                 }
             }
 
-            // Remove from dungeon
+            // Remove from dungeon — find the dungeon the player is ACTUALLY in
             let removedFromDungeon = false;
             try {
-                const dungeon = await getActiveDungeon();
-                if (dungeon) {
-                    const [inDungeon] = await db.execute(
-                        "SELECT * FROM dungeon_players WHERE player_id=? AND dungeon_id=?",
-                        [userId, dungeon.id]
-                    );
-                    if (inDungeon.length) {
-                        await removePlayerFromDungeon(userId, dungeon.id);
-                        removedFromDungeon = true;
-                    }
+                const [playerDungeon] = await db.execute(
+                    "SELECT dungeon_id FROM dungeon_players WHERE player_id=? LIMIT 1",
+                    [userId]
+                );
+                if (playerDungeon[0]) {
+                    await removePlayerFromDungeon(userId, playerDungeon[0].dungeon_id);
+                    removedFromDungeon = true;
                 }
             } catch(e) {}
 

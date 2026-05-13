@@ -35,8 +35,8 @@ module.exports = {
                 );
             }
 
-            if (!dungeon.stage_cleared) {
-                return msg.reply(`══〘 ⚠️ BLOCKED 〙══╮\n┃◆ The path forward is sealed by a lingering malevolence. Defeat all enemies first!\n┃◆ Use !dungeon to check status.\n╰═══════════════════════╯`);
+            if (dungeon.stage_cleared !== 1) {
+                return msg.reply(`══〘 ⚠️ BLOCKED 〙══╮\n┃◆ The path forward is sealed. Defeat all enemies first!\n┃◆ Use !dungeon to check status.\n╰═══════════════════════╯`);
             }
 
             const maxStage = await getMaxStageForDungeon(dungeon.id);

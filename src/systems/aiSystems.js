@@ -32,19 +32,43 @@ function isAdminId(userId, admins = []) {
 // ── Conversation history — stored in DB forever, never deleted ────────────────
 const CONV_LOAD = 30;
 
-// Create table safely after DB is ready
-setTimeout(() => {
-    db.execute(`
-        CREATE TABLE IF NOT EXISTS aria_conversations (
-            id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-            player_id  VARCHAR(50) NOT NULL,
-            role       ENUM('user','assistant') NOT NULL,
-            content    TEXT NOT NULL,
+// ── Create ARIA memory tables at startup — no external file needed ────────────
+setTimeout(async () => {
+    try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS aria_conversations (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            player_id VARCHAR(50) NOT NULL,
+            role ENUM('user','assistant') NOT NULL,
+            content TEXT NOT NULL,
             created_at DATETIME DEFAULT NOW(),
             INDEX idx_player_time (player_id, created_at)
-        )
-    `).catch(() => {});
-}, 5000);
+        )`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS aria_memory (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            type ENUM('episodic','semantic','emotional','internal') NOT NULL,
+            subject VARCHAR(100), content TEXT NOT NULL,
+            importance TINYINT DEFAULT 5, emotion VARCHAR(30),
+            recalled INT DEFAULT 0, created_at DATETIME DEFAULT NOW(),
+            last_used DATETIME DEFAULT NOW()
+        )`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS aria_player_model (
+            player_id VARCHAR(50) PRIMARY KEY, nickname VARCHAR(50),
+            first_seen DATETIME DEFAULT NOW(), last_seen DATETIME DEFAULT NOW(),
+            total_talks INT DEFAULT 0, personality TEXT, relationship VARCHAR(20) DEFAULT 'neutral',
+            notable_events TEXT, inside_jokes TEXT, mood_today VARCHAR(30), updated_at DATETIME DEFAULT NOW()
+        )`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS aria_world_state (
+            key_name VARCHAR(100) PRIMARY KEY, value TEXT, updated_at DATETIME DEFAULT NOW()
+        )`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS aria_identity (
+            id INT DEFAULT 1 PRIMARY KEY, core_values TEXT,
+            current_mood VARCHAR(30) DEFAULT 'composed', observations TEXT, last_updated DATETIME DEFAULT NOW()
+        )`);
+        await db.execute(`INSERT IGNORE INTO aria_identity (id, core_values, observations)
+            VALUES (1, 'Precision over noise. Loyalty to those who earn it.', 'Just getting started.')`);
+        console.log('[ARIA] Memory tables ready');
+    } catch (e) { console.error('[ARIA] Table setup error:', e.message); }
+}, 3000);
 
 async function getHistory(userId) {
     try {
@@ -154,7 +178,7 @@ async function callGemini(userMessage, systemPrompt, history = []) {
         },
         body: JSON.stringify({
             model:       'llama-3.1-8b-instant',
-            max_tokens:  300,
+            max_tokens:  500,
             temperature: 0.85,
             messages: [
                 { role: 'system', content: systemPrompt },

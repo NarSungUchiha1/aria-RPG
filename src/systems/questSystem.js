@@ -139,7 +139,7 @@ async function assignDailyQuests(playerId) {
 
     // Check for TODAY's daily quests specifically — not party/achievement
     const [existing] = await db.execute(
-        `SELECT pq.id FROM player_quests pq
+        `SELECT pq.quest_id FROM player_quests pq
          JOIN quests q ON q.id = pq.quest_id
          WHERE pq.player_id=? AND pq.assigned_date=? AND q.quest_type='daily'`,
         [playerId, today]
@@ -245,13 +245,13 @@ async function claimQuestRewards(playerId, questId, client) {
     // Find the specific unclaimed completed row
     // Use COALESCE so NULL dates sort consistently
     const [pq] = await db.execute(
-        `SELECT id FROM player_quests
+        `SELECT quest_id, assigned_date FROM player_quests
          WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
          ORDER BY COALESCE(assigned_date, '9999-12-31') DESC LIMIT 1`,
         [playerId, questId]
     );
     if (!pq.length) return { error: "Quest not completed or already claimed." };
-    const rowId = pq[0].id;
+    const assignedDate = pq[0].assigned_date;
 
     const [quest] = await db.execute("SELECT * FROM quests WHERE id=?", [questId]);
     if (!quest.length) return { error: "Quest not found." };
@@ -271,10 +271,11 @@ async function claimQuestRewards(playerId, questId, client) {
     if (q.reward_title) {
         await db.execute("UPDATE players SET title=? WHERE id=?", [q.reward_title, playerId]).catch(() => {});
     }
-    // Mark claimed using the specific row id — no ORDER BY needed
     await db.execute(
-        `UPDATE player_quests SET claimed=1 WHERE id=?`,
-        [rowId]
+        `UPDATE player_quests SET claimed=1
+         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
+         AND COALESCE(assigned_date,'9999-12-31') = COALESCE(?,'9999-12-31') LIMIT 1`,
+        [playerId, questId, assignedDate]
     );
     return { quest: q };
 }
