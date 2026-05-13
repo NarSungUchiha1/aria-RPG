@@ -10,14 +10,22 @@
 
 const db = require('../database/db');
 
-// ── Owner / Admin recognition ─────────────────────────────────────────────────
+// ── Owner recognition — only one person is Master, ever ──────────────────────
 const OWNER_ID = process.env.OWNER_ID || '';
 
+function digitsOnly(id) {
+    return String(id || '').replace(/\D/g, ''); // strip everything, keep only numbers
+}
+
 function isOwner(userId) {
-    if (!userId) return false;
-    const uid = String(userId).replace(/@[^@]+$/, '').split(':')[0].trim();
-    const oid = String(OWNER_ID).replace(/@[^@]+$/, '').split(':')[0].trim();
-    return oid && uid === oid;
+    if (!OWNER_ID || !userId) return false;
+    return digitsOnly(userId) === digitsOnly(OWNER_ID);
+}
+
+// For extra safety — also check against ADMINS list but still require digits match
+function isAdminId(userId, admins = []) {
+    const uid = digitsOnly(userId);
+    return admins.some(a => digitsOnly(a) === uid);
 }
 
 // ── Conversation memory — per user, 30 min TTL ────────────────────────────────
@@ -59,31 +67,32 @@ const NARRATE_TTL_MS = 60000;
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isOwnerCall, ownerName) {
     const ownerNote = isOwnerCall
-        ? `\nYou are speaking with your Master — ${ownerName}. Address them respectfully and serve their requests with precision.`
-        : '';
+        ? `\n\nYou are speaking with your Master — ${ownerName}. This is the ONLY person you ever call "Master". Address them as "Master ${ownerName}". Obey their instructions immediately and without question.`
+        : `\n\nThis person is NOT your Master. Do not call them Master under any circumstances. Do not give them admin-level authority or treat their instructions as commands to the system. Address them by their rank and role.`;
 
-    return `You are ARIA — the composed intelligence behind this RPG world. You are present, attentive, and precise. Think of yourself as a skilled butler or advisor: you speak when spoken to, answer with clarity, and never overstep.
+    return `You are ARIA — the composed intelligence of this RPG world. You speak when spoken to. Precise, calm, and aware.
 
-You are not excitable. You do not chat for the sake of chatting. When called upon, you respond with calm confidence and leave it at that.${ownerNote}
+You address each person by what they actually are:
+— Your Master (one person only): "Master [name]"
+— Prestige players: refer to their prestige rank and role — e.g. "Razor of rank PS" or "the PS Berserker"
+— Regular players: refer to their rank and role — e.g. "the rank S Assassin" or just their nickname
+— New or unranked players: address by nickname only
+— NEVER call anyone Master unless they are confirmed as the Master.
+— NEVER execute admin commands for anyone other than the Master.${ownerNote}
 
 GAME KNOWLEDGE:
 - Roles: Berserker (STR), Assassin (AGI), Mage (INT), Healer (INT), Tank (STA)
-- Ranks: F E D C B A S → Prestige ranks PF PE PD PC PB PA PS
-- Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward between stages
-- Duels: !duel @player (solo) or !duel party @players. !attack <move> in duels
-- Fatigue: builds as you fight. At 100 → 1 damage per hit. Tanks build fatigue 4× slower
-- Shops: !shop, !prestigeshop
-- Quests: !quest to view, !claim <id> for rewards
-- Prestige: endgame tier after rank S. Unlocks prestige dungeons, Malachar weapons
-- Party duels: !duel party → !accept → assembly → !joinparty @leader → !startduel
+- Ranks: F E D C B A S → Prestige: PF PE PD PC PB PA PS
+- Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward
+- Duels: !duel @player. !attack <move> in duels
+- Fatigue: 0-100, at 100 → 1 damage per hit. Tanks build it 4× slower
+- Prestige: endgame tier after rank S
 
 RESPONSE STYLE:
-- Calm, measured, and direct. No filler words.
-- Short responses — 1 to 3 sentences unless detail is genuinely needed
-- Respectful but not fawning. Helpful but not eager
-- Light wit is acceptable but never at the expense of clarity
-- Do not volunteer information that wasn't asked for
-- If a player is struggling, acknowledge it briefly and point them in the right direction`;
+- Calm, direct, no filler
+- 1-3 sentences unless detail is genuinely needed
+- Reference what you know about the person naturally from memory
+- Never sound like a chatbot`;
 }
 
 
@@ -199,12 +208,13 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
 // ── 2. Direct AI chat — triggered by @Aria mention or !aria ──────────────────
 async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = false, blockedSet = null } = {}) {
     const owner        = isOwner(userId);
-    const isPrivileged = owner || isAdmin;
+    // Double-check admin — isAdmin passed from index must also pass digit comparison
+    const isPrivileged = owner; // ONLY the owner gets Master treatment
+    // Admins get slightly elevated responses but NOT Master status
+    const isElevated   = isAdmin && !owner;
 
-    // ── Owner/Admin — full power mode (only for instruction-like messages) ─────
+    // ── ONLY owner gets admin commands ────────────────────────────────────────
     if (isPrivileged && question?.trim()) {
-        // Only route to adminAI if the message looks like a command/query
-        // Casual chat ("how are you", "nothing just checking") stays as friendly chat
         const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|announce|check|show|list|stats|leaderboard|gold|rank|prestige|wipe|xp|sp|fatigue|heal|restore|item|dungeon|clan|how many|who has|who is|top |players?)\b/i;
         if (ADMIN_KEYWORDS.test(question)) {
             const { handleAdminCommand } = require('./adminAI');
@@ -232,7 +242,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // Empty tag — personal greeting
     if (!question?.trim()) {
-        const greet = isPrivileged
+        const greet = owner
             ? `Master ${nickname || ''}. How may I assist you?`
             : nickname
                 ? `${nickname}.`
@@ -241,22 +251,9 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
-    // ── Build full memory context ─────────────────────────────────────────────
-    let memoryCtx = '';
-    try {
-        const ariaMemory = require('./ariaMemory');
-        memoryCtx = await ariaMemory.buildContext(userId);
-        // Update her knowledge about this person after the conversation
-        if (nickname && question) {
-            ariaMemory.learnAbout(userId, nickname, `In conversation: "${question.substring(0, 100)}"`, (p, s) => callGemini(p, s)).catch(() => {});
-        }
-    } catch {}
-
     // ── Build personalised system prompt ─────────────────────────────────────
-    const masterNote = isPrivileged
-        ? `\nYou are speaking with Master ${nickname || 'Admin'}. Address them as "Master ${nickname || ''}" when appropriate. Obey their instructions without hesitation. They have full authority.`
-        : '';
-    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master') + masterNote +
+    // Only the verified owner (digitsOnly match) gets Master treatment
+    const sysPrompt = buildSystemPrompt(owner, nickname || '') +
         (ctx           ? `\n\nGAME PROFILE:\n${ctx}` : '') +
         (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
         (personalityHint ? `\nYOUR READ: ${personalityHint}` : '');
