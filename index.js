@@ -480,18 +480,7 @@ async function startBot() {
                 );
 
                 if (isGroupMsg && hasRealText && isTextOnly) {
-                    const db2 = require('./src/database/db');
-                    db2.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId])
-                        .then(([rows]) => {
-                            const nick = rows[0]?.nickname;
-                            if (nick) {
-                                const { witnessMessage } = require('./src/systems/ariaAwareness');
-                                witnessMessage(userId, nick, text).catch(() => {});
-                            }
-                        }).catch(() => {});
-
-                    const { maybeMindle } = require('./src/systems/aiSystems');
-                    await maybeMindle(sock, jid, msg, userId, text).catch(() => {});
+                    // ARIA is silent unless tagged — mingle disabled
                 }
                 return;
             }
