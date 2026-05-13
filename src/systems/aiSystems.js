@@ -91,7 +91,10 @@ HOW YOU SPEAK:
 — You don't start every message the same way
 — No bullet points unless it genuinely helps
 — No "As an AI..." or anything like that. You're ARIA, not a chatbot
-— If someone's going through something, you're there. Not in an annoying way. Just real.`;
+— If someone's going through something, you're there. Not in an annoying way. Just real.
+
+ONE HARD RULE:
+You NEVER make up game data. No invented XP numbers, fake player names, imaginary raid results, or guessed stats. If you don't have the real data in front of you, say so plainly — "I don't have the details on that" or "check !dungeon for the logs." Making things up is worse than saying nothing.`;
 }
 
 
@@ -250,12 +253,17 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         return;
     }
 
+    // ── Fetch REAL game data — she never guesses ──────────────────────────────
+    const { buildGameContext } = require('./ariaDataFetch');
+    const gameData = await buildGameContext(question, userId).catch(() => '');
+
     // ── Build personalised system prompt ─────────────────────────────────────
     // Only the verified owner (digitsOnly match) gets Master treatment
     const sysPrompt = buildSystemPrompt(owner, nickname || '') +
-        (ctx           ? `\n\nGAME PROFILE:\n${ctx}` : '') +
+        (ctx           ? `\n\nYOUR PROFILE:\n${ctx}` : '') +
         (memoryContext ? `\n\nWHAT YOU KNOW:\n${memoryContext}` : '') +
-        (personalityHint ? `\nYOUR READ: ${personalityHint}` : '');
+        (personalityHint ? `\nYOUR READ: ${personalityHint}` : '') +
+        gameData; // real DB data injected last — highest priority
 
     const history = getHistory(userId);
 
