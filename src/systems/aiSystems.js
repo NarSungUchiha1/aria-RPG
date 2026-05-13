@@ -30,20 +30,21 @@ function isAdminId(userId, admins = []) {
 
 // ── Conversation memory — per user, 30 min TTL ────────────────────────────────
 // ── Conversation history — stored in DB forever, never deleted ────────────────
-// She remembers every exchange. No limits. No trimming.
-// Only the last 30 messages are loaded per call to keep API costs low.
-const CONV_LOAD = 30; // how many messages to load per conversation
+const CONV_LOAD = 30;
 
-db.execute(`
-    CREATE TABLE IF NOT EXISTS aria_conversations (
-        id         BIGINT AUTO_INCREMENT PRIMARY KEY,
-        player_id  VARCHAR(50) NOT NULL,
-        role       ENUM('user','assistant') NOT NULL,
-        content    TEXT NOT NULL,
-        created_at DATETIME DEFAULT NOW(),
-        INDEX idx_player_time (player_id, created_at)
-    )
-`).catch(() => {});
+// Create table safely after DB is ready
+setTimeout(() => {
+    db.execute(`
+        CREATE TABLE IF NOT EXISTS aria_conversations (
+            id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+            player_id  VARCHAR(50) NOT NULL,
+            role       ENUM('user','assistant') NOT NULL,
+            content    TEXT NOT NULL,
+            created_at DATETIME DEFAULT NOW(),
+            INDEX idx_player_time (player_id, created_at)
+        )
+    `).catch(() => {});
+}, 5000);
 
 async function getHistory(userId) {
     try {
