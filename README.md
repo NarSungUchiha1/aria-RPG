@@ -33,5 +33,6 @@ dungeons, and battle monsters — all through WhatsApp chat commands.
 | !step | Explore / find monsters |
 | !shop | Browse the market |
 | !daily | Claim daily coins |
+this should be updated
 
 > ⚠️ Currently in testing. Invite only.
