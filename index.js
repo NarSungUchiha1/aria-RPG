@@ -342,9 +342,13 @@ async function startBot() {
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
 
-                // Init ARIA's memory tables
+                // Init all missing DB tables
                 const { ensureMemoryTables } = require('./src/systems/ariaMemory');
-                await ensureMemoryTables().catch(() => {});
+                const { setupMissingTables } = require('./src/database/setupTables');
+                Promise.all([
+                    ensureMemoryTables().catch(() => {}),
+                    setupMissingTables().catch(() => {})
+                ]);
                 lastQR = '';
                 lastPairingCode = '';
 
