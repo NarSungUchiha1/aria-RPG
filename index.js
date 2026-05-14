@@ -432,12 +432,15 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
+            // ── Full message log — see everything ─────────────────────────────
+            const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
+            console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
+
             // ── @Aria mention handler + reply detection ───────────────────────
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
             const quotedNum = quotedParticipant.replace(/@[^@]+$/, '').split(':')[0].trim();
 
-            // Check both phone number AND linked device ID — WhatsApp uses @lid in group mentions
             const botMentioned = mentionedJids.some(j => {
                 const jNum = j.replace(/@[^@]+$/, '').split(':')[0].trim();
                 return (BOT_NUMBER && jNum === BOT_NUMBER) ||
@@ -445,12 +448,15 @@ async function startBot() {
             }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
                || (BOT_LID    && text.includes(`@${BOT_LID}`));
 
-            // Also trigger when someone replies directly to one of ARIA's messages
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
 
-            if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
-                // Resolve @mentions to player nicknames before stripping numbers
+            // For replies: only trigger if the message contains a question
+            // (has a question mark OR is more than 4 words — likely asking something)
+            const isAskingQuestion = text.includes('?') ||
+                text.replace(/@\d+/g, '').trim().split(/\s+/).length > 4;
+
+            if (botMentioned || (isReplyToBot && !text.startsWith('!') && isAskingQuestion)) {
                 let question = text;
                 const nonBotMentions = mentionedJids.filter(j => {
                     const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -466,9 +472,8 @@ async function startBot() {
                         } catch {}
                     }
                 }
-                // Strip bot mention and leftover @numbers
                 question = question.replace(/@\d+/g, '').trim();
-                console.log(`[ARIA] triggered (${botMentioned ? 'mention' : 'reply'}) | question: "${question}"`);
+                console.log(`[ARIA] triggered (${botMentioned ? 'mention' : 'reply'}) | "${question}"`);
                 const { handleAriaCommand } = require('./src/systems/aiSystems');
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
                 await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
@@ -476,15 +481,17 @@ async function startBot() {
             }
 
             if (!text.startsWith('!')) {
-                // ── ARIA witnesses everything silently ────────────────────────
-                const isGroupMsg  = jid.endsWith('@g.us');
-                const hasRealText = text.length > 8;
-                const isTextOnly  = Object.keys(msg.message || {}).some(t =>
-                    ['conversation','extendedTextMessage'].includes(t)
-                );
-
-                if (isGroupMsg && hasRealText && isTextOnly) {
-                    // ARIA is silent unless tagged — mingle disabled
+                // ARIA silently witnesses group messages — stores in memory
+                if (jid.endsWith('@g.us') && text.length > 8) {
+                    try {
+                        const db2 = require('./src/database/db');
+                        const [rows] = await db2.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId]);
+                        const nick = rows[0]?.nickname;
+                        if (nick) {
+                            const { witnessMessage } = require('./src/systems/ariaAwareness');
+                            witnessMessage(userId, nick, text).catch(() => {});
+                        }
+                    } catch {}
                 }
                 return;
             }
