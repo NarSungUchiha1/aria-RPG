@@ -158,7 +158,18 @@ async function assignDailyQuests(playerId) {
         );
     }
 
-    // Ensure achievement rows exist for this player (once, no date)
+   // ── Deduplicate achievement rows — kills NULL-key duplicates ─────────────────
+    await db.execute(`DELETE p1 FROM player_quests p1
+        INNER JOIN player_quests p2
+        ON p1.player_id=p2.player_id AND p1.quest_id=p2.quest_id
+        AND p1.assigned_date IS NULL AND p2.assigned_date IS NULL
+        AND p1.progress < p2.progress WHERE p1.player_id=?`, [playerId]).catch(()=>{});
+    await db.execute(`DELETE p1 FROM player_quests p1
+        INNER JOIN player_quests p2
+        ON p1.player_id=p2.player_id AND p1.quest_id=p2.quest_id
+        AND p1.assigned_date IS NULL AND p2.assigned_date IS NULL
+        AND p1.claimed < p2.claimed AND p1.progress=p2.progress WHERE p1.player_id=?`, [playerId]).catch(()=>{});
+
     const [achRows] = await db.execute(
         "SELECT quest_id FROM player_quests pq JOIN quests q ON q.id=pq.quest_id WHERE pq.player_id=? AND q.quest_type='achievement'",
         [playerId]
@@ -242,40 +253,34 @@ async function updateQuestProgress(playerId, objectiveType, amount = 1, client =
 
 // ── CLAIM QUEST REWARDS ──────────────────────────────────────────────────────
 async function claimQuestRewards(playerId, questId, client) {
-    // Find the specific unclaimed completed row
-    // Use COALESCE so NULL dates sort consistently
+    // Check at least one completed unclaimed row exists
     const [pq] = await db.execute(
-        `SELECT quest_id, assigned_date FROM player_quests
-         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
-         ORDER BY COALESCE(assigned_date, '9999-12-31') DESC LIMIT 1`,
+        `SELECT quest_id FROM player_quests
+         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0 LIMIT 1`,
         [playerId, questId]
     );
     if (!pq.length) return { error: "Quest not completed or already claimed." };
-    const assignedDate = pq[0].assigned_date;
 
     const [quest] = await db.execute("SELECT * FROM quests WHERE id=?", [questId]);
     if (!quest.length) return { error: "Quest not found." };
     const q = quest[0];
 
     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [q.reward_gold || 0, playerId]);
-    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",          [q.reward_xp   || 0, playerId]);
-    if (q.reward_sp) {
-        await db.execute("UPDATE players SET sp = sp + ? WHERE id=?", [q.reward_sp, playerId]);
-    }
-    if (q.reward_item) {
-        await db.execute(
-            "INSERT INTO inventory (player_id, item_name, item_type, quantity) VALUES (?, ?, 'misc', 1)",
-            [playerId, q.reward_item]
-        );
-    }
-    if (q.reward_title) {
-        await db.execute("UPDATE players SET title=? WHERE id=?", [q.reward_title, playerId]).catch(() => {});
-    }
+    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [q.reward_xp   || 0, playerId]);
+    if (q.reward_sp)   await db.execute("UPDATE players SET sp = sp + ? WHERE id=?", [q.reward_sp, playerId]);
+    if (q.reward_item) await db.execute(
+        "INSERT INTO inventory (player_id, item_name, item_type, quantity) VALUES (?, ?, 'misc', 1)",
+        [playerId, q.reward_item]
+    );
+    if (q.reward_title) await db.execute(
+        "UPDATE players SET title=? WHERE id=?", [q.reward_title, playerId]
+    ).catch(() => {});
+
+    // Mark ALL rows for this quest as claimed — kills any duplicate rows in one shot
     await db.execute(
         `UPDATE player_quests SET claimed=1
-         WHERE player_id=? AND quest_id=? AND completed=1 AND claimed=0
-         AND COALESCE(assigned_date,'9999-12-31') = COALESCE(?,'9999-12-31') LIMIT 1`,
-        [playerId, questId, assignedDate]
+         WHERE player_id=? AND quest_id=? AND claimed=0`,
+        [playerId, questId]
     );
     return { quest: q };
 }
