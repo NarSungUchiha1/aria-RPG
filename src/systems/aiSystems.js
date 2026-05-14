@@ -421,9 +421,25 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         if (/\b(went on|happening|going on|group|chat|said|talked|who said|activity|report|today|lately|recent|messages?)\b/.test(q)) {
             try {
                 const hours = /yesterday/.test(q) ? 48 : /week/.test(q) ? 168 : 24;
-                const { getGroupLog } = require('./ariaAwareness');
-                const log = await getGroupLog(jid, hours, 80);
-                if (log) fetched.push(`GROUP ACTIVITY (last ${hours}h):\n${log}`);
+                const { getGroupLog, getAllGroupSummary } = require('./ariaAwareness');
+
+                // Did they name a specific group?
+                const raidMatch   = /raid|dungeon.*group|raidgc/i.test(q);
+                const generalMatch = /general|other|main|second/i.test(q);
+
+                const RAID_JID = process.env.RAID_GROUP_JID || '';
+
+                let targetJid = jid; // default: the group they're asking from
+                if (raidMatch && RAID_JID) targetJid = RAID_JID;
+
+                // If they ask "all groups" or "every group" — get summary of all
+                if (/all group|every group|both group/.test(q)) {
+                    const summary = await getAllGroupSummary(hours);
+                    if (summary) fetched.push(`ALL GROUPS ACTIVITY (last ${hours}h):\n${summary}`);
+                } else {
+                    const log = await getGroupLog(targetJid, hours, 80);
+                    if (log) fetched.push(`GROUP ACTIVITY (last ${hours}h) from ${targetJid === RAID_JID ? 'Raid Group' : 'this group'}:\n${log}`);
+                }
             } catch {}
         }
 

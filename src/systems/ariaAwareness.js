@@ -10,22 +10,21 @@ const { remember, recallRecent, getIdentity, setWorldState, getWorldState } = re
 
 // ── What ARIA witnesses and files away ────────────────────────────────────────
 
-async function witnessMessage(userId, nickname, text, groupJid = null) {
+async function witnessMessage(userId, nickname, text, groupJid = null, groupName = null) {
     if (!text || text.length < 4) return;
     if (text.startsWith('!')) return;
 
-    // Store in episodic memory as before
     await remember('episodic', userId,
         `${nickname} said: "${text.substring(0, 120)}"`,
         { importance: 3 }
     ).catch(() => {});
 
-    // Also store in the full group log table for spy-mode reporting
     try {
         await db.execute(`
             CREATE TABLE IF NOT EXISTS aria_group_log (
                 id          BIGINT AUTO_INCREMENT PRIMARY KEY,
                 group_jid   VARCHAR(100),
+                group_name  VARCHAR(100),
                 player_id   VARCHAR(50),
                 nickname    VARCHAR(50),
                 content     TEXT,
@@ -36,11 +35,10 @@ async function witnessMessage(userId, nickname, text, groupJid = null) {
         `).catch(() => {});
 
         await db.execute(
-            `INSERT INTO aria_group_log (group_jid, player_id, nickname, content) VALUES (?,?,?,?)`,
-            [groupJid || 'unknown', userId, nickname, text.substring(0, 500)]
+            `INSERT INTO aria_group_log (group_jid, group_name, player_id, nickname, content) VALUES (?,?,?,?,?)`,
+            [groupJid || 'unknown', groupName || groupJid || 'unknown', userId, nickname, text.substring(0, 500)]
         );
 
-        // Keep only last 500 messages per group to avoid bloat
         await db.execute(`
             DELETE FROM aria_group_log
             WHERE group_jid = ? AND id NOT IN (
@@ -152,6 +150,35 @@ async function getGroupLog(groupJid, hours = 24, limit = 80) {
     } catch { return null; }
 }
 
+// ── Summary across ALL groups ─────────────────────────────────────────────────
+async function getAllGroupSummary(hours = 24) {
+    try {
+        const [groups] = await db.execute(
+            `SELECT DISTINCT group_jid, group_name FROM aria_group_log
+             WHERE created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)`,
+            [hours]
+        );
+        if (!groups.length) return null;
+
+        const parts = [];
+        for (const g of groups) {
+            const [rows] = await db.execute(`
+                SELECT nickname, content, created_at FROM aria_group_log
+                WHERE group_jid = ? AND created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)
+                ORDER BY created_at ASC LIMIT 40`,
+                [g.group_jid, hours]
+            );
+            if (!rows.length) continue;
+            const log = rows.map(r => {
+                const time = new Date(r.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                return `[${time}] ${r.nickname}: ${r.content}`;
+            }).join('\n');
+            parts.push(`=== ${g.group_name} ===\n${log}`);
+        }
+        return parts.join('\n\n');
+    } catch { return null; }
+}
+
 module.exports = {
     witnessMessage,
     witnessDuelResult,
@@ -160,5 +187,6 @@ module.exports = {
     witnessRankUp,
     shouldSpeakNow,
     getWorldContext,
-    getGroupLog
+    getGroupLog,
+    getAllGroupSummary
 };

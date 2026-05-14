@@ -446,7 +446,10 @@ async function startBot() {
                 return (BOT_NUMBER && jNum === BOT_NUMBER) ||
                        (BOT_LID    && jNum === BOT_LID);
             }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
-               || (BOT_LID    && text.includes(`@${BOT_LID}`));
+               || (BOT_LID    && text.includes(`@${BOT_LID}`))
+               || /^@aria\b/i.test(text.trim())  // plain text "@Aria" trigger
+               || text.toLowerCase().includes('@aria ')
+               || text.toLowerCase() === '@aria';
 
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
@@ -488,8 +491,10 @@ async function startBot() {
                         const [rows] = await db2.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId]);
                         const nick = rows[0]?.nickname;
                         if (nick) {
+                            const RAID_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                            const groupName = jid === RAID_JID ? 'Raid Group' : `Group_${jid.substring(0, 10)}`;
                             const { witnessMessage } = require('./src/systems/ariaAwareness');
-                            witnessMessage(userId, nick, text, jid).catch(() => {});
+                            witnessMessage(userId, nick, text, jid, groupName).catch(() => {});
                         }
                     } catch {}
                 }
