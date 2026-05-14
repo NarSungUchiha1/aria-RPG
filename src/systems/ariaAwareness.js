@@ -10,16 +10,47 @@ const { remember, recallRecent, getIdentity, setWorldState, getWorldState } = re
 
 // ── What ARIA witnesses and files away ────────────────────────────────────────
 
-async function witnessMessage(userId, nickname, text) {
-    // Don't remember noise — only things with substance
-    if (!text || text.length < 8) return;
-    if (text.startsWith('!')) return; // commands aren't interesting to her
+async function witnessMessage(userId, nickname, text, groupJid = null) {
+    if (!text || text.length < 4) return;
+    if (text.startsWith('!')) return;
 
-    // File it away as episodic memory
+    // Store in episodic memory as before
     await remember('episodic', userId,
         `${nickname} said: "${text.substring(0, 120)}"`,
         { importance: 3 }
-    );
+    ).catch(() => {});
+
+    // Also store in the full group log table for spy-mode reporting
+    try {
+        await db.execute(`
+            CREATE TABLE IF NOT EXISTS aria_group_log (
+                id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+                group_jid   VARCHAR(100),
+                player_id   VARCHAR(50),
+                nickname    VARCHAR(50),
+                content     TEXT,
+                created_at  DATETIME DEFAULT NOW(),
+                INDEX idx_group_time (group_jid, created_at),
+                INDEX idx_time (created_at)
+            )
+        `).catch(() => {});
+
+        await db.execute(
+            `INSERT INTO aria_group_log (group_jid, player_id, nickname, content) VALUES (?,?,?,?)`,
+            [groupJid || 'unknown', userId, nickname, text.substring(0, 500)]
+        );
+
+        // Keep only last 500 messages per group to avoid bloat
+        await db.execute(`
+            DELETE FROM aria_group_log
+            WHERE group_jid = ? AND id NOT IN (
+                SELECT id FROM (
+                    SELECT id FROM aria_group_log
+                    WHERE group_jid = ? ORDER BY created_at DESC LIMIT 500
+                ) t
+            )`, [groupJid || 'unknown', groupJid || 'unknown']
+        ).catch(() => {});
+    } catch {}
 }
 
 async function witnessDuelResult(winnerId, winnerNick, loserId, loserNick, type) {
@@ -102,6 +133,25 @@ async function getWorldContext() {
     return lines.join('\n');
 }
 
+// ── Pull group activity for spy-mode reporting ────────────────────────────────
+async function getGroupLog(groupJid, hours = 24, limit = 80) {
+    try {
+        const [rows] = await db.execute(`
+            SELECT nickname, content, created_at
+            FROM aria_group_log
+            WHERE group_jid = ?
+            AND created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)
+            ORDER BY created_at ASC LIMIT ?`,
+            [groupJid, hours, limit]
+        );
+        if (!rows.length) return null;
+        return rows.map(r => {
+            const time = new Date(r.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            return `[${time}] ${r.nickname}: ${r.content}`;
+        }).join('\n');
+    } catch { return null; }
+}
+
 module.exports = {
     witnessMessage,
     witnessDuelResult,
@@ -109,5 +159,6 @@ module.exports = {
     witnessPlayerDeath,
     witnessRankUp,
     shouldSpeakNow,
-    getWorldContext
+    getWorldContext,
+    getGroupLog
 };

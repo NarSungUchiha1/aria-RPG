@@ -489,7 +489,7 @@ async function startBot() {
                         const nick = rows[0]?.nickname;
                         if (nick) {
                             const { witnessMessage } = require('./src/systems/ariaAwareness');
-                            witnessMessage(userId, nick, text).catch(() => {});
+                            witnessMessage(userId, nick, text, jid).catch(() => {});
                         }
                     } catch {}
                 }

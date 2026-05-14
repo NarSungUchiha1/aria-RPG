@@ -177,23 +177,23 @@ function canCallGemini() {
     return true;
 }
 
-// ── Call Grok (xAI) — $25 free credits/month ─────────────────────────────────
+// ── Call Groq — free, no card, 30 req/min ────────────────────────────────────
 async function callGemini(userMessage, systemPrompt, history = []) {
-    const apiKey = process.env.XAI_API_KEY || '';
+    const apiKey = process.env.GROQ_API_KEY || '';
     if (!apiKey) {
-        console.error('[ARIA] XAI_API_KEY is not set!');
-        throw new Error('XAI_API_KEY not set');
+        console.error('[ARIA] GROQ_API_KEY is not set!');
+        throw new Error('GROQ_API_KEY not set');
     }
     if (!canCallGemini()) throw new Error('rate limit — try again shortly');
 
-    const response = await fetch('https://api.x.ai/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method:  'POST',
         headers: {
             'Content-Type':  'application/json',
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            model:       'grok-3-mini',
+            model:       'llama-3.1-8b-instant',
             max_tokens:  500,
             temperature: 0.85,
             messages: [
@@ -206,8 +206,8 @@ async function callGemini(userMessage, systemPrompt, history = []) {
 
     if (!response.ok) {
         const errText = await response.text().catch(() => '');
-        console.error(`[ARIA] Grok error ${response.status}:`, errText.substring(0, 200));
-        throw new Error(`Grok ${response.status}`);
+        console.error(`[ARIA] Groq error ${response.status}:`, errText.substring(0, 200));
+        throw new Error(`Groq ${response.status}`);
     }
     const data = await response.json();
     return data.choices?.[0]?.message?.content?.trim() || '';
@@ -415,6 +415,16 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             const [[{ clans }]]   = await db.execute("SELECT COUNT(*) as clans FROM clans");
             const [[{ active }]]  = await db.execute("SELECT COUNT(*) as active FROM dungeon WHERE is_active=1");
             fetched.push(`SERVER STATS: ${players} players | ${clans} clans | ${active} active dungeon(s)`);
+        }
+
+        // Group activity log — spy mode
+        if (/\b(went on|happening|going on|group|chat|said|talked|who said|activity|report|today|lately|recent|messages?)\b/.test(q)) {
+            try {
+                const hours = /yesterday/.test(q) ? 48 : /week/.test(q) ? 168 : 24;
+                const { getGroupLog } = require('./ariaAwareness');
+                const log = await getGroupLog(jid, hours, 80);
+                if (log) fetched.push(`GROUP ACTIVITY (last ${hours}h):\n${log}`);
+            } catch {}
         }
 
         if (fetched.length) {
