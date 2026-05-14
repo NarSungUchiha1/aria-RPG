@@ -8,6 +8,9 @@ const db = require('./db');
 async function setupMissingTables() {
     const queries = [
 
+        // Add id column to inventory if missing (old tables may not have it)
+        `ALTER TABLE inventory ADD COLUMN IF NOT EXISTS id INT AUTO_INCREMENT PRIMARY KEY FIRST`,
+
         // Buffs and debuffs — used by buffSystem.js
         `CREATE TABLE IF NOT EXISTS active_effects (
             id             INT AUTO_INCREMENT PRIMARY KEY,

@@ -308,6 +308,7 @@ module.exports = {
     getPrestigeRankForPlayer,
     getWeightedPrestigeRank,
     trySpawnPrestigeDungeon,
+    startPrestigeLobbyTimer,
     clearPrestigeLobbyTimer,
     PRESTIGE_RANK_MAP,
     PRESTIGE_RANK_ORDER,

@@ -263,7 +263,8 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
-                let remaining = 5; // updated after chapter check
+                let remaining = 5;
+                let dailyLimit = 5; // declared here so it's in scope for the success message
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
