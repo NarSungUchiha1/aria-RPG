@@ -8,8 +8,15 @@ const db = require('./db');
 async function setupMissingTables() {
     const queries = [
 
-        // Add id column to inventory if missing (old tables may not have it)
-        `ALTER TABLE inventory ADD COLUMN IF NOT EXISTS id INT AUTO_INCREMENT PRIMARY KEY FIRST`,
+        // ARIA conversation history — permanent memory
+        `CREATE TABLE IF NOT EXISTS aria_conversations (
+            id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+            player_id  VARCHAR(50) NOT NULL,
+            role       ENUM('user','assistant') NOT NULL,
+            content    TEXT NOT NULL,
+            created_at DATETIME DEFAULT NOW(),
+            INDEX idx_player_time (player_id, created_at)
+        )`,
 
         // Buffs and debuffs — used by buffSystem.js
         `CREATE TABLE IF NOT EXISTS active_effects (
@@ -149,6 +156,22 @@ async function setupMissingTables() {
         });
         created++;
     }
+
+    // Safely add id column to inventory if it doesn't exist
+    // Can't use IF NOT EXISTS for columns in older MySQL — check information_schema instead
+    try {
+        const [cols] = await db.execute(
+            `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'inventory' AND COLUMN_NAME = 'id'`
+        );
+        if (!cols.length) {
+            await db.execute(`ALTER TABLE inventory ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST`);
+            console.log('[DB Setup] Added id column to inventory');
+        }
+    } catch (e) {
+        console.error('[DB Setup] inventory id column:', e.message.substring(0, 80));
+    }
+
     console.log(`[DB Setup] ✅ ${created} tables verified`);
 }
 

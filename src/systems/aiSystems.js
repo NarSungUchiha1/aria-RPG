@@ -28,11 +28,11 @@ function isAdminId(userId, admins = []) {
     return admins.some(a => digitsOnly(a) === uid);
 }
 
-// ── Conversation memory — per user, 30 min TTL ────────────────────────────────
 // ── Conversation history — stored in DB forever, never deleted ────────────────
 const CONV_LOAD = 30;
 
-// ── Create ARIA memory tables at startup — no external file needed ────────────
+// aria_conversations table is created in setupTables.js at startup
+// This setTimeout creates the remaining ARIA memory tables
 setTimeout(async () => {
     try {
         await db.execute(`CREATE TABLE IF NOT EXISTS aria_conversations (
@@ -70,25 +70,44 @@ setTimeout(async () => {
     } catch (e) { console.error('[ARIA] Table setup error:', e.message); }
 }, 3000);
 
+
+const CREATE_CONV_TABLE = `CREATE TABLE IF NOT EXISTS aria_conversations (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    player_id VARCHAR(50) NOT NULL,
+    role ENUM('user','assistant') NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT NOW(),
+    INDEX idx_player_time (player_id, created_at)
+)`;
+
 async function getHistory(userId) {
     try {
+        await db.execute(CREATE_CONV_TABLE).catch(() => {});
         const [rows] = await db.execute(
             `SELECT role, content FROM aria_conversations
              WHERE player_id = ? ORDER BY created_at DESC LIMIT ?`,
             [userId, CONV_LOAD]
         );
-        return rows.reverse().map(r => ({ role: r.role, content: r.content }));
-    } catch { return []; }
+        const history = rows.reverse().map(r => ({ role: r.role, content: r.content }));
+        if (history.length) console.log(`[ARIA memory] Loaded ${history.length} messages for ${userId}`);
+        return history;
+    } catch (e) {
+        console.error('[ARIA memory] getHistory failed:', e.message);
+        return [];
+    }
 }
 
 async function saveHistory(userId, userMsg, assistantMsg) {
     try {
+        await db.execute(CREATE_CONV_TABLE).catch(() => {});
         await db.execute(
             `INSERT INTO aria_conversations (player_id, role, content) VALUES (?,?,?),(?,?,?)`,
             [userId, 'user', userMsg, userId, 'assistant', assistantMsg]
         );
-        // Nothing deleted. Everything kept forever.
-    } catch (e) { console.error('[ARIA conv]', e.message); }
+        console.log(`[ARIA memory] Saved exchange for ${userId}`);
+    } catch (e) {
+        console.error('[ARIA memory] saveHistory failed:', e.message);
+    }
 }
 
 
@@ -458,7 +477,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     try {
         reply = await callGemini(question, sysPrompt, history);
         if (!reply) throw new Error('empty');
-        saveHistory(userId, question, reply);
+        await saveHistory(userId, question, reply);
         try {
             const mem = require('./ariaMemory');
             const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),

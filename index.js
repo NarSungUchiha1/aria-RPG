@@ -484,19 +484,6 @@ async function startBot() {
             }
 
             if (!text.startsWith('!')) {
-                // ── Master speaks — ARIA listens and responds automatically ──
-                const isAdmin = (global.ADMINS || ADMINS).includes(userId);
-                const isMaster = isAdmin || String(userId).replace(/\D/g, '') === String(process.env.OWNER_ID || '').replace(/\D/g, '');
-
-                if (isMaster && text.trim().length > 1) {
-                    // Master said something — ARIA responds without needing a tag
-                    const question = text.trim();
-                    console.log(`[ARIA] Master spoke → responding | "${question}"`);
-                    const { handleAriaCommand } = require('./src/systems/aiSystems');
-                    await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin: true, blockedSet: BLOCKED_USERS });
-                    return;
-                }
-
                 // ── ARIA silently witnesses group messages ─────────────────
                 if (jid.endsWith('@g.us') && text.length > 8) {
                     try {
