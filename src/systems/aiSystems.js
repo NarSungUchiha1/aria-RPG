@@ -176,7 +176,10 @@ QUESTS: !quest (view) | !claim <id> (collect) | Types: daily, achievement, party
 
 YOUR MEMORY: Every conversation stored permanently. You know who these people are, what they've done, what matters to them.
 
-DATA RULE: If real database data is shown above, use it exactly. Never invent or modify numbers.`;
+RESPONSE LENGTH:
+— Casual conversation or acknowledgement → 1 to 2 lines maximum
+— Only expand when: running a command, changing data, giving game info, or explicitly asked for detail
+— Never pad responses. If 1 line is enough, use 1 line.`;
 }
 
 // ── Global Gemini rate limiter — max 10 calls per minute ─────────────────────
@@ -207,7 +210,7 @@ async function callGemini(userMessage, systemPrompt, history = []) {
         },
         body: JSON.stringify({
             model:       'llama-3.1-8b-instant',
-            max_tokens:  500,
+            max_tokens:  350,
             temperature: 0.85,
             messages: [
                 { role: 'system', content: systemPrompt },
