@@ -189,7 +189,7 @@ module.exports = {
                     const playerIds = participants.map(p => p.player_id);
                     const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, playerIds, 'dungeon');
                     if (mvpResult?.message) {
-                        await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                        await client.sendMessage(msg.key.remoteJid, { text: mvpResult.message }).catch(() => {});
                     }
                 } catch (e) { console.error('[MVP dungeon]', e.message); }
 

@@ -219,6 +219,7 @@ async function setDuelActive(teamAIds, teamBIds, chat, betAmount, turnOrder) {
         teamA: normalizedA,
         teamB: normalizedB,
         turnOrder,
+        duelKey: key,
         type: (normalizedA.length > 1 || normalizedB.length > 1) ? 'party' : 'solo'
     });
 

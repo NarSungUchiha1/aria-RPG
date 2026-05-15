@@ -282,18 +282,22 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── ONLY owner gets admin commands ────────────────────────────────────────
     if (isPrivileged && question?.trim()) {
-        // Only route to adminAI for actual modification/action requests
-        // Data viewing (show, stats, check, list) is handled by normal ARIA data fetch
-        const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|wipe|restore|heal|announce|add|remove|delete|clear|kick|promote|demote|create)\b/i;
-        if (ADMIN_KEYWORDS.test(question)) {
-            const { handleAdminCommand } = require('./adminAI');
-            const handled = await handleAdminCommand(
-                sock, jid, msg, userId, question,
-                (prompt, sys) => callGemini(prompt, sys),
-                blockedSet
-            ).catch(() => false);
-            if (handled) return;
+        // Master always goes through adminAI — no keyword gate
+        const historyForAdmin = await getHistory(userId);
+        let enrichedQuestion = question;
+        if (question.trim().split(/\s+/).length <= 5 && historyForAdmin.length >= 2) {
+            const recent = historyForAdmin.slice(-4).map(m =>
+                `${m.role === 'user' ? 'Master' : 'ARIA'}: ${m.content}`
+            ).join('\n');
+            enrichedQuestion = `[Recent context:\n${recent}\n]\nMaster now says: ${question}`;
         }
+        const { handleAdminCommand } = require('./adminAI');
+        const handled = await handleAdminCommand(
+            sock, jid, msg, userId, enrichedQuestion,
+            (prompt, sys) => callGemini(prompt, sys),
+            blockedSet
+        ).catch(() => false);
+        if (handled) return;
     }
 
     // ── Cooldown (skip for owner/admin) ───────────────────────────────────────
