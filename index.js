@@ -275,35 +275,8 @@ async function startBot() {
 
         sock.ev.on('creds.update', async () => {
             await saveCreds();
-            if (!state.creds?.registrationId) return;
-
-            const KNOWN_REG_ID = process.env.KNOWN_REG_ID ? parseInt(process.env.KNOWN_REG_ID) : null;
-
-            if (!KNOWN_REG_ID) {
+            if (state.creds?.registrationId) {
                 console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
-                console.log(`   Add to Render env: KNOWN_REG_ID=${state.creds.registrationId}`);
-                return;
-            }
-
-            if (state.creds.registrationId !== KNOWN_REG_ID) {
-                console.error(`🚨 INTRUDER DETECTED — registrationId mismatch!`);
-                console.error(`   Expected: ${KNOWN_REG_ID}, Got: ${state.creds.registrationId}`);
-                try {
-                    await sock.sendMessage(`${process.env.BOT_PHONE_NUMBER}@s.whatsapp.net`, {
-                        text:
-                            `╭══〘 🚨 ARIA SYSTEM ALERT 〙══╮\n` +
-                            `┃◆ \n` +
-                            `┃◆ An unauthorized session detected.\n` +
-                            `┃◆ ⚠️ You are not the ARIA bot.\n` +
-                            `┃◆ This session is being terminated.\n` +
-                            `┃◆ \n` +
-                            `╰═══════════════════════════╯`
-                    });
-                } catch (e) {}
-                await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
-                isBotRunning = false;
-                sock.end();
-                setTimeout(() => startBot(), 5000);
             }
         });
 
