@@ -308,9 +308,15 @@ async function startBot() {
                 isReady = false;
                 isBotRunning = false;
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
-                const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-                console.log(`⚠️ Connection closed (code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
-                if (shouldReconnect) {
+                console.log(`⚠️ Connection closed (code: ${statusCode}).`);
+
+                if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
+                    // Session rejected by WhatsApp — clear it and restart for fresh pairing
+                    console.log('🔄 Session rejected. Clearing and restarting for fresh pair...');
+                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+                    setTimeout(() => startBot(), 5000);
+                } else {
+                    // Any other disconnect — just reconnect
                     const delay = statusCode === 440
                         ? 15000 + Math.floor(Math.random() * 10000)
                         : 5000  + Math.floor(Math.random() * 5000);
@@ -430,9 +436,14 @@ async function startBot() {
                        (BOT_LID    && jNum === BOT_LID);
             }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
                || (BOT_LID    && text.includes(`@${BOT_LID}`))
-               || /^@aria\b/i.test(text.trim())  // plain text "@Aria" trigger
+               || /^@aria\b/i.test(text.trim())
                || text.toLowerCase().includes('@aria ')
                || text.toLowerCase() === '@aria';
+
+            // Debug — shows why trigger did/didn't fire
+            if (text.toLowerCase().includes('aria') || mentionedJids.length > 0) {
+                console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned} mentionedJids=${JSON.stringify(mentionedJids)}`);
+            }
 
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
