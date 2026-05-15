@@ -90,11 +90,37 @@ async function execAction(action, params, sock, jid, blockedSet) {
         await db.execute("DELETE FROM blocked_users WHERE player_id=?", [p.id]).catch(() => {});
         return `✅ *${p.nickname}* unblocked.`;
     }
-    if (a.includes('announce')) {
-        await sock.sendMessage(jid, { text: `📢 *ANNOUNCEMENT*\n${message}` }).catch(() => {});
-        return `Announcement sent!`;
+    if (a.includes('shop') || a.includes('stock')) {
+        const itemName = item || params.item_name;
+        const newStock = Number(amount) || Number(quantity) || 7;
+        if (!itemName) return `Specify the item name.`;
+        await db.execute(
+            `INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock)
+             VALUES (?, ?, ?, ?, NOW())
+             ON DUPLICATE KEY UPDATE stock=?, restocked_amount=?, last_restock=NOW()`,
+            [itemName, newStock, newStock, newStock, newStock, newStock]
+        );
+        return `Shop stock for *${itemName}* set to ${newStock}.`;
     }
-    return `I'm not sure how to "${action}" — try rephrasing!`;
+    if (a.includes('set_gold') || (a.includes('set') && a.includes('gold'))) {
+        await db.execute("UPDATE currency SET gold=? WHERE player_id=?", [amount, p.id]);
+        return `*${p.nickname}*'s gold set to ${Number(amount).toLocaleString()} 💰`;
+    }
+    if (a.includes('set_hp') || (a.includes('set') && a.includes('hp'))) {
+        await db.execute("UPDATE players SET hp=?, max_hp=? WHERE id=?", [amount, amount, p.id]);
+        return `*${p.nickname}*'s HP set to ${amount}.`;
+    }
+    if (a.includes('wipe_fatigue') || a.includes('fatigue_all')) {
+        await db.execute("UPDATE players SET fatigue=0");
+        return `All players' fatigue cleared ⚡`;
+    }
+    if (a.includes('set_stat')) {
+        const stat = params.stat?.toLowerCase();
+        const validStats = ['strength','agility','intelligence','stamina'];
+        if (!validStats.includes(stat)) return `Invalid stat. Use: ${validStats.join(', ')}`;
+        await db.execute(`UPDATE players SET ${stat}=? WHERE id=?`, [amount, p.id]);
+        return `*${p.nickname}*'s ${stat} set to ${amount}.`;
+    }
 }
 
 async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemini, blockedSet) {

@@ -181,15 +181,15 @@ function getDailySeed() {
     return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
-// Items that are always in stock — never deplete permanently
-const PERMANENT_ITEMS = new Set(['Fatigue Potion', 'Mana Potion']);
-const PERMANENT_STOCK = { 'Fatigue Potion': 99, 'Mana Potion': 99 };
+// Items always guaranteed in every shop — never rotated out
+// They deplete and restock normally, just always present
+const GUARANTEED_ITEMS = {
+    all:  { 'Fatigue Potion': { stock: 7,  max: 7  } },
+    Mage:   { 'Mana Potion': { stock: 10, max: 10 } },
+    Healer: { 'Mana Potion': { stock: 10, max: 10 } }
+};
 
 async function getItemStock(itemName) {
-    // Permanent items always have stock
-    if (PERMANENT_ITEMS.has(itemName)) {
-        return { stock: PERMANENT_STOCK[itemName], restockedAmount: PERMANENT_STOCK[itemName] };
-    }
     const [rows] = await db.execute(
         "SELECT stock, restocked_amount FROM shop_stock WHERE item_name = ?",
         [itemName]
@@ -197,6 +197,7 @@ async function getItemStock(itemName) {
     if (rows.length) {
         return { stock: rows[0].stock, restockedAmount: rows[0].restocked_amount };
     }
+    // First time seeing this item — init it
     const maxStock = getMaxStockForItem(itemName);
     const initialStock = Math.floor(Math.random() * maxStock) + 1;
     await db.execute(
@@ -207,8 +208,6 @@ async function getItemStock(itemName) {
 }
 
 async function decreaseStock(itemName) {
-    // Permanent items don't deplete
-    if (PERMANENT_ITEMS.has(itemName)) return;
     await db.execute("UPDATE shop_stock SET stock = GREATEST(0, stock - 1) WHERE item_name = ?", [itemName]);
 }
 
@@ -229,12 +228,16 @@ async function restockAllItems() {
         );
     }
 
-    // ✅ Always guarantee Mana Potion at 10 for Mage/Healer
+    // ── Always guarantee Fatigue Potion (7) and Mana Potion (10) restock ─────
     await db.execute(
         `INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock)
-         VALUES ('Mana Potion', 10, 10, 10, ?)
-         ON DUPLICATE KEY UPDATE stock=10, max_stock=10, restocked_amount=10, last_restock=?`,
-        [now, now]
+         VALUES ('Fatigue Potion', 7, 7, 7, NOW())
+         ON DUPLICATE KEY UPDATE stock=7, max_stock=7, restocked_amount=7, last_restock=NOW()`
+    );
+    await db.execute(
+        `INSERT INTO shop_stock (item_name, stock, max_stock, restocked_amount, last_restock)
+         VALUES ('Mana Potion', 10, 10, 10, NOW())
+         ON DUPLICATE KEY UPDATE stock=10, max_stock=10, restocked_amount=10, last_restock=NOW()`
     );
 
     shopCache.clear();
@@ -289,19 +292,17 @@ async function generateShopItems(role, playerRank, seed) {
         });
     }
 
-    // ── Permanent items — always at the bottom of every shop ─────────────────
-    // Fatigue Potion: all roles
-    items.push({
-        id: items.length + 1, name: 'Fatigue Potion', grade: 'F',
-        stat: 'consumable', value: 0, price: getItemPrice('Fatigue Potion'),
-        emoji: '🧪', moves: '', stock: 99, restockedAmount: 99
-    });
-    // Mana Potion: Mage and Healer only
-    if (role === 'Mage' || role === 'Healer') {
+    // ── Guaranteed items — always at bottom, normal stock from DB ────────────
+    const guaranteedNames = [
+        ...Object.keys(GUARANTEED_ITEMS.all),
+        ...Object.keys(GUARANTEED_ITEMS[role] || {})
+    ];
+    for (const name of guaranteedNames) {
+        const { stock, restockedAmount } = await getItemStock(name);
         items.push({
-            id: items.length + 1, name: 'Mana Potion', grade: 'F',
-            stat: 'consumable', value: 0, price: getItemPrice('Mana Potion'),
-            emoji: '🧪', moves: '', stock: 99, restockedAmount: 99
+            id: items.length + 1, name, grade: 'F',
+            stat: 'consumable', value: 0, price: getItemPrice(name),
+            emoji: '🧪', moves: '', stock, restockedAmount
         });
     }
 
