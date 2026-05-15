@@ -44,6 +44,16 @@ function setCachedPlayer(userId, data) {
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
+// ── Keep Render awake — ping self every 10 minutes ────────────────────────────
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || '';
+if (RENDER_URL) {
+    setInterval(async () => {
+        try {
+            await fetch(`${RENDER_URL}/ping`);
+        } catch {}
+    }, 10 * 60 * 1000); // every 10 minutes
+}
+
 app.get('/', async (req, res) => {
     let dbStatus = 'Checking...';
     try {
