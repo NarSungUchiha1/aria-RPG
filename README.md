@@ -27,12 +27,12 @@ dungeons, and battle monsters — all through WhatsApp chat commands.
 
 | Command | Description |
 |---|---|
-| !arise | Register as a Hunter |
+| !awaken | Register as a Hunter |
 | !me | View your stats & rank |
 | !enter | Enter a dungeon |
-| !step | Explore / find monsters |
+| !onward | Explore / find monsters |
 | !shop | Browse the market |
 | !daily | Claim daily coins |
-this should be updated
+So much more
 
 > ⚠️ Currently in testing. Invite only.
