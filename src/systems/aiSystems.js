@@ -145,7 +145,7 @@ Duels: !duel @player | !duel party | 10k HP / 70k prestige | 45s turns
 Economy: !shop !prestigeshop | Fatigue Potion always 7/7 | Mana Potion always 10/10 (Mage/Healer)
 Clans: !createclan !clan !clanlist | Quests: !quest !claim <id>
 
-DATA: Present real data exactly as given. Never invent figures.
+DATA: Present real data exactly as given. Never invent figures. If a player is not found, say so plainly — do NOT create default stats, do NOT suggest creating a new player, do NOT fabricate any numbers.
 LENGTH: 1-2 lines for casual. Expand only for commands, data, or information.`;
     }
 
@@ -282,7 +282,9 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── ONLY owner gets admin commands ────────────────────────────────────────
     if (isPrivileged && question?.trim()) {
-        const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|announce|check|show|list|stats|leaderboard|gold|rank|prestige|wipe|xp|sp|fatigue|heal|restore|item|dungeon|clan|how many|who has|who is|top |players?)\b/i;
+        // Only route to adminAI for actual modification/action requests
+        // Data viewing (show, stats, check, list) is handled by normal ARIA data fetch
+        const ADMIN_KEYWORDS = /\b(give|ban|unban|set|reset|wipe|restore|heal|announce|add|remove|delete|clear|kick|promote|demote|create)\b/i;
         if (ADMIN_KEYWORDS.test(question)) {
             const { handleAdminCommand } = require('./adminAI');
             const handled = await handleAdminCommand(
@@ -364,10 +366,10 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         // If a player is mentioned OR question is about a person — fetch EVERYTHING about them
         if (mentionedId) {
             const [p]   = await db.execute(
-                `SELECT p.id, p.nickname, p.role, p.\`rank\`, p.prestige_level,
-                        p.hp, p.max_hp, p.fatigue, p.sp, p.strength, p.agility,
-                        p.intelligence, p.stamina, p.pvp_wins, p.pvp_losses, p.title
-                 FROM players p WHERE p.id = ?`, [mentionedId]);
+                'SELECT p.id, p.nickname, p.role, p.`rank`, p.prestige_level,' +
+                ' p.hp, p.max_hp, p.fatigue, p.sp, p.strength, p.agility,' +
+                ' p.intelligence, p.stamina, p.pvp_wins, p.pvp_losses, p.title' +
+                ' FROM players p WHERE p.id = ?', [mentionedId]);
             const [c]   = await db.execute("SELECT gold FROM currency WHERE player_id = ?", [mentionedId]);
             const [x]   = await db.execute("SELECT xp FROM xp WHERE player_id = ?", [mentionedId]);
             const [inv] = await db.execute("SELECT item_name, item_type, quantity, equipped FROM inventory WHERE player_id = ? ORDER BY equipped DESC LIMIT 30", [mentionedId]);
