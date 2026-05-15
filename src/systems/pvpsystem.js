@@ -1,6 +1,7 @@
 const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
 const { narrateAI } = require('./aiSystems');
+const { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp } = require('./mvpSystem');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
@@ -220,6 +221,12 @@ async function setDuelActive(teamAIds, teamBIds, chat, betAmount, turnOrder) {
         turnOrder,
         type: (normalizedA.length > 1 || normalizedB.length > 1) ? 'party' : 'solo'
     });
+
+    // Init MVP tracking for party duels only
+    const isParty = normalizedA.length > 1 || normalizedB.length > 1;
+    if (isParty) {
+        initMvpTracking(key, [...normalizedA, ...normalizedB]);
+    }
 
     for (const id of [...normalizedA, ...normalizedB]) {
         activeDuels.set(id, { teamA: normalizedA, teamB: normalizedB, turn: null, chat, duelKey: key });
@@ -733,6 +740,17 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     const { witnessDuelResult } = require('./ariaAwareness');
     witnessDuelResult(winnerId, winnerNick, loserId, loserNick, duelData.type || 'solo').catch(() => {});
 
+    // MVP announcement for party duels
+    if (duelData.type === 'party') {
+        try {
+            const allPlayers = [...(duelData.teamA || []), ...(duelData.teamB || [])];
+            const mvpResult  = await calculateMvp(duelData.duelKey || getDuelKey(winnerId, loserId), allPlayers, 'duel');
+            if (mvpResult?.message) {
+                await chat.sendMessage(mvpResult.message).catch(() => {});
+            }
+        } catch (e) { console.error('[MVP duel]', e.message); }
+    }
+
     return { winner: winnerId };
 }
 
@@ -962,6 +980,8 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             data.hp[tid]  = newHp;
             results.push({ tid, nick: tPlayer.nickname, healAmt: newHp - oldHp, newHp, maxHp: data.maxHp[tid] });
             totalHealed += newHp - oldHp;
+            // Record heal for MVP
+            if (data.type === 'party') recordHeal(duel.duelKey, attackerId, newHp - oldHp);
             if (tid === attackerId) {
                 const bl = await triggerBlessingIfReadyInDuel('on_healed', attacker, data, { healAmount: healAmt }).catch(() => null);
                 if (bl) await chat.sendMessage(bl.message).catch(() => {});
@@ -1138,6 +1158,12 @@ async function handlePvPAttack(attackerId) {
     const attackerHp = data.hp[attackerId];
     const newDefHp   = Math.max(0, data.hp[targetId] - damage);
     data.hp[targetId] = newDefHp;
+
+    // Record for MVP (party duels only)
+    if (data.type === 'party') {
+        recordDamage(duel.duelKey, attackerId, targetId, damage, damage);
+        if (newDefHp <= 0) recordKill(duel.duelKey, attackerId);
+    }
 
     const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
     await increasePlayerFatigue(attackerId, fatigueGain, attacker);

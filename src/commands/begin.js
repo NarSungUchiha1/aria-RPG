@@ -74,6 +74,13 @@ module.exports = {
 
             await startDungeonTimers(dungeon.id, client, targetChat, failCallback, dungeon.dungeon_rank);
 
+            // Init MVP tracking for this dungeon
+            try {
+                const { initMvpTracking } = require('../systems/mvpSystem');
+                const [dps] = await db.execute("SELECT player_id FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
+                initMvpTracking(`dungeon_${dungeon.id}`, dps.map(p => p.player_id));
+            } catch(e) {}
+
             if (isPrestige) {
                 await msg.reply(
                     `╔══〘 ✦ THE VOID OPENS 〙══╗\n` +

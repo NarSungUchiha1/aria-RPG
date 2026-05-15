@@ -372,6 +372,11 @@ module.exports = {
             const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
+            // MVP tracking
+            try {
+                const { recordDamage } = require('../systems/mvpSystem');
+                recordDamage(`dungeon_${dungeon.id}`, userId, `enemy_${targetEnemy.id}`, estDamage, estDamage);
+            } catch(e) {}
 
             // ✅ If Leviathan is active — damage also hits the Leviathan
             if (battleState.active && !battleState.finalPhase) {

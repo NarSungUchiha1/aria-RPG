@@ -47,12 +47,12 @@ module.exports = {
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
-                const rewardGold = Math.floor(Math.random() * 20) + 90; // 90-110 gold
-                const rewardXp = Math.floor(Math.random() * 15) + 82; // 82-97 XP
+                const rewardGold = Math.floor(Math.random() * 20) + 90;
+                const rewardXp   = Math.floor(Math.random() * 15) + 82;
 
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
-                    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]);
+                    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [rewardXp,   p.player_id]);
 
                     // ✅ Quest tracking — dungeon clear and survive
                     // ✅ Quest tracking — fire and forget
@@ -182,6 +182,16 @@ module.exports = {
                     const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
                     trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
                 }
+
+                // ── MVP announcement ──────────────────────────────────────────
+                try {
+                    const { calculateMvp } = require('../systems/mvpSystem');
+                    const playerIds = participants.map(p => p.player_id);
+                    const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, playerIds, 'dungeon');
+                    if (mvpResult?.message) {
+                        await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                    }
+                } catch (e) { console.error('[MVP dungeon]', e.message); }
 
                 return msg.reply(`══〘 👑 DUNGEON CLEARED 〙══╮
 ┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.
