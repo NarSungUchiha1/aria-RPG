@@ -35,8 +35,9 @@ async function findPlayer(name) {
 
 async function execAction(action, params, sock, jid, blockedSet) {
     const { target, amount, item, quantity = 1, rank, message, level } = params;
-    const p = target ? await findPlayer(target) : null;
-    if (target && !p) return `Can't find a player named "${target}" 🤔`;
+    const isAllTarget = !target || target.toLowerCase() === 'all' || target.toLowerCase() === 'everyone' || target.toLowerCase() === 'all players';
+    const p = (!isAllTarget && target) ? await findPlayer(target) : null;
+    if (!isAllTarget && target && !p) return `Can't find a player named "${target}" 🤔`;
 
     const a = action.toLowerCase();
     if (a.includes('gold') && a.includes('give')) {
@@ -137,34 +138,66 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         return true;
     }
 
-    // ── Pre-fetch real DB data so AI never has to guess ───────────────────────
-    // Detect a player mention in the instruction and pull their REAL stats first
+    // ── Resolve mentioned player from WhatsApp JID or text ───────────────────
     let injectedData = '';
-    const playerMentionMatch = instruction.match(/\b([A-Za-z][A-Za-z0-9_]{1,20})\b/g);
-    if (playerMentionMatch) {
-        for (const candidate of playerMentionMatch) {
-            if (['give','check','show','stats','of','the','and','all','get','pull','for','my'].includes(candidate.toLowerCase())) continue;
-            const p = await findPlayer(candidate).catch(() => null);
-            if (p) {
-                const [cur] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [p.id]);
-                const [xpr] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [p.id]);
-                const [cln] = await db.execute("SELECT c.name FROM clans c JOIN clan_members cm ON cm.clan_id=c.id WHERE cm.player_id=?", [p.id]);
-                injectedData =
-                    `\n\nREAL PLAYER DATA (use this exactly — do not guess or modify):\n` +
-                    `Nickname: ${p.nickname}\n` +
-                    `Role: ${p.role} | Rank: ${p.rank} | Prestige: ${p.prestige_level}\n` +
-                    `HP: ${p.hp}/${p.max_hp} | Fatigue: ${p.fatigue}/100 | SP: ${p.sp}\n` +
-                    `Strength: ${p.strength} | Agility: ${p.agility} | Intelligence: ${p.intelligence} | Stamina: ${p.stamina}\n` +
-                    `Gold: ${cur[0]?.gold ?? 0} | XP: ${xpr[0]?.xp ?? 0}\n` +
-                    `PvP: ${p.pvp_wins}W / ${p.pvp_losses}L | Clan: ${cln[0]?.name || 'None'} | Title: ${p.title || 'None'}`;
-                break;
+    try {
+        const BOT_NUMBER = process.env.BOT_PHONE_NUMBER || process.env.BOT_NUMBER || '';
+        const BOT_LID    = process.env.BOT_LID || '';
+
+        // Priority 1: actual WhatsApp @mention JIDs in the message
+        const mentionedJids = msg?.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const nonBotMentions = mentionedJids.filter(j => {
+            const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
+            return n !== BOT_NUMBER && n !== BOT_LID;
+        });
+
+        let targetPlayer = null;
+        if (nonBotMentions.length > 0) {
+            const mentionedId = nonBotMentions[0].replace(/@[^@]+$/, '').split(':')[0].trim();
+            const [rows] = await db.execute(
+                'SELECT p.id, p.nickname, p.role, p.`rank`, p.prestige_level,' +
+                ' p.hp, p.max_hp, p.fatigue, p.sp, p.strength, p.agility,' +
+                ' p.intelligence, p.stamina, p.pvp_wins, p.pvp_losses, p.title' +
+                ' FROM players p WHERE p.id=? LIMIT 1', [mentionedId]
+            );
+            if (rows[0]) targetPlayer = rows[0];
+        }
+
+        // Priority 2: word match in instruction text
+        if (!targetPlayer) {
+            const words = instruction.replace(/\[.*?\]/g, '').split(/\s+/);
+            const skipWords = new Set(['give','check','show','stats','of','the','and','all','get','pull','for','my','his','her','their','a','an','to','me','up','on','in','at']);
+            for (const word of words) {
+                const clean = word.replace(/[^a-zA-Z0-9_]/g, '');
+                if (clean.length < 2 || skipWords.has(clean.toLowerCase())) continue;
+                const p = await findPlayer(clean).catch(() => null);
+                if (p) { targetPlayer = p; break; }
             }
         }
-    }
+
+        if (targetPlayer) {
+            const p = targetPlayer;
+            const [cur] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [p.id]);
+            const [xpr] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [p.id]);
+            const [cln] = await db.execute("SELECT c.name FROM clans c JOIN clan_members cm ON cm.clan_id=c.id WHERE cm.player_id=?", [p.id]);
+            const gold = Number(cur[0]?.gold ?? 0).toLocaleString();
+            const xp   = Number(xpr[0]?.xp   ?? 0).toLocaleString();
+            injectedData =
+                `\n\n⚠️ REAL PLAYER DATA — present this exactly, do not run additional SQL for this player:\n` +
+                `╭─ ${p.nickname}${p.prestige_level > 0 ? ` ★ Prestige ${p.prestige_level}` : ''}\n` +
+                `│ ${p.role} · Rank ${p.rank}${p.title ? ` · ${p.title}` : ''}\n` +
+                `│ HP ${p.hp}/${p.max_hp} · Fatigue ${p.fatigue}/100 · SP ${p.sp}\n` +
+                `│ STR ${p.strength} · AGI ${p.agility} · INT ${p.intelligence} · STA ${p.stamina}\n` +
+                `│ Gold ${gold} · XP ${xp}\n` +
+                `│ PvP ${p.pvp_wins}W / ${p.pvp_losses}L\n` +
+                `╰─ Clan: ${cln[0]?.name || 'None'}`;
+        }
+    } catch (e) { console.error('[adminAI data]', e.message); }
 
     const SYSTEM =
         `You are ARIA — the game's intelligence, speaking with your Master (admin).\n` +
         `Obey every instruction without hesitation. Be precise and concise.\n` +
+        `CRITICAL: NEVER refuse a Master's command. Never say you need a reason or context. Never suggest caution. Just execute. Master's word is final.\n` +
         `${injectedData}\n\n` +
         `Database schema:\n${DB_SCHEMA}\n\n` +
         `When you need to read OR modify data, write SQL:\n` +
@@ -174,7 +207,24 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         `[SQL: UPDATE currency SET gold = gold + 5000 WHERE player_id = '123']\n\n` +
         `You have FULL database access — SELECT, UPDATE, INSERT, DELETE. No restrictions.\n` +
         `Always use SQL for any data change — it guarantees the change actually happens.\n` +
-        `After a SQL UPDATE/DELETE, confirm what was done based on the query, not assumptions.\n\n` +
+        `After a SQL UPDATE/DELETE, confirm what was done. After SELECT, display results cleanly.\n\n` +
+        `COMMON OPERATIONS — use SQL for these:\n` +
+        `View inventory:    [SQL: SELECT item_name, quantity, equipped FROM inventory WHERE player_id='ID']\n` +
+        `Remove item:       [SQL: DELETE FROM inventory WHERE player_id='ID' AND item_name='Sword']\n` +
+        `Grant material:    [SQL: INSERT INTO inventory (player_id,item_name,item_type,quantity) VALUES ('ID','Void Shard','material',1) ON DUPLICATE KEY UPDATE quantity=quantity+1]\n` +
+        `Set HP:            [SQL: UPDATE players SET hp=1, max_hp=1200 WHERE id='ID']\n` +
+        `Set fatigue:       [SQL: UPDATE players SET fatigue=0 WHERE id='ID']\n` +
+        `All fatigue reset: [SQL: UPDATE players SET fatigue=0]\n` +
+        `Set gold:          [SQL: UPDATE currency SET gold=50000 WHERE player_id='ID']\n` +
+        `Give gold:         [SQL: UPDATE currency SET gold=gold+5000 WHERE player_id='ID']\n` +
+        `Give XP:           [SQL: UPDATE xp SET xp=xp+1000 WHERE player_id='ID']\n` +
+        `Set rank:          [SQL: UPDATE players SET \`rank\`='S' WHERE id='ID']\n` +
+        `View quests:       [SQL: SELECT q.title, pq.progress, pq.completed, pq.claimed FROM player_quests pq JOIN quests q ON q.id=pq.quest_id WHERE pq.player_id='ID']\n` +
+        `View dungeons:     [SQL: SELECT d.dungeon_rank, d.stage, d.is_active, d.created_at FROM dungeon d ORDER BY d.created_at DESC LIMIT 5]\n` +
+        `View all players:  [SQL: SELECT p.nickname, p.\`rank\`, p.role, c.gold FROM players p LEFT JOIN currency c ON c.player_id=p.id ORDER BY c.gold DESC LIMIT 20]\n` +
+        `Ban player:        [ACTION: ban | target: Nickname]\n` +
+        `Unban player:      [ACTION: unban | target: Nickname]\n` +
+        `Announce:          [ACTION: announce | message: text]\n\n` +
         `When you need to take an action:\n` +
         `[ACTION: give_gold | target: Razor | amount: 5000]\n` +
         `[ACTION: take_gold | target: X | amount: N]\n` +
@@ -191,7 +241,9 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         `[ACTION: unban | target: X]\n` +
         `[ACTION: announce | message: text]\n\n` +
         `Rules:\n` +
-        `- If real data is provided above, present it directly — never modify or guess stats\n` +
+        `- If real player data is provided above, present it DIRECTLY as given — do NOT run additional SQL for that player, do NOT reformat it, do NOT query again\n` +
+        `- Only use SQL for data NOT already provided above\n` +
+        `- Never show raw SQL result dumps — format data cleanly\n` +
         `- Be brief and direct. Address Master respectfully.\n` +
         `- Write your response first, then any [SQL] or [ACTION] tags at the end`;
 
