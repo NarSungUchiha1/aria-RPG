@@ -329,32 +329,51 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         const q       = question.toLowerCase();
         const fetched = [];
 
-        // Find player name — word-boundary match, longest first, no false substring hits
-        const [allNicks] = await db.execute(
-            "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
-        );
+        // ── Resolve mentioned player ───────────────────────────────────────────
+        // First try: resolve from actual WhatsApp @mention JID
         let mentionedId   = null;
         let mentionedName = null;
-        for (const row of allNicks) {
-            const nick = row.nickname.toLowerCase();
-            // Must appear as a whole word (not inside another word)
-            const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9_])`, 'i');
-            if (regex.test(q)) {
-                mentionedId   = row.id;
-                mentionedName = row.nickname;
-                break;
+
+        const msgMentions = msg?.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const nonBotMentions = msgMentions.filter(j => {
+            const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
+            return n !== (process.env.BOT_NUMBER || '') && n !== (process.env.BOT_LID || '');
+        });
+        if (nonBotMentions.length > 0) {
+            const mentionedUserId = nonBotMentions[0].replace(/@[^@]+$/, '').split(':')[0].trim();
+            const [mRows] = await db.execute("SELECT id, nickname FROM players WHERE id=? LIMIT 1", [mentionedUserId]);
+            if (mRows[0]) { mentionedId = mRows[0].id; mentionedName = mRows[0].nickname; }
+        }
+
+        // Second try: word-boundary name match in the question text
+        if (!mentionedId) {
+            const [allNicks] = await db.execute(
+                "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
+            );
+            for (const row of allNicks) {
+                const nick = row.nickname.toLowerCase();
+                const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9_])`, 'i');
+                if (regex.test(q)) {
+                    mentionedId   = row.id;
+                    mentionedName = row.nickname;
+                    break;
+                }
             }
         }
 
         // If a player is mentioned OR question is about a person — fetch EVERYTHING about them
         if (mentionedId) {
-            const [p]   = await db.execute("SELECT * FROM players WHERE id = ?", [mentionedId]);
-            const [c]   = await db.execute("SELECT * FROM currency WHERE player_id = ?", [mentionedId]);
-            const [x]   = await db.execute("SELECT * FROM xp WHERE player_id = ?", [mentionedId]);
-            const [inv] = await db.execute("SELECT * FROM inventory WHERE player_id = ? ORDER BY equipped DESC LIMIT 30", [mentionedId]);
-            const [cl]  = await db.execute("SELECT clans.* FROM clans JOIN clan_members cm ON cm.clan_id = clans.id WHERE cm.player_id = ?", [mentionedId]);
-            const [pq]  = await db.execute(`SELECT pq.*, q.title, q.quest_type, q.objective_count, q.reward_gold, q.reward_xp FROM player_quests pq JOIN quests q ON q.id = pq.quest_id WHERE pq.player_id = ? LIMIT 15`, [mentionedId]);
-            const [dp]  = await db.execute(`SELECT dp.*, d.dungeon_rank, d.stage, d.max_stage FROM dungeon_players dp JOIN dungeon d ON d.id = dp.dungeon_id WHERE dp.player_id = ? ORDER BY d.created_at DESC LIMIT 5`, [mentionedId]);
+            const [p]   = await db.execute(
+                `SELECT p.id, p.nickname, p.role, p.\`rank\`, p.prestige_level,
+                        p.hp, p.max_hp, p.fatigue, p.sp, p.strength, p.agility,
+                        p.intelligence, p.stamina, p.pvp_wins, p.pvp_losses, p.title
+                 FROM players p WHERE p.id = ?`, [mentionedId]);
+            const [c]   = await db.execute("SELECT gold FROM currency WHERE player_id = ?", [mentionedId]);
+            const [x]   = await db.execute("SELECT xp FROM xp WHERE player_id = ?", [mentionedId]);
+            const [inv] = await db.execute("SELECT item_name, item_type, quantity, equipped FROM inventory WHERE player_id = ? ORDER BY equipped DESC LIMIT 30", [mentionedId]);
+            const [cl]  = await db.execute("SELECT clans.name FROM clans JOIN clan_members cm ON cm.clan_id = clans.id WHERE cm.player_id = ?", [mentionedId]);
+            const [pq]  = await db.execute(`SELECT pq.progress, pq.completed, pq.claimed, q.title, q.objective_count FROM player_quests pq JOIN quests q ON q.id = pq.quest_id WHERE pq.player_id = ? LIMIT 15`, [mentionedId]);
+            const [dp]  = await db.execute(`SELECT d.dungeon_rank, d.stage, d.max_stage FROM dungeon_players dp JOIN dungeon d ON d.id = dp.dungeon_id WHERE dp.player_id = ? ORDER BY d.created_at DESC LIMIT 5`, [mentionedId]);
 
             if (p[0]) {
                 const pp = p[0];
