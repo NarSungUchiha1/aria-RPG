@@ -181,7 +181,15 @@ function getDailySeed() {
     return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
 }
 
+// Items that are always in stock — never deplete permanently
+const PERMANENT_ITEMS = new Set(['Fatigue Potion', 'Mana Potion']);
+const PERMANENT_STOCK = { 'Fatigue Potion': 99, 'Mana Potion': 99 };
+
 async function getItemStock(itemName) {
+    // Permanent items always have stock
+    if (PERMANENT_ITEMS.has(itemName)) {
+        return { stock: PERMANENT_STOCK[itemName], restockedAmount: PERMANENT_STOCK[itemName] };
+    }
     const [rows] = await db.execute(
         "SELECT stock, restocked_amount FROM shop_stock WHERE item_name = ?",
         [itemName]
@@ -199,6 +207,8 @@ async function getItemStock(itemName) {
 }
 
 async function decreaseStock(itemName) {
+    // Permanent items don't deplete
+    if (PERMANENT_ITEMS.has(itemName)) return;
     await db.execute("UPDATE shop_stock SET stock = GREATEST(0, stock - 1) WHERE item_name = ?", [itemName]);
 }
 
@@ -244,7 +254,8 @@ function getRestockTimeRemaining() {
 async function generateShopItems(role, playerRank, seed) {
     const rand = seededRandom(seed);
     const pool = roleItemPools[role] || roleItemPools.Tank;
-    const allowedPool = pool.filter(itemName => isItemAllowedForRank(itemName, playerRank));
+    const allowedPool = pool.filter(itemName => isItemAllowedForRank(itemName, playerRank)
+        && itemName !== 'Fatigue Potion' && itemName !== 'Mana Potion'); // excluded — added permanently below
     const shuffled = shuffleArray([...allowedPool], rand);
     const selected = shuffled.slice(0, 6);
 
@@ -268,7 +279,7 @@ async function generateShopItems(role, playerRank, seed) {
             grade: 'F',
             stat: CONSUMABLES.has(name) ? 'consumable' : (data.primaryStat || 'strength'),
             value: data.base?.attack || 5,
-            price: getItemPrice(name), // ✅ fixed — no playerRank arg needed
+            price: getItemPrice(name),
             emoji: CONSUMABLES.has(name)
                 ? '🧪'
                 : ({ strength:'💪', agility:'⚡', intelligence:'🧠', stamina:'🛡️' }[data.primaryStat] || '✨'),
@@ -277,6 +288,23 @@ async function generateShopItems(role, playerRank, seed) {
             restockedAmount
         });
     }
+
+    // ── Permanent items — always at the bottom of every shop ─────────────────
+    // Fatigue Potion: all roles
+    items.push({
+        id: items.length + 1, name: 'Fatigue Potion', grade: 'F',
+        stat: 'consumable', value: 0, price: getItemPrice('Fatigue Potion'),
+        emoji: '🧪', moves: '', stock: 99, restockedAmount: 99
+    });
+    // Mana Potion: Mage and Healer only
+    if (role === 'Mage' || role === 'Healer') {
+        items.push({
+            id: items.length + 1, name: 'Mana Potion', grade: 'F',
+            stat: 'consumable', value: 0, price: getItemPrice('Mana Potion'),
+            emoji: '🧪', moves: '', stock: 99, restockedAmount: 99
+        });
+    }
+
     return items;
 }
 

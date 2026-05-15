@@ -459,7 +459,9 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
         if (fetched.length) {
             realData = fetched.join('\n\n');
-            console.log(`[ARIA DB] fetched for: ${mentionedName || 'general'} | sections: ${fetched.length}`);
+            console.log(`[ARIA DB] fetched ${fetched.length} sections for: ${mentionedName || 'general'}`);
+        } else {
+            console.log(`[ARIA DB] no data fetched for question: "${question.substring(0, 50)}"`);
         }
     } catch (e) {
         console.error('[ARIA DB ERROR]', e.message);
