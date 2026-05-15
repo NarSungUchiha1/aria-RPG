@@ -448,10 +448,13 @@ async function startBot() {
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
 
-            // For replies: only trigger if the message contains a question
-            // (has a question mark OR is more than 4 words — likely asking something)
-            const isAskingQuestion = text.includes('?') ||
-                text.replace(/@\d+/g, '').trim().split(/\s+/).length > 4;
+            // Replies: only trigger if genuinely asking something
+            // Question words OR sentence long enough to be a real question (5+ words)
+            const stripped = text.replace(/@\d+/g, '').trim().toLowerCase();
+            const QUESTION_WORDS = /^(what|who|how|when|where|why|can|could|would|should|is|are|do|does|did|will|was|were|tell|show|give|explain|help|check|find|get)\b/;
+            const isAskingQuestion = text.includes('?')
+                || QUESTION_WORDS.test(stripped)
+                || stripped.split(/\s+/).length >= 5;
 
             if (botMentioned || (isReplyToBot && !text.startsWith('!') && isAskingQuestion)) {
                 let question = text;
