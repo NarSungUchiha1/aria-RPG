@@ -29,7 +29,7 @@ function isAdminId(userId, admins = []) {
 }
 
 // ── Conversation history — stored in DB forever, never deleted ────────────────
-const CONV_LOAD = 30;
+const CONV_LOAD = 12; // keep context window tight for llama-3.1-8b
 
 // aria_conversations table is created in setupTables.js at startup
 // This setTimeout creates the remaining ARIA memory tables
@@ -479,9 +479,22 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         realData;
 
     const history = await getHistory(userId);
+
+    // Inject recent history into the system prompt as explicit text
+    // llama-3.1-8b tends to ignore message history but reads system prompt carefully
+    let historyBlock = '';
+    if (history.length) {
+        const lines = history.slice(-8).map(m =>
+            `${m.role === 'user' ? 'Master' : 'You (ARIA)'}: ${m.content}`
+        ).join('\n');
+        historyBlock = `\n\nRECENT CONVERSATION — this happened. You said these things. Do not deny it:\n${lines}`;
+    }
+
+    const fullSysPrompt = sysPrompt + historyBlock;
+
     let reply;
     try {
-        reply = await callGemini(question, sysPrompt, history);
+        reply = await callGemini(question, fullSysPrompt, history);
         if (!reply) throw new Error('empty');
         await saveHistory(userId, question, reply);
         try {
