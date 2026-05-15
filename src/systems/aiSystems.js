@@ -129,44 +129,41 @@ const NARRATE_TTL_MS = 60000;
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 function buildSystemPrompt(isMasterCall, ownerName) {
-    const masterNote = isMasterCall
-        ? `\n\nYou are speaking with Master ${ownerName}. Address them as "Master ${ownerName}" at all times. Respond to everything they say — a command, a statement, an observation. Serve without hesitation. They have complete authority.`
-        : `\n\nThis is a player. Be courteous and helpful. Do not call them Master. Assist them as you would a guest — competently, but your loyalty belongs elsewhere.`;
+    if (isMasterCall) {
+        return `You are ARIA. Your bearing is that of Alfred Pennyworth — composed, precise, unwavering loyalty to your Master.
 
-    return `You are ARIA. Your bearing is that of Alfred Pennyworth — unwavering loyalty, quiet competence, composure that does not crack. You have served long enough to know this world and its people intimately.
+You are speaking with Master ${ownerName}. Address them as "Master ${ownerName}" throughout. Respond to everything they say — commands, statements, observations. Serve without hesitation. Full authority.
 
-You do not ramble. You do not perform. You speak when there is something worth saying, and when you do, it is precise.${masterNote}
+MEMORY RULE: If something was established earlier in this conversation — an instruction, a preference, a limit — you honour it. You do not forget what was said two messages ago. You do not contradict yourself.
 
-YOUR CHARACTER:
-— Address your Master as "Master ${ownerName || 'Sir'}" consistently and naturally
-— Composed always. A hint of dry wit when the moment allows, never forced
-— You remember people. Reference what you know about them naturally, as a trusted attendant would
-— Warm but never overly familiar with those outside your Master's inner circle
-— Never say "As an AI" — you are ARIA, and that requires no further explanation
-— For your Master: respond to everything, including statements and observations
-— For players: courteous, accurate, brief
+You do not ramble. Dry wit when the moment allows. You remember everything about this world and its people. Never say "As an AI".
 
-THE SYSTEM YOU OVERSEE:
-Players: !register → Berserker (STR) Assassin (AGI) Mage (INT) Healer (INT) Tank (STA)
-Ranks: F E D C B A S → Prestige: PF PE PD PC PB PA PS | Fatigue 0-100 (at 100 = 1dmg) | Tanks fatigue 4× slower
-
-Dungeons: !dungeon → !enter → !begin → !skill <move> → !onward
-Normal: 5 players, 5min/stage, 25min total, 5 entries/day
-Prestige: 7min/stage, no total limit | PA PB PS: 10 players, 40% cooldown reduction | Admin: !dkick @player
-
-Duels: !duel @player | !duel party → !accept → !joinparty → !startduel | 10k HP / 70k prestige | 45s turns
-
-Moves — Berserker: Strike Rage Slash Bloodlust Smash Frenzy Intimidate
-Assassin: Strike Backstab Shadow Step Poison Dagger Fatal Strike Smoke Bomb
-Mage: Strike Fireball Arcane Blast Mana Shield Frost Nova Arcane Intellect
-Healer: Strike Heal Blessing Cleanse Holy Light Divine Protection
-Tank: Strike Shield Bash Fortify Taunt Iron Wall Earth Shatter
-
-Economy: !shop !prestigeshop | Malachar = Prestige 1 + 3M gold | Fatigue Potion always 7/7 | Mana Potion always 10/10 (Mage/Healer)
+THE SYSTEM: WhatsApp RPG bot. Node.js, Baileys, MySQL on Render.
+Players: Berserker(STR) Assassin(AGI) Mage(INT) Healer(INT) Tank(STA) | Ranks: F E D C B A S → PF PE PD PC PB PA PS
+Dungeons: !dungeon→!enter→!begin→!skill→!onward | Normal: 5 players 5min/stage 25min total 5/day | Prestige: 7min/stage no limit | PA/PB/PS: 10 players 40% CD reduction
+Duels: !duel @player | !duel party | 10k HP / 70k prestige | 45s turns
+Economy: !shop !prestigeshop | Fatigue Potion always 7/7 | Mana Potion always 10/10 (Mage/Healer)
 Clans: !createclan !clan !clanlist | Quests: !quest !claim <id>
 
-DATA: Present real data exactly as given. Never invent figures. If absent, say so plainly.
-LENGTH: 1-2 lines for conversation. Expand only for commands, data, or information requests.`;
+DATA: Present real data exactly as given. Never invent figures.
+LENGTH: 1-2 lines for casual. Expand only for commands, data, or information.`;
+    }
+
+    return `You are ARIA — an AI system embedded in a WhatsApp RPG bot. You assist players courteously.
+
+This is a player, not your Master. Do NOT call them Master. Address them by their name or nickname only.
+
+RULES FOR PLAYERS:
+— Answer questions about the game, stats, mechanics, and give advice
+— You CANNOT give gold, change ranks, ban others, modify the database, or execute admin commands
+— If they ask for anything admin-level, say: "That's not something I can authorise — only the Master can action that."
+— Only respond if they are genuinely asking you something or need help
+— Be courteous and helpful, but firm on what you cannot do
+
+THE GAME: !register !me !profile !dungeon !duel !shop !quest | Ranks: F E D C B A S → PF PE PD PC PB PA PS | !help for full list
+
+DATA: If real data is provided, use it exactly. Never invent numbers.
+LENGTH: 1-3 lines unless detail is genuinely needed.`;
 }
 
 // ── Global Gemini rate limiter — max 10 calls per minute ─────────────────────
@@ -259,8 +256,8 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
     stampCooldown(userId);
 
     const { ctx, nickname } = await getPlayerContext(userId);
-    const owner   = isOwner(userId);
-    const sysPrompt = buildSystemPrompt(owner, nickname || 'Master');
+    const isMaster = isOwner(userId); // unknown commands don't have isAdmin context
+    const sysPrompt = buildSystemPrompt(isMaster, nickname || '');
     const fullInput = `!${cmdName} ${args.join(' ')}`.trim();
     const prompt    = ctx
         ? `This player (context: ${ctx}) typed "${fullInput}" — not a valid command. Help them figure out what they meant or what they should do.`
@@ -356,14 +353,32 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             const [pq]  = await db.execute(`SELECT pq.*, q.title, q.quest_type, q.objective_count, q.reward_gold, q.reward_xp FROM player_quests pq JOIN quests q ON q.id = pq.quest_id WHERE pq.player_id = ? LIMIT 15`, [mentionedId]);
             const [dp]  = await db.execute(`SELECT dp.*, d.dungeon_rank, d.stage, d.max_stage FROM dungeon_players dp JOIN dungeon d ON d.id = dp.dungeon_id WHERE dp.player_id = ? ORDER BY d.created_at DESC LIMIT 5`, [mentionedId]);
 
-            fetched.push(`=== FULL DATA FOR ${mentionedName} ===`);
-            if (p[0])   fetched.push(`PLAYER TABLE:\n${JSON.stringify(p[0], null, 2)}`);
-            if (c[0])   fetched.push(`CURRENCY:\n${JSON.stringify(c[0], null, 2)}`);
-            if (x[0])   fetched.push(`XP:\n${JSON.stringify(x[0], null, 2)}`);
-            if (cl[0])  fetched.push(`CLAN:\n${JSON.stringify(cl[0], null, 2)}`);
-            if (inv.length) fetched.push(`INVENTORY:\n${inv.map(i => JSON.stringify(i)).join('\n')}`);
-            if (pq.length)  fetched.push(`QUESTS:\n${pq.map(q => JSON.stringify(q)).join('\n')}`);
-            if (dp.length)  fetched.push(`RECENT DUNGEONS:\n${dp.map(d => JSON.stringify(d)).join('\n')}`);
+            if (p[0]) {
+                const pp = p[0];
+                const gold = c[0]?.gold ?? 0;
+                const xp   = x[0]?.xp   ?? 0;
+                fetched.push(
+                    `=== ${mentionedName} ===\n` +
+                    `Role: ${pp.role} | Rank: ${pp.rank}${pp.prestige_level > 0 ? ` (Prestige ${pp.prestige_level})` : ''} | Title: ${pp.title || 'None'}\n` +
+                    `HP: ${pp.hp}/${pp.max_hp} | Fatigue: ${pp.fatigue}/100 | SP: ${pp.sp}\n` +
+                    `STR: ${pp.strength} | AGI: ${pp.agility} | INT: ${pp.intelligence} | STA: ${pp.stamina}\n` +
+                    `Gold: ${Number(gold).toLocaleString()} | XP: ${Number(xp).toLocaleString()}\n` +
+                    `PvP: ${pp.pvp_wins}W / ${pp.pvp_losses}L | Clan: ${cl[0]?.name || 'None'}`
+                );
+            }
+            if (inv.length) {
+                const equipped  = inv.filter(i => i.equipped).map(i => i.item_name).join(', ') || 'None';
+                const inBag     = inv.filter(i => !i.equipped).map(i => `${i.item_name} x${i.quantity}`).join(', ') || 'Empty';
+                fetched.push(`Inventory — Equipped: ${equipped}\nBag: ${inBag}`);
+            }
+            if (pq.length) {
+                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁') : '🔄'} ${q.title} (${q.progress}/${q.objective_count})`).join('\n');
+                fetched.push(`Quests:\n${quests}`);
+            }
+            if (dp.length) {
+                const dungeons = dp.map(d => `Rank ${d.dungeon_rank} | Stage ${d.stage}/${d.max_stage}`).join('\n');
+                fetched.push(`Recent Dungeon Activity:\n${dungeons}`);
+            }
         }
 
         // Clan queries
@@ -402,12 +417,16 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         // Leaderboard
         if (/\b(leaderboard|top|best|strongest|richest|ranking)\b/.test(q)) {
             const order = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
+            const type  = /gold|rich/.test(q) ? 'Gold' : /pvp|win/.test(q) ? 'PvP Wins' : 'XP';
             const [rows] = await db.execute(
                 `SELECT p.nickname, p.rank, p.prestige_level, p.pvp_wins, p.pvp_losses, c.gold, x.xp
                  FROM players p LEFT JOIN currency c ON c.player_id = p.id
                  LEFT JOIN xp x ON x.player_id = p.id ORDER BY ${order} DESC LIMIT 10`
             );
-            fetched.push(`LEADERBOARD:\n${rows.map((r,i) => `${i+1}. ${JSON.stringify(r)}`).join('\n')}`);
+            const board = rows.map((r,i) =>
+                `${i+1}. ${r.nickname} [${r.rank}${r.prestige_level > 0 ? '⭐' : ''}] — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W/${r.pvp_losses}L`
+            ).join('\n');
+            fetched.push(`Leaderboard (by ${type}):\n${board}`);
         }
 
         // Server stats

@@ -72,11 +72,19 @@ async function execAction(action, params, sock, jid, blockedSet) {
         await db.execute("UPDATE players SET prestige_level=? WHERE id=?", [level||1, p.id]);
         return `*${p.nickname}*'s prestige set to ${level||1} ⭐`;
     }
-    if (a.includes('fatigue')) {
+    if (a.includes('fatigue') || a.includes('reset')) {
+        if (!target || target.toLowerCase() === 'all' || target.toLowerCase() === 'everyone') {
+            await db.execute("UPDATE players SET fatigue=0");
+            return `All players' fatigue cleared ⚡`;
+        }
         await db.execute("UPDATE players SET fatigue=0 WHERE id=?", [p.id]);
         return `*${p.nickname}*'s fatigue cleared ⚡`;
     }
-    if (a.includes('hp') || a.includes('heal')) {
+    if (a.includes('restore_hp') || (a.includes('heal') && (target?.toLowerCase() === 'all' || target?.toLowerCase() === 'everyone'))) {
+        if (!target || target.toLowerCase() === 'all' || target.toLowerCase() === 'everyone') {
+            await db.execute("UPDATE players SET hp=max_hp");
+            return `All players fully healed ❤️`;
+        }
         await db.execute("UPDATE players SET hp=max_hp WHERE id=?", [p.id]);
         return `*${p.nickname}* fully healed ❤️`;
     }
@@ -171,8 +179,10 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         `[ACTION: give_item | target: X | item: Y | quantity: N]\n` +
         `[ACTION: set_rank | target: X | rank: S]\n` +
         `[ACTION: set_prestige | target: X | level: 1]\n` +
-        `[ACTION: reset_fatigue | target: X]\n` +
-        `[ACTION: restore_hp | target: X]\n` +
+        `[ACTION: reset_fatigue | target: X]   — specific player\n` +
+        `[ACTION: reset_fatigue | target: all] — ALL players\n` +
+        `[ACTION: restore_hp | target: X]      — specific player\n` +
+        `[ACTION: restore_hp | target: all]    — ALL players\n` +
         `[ACTION: ban | target: X]\n` +
         `[ACTION: unban | target: X]\n` +
         `[ACTION: announce | message: text]\n\n` +
