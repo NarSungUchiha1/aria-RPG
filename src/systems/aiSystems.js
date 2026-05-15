@@ -329,14 +329,17 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         const q       = question.toLowerCase();
         const fetched = [];
 
-        // Find player name by matching against every real nickname in the DB
+        // Find player name — word-boundary match, longest first, no false substring hits
         const [allNicks] = await db.execute(
             "SELECT id, nickname FROM players ORDER BY LENGTH(nickname) DESC"
         );
         let mentionedId   = null;
         let mentionedName = null;
         for (const row of allNicks) {
-            if (q.includes(row.nickname.toLowerCase())) {
+            const nick = row.nickname.toLowerCase();
+            // Must appear as a whole word (not inside another word)
+            const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9_])`, 'i');
+            if (regex.test(q)) {
                 mentionedId   = row.id;
                 mentionedName = row.nickname;
                 break;
@@ -355,29 +358,30 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
             if (p[0]) {
                 const pp = p[0];
-                const gold = c[0]?.gold ?? 0;
-                const xp   = x[0]?.xp   ?? 0;
+                const gold = Number(c[0]?.gold ?? 0).toLocaleString();
+                const xp   = Number(x[0]?.xp   ?? 0).toLocaleString();
+                const prestige = pp.prestige_level > 0 ? ` ★ Prestige ${pp.prestige_level}` : '';
                 fetched.push(
-                    `=== ${mentionedName} ===\n` +
-                    `Role: ${pp.role} | Rank: ${pp.rank}${pp.prestige_level > 0 ? ` (Prestige ${pp.prestige_level})` : ''} | Title: ${pp.title || 'None'}\n` +
-                    `HP: ${pp.hp}/${pp.max_hp} | Fatigue: ${pp.fatigue}/100 | SP: ${pp.sp}\n` +
-                    `STR: ${pp.strength} | AGI: ${pp.agility} | INT: ${pp.intelligence} | STA: ${pp.stamina}\n` +
-                    `Gold: ${Number(gold).toLocaleString()} | XP: ${Number(xp).toLocaleString()}\n` +
-                    `PvP: ${pp.pvp_wins}W / ${pp.pvp_losses}L | Clan: ${cl[0]?.name || 'None'}`
+                    `╭─ ${mentionedName}${prestige}\n` +
+                    `│ ${pp.role} · Rank ${pp.rank}${pp.title ? ` · ${pp.title}` : ''}\n` +
+                    `│ HP ${pp.hp}/${pp.max_hp} · Fatigue ${pp.fatigue}/100 · SP ${pp.sp}\n` +
+                    `│ STR ${pp.strength} · AGI ${pp.agility} · INT ${pp.intelligence} · STA ${pp.stamina}\n` +
+                    `│ Gold ${gold} · XP ${xp}\n` +
+                    `│ PvP ${pp.pvp_wins}W / ${pp.pvp_losses}L\n` +
+                    `╰─ Clan: ${cl[0]?.name || 'None'}`
                 );
             }
             if (inv.length) {
-                const equipped  = inv.filter(i => i.equipped).map(i => i.item_name).join(', ') || 'None';
-                const inBag     = inv.filter(i => !i.equipped).map(i => `${i.item_name} x${i.quantity}`).join(', ') || 'Empty';
-                fetched.push(`Inventory — Equipped: ${equipped}\nBag: ${inBag}`);
+                const equipped = inv.filter(i => i.equipped).map(i => i.item_name).join(', ') || 'None';
+                const bag      = inv.filter(i => !i.equipped).map(i => `${i.item_name}${i.quantity > 1 ? ` x${i.quantity}` : ''}`).join(', ') || 'Empty';
+                fetched.push(`Equipped: ${equipped}\nBag: ${bag}`);
             }
             if (pq.length) {
-                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁') : '🔄'} ${q.title} (${q.progress}/${q.objective_count})`).join('\n');
+                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁 Unclaimed') : `🔄 ${q.progress}/${q.objective_count}`} ${q.title}`).join('\n');
                 fetched.push(`Quests:\n${quests}`);
             }
             if (dp.length) {
-                const dungeons = dp.map(d => `Rank ${d.dungeon_rank} | Stage ${d.stage}/${d.max_stage}`).join('\n');
-                fetched.push(`Recent Dungeon Activity:\n${dungeons}`);
+                fetched.push(`Recent dungeons: ${dp.map(d => `Rank ${d.dungeon_rank} (Stage ${d.stage}/${d.max_stage})`).join(' | ')}`);
             }
         }
 
@@ -442,32 +446,27 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             try {
                 const hours = /yesterday/.test(q) ? 48 : /week/.test(q) ? 168 : 24;
                 const { getGroupLog, getAllGroupSummary } = require('./ariaAwareness');
-
-                // Did they name a specific group?
-                const raidMatch   = /raid|dungeon.*group|raidgc/i.test(q);
-                const generalMatch = /general|other|main|second/i.test(q);
-
                 const RAID_JID = process.env.RAID_GROUP_JID || '';
-
-                let targetJid = jid; // default: the group they're asking from
+                const raidMatch = /raid|dungeon.*group|raidgc/i.test(q);
+                let targetJid = jid;
                 if (raidMatch && RAID_JID) targetJid = RAID_JID;
 
-                // If they ask "all groups" or "every group" — get summary of all
                 if (/all group|every group|both group/.test(q)) {
                     const summary = await getAllGroupSummary(hours);
-                    if (summary) fetched.push(`ALL GROUPS ACTIVITY (last ${hours}h):\n${summary}`);
+                    if (summary) fetched.push(`ALL GROUPS (last ${hours}h) — summarize based ONLY on these actual messages:\n${summary}`);
                 } else {
                     const log = await getGroupLog(targetJid, hours, 80);
-                    if (log) fetched.push(`GROUP ACTIVITY (last ${hours}h) from ${targetJid === RAID_JID ? 'Raid Group' : 'this group'}:\n${log}`);
+                    if (log) fetched.push(`GROUP MESSAGES (last ${hours}h) — summarize based ONLY on these actual messages, do not add anything not here:\n${log}`);
+                    else fetched.push(`No messages recorded in the last ${hours} hours.`);
                 }
             } catch {}
         }
 
         if (fetched.length) {
-            realData = fetched.join('\n\n');
+            realData = `\n\n⚠️ REAL DATA — USE ONLY THIS. DO NOT INVENT OR ADD ANYTHING NOT SHOWN HERE:\n\n${fetched.join('\n\n')}\n\nIf asked for something not in the above data, say "I don't have that on record."`;
             console.log(`[ARIA DB] fetched ${fetched.length} sections for: ${mentionedName || 'general'}`);
         } else {
-            console.log(`[ARIA DB] no data fetched for question: "${question.substring(0, 50)}"`);
+            console.log(`[ARIA DB] no data fetched for: "${question.substring(0, 50)}"`);
         }
     } catch (e) {
         console.error('[ARIA DB ERROR]', e.message);

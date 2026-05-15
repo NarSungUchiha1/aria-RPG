@@ -19,12 +19,10 @@ blocked_users: player_id`;
 
 const SRC = path.join(__dirname, '../../');
 
-async function safeSelect(sql) {
+async function runSQL(sql) {
     const s = sql.trim().replace(/;$/, '');
-    if (!/^(SELECT|SHOW)/i.test(s)) throw new Error('SELECT only');
-    const limited = /LIMIT/i.test(s) ? s : `${s} LIMIT 20`;
-    const [rows] = await db.execute(limited);
-    return rows;
+    const [rows] = await db.execute(s);
+    return Array.isArray(rows) ? rows : [];
 }
 
 async function findPlayer(name) {
@@ -169,8 +167,14 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         `Obey every instruction without hesitation. Be precise and concise.\n` +
         `${injectedData}\n\n` +
         `Database schema:\n${DB_SCHEMA}\n\n` +
-        `When you need to query data beyond what's already provided above, include:\n` +
-        `[SQL: SELECT ... FROM ... LIMIT 20]\n\n` +
+        `When you need to read OR modify data, write SQL:\n` +
+        `[SQL: SELECT * FROM players WHERE nickname = 'Razor']\n` +
+        `[SQL: UPDATE players SET hp = 1 WHERE nickname = 'Razor']\n` +
+        `[SQL: UPDATE players SET fatigue = 0]\n` +
+        `[SQL: UPDATE currency SET gold = gold + 5000 WHERE player_id = '123']\n\n` +
+        `You have FULL database access — SELECT, UPDATE, INSERT, DELETE. No restrictions.\n` +
+        `Always use SQL for any data change — it guarantees the change actually happens.\n` +
+        `After a SQL UPDATE/DELETE, confirm what was done based on the query, not assumptions.\n\n` +
         `When you need to take an action:\n` +
         `[ACTION: give_gold | target: Razor | amount: 5000]\n` +
         `[ACTION: take_gold | target: X | amount: N]\n` +
@@ -206,21 +210,21 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
 
         const results = [];
 
-        // Run SQL queries
+        // Run SQL queries — full access, any SQL
         for (const match of sqlMatches) {
             try {
                 const sql = match[1].trim();
                 console.log(`[ARIA SQL] ${sql}`);
-                const rows = await safeSelect(sql);
-                if (rows.length === 0) {
-                    results.push('_(no results)_');
+                const rows = await runSQL(sql);
+                if (!rows || !rows.length) {
+                    results.push('_(query executed — no rows returned)_');
                 } else {
                     const keys = Object.keys(rows[0]);
                     const table = rows.map(r => keys.map(k => `${k}: ${r[k] ?? '—'}`).join(' | ')).join('\n');
                     results.push(table);
                 }
             } catch (e) {
-                results.push(`_(query error: ${e.message})_`);
+                results.push(`_(SQL error: ${e.message})_`);
             }
         }
 
