@@ -3,7 +3,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const DB_SCHEMA = `
-players: id, nickname, role, rank(F/E/D/C/B/A/S/PF-PS), hp, max_hp, strength, agility, intelligence, stamina, fatigue, sp, prestige_level, pvp_wins, pvp_losses, title
+players: id, nickname, role, rank(F/E/D/C/B/A/S/PF-PS), hp, max_hp, strength, agility, intelligence, stamina, fatigue(0-100 absolute integer — 0=fresh, 100=exhausted. NEVER multiply. "50%" means SET fatigue=50), sp, prestige_level, pvp_wins, pvp_losses, title
 currency: player_id, gold
 xp: player_id, xp  
 inventory: id, player_id, item_name, item_type, quantity, equipped, durability
@@ -213,8 +213,10 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         `Remove item:       [SQL: DELETE FROM inventory WHERE player_id='ID' AND item_name='Sword']\n` +
         `Grant material:    [SQL: INSERT INTO inventory (player_id,item_name,item_type,quantity) VALUES ('ID','Void Shard','material',1) ON DUPLICATE KEY UPDATE quantity=quantity+1]\n` +
         `Set HP:            [SQL: UPDATE players SET hp=1, max_hp=1200 WHERE id='ID']\n` +
-        `Set fatigue:       [SQL: UPDATE players SET fatigue=0 WHERE id='ID']\n` +
+        `Set fatigue:       [SQL: UPDATE players SET fatigue=LEAST(100,GREATEST(0,50)) WHERE id='ID']\n` +
         `All fatigue reset: [SQL: UPDATE players SET fatigue=0]\n` +
+        `All fatigue to 50: [SQL: UPDATE players SET fatigue=50]\n` +
+        `⚠️ FATIGUE RULE: fatigue is always an integer 0-100. "set to 50%" = fatigue=50. NEVER multiply. Always use LEAST(100, value).\n` +
         `Set gold:          [SQL: UPDATE currency SET gold=50000 WHERE player_id='ID']\n` +
         `Give gold:         [SQL: UPDATE currency SET gold=gold+5000 WHERE player_id='ID']\n` +
         `Give XP:           [SQL: UPDATE xp SET xp=xp+1000 WHERE player_id='ID']\n` +
