@@ -25,10 +25,10 @@ module.exports = {
 
         try {
             const [senderRows] = await db.execute(
-                "SELECT nickname, role, `rank` FROM players WHERE id=?", [userId]
+                "SELECT nickname, role, `rank`, prestige_level FROM players WHERE id=?", [userId]
             );
             const [targetRows] = await db.execute(
-                "SELECT nickname, role, `rank` FROM players WHERE id=?", [targetId]
+                "SELECT nickname, role, `rank`, prestige_level FROM players WHERE id=?", [targetId]
             );
 
             if (!senderRows.length) return msg.reply(
@@ -42,16 +42,18 @@ module.exports = {
             const target = targetRows[0];
             const senderRankIdx = RANK_ORDER.indexOf(sender.rank);
             const targetRankIdx = RANK_ORDER.indexOf(target.rank);
+            const senderPrestige = (sender.prestige_level || 0) > 0;
+            const targetPrestige = (target.prestige_level || 0) > 0;
 
-            // ✅ Both players must be Rank D or higher to trade
-            if (senderRankIdx < 2) return msg.reply(
+            // Prestige players bypass ALL rank restrictions
+            if (!senderPrestige && senderRankIdx < 2) return msg.reply(
                 `══〘 🎁 TRADE 〙══╮\n` +
                 `┃◆ ❌ Trading unlocks at Rank D.\n` +
                 `┃◆ Your rank: ${sender.rank}\n` +
                 `┃◆ Keep grinding!\n` +
                 `╰═══════════════════════╯`
             );
-            if (targetRankIdx < 2) return msg.reply(
+            if (!targetPrestige && targetRankIdx < 2) return msg.reply(
                 `══〘 🎁 TRADE 〙══╮\n` +
                 `┃◆ ❌ *${target.nickname}* hasn't reached Rank D yet.\n` +
                 `┃◆ Their rank: ${target.rank}\n` +
@@ -85,8 +87,8 @@ module.exports = {
             )?.[0];
 
             if (itemRole && itemRole !== target.role) {
-                // Cross-role trade — requires both at Rank A
-                if (senderRankIdx < 5 || targetRankIdx < 5) {
+                // Cross-role trade — requires both at Rank A OR both prestige
+                if (!senderPrestige && !targetPrestige && (senderRankIdx < 5 || targetRankIdx < 5)) {
                     return msg.reply(
                         `══〘 🎁 TRADE 〙══╮\n` +
                         `┃◆ ❌ Cross-role item trading\n` +
