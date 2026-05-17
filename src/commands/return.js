@@ -15,19 +15,52 @@ module.exports = {
                 `══〘 🌀 RIFT 〙══╮\n┃◆ ❌ ${result.reason}\n╰═══════════════════════╯`
             );
 
+            // Timed out — came back empty
             if (result.expired) return msg.reply(
-                `══〘 🌀 RIFT 〙══╮\n┃◆ ⚠️ ${result.narrative}\n╰═══════════════════════╯`
-            );
-
-            const drops = result.drops;
-            const hasDrops = Object.keys(drops).length > 0;
-
-            let text =
-                `╔══〘 🌀 RETURNED FROM THE RIFT 〙══╗\n` +
+                `╔══〘 🌀 RIFT — TOO LONG 〙══╗\n` +
                 `┃◆\n` +
                 `┃◆ 〝${result.narrative}〞\n` +
                 `┃◆\n` +
-                `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                `┃◆ You were gone too long.\n` +
+                `┃◆ The void kept everything.\n` +
+                `╚═══════════════════════════╝`
+            );
+
+            // Did not survive
+            if (!result.survived) {
+                return msg.reply(
+                    `╔══〘 💀 YOU DID NOT RETURN 〙══╗\n` +
+                    `┃◆\n` +
+                    `┃◆ 〝${result.narrative}〞\n` +
+                    `┃◆\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ HP reduced to 10%.\n` +
+                    `┃◆ All materials lost.\n` +
+                    `┃◆ Entry fee not refunded.\n` +
+                    `┃◆\n` +
+                    `┃◆ Survival chance was: ${result.survivalRate}%\n` +
+                    `┃◆ The deeper rifts are not safe.\n` +
+                    `┃◆ Use !respawn to recover.\n` +
+                    `╚═══════════════════════════╝`
+                );
+            }
+
+            // Survived but wounded
+            const drops    = result.drops;
+            const hasDrops = Object.keys(drops).length > 0;
+
+            let text =
+                `╔══〘 🌀 ${result.wounded ? 'RETURNED — WOUNDED' : 'RETURNED FROM THE RIFT'} 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ 〝${result.narrative}〞\n` +
+                `┃◆\n` +
+                `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n`;
+
+            if (result.wounded) {
+                text += `┃◆ ⚠️ HP reduced by 30%.\n┃◆\n`;
+            }
+
+            text +=
                 `┃◆ 🎒 MATERIALS FOUND:\n` +
                 `┃◆\n`;
 
@@ -36,13 +69,15 @@ module.exports = {
                     text += `┃◆ • ${mat} ×${qty}\n`;
                 }
             } else {
-                text += `┃◆ • Nothing. The rift gave nothing.\n`;
+                text += `┃◆ • Nothing of value.\n`;
             }
 
             text +=
                 `┃◆\n` +
-                `┃◆ !materials — view your stock\n` +
-                `┃◆ !brew <potion> — use them\n` +
+                `┃◆ Survival chance was: ${result.survivalRate}%\n` +
+                `┃◆\n` +
+                `┃◆ !expmaterials — view stock\n` +
+                `┃◆ !brew — craft potions\n` +
                 `╚═══════════════════════════╝`;
 
             return msg.reply(text);

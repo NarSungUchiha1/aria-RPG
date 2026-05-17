@@ -41,6 +41,11 @@ module.exports = {
             const isPrestige = p.prestige_level > 0;
             const rank       = p.rank;
             const cost       = ENTRY_COSTS[rank] || 500;
+            const SURVIVAL_RATES = {
+                F: 0.95, E: 0.92, D: 0.88, C: 0.83, B: 0.77, A: 0.70, S: 0.62,
+                PF: 0.55, PE: 0.50, PD: 0.44, PC: 0.38, PB: 0.32, PA: 0.25, PS: 0.18
+            };
+            const survivalPct = Math.floor((SURVIVAL_RATES[rank] || 0.80) * 100);
             const result     = await enterRift(userId, rank, p.role, isPrestige);
 
             if (!result.ok) return msg.reply(
@@ -57,6 +62,8 @@ module.exports = {
                 `┃◆ Role: ${p.role}\n` +
                 `┃◆ Rift Tier: ${rank}${isPrestige ? ' (Void Rift)' : ''}\n` +
                 `┃◆ Entry Cost: ${cost.toLocaleString()}G\n` +
+                `┃◆\n` +
+                `┃◆ ⚠️ Survival chance: ${survivalPct}%\n` +
                 `┃◆\n` +
                 `┃◆ ⏳ Return in ${result.readyIn}\n` +
                 `┃◆ Type !return when ready.\n` +

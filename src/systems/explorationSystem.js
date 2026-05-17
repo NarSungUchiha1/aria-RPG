@@ -10,6 +10,32 @@ const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
 const EXPLORE_DURATION = 45 * 60 * 1000; // 45 minutes
 const EXPLORE_TIMEOUT  = 2 * 60 * 60 * 1000; // 2 hour max
 
+
+// Survival chance per rank — higher ranks have better drops but higher risk
+const SURVIVAL_RATES = {
+    F: 0.95, E: 0.92, D: 0.88,
+    C: 0.83, B: 0.77, A: 0.70, S: 0.62,
+    PF: 0.55, PE: 0.50, PD: 0.44,
+    PC: 0.38, PB: 0.32, PA: 0.25, PS: 0.18
+};
+
+const DEATH_NARRATIVES = [
+    'The rift collapsed. You did not make it out.',
+    'Something in the deep noticed you. You did not return.',
+    'The void took more than your materials this time.',
+    'You went too far. The rift sealed behind you.',
+    'Whatever found you in there — you never saw it coming.',
+    'The fracture was too unstable. You were inside when it closed.',
+    'The void keeps what it catches. Today it caught you.'
+];
+
+const WOUNDED_NARRATIVES = [
+    'You made it back. Something followed you to the edge.',
+    'The rift tried to keep you. You fought your way out.',
+    'You survived. The cost was your HP.',
+    'Something touched you on the way back. You are still counting the damage.'
+];
+
 const ENTRY_COSTS = {
     F: 500, E: 500, D: 500,
     C: 1000, B: 1000,
@@ -81,8 +107,8 @@ async function ensureExplorationTable() {
             player_id   VARCHAR(50) UNIQUE NOT NULL,
             entered_at  DATETIME DEFAULT NOW(),
             expires_at  DATETIME NOT NULL,
-            rank        VARCHAR(10) NOT NULL,
-            role        VARCHAR(20) NOT NULL,
+            `rank`      VARCHAR(10) NOT NULL,
+            `role`      VARCHAR(20) NOT NULL,
             is_prestige TINYINT DEFAULT 0
         )
     `).catch(() => {});
@@ -210,11 +236,33 @@ async function returnFromRift(playerId) {
         return { ok: true, drops: {}, expired: true, narrative: 'You were gone too long. Whatever you found, the void took it back.' };
     }
 
+    // Survival check
+    const survivalRate = SURVIVAL_RATES[ex.rank] || 0.80;
+    const survived     = Math.random() < survivalRate;
+    const deathNarrative = DEATH_NARRATIVES[Math.floor(Math.random() * DEATH_NARRATIVES.length)];
+    const woundedNarrative = WOUNDED_NARRATIVES[Math.floor(Math.random() * WOUNDED_NARRATIVES.length)];
+
+    if (!survived) {
+        // Dead — lose 50% HP, no drops, lose entry fee (already paid)
+        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.1)) WHERE id=?', [playerId]);
+        return {
+            ok: true, drops: {}, expired: false, survived: false,
+            narrative: deathNarrative,
+            survivalRate: Math.floor(survivalRate * 100)
+        };
+    }
+
+    // Wounded — small chance, lose 30% HP but still get drops
+    const wounded = Math.random() > 0.7;
+    if (wounded) {
+        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(hp * 0.7)) WHERE id=?', [playerId]);
+    }
+
     const drops = rollDrops(ex.role, ex.rank, ex.is_prestige === 1);
     await addMaterials(playerId, drops);
 
     const narrative = RIFT_RETURN_NARRATIVES[Math.floor(Math.random() * RIFT_RETURN_NARRATIVES.length)];
-    return { ok: true, drops, expired: false, narrative };
+    return { ok: true, drops, expired: false, survived: true, wounded, narrative: wounded ? woundedNarrative : narrative, survivalRate: Math.floor(survivalRate * 100) };
 }
 
 module.exports = {
