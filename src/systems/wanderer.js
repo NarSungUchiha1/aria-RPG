@@ -72,7 +72,7 @@ async function spawnWanderer(client, EXPLORATION_GC) {
         `┃◆\n` +
         `┃◆ 〝${trade.desc}〞\n` +
         `┃◆\n` +
-        `┃◆ !trade — accept the offer\n` +
+        `┃◆ !wanderertrade — accept the offer\n` +
         `┃◆ ⏳ 30 minutes. Then he leaves.\n` +
         `╚═══════════════════════════╝`;
 
