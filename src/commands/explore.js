@@ -1,6 +1,14 @@
 const db = require('../database/db');
 const { enterRift, isExploring, EXPLORATION_GC, ENTRY_COSTS } = require('../systems/explorationSystem');
 
+const SURVIVAL_RATES = {
+    F: 0.95, E: 0.92, D: 0.88, C: 0.83, B: 0.77, A: 0.70, S: 0.62,
+    PF: 0.55, PE: 0.50, PD: 0.44, PC: 0.38, PB: 0.32, PA: 0.25, PS: 0.18
+};
+
+// Explorer bonus — +5% survival at every tier
+const EXPLORER_SURVIVAL_BONUS = 0.05;
+
 module.exports = {
     name: 'explore',
     async execute(msg, args, { userId }) {
@@ -17,18 +25,24 @@ module.exports = {
             if (!player.length) return msg.reply("❌ Not registered.");
 
             const p = player[0];
-            if (!['Mage','Healer'].includes(p.role)) return msg.reply(
-                `══〘 🌀 RIFT 〙══╮\n` +
-                `┃◆ ❌ Explorers only.\n` +
-                `┃◆ Only Mages and Healers\n` +
-                `┃◆ can enter the void rifts.\n` +
-                `┃◆ Fighters raid. You explore.\n` +
-                `╰═══════════════════════╯`
+
+            // Explorer only
+            if (p.role !== 'Explorer') return msg.reply(
+                `╔══〘 🌀 VOID RIFT 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ ❌ Rifts are sealed to you.\n` +
+                `┃◆\n` +
+                `┃◆ Only *Explorers* can enter\n` +
+                `┃◆ the void rifts.\n` +
+                `┃◆\n` +
+                `┃◆ Fighters raid dungeons.\n` +
+                `┃◆ Explorers walk the void.\n` +
+                `╚═══════════════════════════╝`
             );
 
             const active = await isExploring(userId);
             if (active) {
-                const elapsed  = Date.now() - new Date(active.entered_at).getTime();
+                const elapsed   = Date.now() - new Date(active.entered_at).getTime();
                 const remaining = Math.max(0, Math.ceil((45 * 60 * 1000 - elapsed) / 60000));
                 return msg.reply(
                     `══〘 🌀 RIFT 〙══╮\n` +
@@ -38,16 +52,13 @@ module.exports = {
                 );
             }
 
-            const isPrestige = p.prestige_level > 0;
-            const rank       = p.rank;
-            const cost       = ENTRY_COSTS[rank] || 500;
-            const SURVIVAL_RATES = {
-                F: 0.95, E: 0.92, D: 0.88, C: 0.83, B: 0.77, A: 0.70, S: 0.62,
-                PF: 0.55, PE: 0.50, PD: 0.44, PC: 0.38, PB: 0.32, PA: 0.25, PS: 0.18
-            };
-            const survivalPct = Math.floor((SURVIVAL_RATES[rank] || 0.80) * 100);
-            const result     = await enterRift(userId, rank, p.role, isPrestige);
+            const isPrestige  = p.prestige_level > 0;
+            const rank        = p.rank;
+            const cost        = ENTRY_COSTS[rank] || 500;
+            const baseSurvival = SURVIVAL_RATES[rank] || 0.80;
+            const survivalPct = Math.min(99, Math.floor((baseSurvival + EXPLORER_SURVIVAL_BONUS) * 100));
 
+            const result = await enterRift(userId, rank, p.role, isPrestige);
             if (!result.ok) return msg.reply(
                 `══〘 🌀 RIFT 〙══╮\n┃◆ ❌ ${result.reason}\n╰═══════════════════════╯`
             );
@@ -59,11 +70,9 @@ module.exports = {
                 `┃◆\n` +
                 `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃◆ Explorer: ${p.nickname}\n` +
-                `┃◆ Role: ${p.role}\n` +
-                `┃◆ Rift Tier: ${rank}${isPrestige ? ' (Void Rift)' : ''}\n` +
+                `┃◆ Rift Tier: ${rank}${isPrestige ? ' ✦ Void Rift' : ''}\n` +
                 `┃◆ Entry Cost: ${cost.toLocaleString()}G\n` +
-                `┃◆\n` +
-                `┃◆ ⚠️ Survival chance: ${survivalPct}%\n` +
+                `┃◆ ⚠️ Survival Chance: ${survivalPct}%\n` +
                 `┃◆\n` +
                 `┃◆ ⏳ Return in ${result.readyIn}\n` +
                 `┃◆ Type !return when ready.\n` +

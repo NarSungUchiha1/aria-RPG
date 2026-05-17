@@ -46,6 +46,12 @@ const ENTRY_COSTS = {
 
 // Drop tables by role and rank
 const DROPS = {
+    Explorer: {
+        common:   ['Healing Moss', 'Spell Component', 'Void Ink', 'Root Extract', 'Ancient Herb'],
+        uncommon: ['Life Essence', 'Shadow Fragment', 'Void Crystal', 'Shadow Essence'],
+        rare:     ['Blood Root', 'Ancient Tome Fragment', 'Void Ink', 'Shadow Essence'],
+        legendary:['Malachar Fragment', 'Ancient Tome Fragment']
+    },
     Mage: {
         common:   ['Spell Component', 'Void Ink', 'Ancient Herb'],
         uncommon: ['Void Crystal', 'Ancient Tome Fragment', 'Shadow Fragment'],
@@ -134,9 +140,11 @@ function rollDropRarity(rank) {
 }
 
 function rollDrops(role, rank, isPrestige) {
-    const table  = DROPS[role] || DROPS['Mage'];
-    const found  = {};
-    const count  = isPrestige ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 3) + 2;
+    const table     = DROPS['Explorer'] || DROPS['Mage'];
+    const found     = {};
+    // Explorer gets +2 bonus drops compared to other roles
+    const baseCount = isPrestige ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 3) + 2;
+    const count     = role === 'Explorer' ? baseCount + 2 : baseCount;
 
     for (let i = 0; i < count; i++) {
         const rarity = rollDropRarity(rank);
@@ -238,7 +246,9 @@ async function returnFromRift(playerId) {
     }
 
     // Survival check
-    const survivalRate = SURVIVAL_RATES[ex.rank] || 0.80;
+    // Explorer gets +5% survival bonus
+    const baseRate    = SURVIVAL_RATES[ex.rank] || 0.80;
+    const survivalRate = ex.role === 'Explorer' ? Math.min(0.99, baseRate + 0.05) : baseRate;
     const survived     = Math.random() < survivalRate;
     const deathNarrative = DEATH_NARRATIVES[Math.floor(Math.random() * DEATH_NARRATIVES.length)];
     const woundedNarrative = WOUNDED_NARRATIVES[Math.floor(Math.random() * WOUNDED_NARRATIVES.length)];

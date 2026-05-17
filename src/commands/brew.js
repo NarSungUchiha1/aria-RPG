@@ -18,8 +18,8 @@ module.exports = {
             if (!player.length) return msg.reply("❌ Not registered.");
             const p = player[0];
 
-            if (!['Mage','Healer'].includes(p.role)) return msg.reply(
-                `══〘 ⚗️ BREW 〙══╮\n┃◆ ❌ Only Mages and Healers can brew.\n╰═══════════════════════╯`
+            if (p.role !== 'Explorer') return msg.reply(
+                `══〘 ⚗️ BREW 〙══╮\n┃◆ ❌ Only Explorers can brew potions.\n╰═══════════════════════╯`
             );
 
             // Show all potions

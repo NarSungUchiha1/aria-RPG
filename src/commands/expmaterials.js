@@ -31,7 +31,8 @@ module.exports = {
                 `╔══〘 🌿 EXPLORER MATERIALS 〙══╗\n` +
                 `┃◆\n` +
                 `┃◆ No exploration materials yet.\n` +
-                `┃◆ !explore to enter a rift.\n` +
+                `┃◆ Use !explore to enter a rift.
+┃◆ Explorer role required.\n` +
                 `┃◆\n` +
                 `╚═══════════════════════════╝`
             );
