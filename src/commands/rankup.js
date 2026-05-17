@@ -67,7 +67,7 @@ module.exports = {
 
                 await db.execute("UPDATE xp SET xp = xp - ? WHERE player_id=?", [xpCost, userId]);
 
-                const isCaster = (p.role === 'Mage' || p.role === 'Healer');
+                const isCaster = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer');
                 const newMana  = isCaster ? ((p.max_mana || 400) + gains.mana) : null;
 
                 let q = `UPDATE players SET \`rank\`=?, strength=strength+?, agility=agility+?, intelligence=intelligence+?, stamina=stamina+?, hp=hp+?, max_hp=max_hp+?`;
@@ -111,7 +111,7 @@ module.exports = {
 
                 await db.execute("UPDATE xp SET xp = xp - ? WHERE player_id=?", [xpCost, userId]);
 
-                const isCaster = (p.role === 'Mage' || p.role === 'Healer');
+                const isCaster = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer');
                 const newMana  = isCaster ? normalMana[nextRank] : null;
 
                 let q = `UPDATE players SET \`rank\`=?, strength=strength+?, agility=agility+?, intelligence=intelligence+?, stamina=stamina+?, hp=hp+?, max_hp=max_hp+?`;

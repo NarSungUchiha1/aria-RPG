@@ -48,7 +48,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
             // Deal AOE damage to all enemies
             const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
-            const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina' };
+            const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
             const primaryStatKey = roleStatMap[player.role] || 'strength';
             const primaryStat = Number(player[primaryStatKey]) || 100;
             for (const e of enemies[0]) {
@@ -265,7 +265,7 @@ module.exports = {
         const cd = getMoveCooldown(userId, move.name);
         if (cd > 0) return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
 
-        if ((player.role === 'Mage' || player.role === 'Healer') && requiresMana(move)) {
+        if ((player.role === 'Mage' || player.role === 'Healer' || player.role === 'Explorer') && requiresMana(move)) {
             const manaCost = move.cost || 5;
             const currentMana = Number(player.mana) || 0;
             if (currentMana < manaCost) {
