@@ -48,10 +48,8 @@ module.exports = {
             for (const rarity of order) {
                 const items = byRarity[rarity];
                 if (!items.length) continue;
-
-                if (!first) text += `┃★ \n`; // spacer between groups
+                if (!first) text += `┃★ \n`;
                 first = false;
-
                 text += `┃★ ${RARITY_EMOJI[rarity]} ${rarity.toUpperCase()}\n`;
                 items.forEach(i => {
                     text += `┃★   ${i.material} ×${i.quantity}\n`;
