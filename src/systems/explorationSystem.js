@@ -101,27 +101,28 @@ const RIFT_RETURN_NARRATIVES = [
 ];
 
 async function ensureExplorationTable() {
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS explorations (
-            id          INT AUTO_INCREMENT PRIMARY KEY,
-            player_id   VARCHAR(50) UNIQUE NOT NULL,
-            entered_at  DATETIME DEFAULT NOW(),
-            expires_at  DATETIME NOT NULL,
-            `rank`      VARCHAR(10) NOT NULL,
-            `role`      VARCHAR(20) NOT NULL,
-            is_prestige TINYINT DEFAULT 0
-        )
-    `).catch(() => {});
+    await db.execute([
+        'CREATE TABLE IF NOT EXISTS explorations (',
+        '    id INT AUTO_INCREMENT PRIMARY KEY,',
+        '    player_id VARCHAR(50) UNIQUE NOT NULL,',
+        '    entered_at DATETIME DEFAULT NOW(),',
+        '    expires_at DATETIME NOT NULL,',
+        '    `rank` VARCHAR(10) NOT NULL,',
+        '    `role` VARCHAR(20) NOT NULL,',
+        '    is_prestige TINYINT DEFAULT 0',
+        ')'
+    ].join(' ')).catch(() => {});
 
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS exploration_materials (
-            player_id   VARCHAR(50) NOT NULL,
-            material    VARCHAR(100) NOT NULL,
-            quantity    INT DEFAULT 0,
-            PRIMARY KEY (player_id, material)
-        )
-    `).catch(() => {});
+    await db.execute([
+        'CREATE TABLE IF NOT EXISTS exploration_materials (',
+        '    player_id VARCHAR(50) NOT NULL,',
+        '    material VARCHAR(100) NOT NULL,',
+        '    quantity INT DEFAULT 0,',
+        '    PRIMARY KEY (player_id, material)',
+        ')'
+    ].join(' ')).catch(() => {});
 }
+
 
 function rollDropRarity(rank) {
     const rates = RANK_DROP_RATES[rank] || RANK_DROP_RATES['F'];
