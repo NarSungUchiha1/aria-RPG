@@ -7,7 +7,7 @@
 const db = require('../database/db');
 
 const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
-const EXPLORE_DURATION = 45 * 60 * 1000; // 45 minutes
+const EXPLORE_DURATION = 2 * 60 * 1000; // 45 minutes
 const EXPLORE_TIMEOUT  = 2 * 60 * 60 * 1000; // 2 hour max
 
 
