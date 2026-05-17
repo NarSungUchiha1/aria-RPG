@@ -11,11 +11,11 @@ const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findP
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { getPlayerClan, CLAN_BLESSINGS, getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
+const { getEffect, getTurnEffect, clearEffect, consumeCharge, getHpLost } = require('../systems/potionEffects');
 
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
 const { narrate } = require('../utils/narrator');
-const { narrateAI } = require('../systems/aiSystems');
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
@@ -24,7 +24,7 @@ function requiresMana(move) {
 
 
 // ── CLAN BLESSING TRIGGER ────────────────────────────────────────────────────
-async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, client = null, extraData = {}) {
+async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, extraData = {}) {
     try {
         const clan = await getPlayerClan(playerId);
         if (!clan) return null;
@@ -34,14 +34,14 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
 
-        // 1-hour cooldown — blessing can only trigger once per hour
+        // 12-hour cooldown — blessing can only trigger once per 12 hours
         if (state.last_triggered) {
             const hoursSince = (Date.now() - new Date(state.last_triggered).getTime()) / (1000 * 60 * 60);
-            if (hoursSince < 1) return null;
+            if (hoursSince < 12) return null; // Still on cooldown
         }
 
         // One-use blessings per dungeon
-        if (['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move'].includes(trigger) && state.blessing_used) return null;
+        if (['hp_below_30','on_death','final_stage','all_allies_below_50'].includes(trigger) && state.blessing_used) return null;
 
         let blessingMsg = '';
 
@@ -52,19 +52,17 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             const primaryStatKey = roleStatMap[player.role] || 'strength';
             const primaryStat = Number(player[primaryStatKey]) || 100;
             for (const e of enemies[0]) {
-                const dmg = blessing.ignore_defense
-                    ? Math.floor(primaryStat * (blessing.multiplier || 3.0))
-                    : Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)) - (Number(e.def) || 0));
+                undefined
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
             }
+            const totalDmgDealt = toSpawn ? toSpawn.reduce((s,e) => s + Math.floor(totalStat * (blessing.multiplier||3.0)), 0) : 0;
             if (trigger === 'hp_below_30') {
                 blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
-┃◆ 🔥 The ancient flame awakens!
-┃◆ ${player.nickname}'s blood boils with draconic fury.
-┃◆ From the depths of their soul erupts...
-┃◆ 🌋 A BLAZING INFERNO that consumes ALL!
-┃◆ Flames so hot they ignore all defenses!
-┃◆ The battlefield becomes a sea of fire!
+┃◆ The bloodline awakens.
+┃◆ ${player.nickname} reaches the edge —
+┃◆ and the dragon inside ignites.
+┃◆ 🔥 Void fire erupts on ALL enemies.
+┃◆ DEF means nothing. It burns through.
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
@@ -156,31 +154,12 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'on_death') {
             const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
             await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
-
-            // Apply stat boost for 3 turns
-            const boostDuration = blessing.stat_boost_duration || 3;
-            const boostPercent = blessing.stat_boost_percent || 6.0;
-            const boostValue = Math.floor(boostPercent * 100);
-            applyBuff('player', playerId, {
-                type: 'buff',
-                stat: 'all',
-                value: boostValue,
-                duration: boostDuration,
-                source: 'clan_blessing'
-            });
-
-            if (extraData.attacker && extraData.attacker.id) {
-                const counterDamage = Math.max(1, Math.floor((player.strength || 100) * (blessing.multiplier || 6.0)));
-                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [counterDamage, extraData.attacker.id]);
-            }
-
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
             blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
 ┃◆ Death reached for ${player.nickname}.
 ┃◆ The bloodline refused.
 ┃◆ 
 ┃◆ You survived with ${healAmt} HP.
-┃◆ ALL stats boosted by ${boostValue}% for ${boostDuration} turns!
 ┃◆ The attacker feels the recoil.
 ╚═══════════════════════════╝`;
         }
@@ -233,11 +212,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         if (blessingMsg) {
-            if (client) {
-                await client.sendMessage(RAID_GROUP, { text: blessingMsg }).catch(() => {});
-            } else {
-                await msg.reply(blessingMsg).catch(() => {});
-            }
+            await msg.reply(blessingMsg).catch(() => {});
             // Update 12-hour cooldown timestamp
             await db.execute(
                 'UPDATE clan_blessing_state SET last_triggered=NOW() WHERE player_id=? AND dungeon_id=?',
@@ -301,9 +276,6 @@ module.exports = {
         }
 
         const dungeon = await getActiveDungeon();
-        // PA/PB/PS dungeons: reduce all cooldowns by 40% (multiply by 0.6)
-        const HIGH_PRESTIGE_RANKS = new Set(['PA','PB','PS']);
-        const cdMult = (dungeon && HIGH_PRESTIGE_RANKS.has(dungeon.dungeon_rank)) ? 0.6 : 1.0;
 
         async function resolvePlayerTarget(targetArg) {
             if (!targetArg) return player;
@@ -338,15 +310,15 @@ module.exports = {
 
             const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
-            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             // Track every_5_skills blessing
             if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
             // Abyssal Hunger — fires on the TARGET when healed
             if (dungeon && targetPlayer.id !== userId) {
-                triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, null, { healAmount: heal }).catch(() => {});
+                triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, { healAmount: heal }).catch(() => {});
             }
 
-            const healMsg = await narrateAI('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+            const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
@@ -372,11 +344,6 @@ module.exports = {
             const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
-            // MVP tracking
-            try {
-                const { recordDamage } = require('../systems/mvpSystem');
-                recordDamage(`dungeon_${dungeon.id}`, userId, `enemy_${targetEnemy.id}`, estDamage, estDamage);
-            } catch(e) {}
 
             // ✅ If Leviathan is active — damage also hits the Leviathan
             if (battleState.active && !battleState.finalPhase) {
@@ -386,7 +353,7 @@ module.exports = {
             }
 
             const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
-            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 2) * cdMult), player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
             const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
             let weaponBroke = false;
@@ -403,13 +370,53 @@ module.exports = {
             let reply = `══〘 ⚔️ SKILL 〙══╮\n`;
             
             if (result.evaded) {
-                const evadeMsg = await narrateAI('evasion', { target: targetEnemy.name });
+                const evadeMsg = narrate('evasion', { target: targetEnemy.name });
                 reply += `┃◆ ${evadeMsg}\n`;
             } else {
-                const skillMsg = await narrateAI('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
+                const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
                 reply += `┃◆ ${skillMsg}\n`;
             }
+            // Blood Price bonus
+            try {
+                const bpFx = getEffect(userId, dungeon?.id);
+                if (bpFx?.effect === 'hp_to_damage') {
+                    const bonus = bpFx.data.bonus || 0;
+                    await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [bonus, targetEnemy?.id]);
+                    consumeCharge(userId);
+                    reply += `┃◆ 🩸 Blood Price: +${bonus} bonus damage!\n`;
+                }
+            } catch(e) {}
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
+
+            // Double strike — repeat hit at same damage
+            try {
+                const dsFx = getTurnEffect(userId);
+                if (dsFx?.effect === 'double_strike' && Math.random() < (dsFx.data.chance || 0.4)) {
+                    await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy?.id]);
+                    reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
+                }
+            } catch(e) {}
+
+            // Lifesteal — heal on damage
+            try {
+                const lsFx = getTurnEffect(userId);
+                if (lsFx?.effect === 'lifesteal' && result.damage > 0) {
+                    const healAmt = Math.floor(result.damage * (lsFx.data.percent || 0.25));
+                    await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
+                    reply += `┃◆ 🩸 Lifesteal: +${healAmt} HP\n`;
+                }
+            } catch(e) {}
+
+            // Echo brew — repeat skill next turn
+            try {
+                const echoFx = getEffect(userId, dungeon?.id);
+                if (echoFx?.effect === 'echo_skill') {
+                    consumeCharge(userId);
+                    const echoDmg = Math.floor(result.damage * (echoFx.data.power || 0.8));
+                    await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [echoDmg, targetEnemy?.id]);
+                    reply += `┃◆ 🔁 Echo: ${move.name} repeats — ${echoDmg} damage!\n`;
+                }
+            } catch(e) {}
             if (dungeon) {
                 const newPlayerHp = result.playerHp || player.hp;
                 // hp_below_30 — fires when attacker drops below 30%
@@ -420,21 +427,17 @@ module.exports = {
                 if (result.enemyHp > 0 && result.enemyMaxHp > 0) {
                     const pct = result.enemyHp / result.enemyMaxHp;
                     if (pct <= 0.25) {
-                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, null, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
+                        await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
                     }
                 }
                 // on_kill
                 if (result.defeated || result.enemyDefeated) {
                     await triggerBlessingIfReady('on_kill', userId, dungeon.id, player, dungeon, msg);
                 }
-                // stage_first_move — must check BEFORE incrementing skill_count
+                // stage_first_move
                 const state = await getPlayerBlessingState(userId, dungeon.id).catch(() => null);
                 if (state && state.skill_count === 0) {
                     await triggerBlessingIfReady('stage_first_move', userId, dungeon.id, player, dungeon, msg);
-                }
-                // Increment skill_count for all damage moves (used by every_5_skills and stage_first_move)
-                if (state) {
-                    await updateBlessingState(userId, dungeon.id, { skill_count: (state.skill_count || 0) + 1 }).catch(() => {});
                 }
                 // final_stage
                 if (dungeon.stage === dungeon.max_stage) {
@@ -452,7 +455,7 @@ module.exports = {
                 } catch(e) {}
             }
             if (targetEnemy.def > 0) {
-                const defenseMsg = await narrateAI('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
+                const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
@@ -507,7 +510,7 @@ module.exports = {
                         await client.sendMessage(RAID_GROUP, { text });
 
                     } catch(e) { console.error('Stage drop error:', e.message); }
-                })();                const defeatMsg = await narrateAI('enemyDefeat', { enemy: targetEnemy.name });
+                })();                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
                 reply += `┃◆ ${defeatMsg}\n`;
                 if (result.rewardDistribution) {
                     reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
@@ -527,50 +530,44 @@ module.exports = {
             }
 
             if (result.playerDied) {
-                let phantomResult = null;
+                // Fetch what was lost for the message
+                let lostMsg = '';
                 try {
-                    phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg, client, { attacker: targetEnemy });
+                    const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                    const lg = sess[0]?.session_gold || 0;
+                    const lx = sess[0]?.session_xp   || 0;
+                    if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
+                } catch(e) {}
+                const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
+                reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
+                try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
+
+                // Phantom Shift — fires AFTER death message as a separate resurrection message
+                try {
+                    const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
                     if (phantomResult) {
-                        const reviveHp = Math.max(1, Math.floor(player.max_hp * 0.6));
-                        // dungeon_players has no hp column — HP is tracked in players table (set inside triggerBlessingIfReady)
+                        // Undo death
+                        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                        player.hp = reviveHp;
-                        const reviveNarrative = await narrateAI('revive', { player: player.nickname });
-                        reply += `┃◆────────────\n┃◆ 👻 *Phantom Shift activated!*\n┃◆ ${reviveNarrative}\n┃◆ ${player.nickname} survived the fatal strike.\n┃◆ Recovered to ${reviveHp} HP and retained dungeon status.\n`;
+                        try { await demoteRaider(client, userId); } catch(e2) {}
                     }
-                } catch(e) {
-                    console.error('Phantom shift error:', e.message);
-                }
+                } catch(e) { console.error('Phantom shift error:', e.message); }
 
-                if (!phantomResult) {
-                    // Fetch what was lost for the message
-                    let lostMsg = '';
-                    try {
-                        const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                        const lg = sess[0]?.session_gold || 0;
-                        const lx = sess[0]?.session_xp   || 0;
-                        if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
-                    } catch(e) {}
-                    const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
-                    reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
-                    try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
-
-                    // Check if everyone is dead — close dungeon and spawn prestige
-                    const [aliveCheck] = await db.execute(
-                        'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
-                        [dungeon.id]
-                    );
-                    if (aliveCheck[0].cnt === 0) {
-                        await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
-                        const { clearDungeonTimers } = require('../engine/dungeonTimer');
-                        clearDungeonTimers(dungeon.id);
-                        const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
-                        // Only spawn after NORMAL dungeons
-                        if (!dungeon.dungeon_rank?.startsWith('P')) {
-                            spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
-                        }
-                        reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
+                // Check if everyone is dead — close dungeon and spawn prestige
+                const [aliveCheck] = await db.execute(
+                    'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
+                    [dungeon.id]
+                );
+                if (aliveCheck[0].cnt === 0) {
+                    await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
+                    const { clearDungeonTimers } = require('../engine/dungeonTimer');
+                    clearDungeonTimers(dungeon.id);
+                    const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
+                    // Only spawn after NORMAL dungeons
+                    if (!dungeon.dungeon_rank?.startsWith('P')) {
+                        spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
                     }
+                    reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                 }
             }
 
@@ -596,8 +593,8 @@ module.exports = {
             let actualCd;
             if (move.type === 'cleanse') {
                 clearBuffs('player', targetPlayer.id);
-                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
-                const cleanseMsg = await narrateAI('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
+                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
+                const cleanseMsg = narrate('cleanse', { caster: player.nickname, target: targetPlayer.nickname });
                 return msg.reply(`══〘 ✨ CLEANSE 〙══╮\n┃◆ ${cleanseMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 
@@ -609,8 +606,8 @@ module.exports = {
                     value: shieldValue,
                     duration: move.duration || 3
                 });
-                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 4) * cdMult), player.rank);
-                const shieldMsg = await narrateAI('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
+                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
+                const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 
@@ -620,13 +617,11 @@ module.exports = {
                     type: 'buff',
                     stat: statName,
                     value: move.value,
-                    percent: move.percent || false,
                     duration: move.duration || 3
                 });
-                actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 4) * cdMult), player.rank);
-                const pctLabel = move.percent ? `${move.value}%` : `+${move.value}`;
-                const buffMsg = await narrateAI('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
-                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ ${pctLabel} ${move.effect.replace(/_up$/, '').toUpperCase()} for ${move.duration || 3} turns\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
+                actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
+                const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
+                return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
 
@@ -643,13 +638,12 @@ module.exports = {
             applyBuff('enemy', targetEnemy.id, {
                 type: 'debuff',
                 stat: statName,
-                value: move.value,   // already negative in move definition (e.g. -50), do NOT negate
-                percent: move.percent || false,
+                value: -move.value,
                 duration: move.duration || 2
             });
-            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
 
-            const debuffMsg = await narrateAI('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
+            const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
             // Track shield contribution for tanks
             if (move.type === 'shield') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'shield', 1); } catch(e) {} }
@@ -693,7 +687,7 @@ module.exports = {
                 duration
             });
 
-            const actualCd = setMoveCooldown(userId, move.name, Math.floor((move.cooldown || 3) * cdMult), player.rank);
+            const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             try { trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
 
             return msg.reply(
