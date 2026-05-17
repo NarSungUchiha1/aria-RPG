@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const { roleIcon } = require('../utils/styles');
 
-const VALID_ROLES = ['Tank', 'Assassin', 'Mage', 'Healer', 'Berserker'];
+const VALID_ROLES = ['Tank', 'Assassin', 'Mage', 'Healer', 'Berserker', 'Explorer'];
 const RANK_ORDER  = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 const RANK_MANA   = { F: 50, E: 100, D: 160, C: 240, B: 330, A: 420, S: 500 };
 const CONFIRM_TTL = 2 * 60 * 1000; // 2 minutes to accept
@@ -17,6 +17,7 @@ const ROLE_BASE = {
     Mage:      { strength: 5,  agility: 7,  intelligence: 10, stamina: 5,  hp: 110 },
     Healer:    { strength: 5,  agility: 5,  intelligence: 9,  stamina: 8,  hp: 120 },
     Berserker: { strength: 10, agility: 7,  intelligence: 5,  stamina: 5,  hp: 130 },
+    Explorer:  { strength: 5,  agility: 9,  intelligence: 8,  stamina: 6,  hp: 115 },
 };
 
 function calcStatsForRoleAndRank(role, rank) {
@@ -90,7 +91,7 @@ module.exports = {
             const currentGold = goldRow[0]?.gold || 0;
             const goldLost    = Math.floor(currentGold * 0.5);
             const newStats    = calcStatsForRoleAndRank(newRole, penaltyRank);
-            const isCaster    = (newRole === 'Mage' || newRole === 'Healer');
+            const isCaster    = (newRole === 'Mage' || newRole === 'Healer' || newRole === 'Explorer');
 
             const [equippedItems] = await db.execute(
                 "SELECT item_name FROM inventory WHERE player_id=? AND equipped=1",
