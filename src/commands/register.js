@@ -1,8 +1,7 @@
 const db = require('../database/db');
 const { rankBadge, roleIcon } = require('../utils/styles');
-const roles = ["Tank","Assassin","Mage","Healer","Berserker"];
+const roles = ["Tank","Assassin","Mage","Healer","Berserker","Explorer"];
 
-// In-memory — players who typed !awaken are added here by awaken.js
 const awakenedSessions = new Set();
 
 module.exports = {
@@ -35,6 +34,7 @@ module.exports = {
                 case "Mage":      stats.intelligence+=5; stats.agility+=2; stats.hp+=10; stats.max_hp+=10; break;
                 case "Healer":    stats.intelligence+=4; stats.stamina+=3; stats.hp+=20; stats.max_hp+=20; break;
                 case "Berserker": stats.strength+=5; stats.hp+=30; stats.max_hp+=30; stats.agility+=2; break;
+                case "Explorer":  stats.agility+=4; stats.intelligence+=3; stats.hp+=15; stats.max_hp+=15; break;
             }
             await db.execute(
                 "INSERT INTO players (id, nickname, role, `rank`, strength, agility, intelligence, stamina, hp, max_hp, awakened) VALUES (?, ?, ?, 'F', ?, ?, ?, ?, ?, ?, 1)",
@@ -44,7 +44,6 @@ module.exports = {
             await db.execute("INSERT IGNORE INTO xp (player_id, xp) VALUES (?, 0)", [userId]);
             await db.execute("INSERT IGNORE INTO combat (player_id) VALUES (?)", [userId]);
 
-            // ✅ Apply referral bonus gold if they were invited
             let bonusGold = 0;
             try {
                 await db.execute(`
