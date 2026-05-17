@@ -77,7 +77,7 @@ module.exports = {
             const rankLine = prestigeLvl > 0 ? `${stars}${p.rank}` : p.rank;
 
             // Role/rank helpers inline
-            const roleIcons = { Tank:'🛡️', Assassin:'🗡️', Mage:'🔮', Healer:'💚', Berserker:'⚔️', Ranger:'🏹' };
+            const roleIcons = { Tank:'🛡️', Assassin:'🗡️', Mage:'🔮', Healer:'💚', Berserker:'⚔️', Ranger:'🏹', Explorer:'🧭' };
             const rankBadges = { F:'⚫', E:'🟤', D:'🟢', C:'🔵', B:'🟣', A:'🔴', S:'🟡' };
             const icon = roleIcons[p.role] || '⚔️';
             const badge = rankBadges[p.rank] || '⚫';
@@ -88,7 +88,7 @@ module.exports = {
             const playerClan = await getPlayerClan(userId).catch(() => null);
             const clanDisplay = playerClan ? `${playerClan.name}` : null;
 
-            const manaLine = (p.role === 'Mage' || p.role === 'Healer')
+            const manaLine = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer')
                 ? `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
                 : '';
 
@@ -96,7 +96,7 @@ module.exports = {
 
             if (prestigeLvl > 0) {
                 // ✅ PRESTIGE — star bullets
-                const manaLineP = (p.role === 'Mage' || p.role === 'Healer')
+                const manaLineP = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer')
                     ? `\n┃★ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
                     : '';
 

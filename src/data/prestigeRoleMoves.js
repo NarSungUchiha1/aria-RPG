@@ -63,5 +63,17 @@ module.exports = {
           desc: '+35% STA for 3 turns.' },
         { name: 'Void Cleanse',     type: 'cleanse',                                                              cooldown: CD_HEAL,   cost: 8  },
         { name: 'Abyss Light',      type: 'heal',   stat: 'intelligence',  multiplier: 9.0, baseHeal: 150,        cooldown: CD_HEAL,   cost: 22 },
+    ],
+    Explorer: [
+        { name: 'Void Stride',      type: 'buff',   effect: 'agility_up',      value: 35, percent: true, duration: 3, cooldown: CD_RANKED, cost: 12,
+          desc: '+35% AGI — move faster through unstable space.' },
+        { name: 'Deep Rift Sense',  type: 'buff',   effect: 'intelligence_up', value: 30, percent: true, duration: 3, cooldown: CD_RANKED, cost: 14,
+          desc: '+30% INT — read the void patterns.' },
+        { name: 'Fracture Ward',    type: 'shield', value: 500,                              cooldown: CD_RANKED, cost: 15,
+          desc: 'A brief ward of void energy.' },
+        { name: 'Void Extraction',  type: 'buff',   effect: 'agility_up',      value: 50, percent: true, duration: 2, cooldown: CD_RANKED, cost: 18,
+          desc: '+50% AGI — desperate escape through a micro-rift.' },
+        { name: 'Malacars Path',    type: 'buff',   effect: 'intelligence_up', value: 55, percent: true, duration: 3, cooldown: CD_RANKED, cost: 20,
+          desc: '+55% INT — walk the path Malachar walked.' }
     ]
 };
