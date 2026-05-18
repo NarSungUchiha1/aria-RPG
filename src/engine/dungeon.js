@@ -708,7 +708,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(_) {}
         const pickedMove2 = usedMoves2[Math.floor(Math.random() * usedMoves2.length)];
         retaliation = Math.floor(retaliation * (pickedMove2.damage || 1.0));
-        if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor(rawDamage * 2));
+        if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
 
         retaliationMessage = `⚡ ${e.name} uses *${pickedMove2.name}*!`;
         if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
