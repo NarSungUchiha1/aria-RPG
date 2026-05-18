@@ -12,6 +12,13 @@ module.exports = {
 
             const player = rows[0];
 
+            // ✅ Route Explorer players to Explorer shop
+            if (player.role === 'Explorer') {
+                const explorerShopMod = require('./explorershop');
+                const execFn = explorerShopMod.execute || (explorerShopMod.default && explorerShopMod.default.execute);
+                if (typeof execFn === 'function') return execFn(msg, args, { userId, client });
+            }
+
             // ✅ Route prestige players to prestige shop
             const prestigeLevel = player.prestige_level || 0;
             if (prestigeLevel > 0) {
