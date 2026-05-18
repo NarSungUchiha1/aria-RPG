@@ -263,7 +263,8 @@ module.exports = {
         targetArg = remainingArgs;
 
         const cd = getMoveCooldown(userId, move.name);
-        if (cd > 0) return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
+        const noCdFx = getTurnEffect ? getTurnEffect(userId) : null;
+        if (cd > 0 && noCdFx?.effect !== 'no_cooldown') return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
 
         if ((player.role === 'Mage' || player.role === 'Healer' || player.role === 'Explorer') && requiresMana(move)) {
             const manaCost = move.cost || 5;
@@ -387,6 +388,20 @@ module.exports = {
                 }
             } catch(e) {}
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
+
+            // Malachar's Hunger — steal HP on first hit per stage
+            try {
+                const hungerFx2 = getEffect ? getEffect(userId, dungeon?.id) : null;
+                if (hungerFx2?.effect === 'hp_steal_first' && targetEnemy?.id && result.enemyHp > 0) {
+                    const stealAmt = Math.floor(result.enemyHp * (hungerFx2.data.percent || 0.3));
+                    if (stealAmt > 0) {
+                        await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [stealAmt, targetEnemy.id]);
+                        await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [stealAmt, userId]);
+                        reply += `┃◆ 🍖 Hunger: stole ${stealAmt} HP from ${targetEnemy.name}!\n`;
+                        consumeCharge(userId);
+                    }
+                }
+            } catch(e3) {}
 
             // Double strike — repeat hit at same damage
             try {
@@ -525,11 +540,30 @@ module.exports = {
             if (weaponBroke) reply += `┃◆ ⚠️ Your weapon cracks under the strain!\n`;
 
             if (result.retaliationMessage) {
-                reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
-                reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
+                try {
+                    const immuneFx2 = getTurnEffect ? getTurnEffect(userId) : null;
+                    if (['immunity','invisibility','time_freeze'].includes(immuneFx2?.effect)) {
+                        reply += `┃◆────────────\n┃◆ 🛡️ Protected — no retaliation this turn.\n`;
+                    } else {
+                        reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
+                        reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
+                    }
+                } catch(e2) {
+                    reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
+                    reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
+                }
             }
 
             if (result.playerDied) {
+                // Mirror Toxin — reflect death back to attacker
+                try {
+                    const mirrorFx2 = getEffect ? getEffect(userId, dungeon?.id) : null;
+                    if (mirrorFx2?.effect === 'death_reflect' && targetEnemy?.id) {
+                        await db.execute('UPDATE dungeon_enemies SET current_hp = 0 WHERE id=?', [targetEnemy.id]);
+                        consumeCharge(userId);
+                        reply += `┃◆ 🪞 Mirror Toxin — the killing blow rebounds! ${targetEnemy.name} is destroyed!\n`;
+                    }
+                } catch(e2) {}
                 // Fetch what was lost for the message
                 let lostMsg = '';
                 try {

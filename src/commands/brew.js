@@ -2,6 +2,26 @@ const db = require('../database/db');
 const { POTIONS } = require('../systems/potions');
 const { consumeMaterials, getMaterials, EXPLORATION_GC } = require('../systems/explorationSystem');
 
+const RARITY_EMOJI = { legendary: '🌌', rare: '💜', uncommon: '💙', common: '⬜' };
+const MATERIAL_RARITIES = {
+    'Healing Moss':'common','Purified Water':'common','Root Extract':'common','Ember Root':'common',
+    'Void Water':'common','Iron Root':'common','Life Essence':'uncommon','Ancient Herb':'uncommon',
+    'Shadow Moss':'uncommon','Shadow Fragment':'uncommon','Spell Component':'uncommon',
+    'Void Crystal':'rare','Blood Root':'rare','Shadow Essence':'rare','Void Ink':'rare',
+    'Ancient Tome Fragment':'legendary','Malachar Fragment':'legendary'
+};
+
+async function canBrew(userId, ingredients) {
+    for (const [mat, qty] of Object.entries(ingredients)) {
+        const [rows] = await db.execute(
+            "SELECT quantity FROM exploration_materials WHERE player_id=? AND material=?",
+            [userId, mat]
+        );
+        if (!rows.length || rows[0].quantity < qty) return false;
+    }
+    return true;
+}
+
 module.exports = {
     name: 'brew',
     async execute(msg, args, { userId }) {
@@ -19,55 +39,85 @@ module.exports = {
             const p = player[0];
 
             if (p.role !== 'Explorer') return msg.reply(
-                `══〘 ⚗️ BREW 〙══╮\n┃◆ ❌ Only Explorers can brew potions.\n╰═══════════════════════╯`
+                `══〘 ⚗️ BREW 〙══╮\n┃◆ ❌ Only Explorers can brew.\n╰═══════════════════════╯`
             );
 
-            // Show all potions
+            // Show all potions with canBrew status
             if (!args[0]) {
-                let text = `╔══〘 ⚗️ ALCHEMY 〙══╗\n┃◆\n`;
-                let i = 1;
-                for (const [name, pot] of Object.entries(POTIONS)) {
-                    if (pot.prestige && !p.prestige_level) continue;
-                    const ingList = Object.entries(pot.ingredients).map(([m,q]) => `${m}×${q}`).join(', ');
+                const entries = Object.entries(POTIONS).filter(([, pot]) =>
+                    !pot.prestige || p.prestige_level > 0
+                );
+
+                let text =
+                    `╔══〘 ⚗️ VOID ALCHEMY 〙══╗\n` +
+                    `┃◆\n`;
+
+                for (let i = 0; i < entries.length; i++) {
+                    const [name, pot] = entries[i];
+                    const brewable = await canBrew(userId, pot.ingredients);
+                    const ingList  = Object.entries(pot.ingredients).map(([m,q]) => `${m}×${q}`).join(', ');
+                    const status   = brewable ? '✅' : '🔒';
+                    const prestige = pot.prestige ? ' ✦' : '';
+
                     text +=
-                        `┃◆ ${i}. *${name}*\n` +
+                        `┃◆ ${status} *${i+1}. ${name}*${prestige}\n` +
                         `┃◆    ${pot.desc}\n` +
                         `┃◆    📦 ${ingList}\n` +
-                        `┃◆    💰 Min price: ${pot.minPrice.toLocaleString()}G\n` +
+                        `┃◆    💰 Min: ${pot.minPrice.toLocaleString()}G\n` +
                         `┃◆\n`;
-                    i++;
                 }
-                text += `┃◆ CMD: !brew <number>\n╚═══════════════════════════╝`;
+
+                text +=
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ ✅ = Can brew now\n` +
+                    `┃◆ 🔒 = Missing materials\n` +
+                    `┃◆ !brew <number> to craft\n` +
+                    `╚═══════════════════════════╝`;
+
                 return msg.reply(text);
             }
 
             // Brew by number
             const num = parseInt(args[0]);
-            const available = Object.entries(POTIONS).filter(([, pot]) => !pot.prestige || p.prestige_level > 0);
+            const available = Object.entries(POTIONS).filter(([, pot]) =>
+                !pot.prestige || p.prestige_level > 0
+            );
             const entry = available[num - 1];
             if (!entry) return msg.reply("❌ Invalid number. Type !brew to see list.");
-
             const [potName, potion] = entry;
 
             // Check materials
-            const hasMats = await consumeMaterials(userId, potion.ingredients);
+            const hasMats = await canBrew(userId, potion.ingredients);
             if (!hasMats) {
                 const ingList = Object.entries(potion.ingredients).map(([m,q]) => `${m}×${q}`).join(', ');
+                const mats    = await getMaterials(userId);
+                const matMap  = Object.fromEntries(mats.map(m => [m.material, m.quantity]));
+
+                let missingText = '';
+                for (const [mat, qty] of Object.entries(potion.ingredients)) {
+                    const have = matMap[mat] || 0;
+                    const ok   = have >= qty;
+                    missingText += `┃◆ ${ok ? '✅' : '❌'} ${mat}: ${have}/${qty}\n`;
+                }
+
                 return msg.reply(
-                    `══〘 ⚗️ BREW 〙══╮\n` +
-                    `┃◆ ❌ Not enough materials.\n` +
-                    `┃◆ Need: ${ingList}\n` +
-                    `┃◆ Type !materials to check stock.\n` +
-                    `╰═══════════════════════╯`
+                    `╔══〘 ⚗️ BREW FAILED 〙══╗\n` +
+                    `┃◆ *${potName}*\n` +
+                    `┃◆\n` +
+                    `┃◆ MATERIALS:\n` +
+                    missingText +
+                    `┃◆\n` +
+                    `┃◆ !explore to find more.\n` +
+                    `╚═══════════════════════════╝`
                 );
             }
 
-            // Add potion to inventory
-            await db.execute(`
-                INSERT INTO potion_inventory (player_id, potion_name, quantity)
-                VALUES (?, ?, 1)
-                ON DUPLICATE KEY UPDATE quantity = quantity + 1
-            `, [userId, potName]);
+            await consumeMaterials(userId, potion.ingredients);
+            await db.execute(
+                `INSERT INTO potion_inventory (player_id, potion_name, quantity)
+                 VALUES (?, ?, 1) ON DUPLICATE KEY UPDATE quantity = quantity + 1`,
+                [userId, potName]
+            );
 
             return msg.reply(
                 `╔══〘 ⚗️ BREWED 〙══╗\n` +
@@ -77,8 +127,8 @@ module.exports = {
                 `┃◆\n` +
                 `┃◆ 〝${potion.lore}〞\n` +
                 `┃◆\n` +
-                `┃◆ !listpotion <name> <price>\n` +
-                `┃◆ to sell it on the market.\n` +
+                `┃◆ !potionmarket list <name> <price>\n` +
+                `┃◆ to sell it or !usepotion to use.\n` +
                 `╚═══════════════════════════╝`
             );
         } catch (err) {
