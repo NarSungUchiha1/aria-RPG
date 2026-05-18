@@ -341,6 +341,23 @@ async function lockDungeon(dungeonId) {
     dungeonLocks.set(dungeonId, true);
     clearLobbyTimer(dungeonId);
     await db.execute("UPDATE dungeon SET locked=1 WHERE id=?", [dungeonId]);
+
+    // Init MVP tracking
+    try {
+        const [players] = await db.execute("SELECT player_id FROM dungeon_players WHERE dungeon_id=?", [dungeonId]);
+        const ids = players.map(p => p.player_id);
+        initMvpTracking(`dungeon_${dungeonId}`, ids);
+
+        // Reset clan blessing state — fresh dungeon, fresh blessings
+        for (const p of players) {
+            await db.execute(
+                `INSERT INTO clan_blessing_state (player_id, dungeon_id, blessing_used, last_triggered, hit_count, skill_count, invincible, damage_boost)
+                 VALUES (?, ?, 0, NULL, 0, 0, 0, 0)
+                 ON DUPLICATE KEY UPDATE blessing_used=0, last_triggered=NULL, hit_count=0, skill_count=0, invincible=0, damage_boost=0`,
+                [p.player_id, dungeonId]
+            );
+        }
+    } catch(e) { console.error('Lock init error:', e.message); }
 }
 
 async function getMaxStageForDungeon(dungeonId) {
@@ -571,7 +588,16 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
         playerHp = Number(pUp[0].hp);
         if (retaliation > 0) {
-            retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
+            // Pick random move with multiplier
+            let usedMovesA = [{ name: 'a vicious strike', damage: 1.0 }];
+            try {
+                const parsedA = typeof e.moves === 'string' ? JSON.parse(e.moves) : e.moves;
+                if (Array.isArray(parsedA) && parsedA.length) usedMovesA = parsedA;
+            } catch(_) {}
+            const pickedA = usedMovesA[Math.floor(Math.random() * usedMovesA.length)];
+            retaliation = Math.floor(retaliation * (pickedA.damage || 1.0));
+            if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
+            retaliationMessage = `⚡ ${e.name} uses *${pickedA.name}*!`;
             if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
             if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
         }
@@ -667,7 +693,17 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         try { trackHpLost(playerId, dungeonId, retaliation); } catch(e2) {}
         const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
         playerHp = Number(pUp[0].hp);
-        retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
+        // Pick random move with multiplier
+        let usedMoves2 = [{ name: 'a vicious strike', damage: 1.0 }];
+        try {
+            const parsedMoves2 = typeof e.moves === 'string' ? JSON.parse(e.moves) : e.moves;
+            if (Array.isArray(parsedMoves2) && parsedMoves2.length) usedMoves2 = parsedMoves2;
+        } catch(_) {}
+        const pickedMove2 = usedMoves2[Math.floor(Math.random() * usedMoves2.length)];
+        retaliation = Math.floor(retaliation * (pickedMove2.damage || 1.0));
+        if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor(rawDamage * 2));
+
+        retaliationMessage = `⚡ ${e.name} uses *${pickedMove2.name}*!`;
         if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
         if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
     }
