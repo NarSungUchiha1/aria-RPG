@@ -16,6 +16,7 @@ const { getEffect, getTurnEffect, clearEffect, consumeCharge, getHpLost } = requ
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
 const { narrate } = require('../utils/narrator');
+const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move) {
     return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
@@ -478,12 +479,28 @@ module.exports = {
             if (result.defeated) {
 
                 // ✅ Check if all stage enemies defeated — roll shared drops
+                // ── MVP CHECK — fires when final stage boss is defeated ────
                 (async () => {
                     try {
                         const [dungeonCheck] = await db.execute(
-                            "SELECT stage_cleared, dungeon_rank FROM dungeon WHERE id=? AND is_active=1",
+                            "SELECT stage_cleared, dungeon_rank, stage, max_stage FROM dungeon WHERE id=? AND is_active=1",
                             [dungeon.id]
                         );
+                        const isFinalStage = dungeonCheck[0]?.stage === dungeonCheck[0]?.max_stage;
+                        if (dungeonCheck[0]?.stage_cleared && isFinalStage) {
+                            // ── MVP ANNOUNCEMENT ──────────────────────────────────────
+                            try {
+                                const [raiders] = await db.execute(
+                                    "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
+                                    [dungeon.id]
+                                );
+                                const raiderIds = raiders.map(r => r.player_id);
+                                const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, raiderIds, 'dungeon');
+                                if (mvpResult?.message) {
+                                    await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                                }
+                            } catch(mvpErr) { console.error('[MVP] error:', mvpErr.message); }
+                        }
                         if (!dungeonCheck.length || !dungeonCheck[0].stage_cleared) return;
 
                         const [alivePlayers] = await db.execute(
