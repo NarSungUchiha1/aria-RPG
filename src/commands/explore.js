@@ -76,9 +76,12 @@ module.exports = {
                 return msg.reply(text);
             }
 
-            // Prestige rift restriction
+            // Prestige rift restriction — prestige MUST use prestige rifts
             if (chosenRank.startsWith('P') && !isPrestige) return msg.reply(
                 `╔══〘 🌀 VOID RIFT 〙══╗\n┃◆ ❌ Prestige Explorers only\n┃◆ can enter Void Rifts.\n╚═══════════════════════════╝`
+            );
+            if (!chosenRank.startsWith('P') && isPrestige) return msg.reply(
+                `╔══〘 🌀 VOID RIFT 〙══╗\n┃◆ ❌ You have crossed over.\n┃◆ Normal rifts are beneath you.\n┃◆ Enter a Void Rift (PF-PS).\n╚═══════════════════════════╝`
             );
 
             const rank = chosenRank;

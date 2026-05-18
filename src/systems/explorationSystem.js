@@ -8,7 +8,7 @@ const db = require('../database/db');
 // Explorer shop items loaded lazily to avoid circular dependency
 
 const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
-const EXPLORE_DURATION = 30 * 60 * 1000; // 30 minutes
+const EXPLORE_DURATION = 35 * 60 * 1000; // 35 minutes minimum to get loot
 const EXPLORE_TIMEOUT  = 2 * 60 * 60 * 1000; // 2 hour max
 
 
@@ -151,8 +151,12 @@ function rollDrops(role, rank, isPrestige) {
     const table     = DROPS['Explorer'] || DROPS['Mage'];
     const found     = {};
     // Explorer gets +2 bonus drops compared to other roles
-    const baseCount = isPrestige ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 3) + 2;
-    const count     = role === 'Explorer' ? baseCount + 2 : baseCount;
+    // Drop count scales with depth tier
+    const tierBonus = (depthTier || 1) - 1; // 0 for tier1, 1 for tier2, 2 for tier3
+    const baseCount = isPrestige
+        ? Math.floor(Math.random() * 4) + 3
+        : Math.floor(Math.random() * 3) + 2;
+    const count = (role === 'Explorer' ? baseCount + 2 : baseCount) + (tierBonus * 2);
 
     for (let i = 0; i < count; i++) {
         const rarity = rollDropRarity(rank);
@@ -237,21 +241,35 @@ async function returnFromRift(playerId) {
     const [rows] = await db.execute("SELECT * FROM explorations WHERE player_id=?", [playerId]);
     if (!rows.length) return { ok: false, reason: 'You are not in a rift.' };
 
-    const ex = rows[0];
+    const ex      = rows[0];
     const elapsed = Date.now() - new Date(ex.entered_at).getTime();
+    const mins    = Math.floor(elapsed / 60000);
 
+    // Too early — under 35 mins, no loot
     if (elapsed < EXPLORE_DURATION) {
         const remaining = Math.ceil((EXPLORE_DURATION - elapsed) / 60000);
-        return { ok: false, reason: `Still exploring. Return in ${remaining} minute(s).` };
+        return { ok: false, reason: `Too early. Go deeper. Return in ${remaining} more minute(s) for loot.` };
     }
 
-    // Check timeout — came back empty
+    // 2 hour timeout — death
     const expired = Date.now() > new Date(ex.expires_at).getTime();
     await db.execute("DELETE FROM explorations WHERE player_id=?", [playerId]);
 
     if (expired) {
-        return { ok: true, drops: {}, expired: true, narrative: 'You were gone too long. Whatever you found, the void took it back.' };
+        await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.1)) WHERE id=?', [playerId]);
+        return {
+            ok: true, drops: {}, expired: true, survived: false,
+            narrative: 'The void sealed shut. You were still inside.',
+            survivalRate: 0, xpEarned: 0
+        };
     }
+
+    // Calculate depth tier based on time spent
+    // 35-60 min = tier 1, 60-90 = tier 2, 90-120 = tier 3
+    let depthTier, depthLabel;
+    if (mins < 60)       { depthTier = 1; depthLabel = 'Surface'; }
+    else if (mins < 90)  { depthTier = 2; depthLabel = 'Mid Rift'; }
+    else                 { depthTier = 3; depthLabel = 'Deep Void'; }
 
     // Survival check
     // Check explorer shop items
@@ -331,6 +349,14 @@ async function returnFromRift(playerId) {
     }
     // Fragment guarantee
     if (fragmentGuarantee) drops['Malachar Fragment'] = (drops['Malachar Fragment'] || 0) + 1;
+    // Deep Void — bonus rare/legendary rolls
+    if (depthTier >= 3) {
+        const bonusRarity = Math.random() < 0.4 ? 'rare' : 'uncommon';
+        const table2 = DROPS['Explorer'] || DROPS['Mage'];
+        const pool2  = table2[bonusRarity] || table2.common;
+        const bonus2 = pool2[Math.floor(Math.random() * pool2.length)];
+        drops[bonus2] = (drops[bonus2] || 0) + 1;
+    }
     await addMaterials(playerId, drops);
 
     // Award XP for the run
@@ -338,7 +364,7 @@ async function returnFromRift(playerId) {
     await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpEarned, playerId]);
 
     const narrative = RIFT_RETURN_NARRATIVES[Math.floor(Math.random() * RIFT_RETURN_NARRATIVES.length)];
-    return { ok: true, drops, expired: false, survived: true, wounded, narrative: wounded ? woundedNarrative : narrative, survivalRate: Math.floor(survivalRate * 100), xpEarned };
+    return { ok: true, drops, expired: false, survived: true, wounded, narrative: wounded ? woundedNarrative : narrative, survivalRate: Math.floor(survivalRate * 100), xpEarned, depthTier, depthLabel, mins };
 }
 
 module.exports = {

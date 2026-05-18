@@ -18,12 +18,13 @@ module.exports = {
 
             // Timed out — came back empty
             if (result.expired) return msg.reply(
-                `╔══〘 🌀 RIFT — TOO LONG 〙══╗\n` +
+                `╔══〘 💀 THE VOID KEPT YOU 〙══╗\n` +
                 `┃◆\n` +
                 `┃◆ 〝${result.narrative}〞\n` +
                 `┃◆\n` +
-                `┃◆ You were gone too long.\n` +
-                `┃◆ The void kept everything.\n` +
+                `┃◆ 2 hours. You did not come back.\n` +
+                `┃◆ HP reduced to 10%.\n` +
+                `┃◆ Everything lost.\n` +
                 `╚═══════════════════════════╝`
             );
 
@@ -53,6 +54,7 @@ module.exports = {
             let text =
                 `╔══〘 🌀 ${result.wounded ? 'RETURNED — WOUNDED' : 'RETURNED FROM THE RIFT'} 〙══╗\n` +
                 `┃◆\n` +
+                `┃◆ ⏱️ Time in rift: ${result.mins || 0} mins [${result.depthLabel || 'Surface'}]\n` +
                 `┃◆ 〝${await narrateRift(result.wounded ? 'wound' : 'return', { drops: result.drops, rank: result.rank, nickname: 'Explorer' })}〞\n` +
                 `┃◆\n` +
                 `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n`;
