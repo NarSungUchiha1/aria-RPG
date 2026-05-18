@@ -98,7 +98,21 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
     // Stamina gets a 1.4x conversion — it is a defensive stat so needs a boost to compete offensively
     const staminaScale = (move.stat === 'stamina') ? 1.4 : 1.0;
     const totalAttack = (statValue + totalBonus) * staminaScale;
-    const defense = Number(enemy.def) || 0;
+    // ── ENEMY DEFENSE — apply active debuffs ────────────────────────────────
+    let actualEnemyDef = Number(enemy.def) || 0;
+    try {
+        if (enemy.id) {
+            const enemyMods = getBuffModifiers('enemy', enemy.id);
+            if (enemyMods) {
+                // Flat debuff (negative value reduces DEF)
+                const flatMod = Number(enemyMods.defense) || 0;
+                // Percent debuff (e.g. -50 means DEF cut by 50%)
+                const pctMod  = Number(enemyMods.defense_pct) || 0;
+                actualEnemyDef = Math.max(0, Math.floor((actualEnemyDef + flatMod) * (1 + pctMod / 100)));
+            }
+        }
+    } catch(e2) {}
+    const defense = actualEnemyDef;
     const damageReduction = Math.floor(defense * 0.4);
     const multiplier = move.multiplier || 1;
 
