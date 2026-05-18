@@ -232,6 +232,31 @@ module.exports = {
             const currentPlayers = count[0].cnt;
             
             // ✅ Raider limit by dungeon rank
+            // MALACHAR event — all ranks welcome, higher cap
+            if (dungeon.dungeon_rank === 'MALACHAR') {
+                const [currentCount] = await db.execute(
+                    "SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
+                    [dungeon.id]
+                );
+                // No cap — all hunters can join the Malachar raid
+                // Skip all rank/entry checks for Malachar event
+                await addPlayerToDungeon(userId, dungeon.id);
+                await promoteRaider(client, userId);
+                assignDailyQuests(userId).catch(() => {});
+                const [cnt] = await db.execute("SELECT COUNT(*) as c FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [dungeon.id]);
+                return msg.reply(
+                    `╔══〘 👁️ MALACHAR RAID 〙══╗
+┃★
+┃★ You have joined the raid.
+┃★ 👥 Raiders: ${cnt[0].c}/10
+┃★
+┃★ 6 stages. His generals first.
+┃★ Then him.
+┃★
+╚═══════════════════════════╝`
+                );
+            }
+
             const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
             const maxRaiders = MAX_RAIDERS[dungeon.dungeon_rank] || 3;
             if (currentPlayers >= maxRaiders) {
