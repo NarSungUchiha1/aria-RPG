@@ -224,7 +224,7 @@ async function enterRift(playerId, rank, role, isPrestige) {
 
     const expiresAt = new Date(Date.now() + EXPLORE_TIMEOUT);
     await db.execute(
-        "INSERT INTO explorations (player_id, entered_at, expires_at, rank, role, is_prestige) VALUES (?, NOW(), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE entered_at=NOW(), expires_at=?, rank=?, role=?, is_prestige=?",
+        "INSERT INTO explorations (player_id, entered_at, expires_at, `rank`, `role`, is_prestige) VALUES (?, NOW(), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE entered_at=NOW(), expires_at=?, `rank`=?, `role`=?, is_prestige=?",
         [playerId, expiresAt, rank, role, isPrestige ? 1 : 0, expiresAt, rank, role, isPrestige ? 1 : 0]
     );
 
