@@ -464,9 +464,12 @@ function calculateEnemyRetaliation(enemy, player) {
     const playerShield = Number(buffMods.shield) || 0;
     let shieldAbsorbed = 0;
 
-    if (playerShield > 0) {
-        shieldAbsorbed = Math.min(damage, playerShield);
-        damage -= shieldAbsorbed;
+    if (playerShield > 0 && damage > 0) {
+        // Shield absorbs up to its remaining value BUT caps at 60% of incoming damage
+        // This prevents shields from blocking everything — they reduce damage, not negate it
+        const maxAbsorb    = Math.min(playerShield, Math.floor(damage * 0.60));
+        shieldAbsorbed     = maxAbsorb;
+        damage             = Math.max(1, damage - shieldAbsorbed);
     }
 
     return { damage, shieldAbsorbed, defenseBlocked: Math.floor(rawDamage * reduction) };

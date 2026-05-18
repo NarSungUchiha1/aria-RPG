@@ -35,14 +35,16 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
 
-        // 12-hour cooldown — blessing can only trigger once per 12 hours
-        if (state.last_triggered) {
-            const hoursSince = (Date.now() - new Date(state.last_triggered).getTime()) / (1000 * 60 * 60);
-            if (hoursSince < 12) return null; // Still on cooldown
-        }
+        // One-use blessings — fire once per dungeon only
+        const oneUseTriggers = ['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move'];
+        if (oneUseTriggers.includes(trigger) && state.blessing_used) return null;
 
-        // One-use blessings per dungeon
-        if (['hp_below_30','on_death','final_stage','all_allies_below_50'].includes(trigger) && state.blessing_used) return null;
+        // Repeating blessings (on_kill, every_5_skills etc) — 30s cooldown between fires
+        const repeatTriggers = ['on_kill','every_5_skills','three_consecutive_hits','on_healed','enemy_below_25'];
+        if (repeatTriggers.includes(trigger) && state.last_triggered) {
+            const secsSince = (Date.now() - new Date(state.last_triggered).getTime()) / 1000;
+            if (secsSince < 30) return null;
+        }
 
         let blessingMsg = '';
 
