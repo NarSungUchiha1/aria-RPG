@@ -5,7 +5,7 @@
  */
 
 const db = require('../database/db');
-const { SHOP_ITEMS, consumeShopItem, ensureShopTables } = require('../commands/explorershop');
+// Explorer shop items loaded lazily to avoid circular dependency
 
 const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
 const EXPLORE_DURATION = 45 * 60 * 1000; // 45 minutes
@@ -255,7 +255,7 @@ async function returnFromRift(playerId) {
 
     // Survival check
     // Check explorer shop items
-    await ensureShopTables().catch(() => {});
+    try { const { ensureShopTables } = require('../systems/explorerShopSystem'); await ensureShopTables(); } catch(e) {}
     let shopSurvivalBonus = 0;
     let extraDrops        = 0;
     let rareGuarantee     = false;
@@ -263,12 +263,14 @@ async function returnFromRift(playerId) {
     let deathToWound      = false;
     let fragmentGuarantee = false;
     try {
+        let SHOP_ITEMS_LOCAL = [];
+        try { SHOP_ITEMS_LOCAL = require('../systems/explorerShopSystem').SHOP_ITEMS || []; } catch(e) {}
         const [shopItems] = await db.execute(
             "SELECT item_id, item_name, uses_left FROM explorer_inventory WHERE player_id=? AND uses_left > 0",
             [playerId]
         );
         for (const si of shopItems) {
-            const def = SHOP_ITEMS.find(s => s.id === si.item_id);
+            const def = SHOP_ITEMS_LOCAL.find(s => s.id === si.item_id);
             if (!def) continue;
             if (def.effect === 'survival_boost')     shopSurvivalBonus += def.value;
             if (def.effect === 'prestige_survival' && ex.is_prestige) shopSurvivalBonus += def.value;
@@ -278,7 +280,7 @@ async function returnFromRift(playerId) {
             if (def.effect === 'no_wound')            noWound = true;
             if (def.effect === 'death_to_wound')      deathToWound = true;
             if (def.effect === 'fragment_guarantee')  fragmentGuarantee = true;
-            await consumeShopItem(playerId, si.item_id);
+            try { const { consumeShopItem } = require('../systems/explorerShopSystem'); await consumeShopItem(playerId, si.item_id); } catch(e2) {}
         }
     } catch(e) {}
 
