@@ -147,7 +147,7 @@ function rollDropRarity(rank) {
     return 'common';
 }
 
-function rollDrops(role, rank, isPrestige) {
+function rollDrops(role, rank, isPrestige, depthTier = 1) {
     const table     = DROPS['Explorer'] || DROPS['Mage'];
     const found     = {};
     // Explorer gets +2 bonus drops compared to other roles
@@ -319,7 +319,7 @@ async function returnFromRift(playerId) {
         if (deathToWound) {
             // Wanderer's Token — convert death to wound
             await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(hp * 0.7)) WHERE id=?', [playerId]);
-            const drops2 = rollDrops(ex.role, ex.rank, ex.is_prestige === 1);
+            const drops2 = rollDrops(ex.role, ex.rank, ex.is_prestige === 1, 1);
             await addMaterials(playerId, drops2);
             const xpEarned2 = Math.floor((EXPLORE_XP[ex.rank] || 150) * 0.5);
             await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpEarned2, playerId]);
@@ -344,7 +344,7 @@ async function returnFromRift(playerId) {
         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(hp * 0.7)) WHERE id=?', [playerId]);
     }
 
-    const drops = rollDrops(ex.role, ex.rank, ex.is_prestige === 1);
+    const drops = rollDrops(ex.role, ex.rank, ex.is_prestige === 1, depthTier);
     // Extra drops from shop items
     for (let i = 0; i < extraDrops; i++) {
         const rarity = rareGuarantee ? 'rare' : rollDropRarity(ex.rank);
