@@ -17,6 +17,19 @@ module.exports = {
             );
 
             // Timed out — came back empty
+            if (result.tooEarly) return msg.reply(
+                `╔══〘 🌀 LEFT TOO EARLY 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ 〝${result.narrative}〞\n` +
+                `┃◆\n` +
+                `┃◆ You needed ${result.remaining} more minute(s)\n` +
+                `┃◆ to get any loot.\n` +
+                `┃◆\n` +
+                `┃◆ No drops. No XP. No cost.\n` +
+                `┃◆ You can !explore again now.\n` +
+                `╚═══════════════════════════╝`
+            );
+
             if (result.expired) return msg.reply(
                 `╔══〘 💀 THE VOID KEPT YOU 〙══╗\n` +
                 `┃◆\n` +

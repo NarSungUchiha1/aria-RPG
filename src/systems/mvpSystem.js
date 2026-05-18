@@ -30,7 +30,8 @@ function initMvpTracking(key, playerIds) {
     mvpStats.set(key, stats);
 }
 
-function recordDamage(key, attackerId, targetId, damage, actualDamage) {
+function recordDamage(key, attackerRawId, targetId, damage, actualDamage) {
+    const attackerId = String(attackerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, attackerId);
     _ensureKey(key, typeof targetId === 'string' && !targetId.startsWith('enemy_') ? targetId : null);
     const stats = mvpStats.get(key);
@@ -39,13 +40,15 @@ function recordDamage(key, attackerId, targetId, damage, actualDamage) {
     if (targetId && stats[targetId]) stats[targetId].damageTaken += amt;
 }
 
-function recordHeal(key, healerId, amount) {
+function recordHeal(key, healerRawId, amount) {
+    const healerId = String(healerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, healerId);
     const stats = mvpStats.get(key);
     if (stats[healerId]) stats[healerId].healingDone += (amount || 0);
 }
 
-function recordKill(key, killerId) {
+function recordKill(key, killerRawId) {
+    const killerId = String(killerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, killerId);
     const stats = mvpStats.get(key);
     if (stats[killerId]) stats[killerId].kills++;
@@ -53,10 +56,15 @@ function recordKill(key, killerId) {
 
 async function calculateMvp(key, participantIds, context = 'dungeon') {
     const stats = mvpStats.get(key);
-    if (!stats) return null;
+    if (!stats) {
+        console.log('[MVP] No stats found for key:', key, '| Available keys:', [...mvpStats.keys()]);
+        return null;
+    }
 
     const results = [];
-    for (const id of participantIds) {
+    for (const rawId of participantIds) {
+        // Normalize ID — strip WhatsApp suffix
+        const id = String(rawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
         try {
             const [rows] = await db.execute(
                 "SELECT nickname, role, prestige_level FROM players WHERE id=? LIMIT 1", [id]

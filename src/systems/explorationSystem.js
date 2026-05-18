@@ -245,10 +245,16 @@ async function returnFromRift(playerId) {
     const elapsed = Date.now() - new Date(ex.entered_at).getTime();
     const mins    = Math.floor(elapsed / 60000);
 
-    // Too early — under 35 mins, no loot
+    // Too early — can exit anytime but no loot before 35 mins
     if (elapsed < EXPLORE_DURATION) {
         const remaining = Math.ceil((EXPLORE_DURATION - elapsed) / 60000);
-        return { ok: false, reason: `Too early. Go deeper. Return in ${remaining} more minute(s) for loot.` };
+        await db.execute("DELETE FROM explorations WHERE player_id=?", [playerId]);
+        return {
+            ok: true, drops: {}, expired: false, survived: true,
+            tooEarly: true, remaining,
+            narrative: 'You turned back before the void could show you anything.',
+            survivalRate: 100, xpEarned: 0, depthTier: 0, depthLabel: 'Too Early', mins
+        };
     }
 
     // 2 hour timeout — death
