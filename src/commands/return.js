@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { returnFromRift, EXPLORATION_GC } = require('../systems/explorationSystem');
+const { narrateRift } = require('../systems/riftNarrator');
 
 module.exports = {
     name: 'return',
@@ -52,7 +53,7 @@ module.exports = {
             let text =
                 `╔══〘 🌀 ${result.wounded ? 'RETURNED — WOUNDED' : 'RETURNED FROM THE RIFT'} 〙══╗\n` +
                 `┃◆\n` +
-                `┃◆ 〝${result.narrative}〞\n` +
+                `┃◆ 〝${await narrateRift(result.wounded ? 'wound' : 'return', { drops: result.drops, rank: result.rank, nickname: 'Explorer' })}〞\n` +
                 `┃◆\n` +
                 `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n`;
 

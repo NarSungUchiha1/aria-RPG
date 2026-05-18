@@ -1,5 +1,6 @@
 const db = require('../database/db');
 const { enterRift, isExploring, EXPLORATION_GC, ENTRY_COSTS } = require('../systems/explorationSystem');
+const { narrateRift } = require('../systems/riftNarrator');
 
 const SURVIVAL_RATES = {
     F: 0.95, E: 0.92, D: 0.88, C: 0.83, B: 0.77, A: 0.70, S: 0.62,
@@ -66,7 +67,7 @@ module.exports = {
             return msg.reply(
                 `╔══〘 🌀 VOID RIFT ENTERED 〙══╗\n` +
                 `┃◆\n` +
-                `┃◆ 〝${result.narrative}〞\n` +
+                `┃◆ 〝${await narrateRift('entry', { rank, nickname: p.nickname, isPrestige })}〞\n` +
                 `┃◆\n` +
                 `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃◆ Explorer: ${p.nickname}\n` +
