@@ -53,9 +53,36 @@ module.exports = {
                 );
             }
 
-            const isPrestige  = p.prestige_level > 0;
-            const rank        = p.rank;
-            const cost        = ENTRY_COSTS[rank] || 500;
+            const isPrestige = p.prestige_level > 0;
+            const VALID_RANKS = ['F','E','D','C','B','A','S','PF','PE','PD','PC','PB','PA','PS'];
+            const SURV_DISPLAY = { F:95,E:92,D:88,C:83,B:77,A:70,S:62,PF:55,PE:50,PD:44,PC:38,PB:32,PA:25,PS:18 };
+
+            // Allow rank selection — !explore B, !explore PC etc
+            let chosenRank = args[0]?.toUpperCase();
+            if (!chosenRank || !VALID_RANKS.includes(chosenRank)) {
+                const normal   = ['F','E','D','C','B','A','S'];
+                const prestige = ['PF','PE','PD','PC','PB','PA','PS'];
+                let text = `╔══〘 🌀 CHOOSE YOUR RIFT 〙══╗\n┃◆\n┃◆ NORMAL RIFTS:\n`;
+                normal.forEach(r => {
+                    text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||500).toLocaleString()}G  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
+                });
+                if (isPrestige) {
+                    text += `┃◆\n┃◆ ✦ VOID RIFTS (Prestige):\n`;
+                    prestige.forEach(r => {
+                        text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||5000).toLocaleString()}G  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
+                    });
+                }
+                text += `┃◆\n┃◆ Higher rank = better drops\n┃◆ Higher rank = lower survival\n╚═══════════════════════════╝`;
+                return msg.reply(text);
+            }
+
+            // Prestige rift restriction
+            if (chosenRank.startsWith('P') && !isPrestige) return msg.reply(
+                `╔══〘 🌀 VOID RIFT 〙══╗\n┃◆ ❌ Prestige Explorers only\n┃◆ can enter Void Rifts.\n╚═══════════════════════════╝`
+            );
+
+            const rank = chosenRank;
+            const cost = ENTRY_COSTS[rank] || 500;
             const baseSurvival = SURVIVAL_RATES[rank] || 0.80;
             const survivalPct = Math.min(99, Math.floor((baseSurvival + EXPLORER_SURVIVAL_BONUS) * 100));
 
