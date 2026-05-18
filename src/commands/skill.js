@@ -21,8 +21,8 @@ const tauntState = new Map();
 // Spam tracker: userId -> { lastAttack, count, window }
 const spamTracker = new Map();
 const SPAM_WINDOW_MS  = 3000;  // 3 second window
-const SPAM_THRESHOLD  = 5;     // 5 attacks within window = spam
-const SPAM_FATIGUE    = 40;    // fatigue added per spam hit (exponential)
+const SPAM_THRESHOLD  = 2;     // 2 attacks within 3s = spam
+const SPAM_FATIGUE    = 50;    // fatigue added per spam hit (exponential)
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
@@ -284,27 +284,48 @@ module.exports = {
             const gap  = now - spam.lastAttack;
             if (gap < SPAM_WINDOW_MS) {
                 spam.count++;
-                if (spam.count >= SPAM_THRESHOLD) {
-                    const extraFatigue = Math.min(100, SPAM_FATIGUE * Math.pow(2, spam.count - SPAM_THRESHOLD));
-                    try {
-                        await db.execute('UPDATE players SET fatigue = LEAST(100, fatigue + ?) WHERE id=?', [Math.floor(extraFatigue), userId]);
-                    } catch(e) {}
-                    if (spam.count === SPAM_THRESHOLD) {
-                        await msg.reply(
-                            `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗
-┃◆ You are moving too fast.
-┃◆ Your body cannot keep up.
-┃◆ 🔵 Fatigue skyrocketing.
-┃◆ Slow down or deal 1 damage.
-╚═══════════════════════════╝`
-                        ).catch(() => {});
-                    }
-                }
             } else {
-                spam.count = 1;
+                // Gap was long enough — reduce count by 1 but never reset fully
+                // Spammers still carry their spam history until fatigue recovers
+                spam.count = Math.max(0, spam.count - 1);
             }
             spam.lastAttack = now;
             spamTracker.set(userId, spam);
+
+            // Once threshold hit — spike to 35% minimum then exponential
+            if (spam.count >= SPAM_THRESHOLD) {
+                // First spam hit: jump to 35% fatigue
+                // Each additional hit: double the previous addition
+                const spamHitNumber = spam.count - SPAM_THRESHOLD;
+                let fatigueTarget;
+                if (spamHitNumber === 0) {
+                    fatigueTarget = 35; // First offence — 35%
+                } else {
+                    fatigueTarget = Math.min(100, 35 + SPAM_FATIGUE * Math.pow(2, spamHitNumber));
+                }
+                try {
+                    // Set fatigue to max of current or target — never goes down from spam
+                    await db.execute(
+                        'UPDATE players SET fatigue = LEAST(100, GREATEST(fatigue, ?)) WHERE id=?',
+                        [fatigueTarget, userId]
+                    );
+                } catch(e) {}
+                if (spamHitNumber === 0) {
+                    await msg.reply(
+                        `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗
+` +
+                        `┃◆ You are moving too fast.
+` +
+                        `┃◆ Your body cannot keep up.
+` +
+                        `┃◆ 🔵 Fatigue: 35% and climbing.
+` +
+                        `┃◆ Keep spamming and deal 1 damage.
+` +
+                        `╚═══════════════════════════╝`
+                    ).catch(() => {});
+                }
+            }
         }
 
         if ((player.role === 'Mage' || player.role === 'Healer' || player.role === 'Explorer') && requiresMana(move)) {
@@ -558,9 +579,10 @@ module.exports = {
                             "SELECT stage_cleared, dungeon_rank, stage, max_stage FROM dungeon WHERE id=? AND is_active=1",
                             [dungeon.id]
                         );
-                        const isFinalStage = dungeonCheck[0]?.stage === dungeonCheck[0]?.max_stage;
-                        if (dungeonCheck[0]?.stage_cleared && isFinalStage) {
-                            // ── MVP ANNOUNCEMENT ──────────────────────────────────────
+                        const isFinalStage = dungeonCheck[0]?.stage >= dungeonCheck[0]?.max_stage;
+                        const allEnemiesGone = dungeonCheck[0]?.stage_cleared;
+                        if (allEnemiesGone && isFinalStage && result.defeated) {
+                            // ── MVP ANNOUNCEMENT — final boss just died ────────────────
                             try {
                                 const [raiders] = await db.execute(
                                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
@@ -570,6 +592,8 @@ module.exports = {
                                 const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, raiderIds, 'dungeon');
                                 if (mvpResult?.message) {
                                     await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                                } else {
+                                    console.log('[MVP] No result — stats map:', `dungeon_${dungeon.id}`, 'raiders:', raiderIds);
                                 }
                             } catch(mvpErr) { console.error('[MVP] error:', mvpErr.message); }
                         }
