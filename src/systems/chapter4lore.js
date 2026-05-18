@@ -95,9 +95,9 @@ const CHAPTER4_LORE = `
 ┃                                          
 ╠══════════════════════════════════════════╣
 ┃                                          
-┃  !challenge — confront Malachar          
-┃  Requires: All 3 clans present           
-┃  Requires: At least 1 Prestige hunter   
+┃  Enter a PS dungeon to face him.         
+┃  Use !skill to fight.                    
+┃  Every move counts.                      
 ┃                                          
 ┃  His HP: 1,000,000,000                   
 ┃  He will not go easy.                    
@@ -107,8 +107,8 @@ const CHAPTER4_LORE = `
 
 const MALACHAR_BOSS = {
     name: 'Malachar',
-    hp: 1_000_000_000,
-    atk: 1100,
+    hp: 10000000000,
+    atk: 2100,
     def: 2500,
     evasion: 8,
     exp: 500000,
