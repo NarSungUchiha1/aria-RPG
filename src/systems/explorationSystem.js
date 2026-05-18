@@ -8,7 +8,7 @@ const db = require('../database/db');
 // Explorer shop items loaded lazily to avoid circular dependency
 
 const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
-const EXPLORE_DURATION = 45 * 60 * 1000; // 45 minutes
+const EXPLORE_DURATION = 30 * 60 * 1000; // 30 minutes
 const EXPLORE_TIMEOUT  = 2 * 60 * 60 * 1000; // 2 hour max
 
 
