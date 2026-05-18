@@ -24,12 +24,12 @@ let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
 let sock = null;
-let BOT_NUMBER = ''; // phone number from sock.user.id
-let BOT_LID    = ''; // linked device ID from sock.user.lid — this is what appears in @mentions
+let BOT_NUMBER = '';
+let BOT_LID = '';
 
-// ✅ Simple player cache — reduces DB hits on every command
+// ✅ Simple player cache
 const playerCache = new Map();
-const CACHE_TTL = 120000; // 2 minutes
+const CACHE_TTL = 120000;
 
 function getCachedPlayer(userId) {
     const cached = playerCache.get(userId);
@@ -44,14 +44,12 @@ function setCachedPlayer(userId, data) {
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
-// ── Keep Render awake — ping self every 10 minutes ────────────────────────────
+// ── Keep Render awake ─────────────────────────────────────────
 const RENDER_URL = process.env.RENDER_EXTERNAL_URL || '';
 if (RENDER_URL) {
     setInterval(async () => {
-        try {
-            await fetch(`${RENDER_URL}/ping`);
-        } catch {}
-    }, 10 * 60 * 1000); // every 10 minutes
+        try { await fetch(`${RENDER_URL}/ping`); } catch {}
+    }, 10 * 60 * 1000);
 }
 
 app.get('/', async (req, res) => {
@@ -124,11 +122,7 @@ if (fs.existsSync(ADMIN_FILE)) {
     }
 }
 
-// ── BLOCKED USERS ────────────────────────────────────────────
-// Add phone numbers (without +) to block from all commands
-const BLOCKED_USERS = new Set([
-    // e.g. '2348012345678'
-]);
+const BLOCKED_USERS = new Set([]);
 
 function normalizeId(id) {
     if (!id) return "";
@@ -148,8 +142,8 @@ const BLACKSMITH_GC_ONLY = new Set([
     'forge', 'recipes', 'materials'
 ]);
 
-const HEALER_GC_JID      = '120363427051780444@g.us';
-const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
+const HEALER_GC_JID     = '120363427051780444@g.us';
+const BLACKSMITH_GC_JID = '120363426728151625@g.us';
 const DM_ONLY = new Set(['enter']);
 
 const commands = new Map();
@@ -163,6 +157,9 @@ if (fs.existsSync(commandPath)) {
                 const cmd = require('./src/commands/' + file);
                 if (cmd?.name) {
                     commands.set(cmd.name, cmd);
+                    if (Array.isArray(cmd.aliases)) {
+                        cmd.aliases.forEach(alias => commands.set(alias, cmd));
+                    }
                 } else {
                     console.warn(`⚠️ Command file ${file} has no name export — skipped.`);
                 }
@@ -275,8 +272,27 @@ async function startBot() {
 
         sock.ev.on('creds.update', async () => {
             await saveCreds();
-            if (state.creds?.registrationId) {
+            if (!state.creds?.registrationId) return;
+
+            const KNOWN_REG_ID = process.env.KNOWN_REG_ID ? parseInt(process.env.KNOWN_REG_ID) : null;
+
+            if (!KNOWN_REG_ID) {
                 console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
+                console.log(`   Add to Render env: KNOWN_REG_ID=${state.creds.registrationId}`);
+                return;
+            }
+
+            if (state.creds.registrationId !== KNOWN_REG_ID) {
+                console.error(`🚨 INTRUDER DETECTED — registrationId mismatch!`);
+                try {
+                    await sock.sendMessage(`${process.env.BOT_PHONE_NUMBER}@s.whatsapp.net`, {
+                        text: `╭══〘 🚨 ARIA SYSTEM ALERT 〙══╮\n┃◆ \n┃◆ An unauthorized session detected.\n┃◆ ⚠️ You are not the ARIA bot.\n┃◆ This session is being terminated.\n┃◆ \n╰═══════════════════════════╯`
+                    });
+                } catch (e) {}
+                await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
+                isBotRunning = false;
+                sock.end();
+                setTimeout(() => startBot(), 5000);
             }
         });
 
@@ -292,7 +308,7 @@ async function startBot() {
                         if (sock?.user) return;
                         const phoneNumber = process.env.BOT_PHONE_NUMBER;
                         if (!phoneNumber) {
-                            console.warn("⚠️ BOT_PHONE_NUMBER not set in .env — skipping pairing code");
+                            console.warn("⚠️ BOT_PHONE_NUMBER not set — skipping pairing code");
                             return;
                         }
                         const code = await sock.requestPairingCode(phoneNumber);
@@ -311,12 +327,10 @@ async function startBot() {
                 console.log(`⚠️ Connection closed (code: ${statusCode}).`);
 
                 if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-                    // Session rejected by WhatsApp — clear it and restart for fresh pairing
-                    console.log('🔄 Session rejected. Clearing and restarting for fresh pair...');
+                    console.log('🔄 Session rejected. Clearing and restarting...');
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
                     setTimeout(() => startBot(), 5000);
                 } else {
-                    // Any other disconnect — just reconnect
                     const delay = statusCode === 440
                         ? 15000 + Math.floor(Math.random() * 10000)
                         : 5000  + Math.floor(Math.random() * 5000);
@@ -330,16 +344,16 @@ async function startBot() {
                 BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
+                lastQR = '';
+                lastPairingCode = '';
 
-                // Init all missing DB tables
+                // Init DB tables
                 const { ensureMemoryTables } = require('./src/systems/ariaMemory');
                 const { setupMissingTables } = require('./src/database/setupTables');
                 Promise.all([
                     ensureMemoryTables().catch(() => {}),
                     setupMissingTables().catch(() => {})
                 ]);
-                lastQR = '';
-                lastPairingCode = '';
 
                 await db.execute(`
                     CREATE TABLE IF NOT EXISTS dungeon_entry_log (
@@ -357,11 +371,9 @@ async function startBot() {
                     )
                 `).catch(() => {});
                 await db.execute("ALTER TABLE players ADD COLUMN fatigue INT DEFAULT 0").catch(() => {});
-                // Clear any stale lock from previous crash
                 await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
 
-                // ✅ Startup dungeon cleanup — only wipe dungeons older than 2 hours that are still unlocked
-                // This prevents reconnects from killing active/lobby dungeons
+                // Startup dungeon cleanup
                 try {
                     await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)").catch(() => {});
                     const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
@@ -375,25 +387,25 @@ async function startBot() {
                     }
                     console.log('🧹 Stale dungeon state cleared on startup.');
 
-                // Restart prestige lobby timer if a prestige dungeon is waiting
-                try {
-                    const [activePD] = await db.execute(
-                        "SELECT id, created_at FROM dungeon WHERE is_active=1 AND locked=0 AND dungeon_rank LIKE 'P%' LIMIT 1"
-                    );
-                    if (activePD.length) {
-                        const { startPrestigeLobbyTimer } = require('./src/engine/prestigeDungeon');
-                        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
-                        const elapsed = Date.now() - new Date(activePD[0].created_at).getTime();
-                        const remaining = (20 * 60 * 1000) - elapsed;
-                        if (remaining > 0 && RAID_GROUP) {
-                            console.log(`★ Restarting prestige lobby timer — ${Math.floor(remaining/60000)}min remaining`);
-                            startPrestigeLobbyTimer(activePD[0].id, sock, RAID_GROUP, remaining);
-                        } else if (remaining <= 0) {
-                            await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [activePD[0].id]);
-                            console.log(`★ Prestige dungeon ${activePD[0].id} expired on startup cleanup`);
+                    // Restart prestige lobby timer if waiting
+                    try {
+                        const [activePD] = await db.execute(
+                            "SELECT id, created_at FROM dungeon WHERE is_active=1 AND locked=0 AND dungeon_rank LIKE 'P%' LIMIT 1"
+                        );
+                        if (activePD.length) {
+                            const { startPrestigeLobbyTimer } = require('./src/engine/prestigeDungeon');
+                            const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
+                            const elapsed = Date.now() - new Date(activePD[0].created_at).getTime();
+                            const remaining = (20 * 60 * 1000) - elapsed;
+                            if (remaining > 0 && RAID_GROUP) {
+                                console.log(`★ Restarting prestige lobby timer — ${Math.floor(remaining/60000)}min remaining`);
+                                startPrestigeLobbyTimer(activePD[0].id, sock, RAID_GROUP, remaining);
+                            } else if (remaining <= 0) {
+                                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [activePD[0].id]);
+                                console.log(`★ Prestige dungeon ${activePD[0].id} expired on startup`);
+                            }
                         }
-                    }
-                } catch(e) { console.error('Prestige lobby restart error:', e.message); }
+                    } catch(e) { console.error('Prestige lobby restart error:', e.message); }
                 } catch (e) {
                     console.error('Startup dungeon cleanup error:', e.message);
                 }
@@ -410,7 +422,6 @@ async function startBot() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             const msg = messages[0];
             if (!msg) return;
-
             if (!msg.message || msg.key.fromMe) return;
 
             const jid = msg.key.remoteJid;
@@ -421,11 +432,11 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
-            // ── Full message log — see everything ─────────────────────────────
+            // Full message log
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
 
-            // ── @Aria mention handler + reply detection ───────────────────────
+            // ── @Aria mention handler ─────────────────────────────────────
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
             const quotedNum = quotedParticipant.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -440,16 +451,13 @@ async function startBot() {
                || text.toLowerCase().includes('@aria ')
                || text.toLowerCase() === '@aria';
 
-            // Debug — shows why trigger did/didn't fire
             if (text.toLowerCase().includes('aria') || mentionedJids.length > 0) {
-                console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned} mentionedJids=${JSON.stringify(mentionedJids)}`);
+                console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned}`);
             }
 
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
 
-            // Replies: only trigger if genuinely asking something
-            // Question words OR sentence long enough to be a real question (5+ words)
             const stripped = text.replace(/@\d+/g, '').trim().toLowerCase();
             const QUESTION_STARTERS = /^(what|who|how|when|where|why|can|could|would|should|is|are|do|does|did|will|was|were|tell|show|give|explain|help|check|find|get|which|whose|whom)\b/;
             const isAskingQuestion = text.includes('?')
@@ -463,7 +471,6 @@ async function startBot() {
                     return n !== BOT_NUMBER && n !== BOT_LID;
                 });
                 if (nonBotMentions.length > 0) {
-                    const db = require('./src/database/db');
                     for (const jid2 of nonBotMentions) {
                         const pid = jid2.replace(/@[^@]+$/, '').split(':')[0].trim();
                         try {
@@ -481,11 +488,10 @@ async function startBot() {
             }
 
             if (!text.startsWith('!')) {
-                // ── ARIA silently witnesses group messages ─────────────────
+                // ARIA silently witnesses group messages
                 if (jid.endsWith('@g.us') && text.length > 8) {
                     try {
-                        const db2 = require('./src/database/db');
-                        const [rows] = await db2.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId]);
+                        const [rows] = await db.execute("SELECT nickname FROM players WHERE id=? LIMIT 1", [userId]);
                         const nick = rows[0]?.nickname;
                         if (nick) {
                             const RAID_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -503,24 +509,18 @@ async function startBot() {
 
             const command = commands.get(cmdName);
             if (!command) {
-                // Route unknown !commands to AI — it'll try to help or explain
                 const { handleUnknownCommand } = require('./src/systems/aiSystems');
                 await handleUnknownCommand(sock, jid, msg, userId, cmdName, args);
                 return;
             }
 
-            // Block check
             if (BLOCKED_USERS.has(userId)) return;
 
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
 
             if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
                 await sock.sendMessage(jid, {
-                    text:
-                        `══〘 🌍 ARIA 〙══╮\n` +
-                        `┃◆ 🔒 ARIA is currently under maintenance.\n` +
-                        `┃◆ We'll be back shortly.\n` +
-                        `╰═══════════════════════╯`
+                    text: `══〘 🌍 ARIA 〙══╮\n┃◆ 🔒 ARIA is currently under maintenance.\n┃◆ We'll be back shortly.\n╰═══════════════════════╯`
                 }, { quoted: msg });
                 return;
             }
@@ -603,32 +603,26 @@ async function startBot() {
                             hp = rows[0].hp;
                             setCachedPlayer(userId, rows[0]);
                         } else {
-                            setCachedPlayer(userId, { hp: null }); // cache miss so we dont re-query
+                            setCachedPlayer(userId, { hp: null });
                         }
                     }
                     if (hp !== null && hp <= 0) {
                         return await sock.sendMessage(jid, {
-                            text:
-                                `══〘 💀 YOU ARE DEAD 〙══╮\n` +
-                                `┃◆ Your HP has reached 0.\n` +
-                                `┃◆ Use !respawn to revive.\n` +
-                                `┃◆ (Penalties apply on revival)\n` +
-                                `╰═══════════════════════╯`
+                            text: `══〘 💀 YOU ARE DEAD 〙══╮\n┃◆ Your HP has reached 0.\n┃◆ Use !respawn to revive.\n┃◆ (Penalties apply on revival)\n╰═══════════════════════╯`
                         }, { quoted: msg });
                     }
                 }
 
-                // ✅ Update last_active on every command
                 try {
                     await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [userId]).catch(()=>{});
                 } catch(e) {}
+
                 await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
             } catch (err) {
                 console.error("Command Error:", err);
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
             }
         });
-
 
         // ==================== REFERRAL TRACKING ====================
         sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
@@ -642,22 +636,12 @@ async function startBot() {
                     const newUserId = participantJid.split('@')[0];
 
                     if (!author) {
-                        // No referrer — still give new player bonus and welcome them
                         await db.execute(
                             `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
                             [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
                         ).catch(() => {});
-
                         await sock.sendMessage(REFERRAL_GROUP_JID, {
-                            text:
-                                `══〘 🔗 NEW HUNTER 〙══╮\n` +
-                                `┃◆ @${newUserId} just joined ARIA!\n` +
-                                `┃◆ \n` +
-                                `┃◆ 💰 +${REFERRAL_GOLD_NEW} Gold bonus\n` +
-                                `┃◆    waiting on registration.\n` +
-                                `┃◆ \n` +
-                                `┃◆ Use !awaken to begin your journey.\n` +
-                                `╰═══════════════════════╯`,
+                            text: `══〘 🔗 NEW HUNTER 〙══╮\n┃◆ @${newUserId} just joined ARIA!\n┃◆ \n┃◆ 💰 +${REFERRAL_GOLD_NEW} Gold bonus\n┃◆    waiting on registration.\n┃◆ \n┃◆ Use !awaken to begin your journey.\n╰═══════════════════════╯`,
                             mentions: [participantJid]
                         });
                         continue;
@@ -680,16 +664,7 @@ async function startBot() {
                     ).catch(() => {});
 
                     await sock.sendMessage(REFERRAL_GROUP_JID, {
-                        text:
-                            `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
-                            `┃◆ @${newUserId} just joined ARIA!\n` +
-                            `┃◆ Invited by: *${referrer[0].nickname}*\n` +
-                            `┃◆ \n` +
-                            `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
-                            `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
-                            `┃◆ \n` +
-                            `┃◆ Use !awaken to begin your journey.\n` +
-                            `╰═══════════════════════╯`,
+                        text: `══〘 🔗 REFERRAL REWARD 〙══╮\n┃◆ @${newUserId} just joined ARIA!\n┃◆ Invited by: *${referrer[0].nickname}*\n┃◆ \n┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n┃◆ \n┃◆ Use !awaken to begin your journey.\n╰═══════════════════════╯`,
                         mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
                     });
                 }
@@ -697,7 +672,6 @@ async function startBot() {
                 console.error('Referral tracking error:', e.message);
             }
         });
-
 
     } catch (err) {
         console.error('💥 startBot error:', err.message);
@@ -716,6 +690,7 @@ cron.schedule('*/5 * * * *', async () => {
     }
 });
 
+// ==================== ERROR HANDLING ====================
 process.on('uncaughtException', (err) => {
     if (err.message?.includes('Connection Closed') || err.output?.statusCode === 428) {
         console.log('⚠️ Connection dropped — bot will reconnect automatically.');
@@ -728,17 +703,16 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
     const msg = reason?.message || String(reason);
     if (msg.includes('Connection Closed') || reason?.output?.statusCode === 428) {
-        console.log('⚠️ Send failed (connection was closed) — ignoring, will reconnect.');
+        console.log('⚠️ Send failed (connection was closed) — ignoring.');
         return;
     }
     console.error('💥 UNHANDLED REJECTION:', reason);
 });
 
-
-// ==================== CRON JOBS (registered once) ====================
-// ==================== SCHEDULED DUNGEON SPAWN ====================
+// ==================== CRON JOBS ====================
 const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
 
+// Regular dungeon spawn every hour
 cron.schedule('0 */1 * * *', async () => {
     if (!isReady || !sock) { console.log('⏭️ Spawn skipped — bot not ready.'); return; }
     console.log('🕒 Scheduled dungeon spawn triggered.');
@@ -753,8 +727,7 @@ cron.schedule('0 */1 * * *', async () => {
         const active = await getActiveDungeon();
         if (active) {
             const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`); return; }
-            console.log(`🧹 Closing stale dungeon ${active.id}.`);
+            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} active.`); return; }
         }
         const rank = await getWeightedDungeonRank();
         console.log(`🎲 Weighted rank selected: ${rank}`);
@@ -764,6 +737,7 @@ cron.schedule('0 */1 * * *', async () => {
     }
 });
 
+// Event dungeon spawn every 20 mins
 cron.schedule('*/20 * * * *', async () => {
     if (!isReady || !sock) return;
     try {
@@ -777,7 +751,7 @@ cron.schedule('*/20 * * * *', async () => {
         const active = await getActiveDungeon();
         if (active) {
             const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped — dungeon ${active.id} active.`); return; }
+            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped.`); return; }
         }
         const rank = await getWeightedDungeonRank();
         console.log(`💠 Event dungeon spawn: ${rank}`);
@@ -787,12 +761,12 @@ cron.schedule('*/20 * * * *', async () => {
     }
 });
 
-// ==================== EVENT AUTO-END ====================
+// Event auto-end
 cron.schedule('*/10 * * * *', async () => {
     try {
         const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
         if (!expired.length) return;
-        console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
+        console.log(`⏰ Event "${expired[0].name}" expired — ending.`);
         const { endEvent } = require('./src/commands/event');
         await endEvent(expired[0].id, sock);
     } catch (e) {
@@ -800,37 +774,20 @@ cron.schedule('*/10 * * * *', async () => {
     }
 });
 
-
-
-
-        // ==================== SHOP RESTOCK ====================
+// Shop restock
 const { restockAllItems } = require('./src/systems/shopSystem');
 cron.schedule('0 0 * * *', async () => {
     console.log('🛒 Restocking shop...');
-    try {
-        await restockAllItems();
-    } catch (err) {
-        console.error('Shop restock failed:', err);
-    }
+    try { await restockAllItems(); } catch (err) { console.error('Shop restock failed:', err); }
 });
 
-// ==================== PRESTIGE SHOP RESTOCK ====================
+// Prestige shop restock
 cron.schedule('0 0 * * *', async () => {
     console.log('💎 Restocking prestige shop...');
-    try {
-        await restockPrestigeShop();
-    } catch (err) {
-        console.error('Prestige shop restock failed:', err);
-    }
+    try { await restockPrestigeShop(); } catch (err) { console.error('Prestige shop restock failed:', err); }
 });
 
-
-startBot();
-
-
-// ==================== MANA REGENERATION ====================
-// Full mana regen over 2 days = 2880 mins
-// Run every 10 mins → restore max_mana / 288 per tick
+// Mana regeneration
 cron.schedule('*/10 * * * *', async () => {
     try {
         await db.execute(`
@@ -841,8 +798,7 @@ cron.schedule('*/10 * * * *', async () => {
     } catch(e) { console.error('Mana regen error:', e.message); }
 });
 
-// ==================== FATIGUE RECOVERY ====================
-// Run every 10 mins to slowly recover player fatigue over time.
+// Fatigue recovery
 cron.schedule('*/10 * * * *', async () => {
     try {
         await db.execute(`
@@ -853,7 +809,7 @@ cron.schedule('*/10 * * * *', async () => {
     } catch(e) { console.error('Fatigue recovery error:', e.message); }
 });
 
-// ==================== VOID WAR AUTO-END ====================
+// Void War auto-end
 cron.schedule('*/10 * * * *', async () => {
     if (!isReady || !sock) return;
     try {
@@ -869,8 +825,8 @@ cron.schedule('*/10 * * * *', async () => {
     } catch(e) { console.error('Void War auto-end error:', e.message); }
 });
 
-// ==================== WEEKLY INACTIVE CLEANUP ====================
-cron.schedule('0 3 * * 1', async () => { // every Monday 3am
+// Weekly inactive cleanup
+cron.schedule('0 3 * * 1', async () => {
     try {
         const { clearInactivePlayers } = require('./src/systems/prestigeSystem');
         await clearInactivePlayers();
@@ -878,10 +834,7 @@ cron.schedule('0 3 * * 1', async () => { // every Monday 3am
     } catch(e) { console.error('Cleanup error:', e.message); }
 });
 
-// ==================== PRESTIGE DUNGEON SPAWN ====================
-
-// ==================== PRESTIGE DUNGEON SPAWN ====================
-// Backup spawn — only fires if no prestige dungeon ran in last 25 mins
+// Prestige dungeon spawn
 cron.schedule('30 */1 * * *', async () => {
     if (!isReady || !sock) return;
     try {
@@ -890,11 +843,9 @@ cron.schedule('30 */1 * * *', async () => {
         );
         if (!prestigePlayers.length) return;
 
-        // Don't spawn if any dungeon is active
         const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
         if (anyActive.length) { console.log('⏭️ Prestige cron skipped — dungeon active'); return; }
 
-        // Don't spawn if a prestige dungeon ran in the last 25 minutes
         const [recentP] = await db.execute(
             "SELECT id FROM dungeon WHERE dungeon_rank LIKE 'P%' AND created_at > DATE_SUB(NOW(), INTERVAL 25 MINUTE) LIMIT 1"
         );
@@ -902,10 +853,12 @@ cron.schedule('30 */1 * * *', async () => {
 
         const { spawnPrestigeDungeon, getWeightedPrestigeRank } = require('./src/engine/prestigeDungeon');
         const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
-        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID — cannot spawn prestige dungeon'); return; }
+        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID set'); return; }
 
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`✦ Prestige cron spawn: ${prestigeRank}`);
         await spawnPrestigeDungeon(prestigeRank, sock, RAID_GROUP);
     } catch(e) { console.error('Prestige cron spawn error:', e.message); }
 });
+
+startBot();

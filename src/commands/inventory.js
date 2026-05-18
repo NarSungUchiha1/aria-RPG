@@ -16,6 +16,12 @@ module.exports = {
     name: 'inventory',
     async execute(msg, args, { userId }) {
         try {
+            // Explorers don't use the weapon/item inventory
+            const [roleCheck] = await db.execute("SELECT role FROM players WHERE id=?", [userId]);
+            if (roleCheck[0]?.role === 'Explorer') return msg.reply(
+                `╔══〘 🎒 INVENTORY 〙══╗\n┃◆ ❌ Explorers don't carry\n┃◆ weapons or equipment.\n┃◆ Use !expmaterials for\n┃◆ your materials.\n┃◆ Use !usepotion for potions.\n╚═══════════════════════════╝`
+            );
+
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
                 [userId]
@@ -102,6 +108,23 @@ module.exports = {
             });
             text += `┃◆ !equip <#> • !inspect <#>\n`;
             text += `┃◆ !repair <#> • !upgradeweapon <#>\n`;
+
+            // Add potions section
+            try {
+                const [potions] = await db.execute(
+                    "SELECT potion_name, quantity FROM potion_inventory WHERE player_id=? AND quantity > 0 ORDER BY potion_name",
+                    [userId]
+                );
+                if (potions.length) {
+                    text += `┃◆────────────\n`;
+                    text += `┃◆ 🧪 POTIONS:\n`;
+                    potions.forEach(pot => {
+                        text += `┃◆   • *${pot.potion_name}* ×${pot.quantity}\n`;
+                    });
+                    text += `┃◆ !use or !usepotion to activate\n`;
+                }
+            } catch(e) {}
+
             text += `╰═══════════════════════╯`;
             return msg.reply(text);
 
