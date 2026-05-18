@@ -74,6 +74,7 @@ module.exports = {
 
             text +=
                 `┃◆\n` +
+                `┃◆ ⭐ XP Earned: +${result.xpEarned || 0}\n` +
                 `┃◆ Survival chance was: ${result.survivalRate}%\n` +
                 `┃◆\n` +
                 `┃◆ !expmaterials — view stock\n` +

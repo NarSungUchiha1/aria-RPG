@@ -5,9 +5,10 @@
  */
 
 const db = require('../database/db');
+const { SHOP_ITEMS, consumeShopItem, ensureShopTables } = require('../commands/explorershop');
 
 const EXPLORATION_GC   = process.env.EXPLORATION_GC_JID || '';
-const EXPLORE_DURATION = 2 * 60 * 1000; // 45 minutes
+const EXPLORE_DURATION = 45 * 60 * 1000; // 45 minutes
 const EXPLORE_TIMEOUT  = 2 * 60 * 60 * 1000; // 2 hour max
 
 
@@ -105,6 +106,13 @@ const RIFT_RETURN_NARRATIVES = [
     'The materials feel heavier than they should.',
     'You made it back. The void files this away for later.'
 ];
+
+
+// XP earned on successful return
+const EXPLORE_XP = {
+    F: 150,  E: 280,  D: 450,  C: 680,  B: 950,  A: 1300, S: 1800,
+    PF: 2500, PE: 3500, PD: 5000, PC: 7000, PB: 9500, PA: 13000, PS: 18000
+};
 
 async function ensureExplorationTable() {
     await db.execute([
@@ -215,10 +223,10 @@ async function enterRift(playerId, rank, role, isPrestige) {
     await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [cost, playerId]);
 
     const expiresAt = new Date(Date.now() + EXPLORE_TIMEOUT);
-  await db.execute(
-    "INSERT INTO explorations (player_id, entered_at, expires_at, `rank`, `role`, is_prestige) VALUES (?, NOW(), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE entered_at=NOW(), expires_at=?, `rank`=?, `role`=?, is_prestige=?",
-    [playerId, expiresAt, rank, role, isPrestige ? 1 : 0, expiresAt, rank, role, isPrestige ? 1 : 0]
-);
+    await db.execute(
+        "INSERT INTO explorations (player_id, entered_at, expires_at, rank, role, is_prestige) VALUES (?, NOW(), ?, ?, ?, ?) ON DUPLICATE KEY UPDATE entered_at=NOW(), expires_at=?, rank=?, role=?, is_prestige=?",
+        [playerId, expiresAt, rank, role, isPrestige ? 1 : 0, expiresAt, rank, role, isPrestige ? 1 : 0]
+    );
 
     const narrative = RIFT_ENTRY_NARRATIVES[Math.floor(Math.random() * RIFT_ENTRY_NARRATIVES.length)];
     return { ok: true, cost, narrative, readyIn: '45 minutes' };
@@ -246,15 +254,56 @@ async function returnFromRift(playerId) {
     }
 
     // Survival check
+    // Check explorer shop items
+    await ensureShopTables().catch(() => {});
+    let shopSurvivalBonus = 0;
+    let extraDrops        = 0;
+    let rareGuarantee     = false;
+    let noWound           = false;
+    let deathToWound      = false;
+    let fragmentGuarantee = false;
+    try {
+        const [shopItems] = await db.execute(
+            "SELECT item_id, item_name, uses_left FROM explorer_inventory WHERE player_id=? AND uses_left > 0",
+            [playerId]
+        );
+        for (const si of shopItems) {
+            const def = SHOP_ITEMS.find(s => s.id === si.item_id);
+            if (!def) continue;
+            if (def.effect === 'survival_boost')     shopSurvivalBonus += def.value;
+            if (def.effect === 'prestige_survival' && ex.is_prestige) shopSurvivalBonus += def.value;
+            if (def.effect === 'extra_drop')          extraDrops += def.value;
+            if (def.effect === 'rare_extra_drops')    extraDrops += def.value;
+            if (def.effect === 'rare_guarantee')      rareGuarantee = true;
+            if (def.effect === 'no_wound')            noWound = true;
+            if (def.effect === 'death_to_wound')      deathToWound = true;
+            if (def.effect === 'fragment_guarantee')  fragmentGuarantee = true;
+            await consumeShopItem(playerId, si.item_id);
+        }
+    } catch(e) {}
+
     // Explorer gets +5% survival bonus
     const baseRate    = SURVIVAL_RATES[ex.rank] || 0.80;
-    const survivalRate = ex.role === 'Explorer' ? Math.min(0.99, baseRate + 0.05) : baseRate;
+    const survivalRate = ex.role === 'Explorer' ? Math.min(0.99, baseRate + 0.05 + shopSurvivalBonus) : Math.min(0.99, baseRate + shopSurvivalBonus);
     const survived     = Math.random() < survivalRate;
     const deathNarrative = DEATH_NARRATIVES[Math.floor(Math.random() * DEATH_NARRATIVES.length)];
     const woundedNarrative = WOUNDED_NARRATIVES[Math.floor(Math.random() * WOUNDED_NARRATIVES.length)];
 
     if (!survived) {
-        // Dead — lose 50% HP, no drops, lose entry fee (already paid)
+        if (deathToWound) {
+            // Wanderer's Token — convert death to wound
+            await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(hp * 0.7)) WHERE id=?', [playerId]);
+            const drops2 = rollDrops(ex.role, ex.rank, ex.is_prestige === 1);
+            await addMaterials(playerId, drops2);
+            const xpEarned2 = Math.floor((EXPLORE_XP[ex.rank] || 150) * 0.5);
+            await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpEarned2, playerId]);
+            return {
+                ok: true, drops: drops2, expired: false, survived: true, wounded: true,
+                narrative: "Wanderer's Token activated. Death refused. You made it back — barely.",
+                survivalRate: Math.floor(survivalRate * 100), xpEarned: xpEarned2
+            };
+        }
+        // Dead — HP to 10%, no drops
         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.1)) WHERE id=?', [playerId]);
         return {
             ok: true, drops: {}, expired: false, survived: false,
@@ -264,16 +313,30 @@ async function returnFromRift(playerId) {
     }
 
     // Wounded — small chance, lose 30% HP but still get drops
-    const wounded = Math.random() > 0.7;
+    const wounded = !noWound && Math.random() > 0.7;
     if (wounded) {
         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(hp * 0.7)) WHERE id=?', [playerId]);
     }
 
     const drops = rollDrops(ex.role, ex.rank, ex.is_prestige === 1);
+    // Extra drops from shop items
+    for (let i = 0; i < extraDrops; i++) {
+        const rarity = rareGuarantee ? 'rare' : rollDropRarity(ex.rank);
+        const table  = DROPS['Explorer'] || DROPS['Mage'];
+        const pool   = table[rarity] || table.common;
+        const item   = pool[Math.floor(Math.random() * pool.length)];
+        drops[item]  = (drops[item] || 0) + 1;
+    }
+    // Fragment guarantee
+    if (fragmentGuarantee) drops['Malachar Fragment'] = (drops['Malachar Fragment'] || 0) + 1;
     await addMaterials(playerId, drops);
 
+    // Award XP for the run
+    const xpEarned = EXPLORE_XP[ex.rank] || 150;
+    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpEarned, playerId]);
+
     const narrative = RIFT_RETURN_NARRATIVES[Math.floor(Math.random() * RIFT_RETURN_NARRATIVES.length)];
-    return { ok: true, drops, expired: false, survived: true, wounded, narrative: wounded ? woundedNarrative : narrative, survivalRate: Math.floor(survivalRate * 100) };
+    return { ok: true, drops, expired: false, survived: true, wounded, narrative: wounded ? woundedNarrative : narrative, survivalRate: Math.floor(survivalRate * 100), xpEarned };
 }
 
 module.exports = {
