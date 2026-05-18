@@ -460,6 +460,12 @@ module.exports = {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [stealAmt, targetEnemy.id]);
                         await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [stealAmt, userId]);
                         reply += `┃◆ 🍖 Hunger: stole ${stealAmt} HP from ${targetEnemy.name}!\n`;
+                        // Side effect — overflow if steal > enemy remaining HP
+                        if (hungerFx2?.data?.overflow && stealAmt > (result.enemyHp || 0)) {
+                            const overflow = stealAmt - (result.enemyHp || 0);
+                            await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [overflow, userId]);
+                            reply += `┃◆ 🍖 Hunger overflow — ${overflow} reflected back!\n`;
+                        }
                         consumeCharge(userId);
                     }
                 }
@@ -469,19 +475,39 @@ module.exports = {
             try {
                 const activeTurnEffect = getTurnEffect ? getTurnEffect(userId) : null;
 
-                // Phantom Draught — double strike
-                if (activeTurnEffect?.effect === 'double_strike' && Math.random() < (activeTurnEffect.data.chance || 0.4)) {
-                    if (targetEnemy?.id) {
+                // Phantom Draught — double strike, but MISSES deal recoil
+                if (activeTurnEffect?.effect === 'double_strike') {
+                    const hit = Math.random() < (activeTurnEffect.data.chance || 0.4);
+                    if (hit && targetEnemy?.id) {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy.id]);
+                        reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
+                    } else if (!hit) {
+                        // Miss — recoil 10% of damage back to player
+                        const recoil = Math.floor(result.damage * 0.10);
+                        await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [recoil, userId]);
+                        reply += `┃◆ 👻 Double strike MISSED — recoil ${recoil} damage to you!\n`;
                     }
-                    reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
                 }
 
-                // Crimson Tide — lifesteal (works alongside double strike)
+                // Crimson Tide — lifesteal but +5% fatigue per heal
                 if (activeTurnEffect?.effect === 'lifesteal' && result.damage > 0) {
                     const healAmt = Math.floor(result.damage * (activeTurnEffect.data.percent || 0.25));
                     await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
-                    reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP\n`;
+                    await db.execute('UPDATE players SET fatigue = LEAST(100, fatigue + 5) WHERE id=?', [userId]);
+                    reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP (fatigue +5%)\n`;
+                }
+
+                // Chaos Mode side effect — 20% chance to hit yourself
+                if (activeTurnEffect?.effect === 'chaos_mode' && Math.random() < 0.20) {
+                    const selfDmg = Math.floor(result.damage * 0.30);
+                    await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [selfDmg, userId]);
+                    reply += `┃◆ ☠️ Chaos backfires — ${selfDmg} damage to yourself!\n`;
+                }
+
+                // Void Madness — hide HP from player
+                if (activeTurnEffect?.effect === 'berserk') {
+                    // Replace HP display with ???
+                    reply = reply.replace(/HP: \d+\/\d+/, 'HP: ???/???');
                 }
             } catch(e) {}
 

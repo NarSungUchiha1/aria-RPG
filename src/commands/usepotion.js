@@ -136,8 +136,8 @@ module.exports = {
                     break;
 
                 case 'hp_steal_first':
-                    setEffect(userId, dungeonId, potionName, 'hp_steal_first', { percent: potion.steal_percent || 0.3 });
-                    effectMsg = `🍖 Malachar's Hunger active — steal ${Math.floor((potion.steal_percent||0.3)*100)}% HP on first hit each stage.`;
+                    setEffect(userId, dungeonId, potionName, 'hp_steal_first', { percent: potion.steal_percent || 0.3, overflow: true });
+                    effectMsg = `🍖 Malachar's Hunger active — steal ${Math.floor((potion.steal_percent||0.3)*100)}% HP on first hit. ⚠️ Overflow damage reflects back.`;
                     break;
 
                 case 'clan_boost': {
@@ -161,7 +161,9 @@ module.exports = {
                     const cost = Math.floor(p.hp * 0.4);
                     await db.execute("UPDATE players SET hp = hp - ? WHERE id=?", [cost, userId]);
                     setEffect(userId, dungeonId, potionName, 'hp_to_damage', { bonus: cost }, 1);
-                    effectMsg = `🩸 Blood Price paid — ${cost} HP sacrificed. Next hit deals +${cost} bonus damage.`;
+                    const hpAfter = p.hp - cost;
+                    const passOut = hpAfter <= Math.floor(p.max_hp * 0.1);
+                    effectMsg = `🩸 Blood Price paid — ${cost} HP sacrificed. Next hit deals +${cost} bonus damage.${passOut ? ' ⚠️ You are critically low — next retaliation is doubled.' : ''}`;
                     break;
                 }
 
@@ -249,14 +251,16 @@ module.exports = {
 
                 case 'def_shatter':
                     setEffect(userId, dungeonId, potionName, 'def_shatter', { reduction: potion.def_reduction || 0.8 }, 1);
-                    effectMsg = `💥 Fracture Bomb — target enemy DEF reduced by 80% permanently.`;
+                    try { const { applyBuff } = require('../systems/activeBuffs'); applyBuff('player', userId, { type: 'debuff', stat: 'defense_pct', value: -20, duration: 2 }); } catch(e2) {}
+                    effectMsg = `💥 Fracture Bomb — enemy DEF -80%. ⚠️ Your DEF -20% for 2 turns.`;
                     break;
 
                 case 'death_stack': {
                     const deaths = getDeaths(userId, dungeonId);
                     const mult   = 1 + deaths;
-                    setEffect(userId, dungeonId, potionName, 'death_stack', { mult }, 1);
-                    effectMsg = `👁️ The Reckoning — ${deaths} deaths tracked. Next hit deals ${mult * 100}% damage.`;
+                    setEffect(userId, dungeonId, potionName, 'death_stack', { mult, maxHpPenalty: true }, 1);
+                    // Side effect — each death already reduced max HP by 5% (tracked in dungeon.js)
+                    effectMsg = `👁️ The Reckoning — ${deaths} deaths tracked. Next hit deals ${mult * 100}% damage. ⚠️ Each death cost you 5% max HP.`;
                     break;
                 }
 

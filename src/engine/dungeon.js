@@ -632,6 +632,13 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e2) {}
         // Track death for The Reckoning
         try { trackDeath(playerId, dungeonId); } catch(e2) {}
+        // Death Stack side effect — -5% max HP per death
+        try {
+            const reck = getEffect(playerId, dungeonId);
+            if (reck?.effect === 'death_stack' && reck.data?.maxHpPenalty) {
+                await db.execute('UPDATE players SET max_hp = GREATEST(1, FLOOR(max_hp * 0.95)) WHERE id=?', [playerId]);
+            }
+        } catch(e3) {}
         await db.execute(
             "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
             [playerId, dungeonId]
@@ -735,6 +742,13 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             }
         } catch(e2) {}
         try { trackDeath(playerId, dungeonId); } catch(e2) {}
+        // Death Stack side effect — -5% max HP per death
+        try {
+            const reck = getEffect(playerId, dungeonId);
+            if (reck?.effect === 'death_stack' && reck.data?.maxHpPenalty) {
+                await db.execute('UPDATE players SET max_hp = GREATEST(1, FLOOR(max_hp * 0.95)) WHERE id=?', [playerId]);
+            }
+        } catch(e3) {}
         await db.execute(
             "UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?",
             [playerId, dungeonId]
