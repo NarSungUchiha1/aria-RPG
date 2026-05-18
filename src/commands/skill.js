@@ -15,6 +15,14 @@ const { getEffect, getTurnEffect, clearEffect, consumeCharge, getHpLost } = requ
 
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
+
+
+
+// Spam tracker: userId -> { lastAttack, count, window }
+const spamTracker = new Map();
+const SPAM_WINDOW_MS  = 3000;  // 3 second window
+const SPAM_THRESHOLD  = 5;     // 5 attacks within window = spam
+const SPAM_FATIGUE    = 40;    // fatigue added per spam hit (exponential)
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
@@ -268,6 +276,36 @@ module.exports = {
         const cd = getMoveCooldown(userId, move.name);
         const noCdFx = getTurnEffect ? getTurnEffect(userId) : null;
         if (cd > 0 && noCdFx?.effect !== 'no_cooldown') return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
+
+        // ── SPAM DETECTION — exponential fatigue on rapid attacks ──────────
+        if (move.type === 'damage') {
+            const now  = Date.now();
+            const spam = spamTracker.get(userId) || { lastAttack: 0, count: 0 };
+            const gap  = now - spam.lastAttack;
+            if (gap < SPAM_WINDOW_MS) {
+                spam.count++;
+                if (spam.count >= SPAM_THRESHOLD) {
+                    const extraFatigue = Math.min(100, SPAM_FATIGUE * Math.pow(2, spam.count - SPAM_THRESHOLD));
+                    try {
+                        await db.execute('UPDATE players SET fatigue = LEAST(100, fatigue + ?) WHERE id=?', [Math.floor(extraFatigue), userId]);
+                    } catch(e) {}
+                    if (spam.count === SPAM_THRESHOLD) {
+                        await msg.reply(
+                            `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗
+┃◆ You are moving too fast.
+┃◆ Your body cannot keep up.
+┃◆ 🔵 Fatigue skyrocketing.
+┃◆ Slow down or deal 1 damage.
+╚═══════════════════════════╝`
+                        ).catch(() => {});
+                    }
+                }
+            } else {
+                spam.count = 1;
+            }
+            spam.lastAttack = now;
+            spamTracker.set(userId, spam);
+        }
 
         if ((player.role === 'Mage' || player.role === 'Healer' || player.role === 'Explorer') && requiresMana(move)) {
             const manaCost = move.cost || 5;
