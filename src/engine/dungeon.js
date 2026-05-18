@@ -6,7 +6,7 @@ const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activ
 const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
-const { getEffect, clearEffect, trackDeath, trackHpLost } = require('../systems/potionEffects');
+const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -523,13 +523,54 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
             }
         } catch(e) {}
+        // ── POTION EFFECTS — modify retaliation ────────────────────────
+        try {
+            // Void Puppeteer — redirect enemy attack to a specific ally
+            const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
+            if (puppetFx?.effect === 'redirect_aggro') {
+                // Find a random alive ally that is NOT the caster
+                const [allies] = await db.execute(
+                    'SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND player_id!=? AND is_alive=1 LIMIT 1',
+                    [dungeonId, playerId]
+                );
+                if (allies.length) retaliationTargetId = allies[0].player_id;
+            }
+
+            // Invisibility / Forgotten Name — enemy skips retaliation entirely
+            const invisFx = getTurnEffect ? getTurnEffect(playerId) : null;
+            if (['invisibility','time_freeze'].includes(invisFx?.effect)) {
+                retaliation = 0;
+                retaliationMessage = '';
+            }
+
+            // Chaos Mode — enemy deals 50% MORE damage back
+            const chaosFx = getTurnEffect ? getTurnEffect(playerId) : null;
+            if (chaosFx?.effect === 'chaos_mode') {
+                retaliation = Math.floor(retaliation * (1 + (chaosFx.data.amp || 0.5)));
+            }
+        } catch(potErr) {}
+
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
         try { trackHpLost(playerId, dungeonId, retaliation); } catch(e) {}
+
+        // Bloodpact Serum — share 50% of damage with linked ally
+        try {
+            const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
+            if (bloodpactFx?.effect === 'damage_link' && bloodpactFx.data.linkTarget && retaliation > 0) {
+                const sharedDmg = Math.floor(retaliation * 0.5);
+                // Reduce attacker's damage and split to linked ally
+                await db.execute('UPDATE players SET hp = GREATEST(0, hp + ?) WHERE id=?', [sharedDmg, retaliationTargetId]);
+                await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [sharedDmg, bloodpactFx.data.linkTarget]);
+            }
+        } catch(e2) {}
+
         const [pUp] = await db.execute("SELECT hp FROM players WHERE id=?", [playerId]);
         playerHp = Number(pUp[0].hp);
-        retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
-        if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
-        if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
+        if (retaliation > 0) {
+            retaliationMessage = `⚡ ${e.name} retaliates with ${e.moves?.[0]?.name || 'a vicious strike'}!`;
+            if (defenseBlocked  > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
+            if (shieldAbsorbed  > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
+        }
     }
 
     const [rem] = await db.execute(

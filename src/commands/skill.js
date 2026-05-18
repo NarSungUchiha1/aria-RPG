@@ -403,22 +403,23 @@ module.exports = {
                 }
             } catch(e3) {}
 
-            // Double strike — repeat hit at same damage
+            // Read active turn effect ONCE — avoid conflicts between effects
             try {
-                const dsFx = getTurnEffect(userId);
-                if (dsFx?.effect === 'double_strike' && Math.random() < (dsFx.data.chance || 0.4)) {
-                    await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy?.id]);
+                const activeTurnEffect = getTurnEffect ? getTurnEffect(userId) : null;
+
+                // Phantom Draught — double strike
+                if (activeTurnEffect?.effect === 'double_strike' && Math.random() < (activeTurnEffect.data.chance || 0.4)) {
+                    if (targetEnemy?.id) {
+                        await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy.id]);
+                    }
                     reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
                 }
-            } catch(e) {}
 
-            // Lifesteal — heal on damage
-            try {
-                const lsFx = getTurnEffect(userId);
-                if (lsFx?.effect === 'lifesteal' && result.damage > 0) {
-                    const healAmt = Math.floor(result.damage * (lsFx.data.percent || 0.25));
+                // Crimson Tide — lifesteal (works alongside double strike)
+                if (activeTurnEffect?.effect === 'lifesteal' && result.damage > 0) {
+                    const healAmt = Math.floor(result.damage * (activeTurnEffect.data.percent || 0.25));
                     await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
-                    reply += `┃◆ 🩸 Lifesteal: +${healAmt} HP\n`;
+                    reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP\n`;
                 }
             } catch(e) {}
 
