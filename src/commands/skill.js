@@ -478,6 +478,38 @@ module.exports = {
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
+            // Malachar phase transition announcement
+            if (targetEnemy?.name === 'Malachar' && result.enemyHp > 0 && result.enemyMaxHp > 0) {
+                try {
+                    const pct = result.enemyHp / result.enemyMaxHp;
+                    const PHASE_MSGS = {
+                        p1: '\u256c\u256c\u256c Phase 1 \u2014 MALACHAR \u2014 Phase 1 \u256c\u256c\u256c\n\u2503\u2605 He watches. Not yet committed.\n\u2503\u2605 He is still holding back.',
+                        p2: '\u256c\u256c\u256c Phase 2 \u2014 MALACHAR \u2014 RECOGNITION \u256c\u256c\u256c\n\u2503\u2605 He sees you now. He is deciding.\n\u2503\u2605 \u26a0\ufe0f ATK +50%.',
+                        p3: '\u256c\u256c\u256c Phase 3 \u2014 MALACHAR \u2014 JUDGEMENT \u256c\u256c\u256c\n\u2503\u2605 He has made his decision.\n\u2503\u2605 You are not enough.\n\u2503\u2605 \u26a0\ufe0f ATK +120%.',
+                        p4: '\u256c\u256c\u256c THE FULL VOID \u256c\u256c\u256c\n\u2503\u2605 This is what he was holding back.\n\u2503\u2605 \u2620\ufe0f ATK +250%. Nothing evades. Nothing blocks.'
+                    };
+                    const phases = [
+                        { threshold: 0.75, mult: 1.0, msg: PHASE_MSGS.p1 },
+                        { threshold: 0.50, mult: 1.5, msg: PHASE_MSGS.p2 },
+                        { threshold: 0.25, mult: 2.2, msg: PHASE_MSGS.p3 },
+                        { threshold: 0.05, mult: 3.5, msg: PHASE_MSGS.p4 }
+                    ];
+                    // Check if we just crossed a phase threshold
+                    const prevPct = (result.enemyHp + result.damage) / result.enemyMaxHp;
+                    for (const phase of phases) {
+                        if (prevPct > phase.threshold && pct <= phase.threshold) {
+                            await client.sendMessage(RAID_GROUP, { text: phase.msg }).catch(() => {});
+                            // Update Malachar's ATK in DB for this phase
+                            await db.execute(
+                                'UPDATE dungeon_enemies SET atk = FLOOR(atk * ?) WHERE dungeon_id=? AND name=? AND current_hp>0',
+                                [phase.mult, dungeon.id, 'Malachar']
+                            ).catch(() => {});
+                            break;
+                        }
+                    }
+                } catch(phaseErr) { console.error('Phase error:', phaseErr.message); }
+            }
+
             if (result.defeated) {
 
                 // ✅ Check if all stage enemies defeated — roll shared drops
