@@ -82,7 +82,7 @@ async function beginDungeon(dungeonId, client) {
             }
         };
 
-        await startDungeonTimers(dungeonId, client, targetChat, failCallback, dungeon[0].dungeon_rank);
+        await startDungeonTimers(dungeonId, client, targetChat, failCallback);
 
         // ── Message 1: Dungeon begins ──
         await client.sendMessage(RAID_GROUP, {
@@ -232,12 +232,12 @@ module.exports = {
             const currentPlayers = count[0].cnt;
             
             // ✅ Raider limit by dungeon rank
-            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 };
+            const MAX_RAIDERS = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
             const maxRaiders = MAX_RAIDERS[dungeon.dungeon_rank] || 3;
             if (currentPlayers >= maxRaiders) {
                 return msg.reply(
                     `══〘 🏰 ENTER 〙══╮\n` +
-                    `┃◆ ❌ Dungeon is full (${currentPlayers}/${maxRaiders}).\n` +
+                    `┃◆ ❌ Dungeon is full (5/5).\n` +
                     `┃◆ Wait for the next one.\n` +
                     `╰═══════════════════════╯`
                 );
@@ -263,8 +263,7 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
-                let remaining = 5;
-                let dailyLimit = 5; // declared here so it's in scope for the success message
+                let remaining = 5; // updated after chapter check
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -278,7 +277,7 @@ module.exports = {
                     try {
                         const { getCurrentChapter } = require('../systems/loreSystem');
                         const ch = await getCurrentChapter();
-                        if (ch >= 3) dailyLimit = 15;
+                        // dailyLimit stays at 5
                     } catch(e) {}
 
                     const [entryLog] = await db.execute(
@@ -338,7 +337,7 @@ module.exports = {
                         `╭══〘 ⚔️ RAIDER JOINED 〙══╮\n` +
                         `┃◆ \n` +
                         `┃◆ 👤 ${player[0].nickname} has entered the dungeon!\n` +
-                        `┃◆ 👥 Raiders: ${newCount}/${maxRaiders}\n` +
+                        `┃◆ 👥 Raiders: ${newCount}/5\n` +
                         `┃◆ 🏰 Rank: ${dungeon.dungeon_rank}\n` +
                         `┃◆ \n` +
                         (isFirstPlayer ? `┃◆ ⏱️ Auto-starts in ${AUTO_START_MINUTES} minutes!\n` : '') +
@@ -351,8 +350,8 @@ module.exports = {
                     `══〘 🏰 DUNGEON ENTERED 〙══╮\n` +
                     `┃◆ ✅ You have entered!\n` +
                     `┃◆ ⚔️ Rank: ${dungeon.dungeon_rank}\n` +
-                    `┃◆ 👥 Raiders: ${newCount}/${maxRaiders}\n` +
-                    `┃◆ 📅 Entries left today: ${remaining}/${dailyLimit}\n` +
+                    `┃◆ 👥 Raiders: ${newCount}/5\n` +
+                    `┃◆ 📅 Entries left today: ${remaining}/5\n` +
                     `┃◆────────────\n` +
                     `┃◆ Get ready before it starts!\n` +
                     `┃◆ 🛒 !shop  •  📦 !equip\n` +
@@ -379,9 +378,8 @@ module.exports = {
                     [userId, today]
                 );
                 const todayCount = entryLog[0]?.count || 0;
-                let dl2 = 5; try { const { getCurrentChapter: gch } = require('../systems/loreSystem'); const chNum = await gch(); if (chNum >= 3) dl2 = 15; } catch(e) {} const remaining = dl2 - todayCount;
-                entryLine = `┃◆ 📅 Entries left today: ${remaining}/
-`;
+                const remaining = 5 - todayCount;
+                entryLine = `┃◆ 📅 Entries left today: ${remaining}/5\n`;
             }
 
             const confirmTimer = setTimeout(() => {
@@ -393,7 +391,7 @@ module.exports = {
             return msg.reply(
                 `╭══〘 🏰 DUNGEON ALERT 〙══╮\n` +
                 `┃◆ Rank: ${dungeon.dungeon_rank}\n` +
-                `┃◆ Raiders: ${currentPlayers}/${maxRaiders}\n` +
+                `┃◆ Raiders: ${currentPlayers}/5\n` +
                 `${entryLine}` +
                 `┃◆────────────\n` +
                 `┃◆ ⚠️ Are you ready to enter?\n` +
