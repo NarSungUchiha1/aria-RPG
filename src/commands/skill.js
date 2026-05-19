@@ -62,11 +62,11 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
             const primaryStatKey = roleStatMap[player.role] || 'strength';
             const primaryStat = Number(player[primaryStatKey]) || 100;
+            const dmg = Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)));
             for (const e of enemies[0]) {
-                undefined
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
             }
-            const totalDmgDealt = toSpawn ? toSpawn.reduce((s,e) => s + Math.floor(totalStat * (blessing.multiplier||3.0)), 0) : 0;
+            const totalDmgDealt = enemies[0].length * dmg;
             if (trigger === 'hp_below_30') {
                 blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
 ┃◆ The bloodline awakens.
@@ -328,11 +328,15 @@ module.exports = {
             }
         }
 
-        if ((player.role === 'Mage' || player.role === 'Healer' || player.role === 'Explorer') && requiresMana(move)) {
+        if (requiresMana(move)) {
             const manaCost = move.cost || 5;
             const currentMana = Number(player.mana) || 0;
+            const isCaster = ['Mage', 'Healer', 'Explorer'].includes(player.role);
             if (currentMana < manaCost) {
-                return msg.reply(`❌ Not enough mana! You need ${manaCost} mana.`);
+                const tip = isCaster
+                    ? `❌ Not enough mana! Need ${manaCost}, have ${currentMana}.`
+                    : `❌ Not enough mana (${currentMana}/${player.max_mana || 20}).\n┃◆ Healing weapons need mana — only Mages, Healers & Explorers can sustain them.`;
+                return msg.reply(tip);
             }
             await db.execute("UPDATE players SET mana = mana - ? WHERE id=?", [manaCost, userId]);
             player.mana = currentMana - manaCost;
@@ -404,7 +408,7 @@ module.exports = {
             let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
             if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
-            const estDamage = calculateMoveDamage(player, move, targetEnemy, items);
+            const estDamage = calculateMoveDamage(player, move, targetEnemy, items, { noTick: true });
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
 
