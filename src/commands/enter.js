@@ -248,7 +248,7 @@ module.exports = {
                     `╔══〘 👁️ MALACHAR RAID 〙══╗
 ┃★
 ┃★ You have joined the raid.
-┃★ 👥 Raiders: ${cnt[0].c}/10
+┃★ 👥 Raiders: ${cnt[0].c}/100
 ┃★
 ┃★ 6 stages. His generals first.
 ┃★ Then him.
