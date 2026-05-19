@@ -50,7 +50,7 @@ function getAllMoves(player, equippedItems) {
     return moves;
 }
 
-function calculateMoveDamage(player, move, enemy, equippedItems) {
+function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = false } = {}) {
     if (!player || !move || !enemy) return 0;
     if (move.type !== 'damage') return 0;
 
@@ -137,7 +137,7 @@ function calculateMoveDamage(player, move, enemy, equippedItems) {
         // Chaos mode — +50% damage dealt
         if (turnFx?.effect === 'chaos_mode') damage = Math.floor(damage * (1 + (turnFx.data.amp || 0.5)));
 
-        tickTurnEffect(player.id);
+        if (!noTick) tickTurnEffect(player.id);
     } catch(e) {}
     return Math.max(1, damage);
 }

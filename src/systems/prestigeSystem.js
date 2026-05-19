@@ -75,12 +75,30 @@ async function updateLastActive(playerId) {
     await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [playerId]).catch(() => {});
 }
 
+// Remove players inactive for 30+ days who haven't reached rank B or prestige
+async function clearInactivePlayers() {
+    try {
+        const [result] = await db.execute(`
+            DELETE FROM players
+            WHERE last_active < DATE_SUB(NOW(), INTERVAL 30 DAY)
+              AND prestige_level = 0
+              AND \`rank\` NOT IN ('B','A','S')
+        `);
+        if (result.affectedRows > 0) {
+            console.log(`🧹 Cleared ${result.affectedRows} inactive players.`);
+        }
+    } catch (e) {
+        console.error('clearInactivePlayers error:', e.message);
+    }
+}
+
 module.exports = {
     ensureTables,
     getPrestigeBadge,
     canPrestige,
     doPrestige,
     updateLastActive,
+    clearInactivePlayers,
     PRESTIGE_BASE_STATS,
     PRESTIGE_STAT_GAINS
 };

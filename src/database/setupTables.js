@@ -66,10 +66,13 @@ async function setupMissingTables() {
             intelligence  INT DEFAULT 10,
             stamina       INT DEFAULT 10,
             fatigue       INT DEFAULT 0,
+            mana          INT DEFAULT 100,
+            max_mana      INT DEFAULT 100,
             sp            INT DEFAULT 0,
             pvp_wins      INT DEFAULT 0,
             pvp_losses    INT DEFAULT 0,
             title         VARCHAR(50),
+            last_active   DATETIME DEFAULT NOW(),
             registered_at DATETIME DEFAULT NOW()
         )`,
 

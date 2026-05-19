@@ -618,7 +618,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
                 const fatigueGainA = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
-                await increasePlayerFatigue(playerId, fatigueGainA, player);
+                await increasePlayerFatigue(playerId, fatigueGainA, p);
                 tickBuffs('player', playerId);
                 return {
                     enemyDefeated: defeated,
@@ -655,7 +655,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     }
 
     const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
-    await increasePlayerFatigue(playerId, fatigueGain, player);
+    await increasePlayerFatigue(playerId, fatigueGain, p);
     tickBuffs('player', playerId);
 
     return {

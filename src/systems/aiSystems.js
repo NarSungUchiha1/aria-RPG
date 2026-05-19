@@ -616,4 +616,4 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     } catch {}
 }
 
-module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI };
+module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, callGemini };
