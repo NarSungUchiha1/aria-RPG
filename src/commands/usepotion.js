@@ -8,7 +8,6 @@ const {
 
 module.exports = {
     name: 'usepotion',
-    aliases: ['use'],
     async execute(msg, args, { userId }) {
         try {
             // Find potion by number or name
