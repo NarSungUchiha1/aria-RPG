@@ -8,38 +8,38 @@ module.exports = {
 
         try {
 
-            const [player] = await db.execute(
-                "SELECT role FROM players WHERE id=?",
+            const [playerRows] = await db.execute(
+                "SELECT role, nickname FROM players WHERE id=?",
                 [userId]
             );
 
-            if (!player.length) {
+            if (!playerRows.length) {
                 return msg.reply("❌ Not registered.");
             }
 
-            if (player[0].role !== "Explorer") {
-                return msg.reply(
-`╔══〘 ⚗️ POTION VAULT 〙══╗
-┃◆ ❌ Only Explorers can use this.
-╚═══════════════════════════╝`
-                );
-            }
+            const player = playerRows[0];
 
+            // get owned potions
             const [pots] = await db.execute(
-                "SELECT * FROM potion_inventory WHERE player_id=? AND quantity > 0",
+                `SELECT *
+                 FROM potion_inventory
+                 WHERE player_id=?
+                 AND quantity > 0`,
                 [userId]
             );
 
             if (!pots.length) {
                 return msg.reply(
-`╔══〘 ⚗️ POTION VAULT 〙══╗
-┃◆ You have no brewed potions.
-╚═══════════════════════════╝`
+`╔══〘 ⚗️ POTION INVENTORY 〙══╗
+┃◆ You have no potions.
+╚══════════════════════════════╝`
                 );
             }
 
             let text =
-`╔══〘 ⚗️ YOUR POTIONS 〙══╗
+`╔══〘 ⚗️ POTION INVENTORY 〙══╗
+┃◆ 👤 ${player.nickname}
+┃◆ 🎭 ${player.role}
 ┃◆\n`;
 
             for (const p of pots) {
@@ -48,14 +48,24 @@ module.exports = {
 
                 text +=
 `┃◆ 🧪 ${p.potion_name}
-┃◆ Qty: ${p.quantity}
+┃◆ 📦 Qty: ${p.quantity}
 ┃◆ ${pot?.desc || "Unknown Potion"}
 ┃◆\n`;
             }
 
-            text += `╚═══════════════════════════╝`;
+            // explorer bonus info
+            if (player.role === "Explorer") {
+                text +=
+`┃◆━━━━━━━━━━━━━━━━
+┃◆ 🧪 Explorer Vault Access
+┃◆ You can brew & list potions
+┃◆ using !potionmarket list
+┃◆━━━━━━━━━━━━━━━━\n`;
+            }
 
-            msg.reply(text);
+            text += `╚══════════════════════════════╝`;
+
+            return msg.reply(text);
 
         } catch (err) {
             console.error(err);
