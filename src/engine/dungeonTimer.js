@@ -57,7 +57,7 @@ function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) 
     let overallWarning = null;
     let overallTimeout = null;
 
-    if (!isHP) {
+    if (!isHP && !isMalachar) {
         overallWarning = setTimeout(async () => {
             try {
                 await targetChat.sendMessage(
