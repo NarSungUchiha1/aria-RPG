@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { spawnDungeon } = require('../engine/dungeon');
+const { spawnStageEnemies, startLobbyTimer } = require('../engine/dungeon');
 const { CHAPTER4_LORE } = require('../systems/chapter4lore');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -10,7 +10,6 @@ module.exports = {
         if (!isAdmin) return msg.reply('❌ Admin only.');
 
         try {
-            // Check no active dungeon
             const [active] = await db.execute(
                 "SELECT id FROM dungeon WHERE is_active=1 LIMIT 1"
             );
@@ -18,21 +17,37 @@ module.exports = {
                 '❌ A dungeon is already active. Wait for it to end.'
             );
 
-            // Spawn MALACHAR dungeon with 6 stages
+            // Ensure dungeon_rank column is wide enough
+            await db.execute(
+                "ALTER TABLE dungeon MODIFY COLUMN dungeon_rank VARCHAR(20)"
+            ).catch(() => {});
+
             const [result] = await db.execute(
                 `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked)
                  VALUES ('MALACHAR', 1, 6, 'Malachar', 1, 0, 0, 0)`
             );
             const dungeonId = result.insertId;
 
-            // Spawn first stage enemies
-            const { spawnStageEnemies } = require('../engine/dungeon');
+            // Mark this dungeon as unlimited in a flag table
+            await db.execute(`
+                CREATE TABLE IF NOT EXISTS dungeon_flags (
+                    dungeon_id INT PRIMARY KEY,
+                    unlimited_entry TINYINT DEFAULT 0,
+                    no_rank_check TINYINT DEFAULT 0
+                )
+            `).catch(() => {});
+
+            await db.execute(
+                `INSERT INTO dungeon_flags (dungeon_id, unlimited_entry, no_rank_check)
+                 VALUES (?, 1, 1)
+                 ON DUPLICATE KEY UPDATE unlimited_entry=1, no_rank_check=1`,
+                [dungeonId]
+            );
+
             await spawnStageEnemies(dungeonId, 'MALACHAR', 1);
 
-            // Announce lore first
             await client.sendMessage(RAID_GROUP, { text: CHAPTER4_LORE });
 
-            // Then dungeon announcement
             const announcement =
                 `╔══════════════════════════════════╗\n` +
                 `┃★                                 \n` +
@@ -46,6 +61,7 @@ module.exports = {
                 `┃★                                 \n` +
                 `┃★  ALL hunters can enter.         \n` +
                 `┃★  All ranks. No exceptions.      \n` +
+                `┃★  No entry limit. No cap.        \n` +
                 `┃★                                 \n` +
                 `┃★  👁️  Boss: Malachar             \n` +
                 `┃★  ❤️  HP: 1,000,000,000          \n` +
@@ -57,9 +73,8 @@ module.exports = {
 
             await client.sendMessage(RAID_GROUP, { text: announcement });
 
-            // Start lobby timer
-            const { startLobbyTimer } = require('../engine/dungeon');
-            // Use dungeon lobby timer via lockDungeon after players enter
+            startLobbyTimer(dungeonId, client);
+
             await msg.reply(`✅ Malachar dungeon spawned (id: ${dungeonId}). Lore and announcement sent.`);
 
         } catch (err) {
