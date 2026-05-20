@@ -12,45 +12,31 @@ const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
 const { getPlayerClan, CLAN_BLESSINGS, getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
 const { getEffect, getTurnEffect, clearEffect, consumeCharge, getHpLost } = require('../systems/potionEffects');
+const { checkPhaseTransition } = require('../systems/malacharPhase');
 
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
 
-
-
 // Spam tracker: userId -> { lastAttack, count, window }
 const spamTracker = new Map();
-const SPAM_WINDOW_MS  = 3000;  // 3 second window
-const SPAM_THRESHOLD  = 2;     // 2 attacks within 3s = spam
-const SPAM_FATIGUE    = 50;    // fatigue added per spam hit (exponential)
+const SPAM_WINDOW_MS  = 3000;
+const SPAM_THRESHOLD  = 2;
+const SPAM_FATIGUE    = 50;
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-
     // Intelligence damage skills use mana
     if (move.type === 'damage' && move.stat === 'intelligence') {
         return true;
     }
-
-    // Healing skills only require mana
-    // if they come from a WEAPON
+    // Healing skills — only weapon heals cost mana, role heals are free
     if (move.type === 'heal') {
-
-        // Role healers can cast normally
-        if (move.source === 'role') {
-            return false;
-        }
-
-        // Weapon heals require mana
-        if (move.source === 'weapon') {
-            return true;
-        }
+        if (move.source === 'role')   return false;
+        if (move.source === 'weapon') return true;
     }
-
     return false;
 }
-
 
 // ── CLAN BLESSING TRIGGER ────────────────────────────────────────────────────
 async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dungeon, msg, extraData = {}) {
@@ -63,11 +49,9 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
 
-        // One-use blessings — fire once per dungeon only
         const oneUseTriggers = ['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move'];
         if (oneUseTriggers.includes(trigger) && state.blessing_used) return null;
 
-        // Repeating blessings (on_kill, every_5_skills etc) — 30s cooldown between fires
         const repeatTriggers = ['on_kill','every_5_skills','three_consecutive_hits','on_healed','enemy_below_25'];
         if (repeatTriggers.includes(trigger) && state.last_triggered) {
             const secsSince = (Date.now() - new Date(state.last_triggered).getTime()) / 1000;
@@ -77,7 +61,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         let blessingMsg = '';
 
         if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
-            // Deal AOE damage to all enemies
             const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
             const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
             const primaryStatKey = roleStatMap[player.role] || 'strength';
@@ -123,8 +106,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
                     const dmg = Math.floor(stat * blessing.multiplier);
                     await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
                 }
-                blessingMsg = `
-☄️ *Heaven's Fall* strikes all enemies for ${Math.floor((player.intelligence||100)*blessing.multiplier)} damage!`;
+                blessingMsg = `\n☄️ *Heaven's Fall* strikes all enemies for ${Math.floor((player.intelligence||100)*blessing.multiplier)} damage!`;
             }
             await updateBlessingState(playerId, dungeonId, { skill_count: newCount });
         }
@@ -146,7 +128,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             }
         }
 
-        // Abyssal Hunger — on_healed
         if (trigger === 'on_healed') {
             const healAmt = extraData.healAmount || 100;
             const dmg     = Math.floor(healAmt * (blessing.heal_multiplier || 2.0));
@@ -155,20 +136,17 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             );
             if (rndEnemy.length) {
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, rndEnemy[0].id]);
-                blessingMsg = `
-🕳️ *Abyssal Hunger* absorbs ${healAmt} healing → ${dmg} void damage on enemy!`;
+                blessingMsg = `\n🕳️ *Abyssal Hunger* absorbs ${healAmt} healing → ${dmg} void damage on enemy!`;
             }
         }
 
-        // Reaper's Mark — enemy_below_25
         if (trigger === 'enemy_below_25' && extraData.enemy) {
             const e = extraData.enemy;
             const isBoss = e.current_hp > 50000;
             if (isBoss) {
                 const bossDmg = Math.floor(e.current_hp * (blessing.boss_multiplier || 0.8));
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [bossDmg, e.id]);
-                blessingMsg = `
-💀 *Reaper's Mark* — ${bossDmg} void damage on boss!`;
+                blessingMsg = `\n💀 *Reaper's Mark* — ${bossDmg} void damage on boss!`;
             } else {
                 await db.execute('UPDATE dungeon_enemies SET current_hp = 0 WHERE id=?', [e.id]);
                 blessingMsg = `╔══〘 💀 REAPER'S MARK 〙══╗
@@ -181,7 +159,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
         }
 
-        // Phantom Shift — on_death
         if (trigger === 'on_death') {
             const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
             await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
@@ -195,7 +172,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ╚═══════════════════════════╝`;
         }
 
-        // Soul Shatter — stage_first_move
         if (trigger === 'stage_first_move') {
             await db.execute(
                 'UPDATE dungeon_enemies SET def = GREATEST(0, def - FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
@@ -211,7 +187,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
         }
 
-        // Eclipse — final stage HP drain + damage boost
         if (trigger === 'final_stage') {
             const [allEnemies] = await db.execute('SELECT id, current_hp FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
             for (const e of allEnemies) {
@@ -229,7 +204,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ╚═══════════════════════════╝`;
         }
 
-        // Malachar's Will — all_allies_below_50
         if (trigger === 'all_allies_below_50') {
             await updateBlessingState(playerId, dungeonId, { invincible: blessing.charges || 3, blessing_used: 1 });
             blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
@@ -244,7 +218,6 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         if (blessingMsg) {
             await msg.reply(blessingMsg).catch(() => {});
-            // Update 12-hour cooldown timestamp
             await db.execute(
                 'UPDATE clan_blessing_state SET last_triggered=NOW() WHERE player_id=? AND dungeon_id=?',
                 [playerId, dungeonId]
@@ -267,9 +240,6 @@ module.exports = {
 
         if (args.length < 1) return msg.reply("❌ Use: !skill <move> [target]");
 
-        let potentialName = args.join(' ');
-        let targetArg = '';
-
         const [playerRows] = await db.execute("SELECT * FROM players WHERE id=?", [userId]);
         if (!playerRows.length) return msg.reply("❌ Not registered.");
         const player = playerRows[0];
@@ -291,13 +261,13 @@ module.exports = {
         if (!matchedMove) return msg.reply("❌ You don't know that move. Use !moveset");
 
         const move = matchedMove;
-        targetArg = remainingArgs;
+        const targetArg = remainingArgs;
 
         const cd = getMoveCooldown(userId, move.name);
         const noCdFx = getTurnEffect ? getTurnEffect(userId) : null;
         if (cd > 0 && noCdFx?.effect !== 'no_cooldown') return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
 
-        // ── SPAM DETECTION — exponential fatigue on rapid attacks ──────────
+        // ── SPAM DETECTION ──────────────────────────────────────────────────
         if (move.type === 'damage') {
             const now  = Date.now();
             const spam = spamTracker.get(userId) || { lastAttack: 0, count: 0 };
@@ -305,26 +275,20 @@ module.exports = {
             if (gap < SPAM_WINDOW_MS) {
                 spam.count++;
             } else {
-                // Gap was long enough — reduce count by 1 but never reset fully
-                // Spammers still carry their spam history until fatigue recovers
                 spam.count = Math.max(0, spam.count - 1);
             }
             spam.lastAttack = now;
             spamTracker.set(userId, spam);
 
-            // Once threshold hit — spike to 35% minimum then exponential
             if (spam.count >= SPAM_THRESHOLD) {
-                // First spam hit: jump to 35% fatigue
-                // Each additional hit: double the previous addition
                 const spamHitNumber = spam.count - SPAM_THRESHOLD;
                 let fatigueTarget;
                 if (spamHitNumber === 0) {
-                    fatigueTarget = 35; // First offence — 35%
+                    fatigueTarget = 35;
                 } else {
                     fatigueTarget = Math.min(100, 35 + SPAM_FATIGUE * Math.pow(2, spamHitNumber));
                 }
                 try {
-                    // Set fatigue to max of current or target — never goes down from spam
                     await db.execute(
                         'UPDATE players SET fatigue = LEAST(100, GREATEST(fatigue, ?)) WHERE id=?',
                         [fatigueTarget, userId]
@@ -332,16 +296,11 @@ module.exports = {
                 } catch(e) {}
                 if (spamHitNumber === 0) {
                     await msg.reply(
-                        `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗
-` +
-                        `┃◆ You are moving too fast.
-` +
-                        `┃◆ Your body cannot keep up.
-` +
-                        `┃◆ 🔵 Fatigue: 35% and climbing.
-` +
-                        `┃◆ Keep spamming and deal 1 damage.
-` +
+                        `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗\n` +
+                        `┃◆ You are moving too fast.\n` +
+                        `┃◆ Your body cannot keep up.\n` +
+                        `┃◆ 🔵 Fatigue: 35% and climbing.\n` +
+                        `┃◆ Keep spamming and deal 1 damage.\n` +
                         `╚═══════════════════════════╝`
                     ).catch(() => {});
                 }
@@ -398,9 +357,7 @@ module.exports = {
             const heal = calculateHeal(player, move);
             await db.execute("UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?", [heal, targetPlayer.id]);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-            // Track every_5_skills blessing
             if (dungeon) triggerBlessingIfReady('every_5_skills', userId, dungeon.id, player, dungeon, msg).catch(() => {});
-            // Abyssal Hunger — fires on the TARGET when healed
             if (dungeon && targetPlayer.id !== userId) {
                 triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, { healAmount: heal }).catch(() => {});
             }
@@ -418,9 +375,7 @@ module.exports = {
                 "SELECT * FROM dungeon_players WHERE player_id=? AND dungeon_id=? AND is_alive=1",
                 [userId, dungeon.id]
             );
-            if (!inDungeon.length) {
-                return msg.reply("❌ You are not inside the dungeon.");
-            }
+            if (!inDungeon.length) return msg.reply("❌ You are not inside the dungeon.");
 
             const enemies = await getCurrentEnemies(dungeon.id);
             if (enemies.length === 0) return msg.reply("✅ No enemies. Use !onward.");
@@ -432,7 +387,7 @@ module.exports = {
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
 
-            // ✅ If Leviathan is active — damage also hits the Leviathan
+            // Leviathan parallel damage
             if (battleState.active && !battleState.finalPhase) {
                 try {
                     await processSkillHit(userId, estDamage, client);
@@ -455,7 +410,7 @@ module.exports = {
             }
 
             let reply = `══〘 ⚔️ SKILL 〙══╮\n`;
-            
+
             if (result.evaded) {
                 const evadeMsg = narrate('evasion', { target: targetEnemy.name });
                 reply += `┃◆ ${evadeMsg}\n`;
@@ -463,6 +418,7 @@ module.exports = {
                 const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
                 reply += `┃◆ ${skillMsg}\n`;
             }
+
             // Blood Price bonus
             try {
                 const bpFx = getEffect(userId, dungeon?.id);
@@ -484,7 +440,6 @@ module.exports = {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [stealAmt, targetEnemy.id]);
                         await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [stealAmt, userId]);
                         reply += `┃◆ 🍖 Hunger: stole ${stealAmt} HP from ${targetEnemy.name}!\n`;
-                        // Side effect — overflow if steal > enemy remaining HP
                         if (hungerFx2?.data?.overflow && stealAmt > (result.enemyHp || 0)) {
                             const overflow = stealAmt - (result.enemyHp || 0);
                             await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [overflow, userId]);
@@ -495,25 +450,22 @@ module.exports = {
                 }
             } catch(e3) {}
 
-            // Read active turn effect ONCE — avoid conflicts between effects
+            // Turn effects
             try {
                 const activeTurnEffect = getTurnEffect ? getTurnEffect(userId) : null;
 
-                // Phantom Draught — double strike, but MISSES deal recoil
                 if (activeTurnEffect?.effect === 'double_strike') {
                     const hit = Math.random() < (activeTurnEffect.data.chance || 0.4);
                     if (hit && targetEnemy?.id) {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy.id]);
                         reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
                     } else if (!hit) {
-                        // Miss — recoil 10% of damage back to player
                         const recoil = Math.floor(result.damage * 0.10);
                         await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [recoil, userId]);
                         reply += `┃◆ 👻 Double strike MISSED — recoil ${recoil} damage to you!\n`;
                     }
                 }
 
-                // Crimson Tide — lifesteal but +5% fatigue per heal
                 if (activeTurnEffect?.effect === 'lifesteal' && result.damage > 0) {
                     const healAmt = Math.floor(result.damage * (activeTurnEffect.data.percent || 0.25));
                     await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
@@ -521,21 +473,18 @@ module.exports = {
                     reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP (fatigue +5%)\n`;
                 }
 
-                // Chaos Mode side effect — 20% chance to hit yourself
                 if (activeTurnEffect?.effect === 'chaos_mode' && Math.random() < 0.20) {
                     const selfDmg = Math.floor(result.damage * 0.30);
                     await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [selfDmg, userId]);
                     reply += `┃◆ ☠️ Chaos backfires — ${selfDmg} damage to yourself!\n`;
                 }
 
-                // Void Madness — hide HP from player
                 if (activeTurnEffect?.effect === 'berserk') {
-                    // Replace HP display with ???
                     reply = reply.replace(/HP: \d+\/\d+/, 'HP: ???/???');
                 }
             } catch(e) {}
 
-            // Echo brew — repeat skill next turn
+            // Echo brew
             try {
                 const echoFx = getEffect(userId, dungeon?.id);
                 if (echoFx?.effect === 'echo_skill') {
@@ -545,33 +494,29 @@ module.exports = {
                     reply += `┃◆ 🔁 Echo: ${move.name} repeats — ${echoDmg} damage!\n`;
                 }
             } catch(e) {}
+
+            // Clan blessings
             if (dungeon) {
                 const newPlayerHp = result.playerHp || player.hp;
-                // hp_below_30 — fires when attacker drops below 30%
                 if (newPlayerHp > 0 && newPlayerHp < player.max_hp * 0.3) {
                     await triggerBlessingIfReady('hp_below_30', userId, dungeon.id, player, dungeon, msg);
                 }
-                // enemy_below_25 — fires when target enemy drops below 25%
                 if (result.enemyHp > 0 && result.enemyMaxHp > 0) {
                     const pct = result.enemyHp / result.enemyMaxHp;
                     if (pct <= 0.25) {
                         await triggerBlessingIfReady('enemy_below_25', userId, dungeon.id, player, dungeon, msg, { enemy: { id: result.enemyId || targetEnemy?.id, current_hp: result.enemyHp, max_hp: result.enemyMaxHp, name: result.enemyName } });
                     }
                 }
-                // on_kill
                 if (result.defeated || result.enemyDefeated) {
                     await triggerBlessingIfReady('on_kill', userId, dungeon.id, player, dungeon, msg);
                 }
-                // stage_first_move
-                const state = await getPlayerBlessingState(userId, dungeon.id).catch(() => null);
-                if (state && state.skill_count === 0) {
+                const blessingState = await getPlayerBlessingState(userId, dungeon.id).catch(() => null);
+                if (blessingState && blessingState.skill_count === 0) {
                     await triggerBlessingIfReady('stage_first_move', userId, dungeon.id, player, dungeon, msg);
                 }
-                // final_stage
                 if (dungeon.stage === dungeon.max_stage) {
                     await triggerBlessingIfReady('final_stage', userId, dungeon.id, player, dungeon, msg);
                 }
-                // all_allies_below_50 — check all alive players
                 try {
                     const [aliveRows] = await db.execute(
                         'SELECT p.hp, p.max_hp FROM dungeon_players dp JOIN players p ON p.id=dp.player_id WHERE dp.dungeon_id=? AND dp.is_alive=1',
@@ -582,47 +527,21 @@ module.exports = {
                     }
                 } catch(e) {}
             }
+
             if (targetEnemy.def > 0) {
                 const defenseMsg = narrate('defenseBlock', { target: targetEnemy.name, blocked: Math.floor(targetEnemy.def / 2) });
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
-            // Malachar phase transition announcement
-            if (targetEnemy?.name === 'Malachar' && result.enemyHp > 0 && result.enemyMaxHp > 0) {
+            // ── MALACHAR PHASE TRANSITIONS ──────────────────────────────────
+            // Uses malacharPhase system — ATK always scaled from base, never compounds
+            if (dungeon.dungeon_rank === 'MALACHAR' && targetEnemy?.name === 'Malachar' && result.enemyHp > 0) {
                 try {
-                    const pct = result.enemyHp / result.enemyMaxHp;
-                    const PHASE_MSGS = {
-                        p1: '\u256c\u256c\u256c Phase 1 \u2014 MALACHAR \u2014 Phase 1 \u256c\u256c\u256c\n\u2503\u2605 He watches. Not yet committed.\n\u2503\u2605 He is still holding back.',
-                        p2: '\u256c\u256c\u256c Phase 2 \u2014 MALACHAR \u2014 RECOGNITION \u256c\u256c\u256c\n\u2503\u2605 He sees you now. He is deciding.\n\u2503\u2605 \u26a0\ufe0f ATK +50%.',
-                        p3: '\u256c\u256c\u256c Phase 3 \u2014 MALACHAR \u2014 JUDGEMENT \u256c\u256c\u256c\n\u2503\u2605 He has made his decision.\n\u2503\u2605 You are not enough.\n\u2503\u2605 \u26a0\ufe0f ATK +120%.',
-                        p4: '\u256c\u256c\u256c THE FULL VOID \u256c\u256c\u256c\n\u2503\u2605 This is what he was holding back.\n\u2503\u2605 \u2620\ufe0f ATK +250%. Nothing evades. Nothing blocks.'
-                    };
-                    const phases = [
-                        { threshold: 0.75, mult: 1.0, msg: PHASE_MSGS.p1 },
-                        { threshold: 0.50, mult: 1.5, msg: PHASE_MSGS.p2 },
-                        { threshold: 0.25, mult: 2.2, msg: PHASE_MSGS.p3 },
-                        { threshold: 0.05, mult: 3.5, msg: PHASE_MSGS.p4 }
-                    ];
-                    // Check if we just crossed a phase threshold
-                    const prevPct = (result.enemyHp + result.damage) / result.enemyMaxHp;
-                    for (const phase of phases) {
-                        if (prevPct > phase.threshold && pct <= phase.threshold) {
-                            await client.sendMessage(RAID_GROUP, { text: phase.msg }).catch(() => {});
-                            // Update Malachar's ATK in DB for this phase
-                            await db.execute(
-                                'UPDATE dungeon_enemies SET atk = FLOOR(atk * ?) WHERE dungeon_id=? AND name=? AND current_hp>0',
-                                [phase.mult, dungeon.id, 'Malachar']
-                            ).catch(() => {});
-                            break;
-                        }
-                    }
-                } catch(phaseErr) { console.error('Phase error:', phaseErr.message); }
+                    await checkPhaseTransition(dungeon.id, result.enemyHp, client, RAID_GROUP);
+                } catch(phaseErr) { console.error('[MalacharPhase]', phaseErr.message); }
             }
 
             if (result.defeated) {
-
-                // ✅ Check if all stage enemies defeated — roll shared drops
-                // ── MVP CHECK — fires when final stage boss is defeated ────
                 (async () => {
                     try {
                         const [dungeonCheck] = await db.execute(
@@ -630,9 +549,7 @@ module.exports = {
                             [dungeon.id]
                         );
                         const isFinalStage = dungeonCheck[0]?.stage >= dungeonCheck[0]?.max_stage;
-                        const allEnemiesGone = dungeonCheck[0]?.stage_cleared;
-                        if (allEnemiesGone && isFinalStage && result.defeated) {
-                            // ── MVP ANNOUNCEMENT — final boss just died ────────────────
+                        if (dungeonCheck[0]?.stage_cleared && isFinalStage) {
                             try {
                                 const [raiders] = await db.execute(
                                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
@@ -642,8 +559,6 @@ module.exports = {
                                 const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, raiderIds, 'dungeon');
                                 if (mvpResult?.message) {
                                     await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
-                                } else {
-                                    console.log('[MVP] No result — stats map:', `dungeon_${dungeon.id}`, 'raiders:', raiderIds);
                                 }
                             } catch(mvpErr) { console.error('[MVP] error:', mvpErr.message); }
                         }
@@ -654,7 +569,6 @@ module.exports = {
                             [dungeon.id]
                         );
 
-                        // Roll one drop per alive player
                         const drops = [];
                         for (const p of alivePlayers) {
                             const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, RAID_GROUP);
@@ -662,23 +576,17 @@ module.exports = {
                             const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
                             drops.push({ material: drop.material, rarity: drop.rarity, emoji });
                         }
-
                         if (!drops.length) return;
 
-                        // Snapshot contributors BEFORE clearStage wipes the tracker
                         const qualifiedIds = getRankedContributors(dungeon.id).map(r => r.playerId);
                         clearStage(dungeon.id);
                         const dropPool = drops.map((d, i) => ({ ...d, index: i, takenBy: [] }));
                         setStagePool(dungeon.id, dropPool, qualifiedIds);
 
-                        // Build message
-                        const isPrestigeLoot = dungeonCheck[0].dungeon_rank && dungeonCheck[0].dungeon_rank.startsWith('P');
-                        let text;
-                        if (isPrestigeLoot) {
-                            text = `╔══〘 ✦ VOID LOOT 〙══╗\n┃★ \n`;
-                        } else {
-                            text = `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
-                        }
+                        const isPrestigeLoot = dungeonCheck[0].dungeon_rank?.startsWith('P');
+                        let text = isPrestigeLoot
+                            ? `╔══〘 ✦ VOID LOOT 〙══╗\n┃★ \n`
+                            : `══〘 💎 STAGE LOOT 〙══╮\n┃◆ \n`;
                         if (isPrestigeLoot) {
                             dropPool.forEach((d, i) => { text += `┃★ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`; });
                             text += `┃★ \n┃★ !pickup <number> to collect\n┃★ All Prestige Hunters can pick each item!\n╚═══════════════════════════╝`;
@@ -687,9 +595,10 @@ module.exports = {
                             text += `┃◆ \n┃◆ !pickup <number> to collect\n┃◆ All raiders can pick each item!\n╰═══════════════════════╯`;
                         }
                         await client.sendMessage(RAID_GROUP, { text });
-
                     } catch(e) { console.error('Stage drop error:', e.message); }
-                })();                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
+                })();
+
+                const defeatMsg = narrate('enemyDefeat', { enemy: targetEnemy.name });
                 reply += `┃◆ ${defeatMsg}\n`;
                 if (result.rewardDistribution) {
                     reply += `┃◆────────────\n┃◆ 🏆 REWARDS:\n`;
@@ -719,7 +628,6 @@ module.exports = {
             }
 
             if (result.playerDied) {
-                // Mirror Toxin — reflect death back to attacker
                 try {
                     const mirrorFx2 = getEffect ? getEffect(userId, dungeon?.id) : null;
                     if (mirrorFx2?.effect === 'death_reflect' && targetEnemy?.id) {
@@ -728,7 +636,7 @@ module.exports = {
                         reply += `┃◆ 🪞 Mirror Toxin — the killing blow rebounds! ${targetEnemy.name} is destroyed!\n`;
                     }
                 } catch(e2) {}
-                // Fetch what was lost for the message
+
                 let lostMsg = '';
                 try {
                     const [sess] = await db.execute('SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
@@ -736,22 +644,20 @@ module.exports = {
                     const lx = sess[0]?.session_xp   || 0;
                     if (lg > 0 || lx > 0) lostMsg = `┃◆ 💸 Lost: ${lg.toLocaleString()}G  ⭐${lx.toLocaleString()}XP\n`;
                 } catch(e) {}
+
                 const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
                 reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
                 try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
 
-                // Phantom Shift — fires AFTER death message as a separate resurrection message
                 try {
                     const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
                     if (phantomResult) {
-                        // Undo death
                         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
                         try { await demoteRaider(client, userId); } catch(e2) {}
                     }
                 } catch(e) { console.error('Phantom shift error:', e.message); }
 
-                // Check if everyone is dead — close dungeon and spawn prestige
                 const [aliveCheck] = await db.execute(
                     'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',
                     [dungeon.id]
@@ -760,8 +666,9 @@ module.exports = {
                     await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                     const { clearDungeonTimers } = require('../engine/dungeonTimer');
                     clearDungeonTimers(dungeon.id);
+                    const { clearMalacharPhase } = require('../systems/malacharPhase');
+                    clearMalacharPhase(dungeon.id);
                     const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
-                    // Only spawn after NORMAL dungeons
                     if (!dungeon.dungeon_rank?.startsWith('P')) {
                         spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
                     }
@@ -799,10 +706,7 @@ module.exports = {
             if (move.type === 'shield') {
                 const shieldValue = move.value || 30;
                 applyBuff('player', targetPlayer.id, {
-                    type: 'shield',
-                    stat: 'shield',
-                    value: shieldValue,
-                    duration: move.duration || 3
+                    type: 'shield', stat: 'shield', value: shieldValue, duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
                 const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
@@ -812,18 +716,26 @@ module.exports = {
             if (move.type === 'buff') {
                 const statName = move.effect.toLowerCase().replace(/_up$/, '');
                 applyBuff('player', targetPlayer.id, {
-                    type: 'buff',
-                    stat: statName,
-                    value: move.value,
-                    duration: move.duration || 3
+                    type: 'buff', stat: statName, value: move.value, duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
                 const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
+
+                if (dungeon) {
+                    const buffReward = Math.floor((move.value || 20) * 2);
+                    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [buffReward, userId]).catch(() => {});
+                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [buffReward, userId]).catch(() => {});
+                    await db.execute(
+                        'UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?',
+                        [buffReward, buffReward, userId, dungeon.id]
+                    ).catch(() => {});
+                    try { trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {}
+                }
                 return msg.reply(`══〘 ⬆️ BUFF 〙══╮\n┃◆ ${buffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
         }
 
-        // ==================== DEBUFF (on enemy) ====================
+        // ==================== DEBUFF ====================
         if (move.type === 'debuff') {
             if (!dungeon) return msg.reply("❌ No active dungeon.");
             if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started.");
@@ -834,56 +746,31 @@ module.exports = {
 
             const statName = move.effect.toLowerCase();
             applyBuff('enemy', targetEnemy.id, {
-                type: 'debuff',
-                stat: statName,
-                value: -move.value,
-                duration: move.duration || 2
+                type: 'debuff', stat: statName, value: -move.value, duration: move.duration || 2
             });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-
             const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
-            // Track shield contribution for tanks
-            if (move.type === 'shield') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'shield', 1); } catch(e) {} }
-            // Track buff contribution
-            if (move.type === 'buff') { try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'buff', 1); } catch(e) {} }
-            // Buff reward — small gold/XP for supporting the team
-            if (dungeon && move.type === 'buff') {
-                const buffReward = Math.floor((move.value || 20) * 2);
-                await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [buffReward, userId]).catch(() => {});
-                await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?',           [buffReward, userId]).catch(() => {});
-                await db.execute(
-                    'UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?',
-                    [buffReward, buffReward, userId, dungeon.id]
-                ).catch(() => {});
-            }
-            // Track taunt specifically (debuff with taunt name)
+
             if (move.name && move.name.toLowerCase().includes('taunt')) {
                 try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'taunt', 1); } catch(e) {}
-                // Set taunt state — all enemy retaliation hits the tank for 3 turns
-                const tauntDuration = 3 * 30000; // 3 turns × 30s avg
+                const tauntDuration = 3 * 30000;
                 tauntState.set(dungeon.id, { tankId: userId, expires: Date.now() + tauntDuration });
             }
             return msg.reply(`══〘 ⬇️ DEBUFF 〙══╮\n┃◆ ${debuffMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
-        // ✅ DOT moves (Poison Vial etc)
+        // ==================== DOT ====================
         if (move.type === 'dot') {
             if (!dungeon) return msg.reply(`══〘 ☠️ POISON 〙══╮\n┃◆ ❌ Only usable in dungeons.\n╰═══════════════════════╯`);
             const enemies = await getCurrentEnemies(dungeon.id);
             if (!enemies.length) return msg.reply(`══〘 ☠️ POISON 〙══╮\n┃◆ ❌ No enemies to target.\n╰═══════════════════════╯`);
             const target = enemies[0];
 
-            // Apply DOT debuff — damage per turn for duration
             const dotDamage = Math.floor((player[move.stat] || player.agility) * (move.multiplier || 0.4));
             const duration = move.duration || 3;
 
-            applyBuff('enemy', target.id, {
-                type: 'dot',
-                stat: 'hp',
-                value: dotDamage,
-                duration
-            });
+            applyBuff('enemy', target.id, { type: 'dot', stat: 'hp', value: dotDamage, duration });
 
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
             try { trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}

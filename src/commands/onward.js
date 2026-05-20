@@ -15,8 +15,11 @@ const { rollMaterialDrop } = require('../systems/materialSystem');
 const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
+const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 module.exports = {
     name: 'onward',
@@ -42,14 +45,37 @@ module.exports = {
 
             const maxStage = await getMaxStageForDungeon(dungeon.id);
 
-            // ── DUNGEON CLEARED ──
+            // ── DUNGEON CLEARED ──────────────────────────────────────────────
             if (dungeon.stage >= maxStage) {
                 const [participants] = await db.execute(
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
-                const rewardGold = Math.floor(Math.random() * 20) + 90;
-                const rewardXp   = Math.floor(Math.random() * 15) + 82;
+
+                // Special Malachar clear message
+                if (dungeon.dungeon_rank === 'MALACHAR') {
+                    await client.sendMessage(RAID_GROUP, {
+                        text:
+                            `╔══════════════════════════════════════╗\n` +
+                            `┃★                                     \n` +
+                            `┃★   He is gone.                       \n` +
+                            `┃★                                     \n` +
+                            `┃★   The void retreats.                \n` +
+                            `┃★   The fractures begin to seal.      \n` +
+                            `┃★                                     \n` +
+                            `┃★   MALACHAR HAS FALLEN.              \n` +
+                            `┃★                                     \n` +
+                            `┃★   The hunters who stood here today  \n` +
+                            `┃★   will be remembered.               \n` +
+                            `┃★                                     \n` +
+                            `┃★   The world breathes again.         \n` +
+                            `┃★                                     \n` +
+                            `╚══════════════════════════════════════╝`
+                    });
+                }
+
+                const rewardGold = dungeon.dungeon_rank === 'MALACHAR' ? 500000 : Math.floor(Math.random() * 20) + 90;
+                const rewardXp   = dungeon.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
@@ -62,23 +88,24 @@ module.exports = {
                             if (dungeon.dungeon_rank === 'S') {
                                 await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
                             }
+                            if (dungeon.dungeon_rank === 'MALACHAR') {
+                                await updateQuestProgress(p.player_id, 'malachar_clear', 1, client);
+                            }
                         } catch (e) {}
                     })();
                 }
 
-                // ── MVP — fire BEFORE players are deleted ─────────────────────
+                // MVP
                 try {
                     const { calculateMvp } = require('../systems/mvpSystem');
                     const playerIds = participants.map(p => p.player_id);
                     const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, playerIds, 'dungeon');
                     if (mvpResult?.message) {
                         await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
-                    } else {
-                        console.log('[MVP] No result returned. Key:', `dungeon_${dungeon.id}`, 'IDs:', playerIds);
                     }
                 } catch (e) { console.error('[MVP dungeon]', e.message); }
 
-                // ✅ Void War damage contribution
+                // Void War contribution
                 (async () => {
                     try {
                         const war = await getActiveWar();
@@ -94,10 +121,10 @@ module.exports = {
                     } catch(e) { console.error('War damage error:', e.message); }
                 })();
 
-                // ✅ Void Shard drops
+                // Void Shard drops
                 try { await handleShardDrop(dungeon.id, client); } catch (e) {}
 
-                // ✅ Healer payment
+                // Healer payment
                 (async () => {
                     try {
                         const [hire] = await db.execute(
@@ -128,7 +155,7 @@ module.exports = {
                     } catch(e) { console.error('Healer payment error:', e.message); }
                 })();
 
-                // ✅ Material drops
+                // Material drops
                 (async () => {
                     try {
                         for (const p of participants) {
@@ -153,7 +180,10 @@ module.exports = {
                     } catch (e) { console.error('Material drop error:', e.message); }
                 })();
 
-                // ✅ Close dungeon AFTER MVP and rewards
+                // Clear Malachar phase state
+                clearMalacharPhase(dungeon.id);
+
+                // Close dungeon
                 await demoteAllRaiders(client, dungeon.id);
                 await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
                 await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
@@ -165,15 +195,15 @@ module.exports = {
 
                 return msg.reply(
                     `══〘 👑 DUNGEON CLEARED 〙══╮\n` +
-                    `┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished, its reign of terror ended.\n` +
+                    `┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished.\n` +
                     `┃◆ Each survivor feels the dungeon's gratitude:\n` +
-                    `┃◆ 💰 +${rewardGold} Gold   ⭐ +${rewardXp} XP\n` +
+                    `┃◆ 💰 +${rewardGold.toLocaleString()} Gold   ⭐ +${rewardXp.toLocaleString()} XP\n` +
                     `┃◆ As the exit shimmers into view, you step out into the light.\n` +
                     `╰═══════════════════════╯`
                 );
             }
 
-            // ── ADVANCE STAGE ──────────────────────────────────────────────────
+            // ── ADVANCE STAGE ─────────────────────────────────────────────────
             const [lockResult] = await db.execute(
                 "UPDATE dungeon SET stage_cleared=2 WHERE id=? AND stage_cleared=1",
                 [dungeon.id]
@@ -189,7 +219,6 @@ module.exports = {
 
             try { initStage(dungeon.id); } catch(e) {}
 
-            // Reset per-stage clan blessing
             try {
                 await db.execute(
                     `UPDATE clan_blessing_state SET skill_count=0, blessing_used=0
@@ -225,21 +254,87 @@ module.exports = {
                     await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
                     await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                     clearDungeonTimers(dungeon.id);
-                    await targetChat.sendMessage(`══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯`);
+                    clearMalacharPhase(dungeon.id);
+                    await targetChat.sendMessage(
+                        `══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯`
+                    );
                 } catch (err) { console.error("Onward failCallback error:", err); }
             };
 
             await resetStageTimer(dungeon.id, client, targetChat, failCallback, dungeon.dungeon_rank);
 
-            await msg.reply(
-                `══〘 🧭 STAGE ${next}/${maxStage} 〙══╮\n` +
-                `┃◆ The stone door grinds open, revealing a deeper darkness.\n` +
-                `┃◆ The air grows colder, and new threats stir in the shadows.\n` +
-                `╰═══════════════════════╯`
-            );
+            // ── MALACHAR GRAND ENTRY + PHASE INIT ────────────────────────────
+            const isMalacharFinal = dungeon.dungeon_rank === 'MALACHAR' && next === maxStage;
+
+            if (isMalacharFinal) {
+                // Init phase tracking now that Malachar is spawned in DB
+                await initMalacharPhase(dungeon.id);
+
+                await client.sendMessage(RAID_GROUP, {
+                    text:
+                        `╔══════════════════════════════════════╗\n` +
+                        `┃★                                     \n` +
+                        `┃★   The generals are gone.            \n` +
+                        `┃★   The silence is total.             \n` +
+                        `┃★                                     \n` +
+                        `┃★   Something watches from the dark.  \n` +
+                        `┃★                                     \n` +
+                        `╚══════════════════════════════════════╝`
+                });
+
+                await sleep(3000);
+
+                await client.sendMessage(RAID_GROUP, {
+                    text:
+                        `╔══════════════════════════════════════╗\n` +
+                        `┃★                                     \n` +
+                        `┃★   The walls begin to crack.         \n` +
+                        `┃★   The void bleeds through.          \n` +
+                        `┃★                                     \n` +
+                        `┃★   You feel him before you see him.  \n` +
+                        `┃★                                     \n` +
+                        `╚══════════════════════════════════════╝`
+                });
+
+                await sleep(3000);
+
+                await client.sendMessage(RAID_GROUP, {
+                    text:
+                        `╔══════════════════════════════════════╗\n` +
+                        `┃★                                     \n` +
+                        `┃★   👁️  H E   I S   H E R E.         \n` +
+                        `┃★                                     \n` +
+                        `┃★        M A L A C H A R             \n` +
+                        `┃★                                     \n` +
+                        `┃★   ❤️  HP: 1,000,000,000             \n` +
+                        `┃★   ⚔️  This is what you came for.    \n` +
+                        `┃★                                     \n` +
+                        `┃★   Phase 1 — The Void Awakens        \n` +
+                        `┃★   He is not yet at full power.      \n` +
+                        `┃★   Do not be fooled.                 \n` +
+                        `┃★                                     \n` +
+                        `╚══════════════════════════════════════╝`
+                });
+
+                await msg.reply(
+                    `╔══〘 ★ FINAL STAGE 〙══╗\n` +
+                    `┃★ Stage ${next}/${maxStage} — The End.\n` +
+                    `┃★ He stands before you.\n` +
+                    `┃★ Use !dungeon to see his stats.\n` +
+                    `╚═══════════════════════╝`
+                );
+            } else {
+                await msg.reply(
+                    `══〘 🧭 STAGE ${next}/${maxStage} 〙══╮\n` +
+                    `┃◆ The stone door grinds open, revealing a deeper darkness.\n` +
+                    `┃◆ The air grows colder, and new threats stir in the shadows.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
             const statusText = await getDungeonStatusText(dungeon.id);
             return msg.reply(statusText);
+
         } catch (err) {
             console.error(err);
             msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Onward failed.\n╰═══════════════════════╯`);
