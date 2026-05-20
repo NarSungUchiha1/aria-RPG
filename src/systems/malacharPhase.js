@@ -123,19 +123,32 @@ async function checkPhaseTransition(dungeonId, currentHp, client, RAID_GROUP) {
                 ).catch(() => {});
 
                 // Announce to raid group
+                const atkIncrease = Math.round((phase.multiplier - 1) * 100);
+                const atkLine = phase.multiplier === 1.0
+                    ? `┃★   ⚔️  ATK unchanged  ·  ×1.0`
+                    : `┃★   ⚔️  ATK *×${phase.multiplier}*  _(+${atkIncrease}% from base)_`;
+
                 await sendWithRetry(client, RAID_GROUP, {
                     text:
-                        `╔══〘 ${phase.emoji} MALACHAR — ${phase.label} 〙══╗\n` +
-                        `┃★\n` +
-                        `┃★  〝 ${phase.quote} 〞\n` +
-                        `┃★\n` +
-                        `┃★  ⚔️  ATK ×${phase.multiplier}  (${Math.round((phase.multiplier - 1) * 100)}% increase)\n` +
-                        `┃★\n` +
-                        `┃★  🩸 Malachar HP\n` +
-                        `┃★  ${bar}\n` +
-                        `┃★  ${pctStr}% remaining\n` +
-                        `┃★\n` +
-                        `╚════════════════════════════╝`
+                        `\n` +
+                        `${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji}\n` +
+                        `\n` +
+                        `╔══════════════════════════════════════╗\n` +
+                        `┃★   ── ${phase.label} ──                \n` +
+                        `┃★                                     \n` +
+                        `┃★   〝 ${phase.quote} 〞\n` +
+                        `┃★                                     \n` +
+                        `┃★   ───────────────────────────────   \n` +
+                        `┃★                                     \n` +
+                        `${atkLine}\n` +
+                        `┃★                                     \n` +
+                        `┃★   🩸 HP Remaining                   \n` +
+                        `┃★   ${bar}\n` +
+                        `┃★   ${pctStr}%                          \n` +
+                        `┃★                                     \n` +
+                        `╚══════════════════════════════════════╝\n` +
+                        `\n` +
+                        `${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji} ${phase.emoji}`
                 }).catch(() => {});
 
                 // Only announce the deepest newly crossed threshold per hit

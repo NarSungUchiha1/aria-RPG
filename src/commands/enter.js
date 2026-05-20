@@ -272,6 +272,22 @@ module.exports = {
                 );
             }
 
+            // ── FLAGS — read BEFORE prestige check ───────────────────────
+            // MALACHAR sets no_rank_check=1 so all players can enter
+
+            const [flags] = await db.execute(
+                "SELECT unlimited_entry, no_rank_check FROM dungeon_flags WHERE dungeon_id=?",
+                [dungeon.id]
+            ).catch(() => [[]]);
+
+            const isUnlimited =
+                flags[0]?.unlimited_entry === 1;
+
+            const noRankCheck =
+                flags[0]?.no_rank_check === 1;
+
+            // ── PRESTIGE CHECK ────────────────────────────────────────────
+
             const isPrestigeDungeon =
                 dungeon.dungeon_rank?.startsWith('P');
 
@@ -284,6 +300,7 @@ module.exports = {
                 (pCheck[0]?.prestige_level || 0) > 0;
 
             if (
+                !noRankCheck &&
                 isPrestigeDungeon &&
                 !isPrestigePlayer
             ) {
@@ -296,6 +313,7 @@ module.exports = {
             }
 
             if (
+                !noRankCheck &&
                 !isPrestigeDungeon &&
                 isPrestigePlayer
             ) {
@@ -342,16 +360,6 @@ module.exports = {
 
             const currentPlayers =
                 count[0].cnt;
-
-            // ── UNLIMITED ENTRY CHECK ────────────
-
-            const [flags] = await db.execute(
-                "SELECT unlimited_entry FROM dungeon_flags WHERE dungeon_id=?",
-                [dungeon.id]
-            ).catch(() => [[]]);
-
-            const isUnlimited =
-                flags[0]?.unlimited_entry === 1;
 
             // ── RAIDER CAPS ──────────────────────
 
