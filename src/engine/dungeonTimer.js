@@ -5,37 +5,56 @@ const timers = new Map();
 const HIGH_PRESTIGE = new Set(['PF','PE','PD','PC','PB','PA','PS']);
 
 // ── TIMING CONFIG ─────────────────────────────────────────
-// Normal dungeons
-const STAGE_WARN_MS    = 3  * 60 * 1000;  //  3 min  → warning
-const STAGE_LIMIT_MS   = 5  * 60 * 1000;  //  5 min  → stage fails
-const OVERALL_WARN_MS  = 20 * 60 * 1000;  // 20 min  → warning
-const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min  → collapses
 
-// Prestige dungeons (all PF → PS)
-const HP_STAGE_WARN_MS  = 5  * 60 * 1000; //  5 min  → warning (2 min left)
-const HP_STAGE_LIMIT_MS = 7  * 60 * 1000; //  7 min  → stage fails
-// No overall limit for prestige
+// Normal dungeons
+const STAGE_WARN_MS    = 3  * 60 * 1000;  // 3 min  → warning
+const STAGE_LIMIT_MS   = 5  * 60 * 1000;  // 5 min  → stage fails
+const OVERALL_WARN_MS  = 20 * 60 * 1000;  // 20 min → warning
+const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min → collapse
+
+// Prestige dungeons (PF → PS)
+const HP_STAGE_WARN_MS  = 5 * 60 * 1000;  // 5 min → warning
+const HP_STAGE_LIMIT_MS = 7 * 60 * 1000;  // 7 min → stage fail
+
+// Malachar has NO timers
 // ─────────────────────────────────────────────────────────
 
 function clearDungeonTimers(dungeonId) {
     const entry = timers.get(dungeonId);
+
     if (entry) {
         clearTimeout(entry.stageTimeout);
         clearTimeout(entry.stageWarning);
         clearTimeout(entry.overallTimeout);
         clearTimeout(entry.overallWarning);
+
         timers.delete(dungeonId);
     }
 }
 
 function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) {
+
     clearDungeonTimers(dungeonId);
+
     const isHP = HIGH_PRESTIGE.has(dungeonRank);
+    const isMalachar = dungeonRank === 'MALACHAR';
+
+    // ── MALACHAR: NO TIMERS ──────────────────────────────
+    if (isMalachar) {
+        timers.set(dungeonId, {
+            stageTimeout: null,
+            stageWarning: null,
+            overallTimeout: null,
+            overallWarning: null
+        });
+
+        return;
+    }
 
     const warnMs  = isHP ? HP_STAGE_WARN_MS  : STAGE_WARN_MS;
     const limitMs = isHP ? HP_STAGE_LIMIT_MS : STAGE_LIMIT_MS;
-    const warnMin = isHP ? 2 : 2;
-    const limitMin = isHP ? 10 : 5;
+
+    // ── STAGE WARNING ────────────────────────────────────
 
     const stageWarning = setTimeout(async () => {
         try {
@@ -47,17 +66,28 @@ function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) 
                 `┃◆ Use !dungeon to see remaining enemies.\n` +
                 `╰═══════════════════════╯`
             );
-        } catch (e) {}
+        } catch (e) {
+            console.error('Stage warning error:', e.message);
+        }
     }, warnMs);
 
+    // ── STAGE FAILURE ────────────────────────────────────
+
     const stageTimeout = setTimeout(async () => {
-        try { await onFail('stage'); } catch (e) {}
+        try {
+            await onFail('stage');
+        } catch (e) {
+            console.error('Stage timeout error:', e.message);
+        }
     }, limitMs);
+
+    // ── OVERALL DUNGEON TIMERS (NORMAL ONLY) ────────────
 
     let overallWarning = null;
     let overallTimeout = null;
 
-    if (!isHP && !isMalachar) {
+    if (!isHP) {
+
         overallWarning = setTimeout(async () => {
             try {
                 await targetChat.sendMessage(
@@ -68,25 +98,43 @@ function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) 
                     `┃◆ Push through — clear remaining stages!\n` +
                     `╰═══════════════════════╯`
                 );
-            } catch (e) {}
+            } catch (e) {
+                console.error('Overall warning error:', e.message);
+            }
         }, OVERALL_WARN_MS);
 
         overallTimeout = setTimeout(async () => {
-            try { await onFail('overall'); } catch (e) {}
+            try {
+                await onFail('overall');
+            } catch (e) {
+                console.error('Overall timeout error:', e.message);
+            }
         }, OVERALL_LIMIT_MS);
     }
 
-    timers.set(dungeonId, { stageTimeout, stageWarning, overallTimeout, overallWarning });
+    timers.set(dungeonId, {
+        stageTimeout,
+        stageWarning,
+        overallTimeout,
+        overallWarning
+    });
 }
 
 function resetStageTimer(dungeonId, client, targetChat, onFail, dungeonRank) {
+
     const entry = timers.get(dungeonId);
+
     if (!entry) return;
+
+    const isHP = HIGH_PRESTIGE.has(dungeonRank);
+    const isMalachar = dungeonRank === 'MALACHAR';
+
+    // ── MALACHAR NEVER RESETS TIMERS ────────────────────
+    if (isMalachar) return;
 
     clearTimeout(entry.stageTimeout);
     clearTimeout(entry.stageWarning);
 
-    const isHP    = HIGH_PRESTIGE.has(dungeonRank);
     const warnMs  = isHP ? HP_STAGE_WARN_MS  : STAGE_WARN_MS;
     const limitMs = isHP ? HP_STAGE_LIMIT_MS : STAGE_LIMIT_MS;
 
@@ -100,16 +148,27 @@ function resetStageTimer(dungeonId, client, targetChat, onFail, dungeonRank) {
                 `┃◆ Use !dungeon to see remaining enemies.\n` +
                 `╰═══════════════════════╯`
             );
-        } catch (e) {}
+        } catch (e) {
+            console.error('Stage warning reset error:', e.message);
+        }
     }, warnMs);
 
     const stageTimeout = setTimeout(async () => {
-        try { await onFail('stage'); } catch (e) {}
+        try {
+            await onFail('stage');
+        } catch (e) {
+            console.error('Stage timeout reset error:', e.message);
+        }
     }, limitMs);
 
     entry.stageWarning = stageWarning;
     entry.stageTimeout = stageTimeout;
+
     timers.set(dungeonId, entry);
 }
 
-module.exports = { startDungeonTimers, resetStageTimer, clearDungeonTimers };
+module.exports = {
+    startDungeonTimers,
+    resetStageTimer,
+    clearDungeonTimers
+};
