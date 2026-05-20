@@ -26,9 +26,29 @@ const SPAM_FATIGUE    = 50;    // fatigue added per spam hit (exponential)
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
-function requiresMana(move) {
-    return ['heal', 'buff', 'shield', 'cleanse', 'debuff'].includes(move.type) ||
-           (move.type === 'damage' && move.stat === 'intelligence');
+function requiresMana(move, player) {
+
+    // Intelligence damage skills use mana
+    if (move.type === 'damage' && move.stat === 'intelligence') {
+        return true;
+    }
+
+    // Healing skills only require mana
+    // if they come from a WEAPON
+    if (move.type === 'heal') {
+
+        // Role healers can cast normally
+        if (move.source === 'role') {
+            return false;
+        }
+
+        // Weapon heals require mana
+        if (move.source === 'weapon') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 
