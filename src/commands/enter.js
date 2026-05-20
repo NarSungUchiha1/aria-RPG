@@ -273,7 +273,10 @@ module.exports = {
             }
 
             // ── FLAGS — read BEFORE prestige check ───────────────────────
-            // MALACHAR sets no_rank_check=1 so all players can enter
+            // MALACHAR is open to ALL players regardless of prestige
+
+            const isMalachar =
+                dungeon.dungeon_rank === 'MALACHAR';
 
             const [flags] = await db.execute(
                 "SELECT unlimited_entry, no_rank_check FROM dungeon_flags WHERE dungeon_id=?",
@@ -281,10 +284,10 @@ module.exports = {
             ).catch(() => [[]]);
 
             const isUnlimited =
-                flags[0]?.unlimited_entry === 1;
+                isMalachar || flags[0]?.unlimited_entry === 1;
 
             const noRankCheck =
-                flags[0]?.no_rank_check === 1;
+                isMalachar || flags[0]?.no_rank_check === 1;
 
             // ── PRESTIGE CHECK ────────────────────────────────────────────
 
