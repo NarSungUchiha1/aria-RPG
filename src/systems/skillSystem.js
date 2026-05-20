@@ -12,7 +12,7 @@ function resolvePrestigeCooldown(cooldown, rank, type) {
 const prestigeRoleMoves = require('../data/prestigeRoleMoves');
 const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
-const { getTurnEffect, tickTurnEffect } = require('./potionEffects');
+const { getTurnEffect, tickTurnEffect, getEffect } = require('./potionEffects');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
 
 const cooldowns = new Map();
@@ -59,7 +59,15 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
         statUsed = move.stat;
     }
 
-    let buffMods = { strength: 0, agility: 0, intelligence: 0, stamina: 0, attack: 0, defense: 0 };
+    let buffMods = {
+        strength: 0,
+        agility: 0,
+        intelligence: 0,
+        stamina: 0,
+        attack: 0,
+        defense: 0
+    };
+
     try {
         if (player.id) {
             const mods = getBuffModifiers('player', player.id);
@@ -67,78 +75,108 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
         }
     } catch (e) {}
 
-    const baseStat = typeof player[statUsed] === 'number' ? player[statUsed] : 5;
+    const baseStat  = typeof player[statUsed] === 'number' ? player[statUsed] : 5;
     const buffValue = typeof buffMods[statUsed] === 'number' ? buffMods[statUsed] : 0;
+
     let statValue = baseStat + buffValue;
 
     let totalBonus = 0;
+
     if (Array.isArray(equippedItems)) {
         equippedItems.forEach(item => {
             if (!item) return;
+
             totalBonus += Number(item.attack_bonus) || 0;
-            if (statUsed === 'strength') totalBonus += Number(item.strength_bonus) || 0;
-            else if (statUsed === 'agility') totalBonus += Number(item.agility_bonus) || 0;
-            else if (statUsed === 'intelligence') totalBonus += Number(item.intelligence_bonus) || 0;
-            else if (statUsed === 'stamina') totalBonus += Number(item.stamina_bonus) || 0;
+
+            if (statUsed === 'strength') {
+                totalBonus += Number(item.strength_bonus) || 0;
+            } else if (statUsed === 'agility') {
+                totalBonus += Number(item.agility_bonus) || 0;
+            } else if (statUsed === 'intelligence') {
+                totalBonus += Number(item.intelligence_bonus) || 0;
+            } else if (statUsed === 'stamina') {
+                totalBonus += Number(item.stamina_bonus) || 0;
+            }
         });
     }
 
     totalBonus += Number(buffMods.attack) || 0;
 
-    // ── DAMAGE FORMULA ──────────────────────────────────────────────────────
-    // Calibrated targets (base / with weapon / with buffs):
-    // F:  15-20 / 25-30 / 35-45
-    // E:  25-35 / 40-50 / 55-70
-    // D:  45-60 / 70-85 / 90-115
-    // C:  75-100 / 110-140 / 150-185
-    // B:  120-160 / 180-220 / 240-290
-    // A:  200-260 / 290-350 / 380-450
-    // S:  320-400 / 450-550 / 600-750
+    // ── BASE DAMAGE ─────────────────────────────────────────────
 
-    // Stamina gets a 1.4x conversion — it is a defensive stat so needs a boost to compete offensively
     const staminaScale = (move.stat === 'stamina') ? 1.4 : 1.0;
-    const totalAttack = (statValue + totalBonus) * staminaScale;
-    // ── ENEMY DEFENSE — apply active debuffs ────────────────────────────────
+    const totalAttack  = (statValue + totalBonus) * staminaScale;
+
+    // ── ENEMY DEFENSE ───────────────────────────────────────────
+
     let actualEnemyDef = Number(enemy.def) || 0;
+
     try {
         if (enemy.id) {
             const enemyMods = getBuffModifiers('enemy', enemy.id);
+
             if (enemyMods) {
-                // Flat debuff (negative value reduces DEF)
                 const flatMod = Number(enemyMods.defense) || 0;
-                // Percent debuff (e.g. -50 means DEF cut by 50%)
                 const pctMod  = Number(enemyMods.defense_pct) || 0;
-                actualEnemyDef = Math.max(0, Math.floor((actualEnemyDef + flatMod) * (1 + pctMod / 100)));
+
+                actualEnemyDef = Math.max(
+                    0,
+                    Math.floor((actualEnemyDef + flatMod) * (1 + pctMod / 100))
+                );
             }
         }
-    } catch(e2) {}
-    const defense = actualEnemyDef;
-    const damageReduction = Math.floor(defense * 0.4);
-    const multiplier = move.multiplier || 1;
+    } catch (e2) {}
+
+    const defense          = actualEnemyDef;
+    const damageReduction  = Math.floor(defense * 0.4);
+    const multiplier       = move.multiplier || 1;
 
     let damage = Math.floor(Math.max(1, totalAttack) * multiplier) - damageReduction;
 
-    // ── POTION EFFECTS ────────────────────────────────────────
+    // ── POTION EFFECTS ──────────────────────────────────────────
+
     try {
         const turnFx = getTurnEffect(player.id);
-        const permFx  = getEffect && getEffect(player.id, null);
+        const permFx = getEffect(player.id, null);
 
-        // Berserk — +200% damage
-        if (turnFx?.effect === 'berserk') damage = Math.floor(damage * (turnFx.data.mult || 3.0));
+        // Berserk
+        if (turnFx?.effect === 'berserk') {
+            damage = Math.floor(damage * (turnFx.data.mult || 3.0));
+        }
 
-        // True damage — ignore all defense
-        if (turnFx?.effect === 'true_damage') damage = Math.floor(Math.max(1, totalAttack) * multiplier);
+        // True Damage
+        if (turnFx?.effect === 'true_damage') {
+            damage = Math.floor(Math.max(1, totalAttack) * multiplier);
+        }
 
-        // Time freeze — counts as no-cooldown (damage unchanged)
-        // Double strike handled in skill.js
-        // Stat boost from Void Resonance
-        if (turnFx?.effect === 'stat_boost') damage = Math.floor(damage * (turnFx.data.mult || 1.25));
+        // Void Resonance
+        if (turnFx?.effect === 'stat_boost') {
+            damage = Math.floor(damage * (turnFx.data.mult || 1.25));
+        }
 
-        // Chaos mode — +50% damage dealt
-        if (turnFx?.effect === 'chaos_mode') damage = Math.floor(damage * (1 + (turnFx.data.amp || 0.5)));
+        // Chaos Mode
+        if (turnFx?.effect === 'chaos_mode') {
+            damage = Math.floor(damage * (1 + (turnFx.data.amp || 0.5)));
+        }
 
-        if (!noTick) tickTurnEffect(player.id);
-    } catch(e) {}
+        // Permanent potion boosts
+        if (permFx?.effect === 'damage_boost') {
+            damage = Math.floor(damage * (permFx.data.mult || 1.2));
+        }
+
+        // Critical potion effect
+        if (turnFx?.effect === 'guaranteed_crit') {
+            damage = Math.floor(damage * (turnFx.data.mult || 2));
+        }
+
+        if (!noTick) {
+            tickTurnEffect(player.id);
+        }
+
+    } catch (e) {
+        console.log('Potion damage calc error:', e.message);
+    }
+
     return Math.max(1, damage);
 }
 

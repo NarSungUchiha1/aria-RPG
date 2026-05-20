@@ -288,7 +288,7 @@ module.exports = {
                 // ✅ Daily entry limit — bypassed during active event
                 const today = new Date().toISOString().split('T')[0];
                 let isEvent = false;
-                let remaining = 5; // updated after chapter check
+                let remaining = 100; // updated after chapter check
                 try {
                     const [eventCheck] = await db.execute(
                         "SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1"
@@ -298,7 +298,7 @@ module.exports = {
 
                 if (!isEvent) {
                     // ✅ Get daily limit based on chapter
-                    let dailyLimit = 5;
+                    let dailyLimit = 100;
                     try {
                         const { getCurrentChapter } = require('../systems/loreSystem');
                         const ch = await getCurrentChapter();
