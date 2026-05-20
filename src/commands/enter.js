@@ -37,6 +37,8 @@ async function beginDungeon(dungeonId, client) {
             dungeon[0].locked
         ) return;
 
+        const dungeonData = dungeon[0];
+
         const [players] = await db.execute(
             "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
             [dungeonId]
@@ -62,7 +64,10 @@ async function beginDungeon(dungeonId, client) {
         await lockDungeon(dungeonId);
 
         const isPrestige =
-            dungeon[0].dungeon_rank?.startsWith('P');
+            dungeonData.dungeon_rank?.startsWith('P');
+
+        const isMalachar =
+            dungeonData.dungeon_rank === 'MALACHAR';
 
         if (isPrestige) {
 
@@ -72,16 +77,16 @@ async function beginDungeon(dungeonId, client) {
 
             await spawnPrestigeEnemies(
                 dungeonId,
-                dungeon[0].dungeon_rank,
-                dungeon[0].stage
+                dungeonData.dungeon_rank,
+                dungeonData.stage
             );
 
         } else {
 
             await spawnStageEnemies(
                 dungeonId,
-                dungeon[0].dungeon_rank,
-                dungeon[0].stage
+                dungeonData.dungeon_rank,
+                dungeonData.stage
             );
         }
 
@@ -153,12 +158,44 @@ async function beginDungeon(dungeonId, client) {
             }
         };
 
-        await startDungeonTimers(
-            dungeonId,
-            client,
-            targetChat,
-            failCallback
-        );
+        // ── IMPORTANT FIX ─────────────────────────────
+        // DO NOT START TIMERS FOR MALACHAR
+        if (!isMalachar) {
+
+            await startDungeonTimers(
+                dungeonId,
+                client,
+                targetChat,
+                failCallback,
+                dungeonData.dungeon_rank
+            );
+        }
+
+        // ── START MESSAGE ─────────────────────────────
+
+        let timerText = '';
+
+        if (isMalachar) {
+
+            timerText =
+`┃◆ ♾️ No stage timer
+┃◆ ♾️ No dungeon collapse
+┃◆`;
+
+        } else if (isPrestige) {
+
+            timerText =
+`┃◆ ⏱️ 7 min per stage
+┃◆ ♾️ No overall limit
+┃◆`;
+
+        } else {
+
+            timerText =
+`┃◆ ⏱️ 5 min per stage
+┃◆ ⏱️ 25 min total
+┃◆`;
+        }
 
         await client.sendMessage(RAID_GROUP, {
             text:
@@ -168,12 +205,10 @@ async function beginDungeon(dungeonId, client) {
 ┃◆ No one enters. No one leaves.
 ┃◆ Fight until victory — or death.
 ┃◆
-┃◆ Stage ${dungeon[0].stage}/${dungeon[0].max_stage}
-┃◆ Rank: ${dungeon[0].dungeon_rank}
+┃◆ Stage ${dungeonData.stage}/${dungeonData.max_stage}
+┃◆ Rank: ${dungeonData.dungeon_rank}
 ┃◆
-┃◆ ⏱️ 5 min per stage
-┃◆ ⏱️ 25 min total
-┃◆
+${timerText}
 ┃◆ ⚠️ Defeat all enemies to advance.
 ┃◆ Use !skill <move> [enemy #]
 ┃◆
@@ -272,9 +307,6 @@ module.exports = {
                 );
             }
 
-            // ── FLAGS — read BEFORE prestige check ───────────────────────
-            // MALACHAR is open to ALL players regardless of prestige
-
             const isMalachar =
                 dungeon.dungeon_rank === 'MALACHAR';
 
@@ -288,8 +320,6 @@ module.exports = {
 
             const noRankCheck =
                 isMalachar || flags[0]?.no_rank_check === 1;
-
-            // ── PRESTIGE CHECK ────────────────────────────────────────────
 
             const isPrestigeDungeon =
                 dungeon.dungeon_rank?.startsWith('P');
@@ -318,6 +348,7 @@ module.exports = {
             if (
                 !noRankCheck &&
                 !isPrestigeDungeon &&
+                !isMalachar &&
                 isPrestigePlayer
             ) {
 
@@ -354,8 +385,6 @@ module.exports = {
                 );
             }
 
-            // ── PLAYER COUNT ─────────────────────
-
             const [count] = await db.execute(
                 "SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=?",
                 [dungeon.id]
@@ -363,8 +392,6 @@ module.exports = {
 
             const currentPlayers =
                 count[0].cnt;
-
-            // ── RAIDER CAPS ──────────────────────
 
             const MAX_RAIDERS = {
                 F:3,
@@ -390,8 +417,6 @@ module.exports = {
 ╰═══════════════════════╯`
                 );
             }
-
-            // ── CONFIRMATION STEP ────────────────
 
             if (pendingConfirms.has(userId)) {
 
@@ -466,8 +491,6 @@ module.exports = {
                         );
                     }
                 }
-
-                // ── ENTER DUNGEON ─────────────────
 
                 await addPlayerToDungeon(
                     userId,
@@ -575,8 +598,6 @@ ${isUnlimited
 ╰═══════════════════════╯`
                 );
             }
-
-            // ── ASK FOR CONFIRMATION ─────────────
 
             const today =
                 new Date()
