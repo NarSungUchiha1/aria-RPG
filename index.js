@@ -314,18 +314,21 @@ async function startBot() {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 console.log(`⚠️ Connection closed (code: ${statusCode}).`);
 
-                if (statusCode === DisconnectReason.loggedOut || statusCode === 401) {
-                    // Session rejected by WhatsApp — clear it and restart for fresh pairing
-                    console.log('🔄 Session rejected. Clearing and restarting for fresh pair...');
-                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-                    setTimeout(() => startBot(), 5000);
-                } else {
-                    // Any other disconnect — just reconnect
-                    const delay = statusCode === 440
-                        ? 15000 + Math.floor(Math.random() * 10000)
-                        : 5000  + Math.floor(Math.random() * 5000);
-                    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
-                    setTimeout(() => startBot(), delay);
+                if (statusCode === DisconnectReason.loggedOut) {
+    // Explicitly logged out — clear session and get fresh pair
+    console.log('🔄 Logged out. Clearing session for fresh pair...');
+    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+    setTimeout(() => startBot(), 5000);
+} else {
+    // Any other disconnect including 401 — just reconnect, don't clear session
+    const delay = statusCode === 440
+        ? 15000 + Math.floor(Math.random() * 10000)
+        : statusCode === 401
+        ? 8000 + Math.floor(Math.random() * 5000)
+        : 5000 + Math.floor(Math.random() * 5000);
+    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
+    setTimeout(() => startBot(), delay);
+
                 }
             } else if (connection === 'open') {
                 const rawId  = sock.user?.id  || '';
