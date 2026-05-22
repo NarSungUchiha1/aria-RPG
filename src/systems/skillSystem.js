@@ -137,7 +137,11 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
 
     try {
         const turnFx = getTurnEffect(player.id);
-        const permFx = getEffect(player.id, null);
+        // FIX: getEffect(id, null) only matches effects with dungeonId=null.
+        // Permanent potion effects are stored with a dungeonId, so we need to
+        // check the activeEffects map directly for ANY effect for this player.
+        const { activeEffects } = require('./potionEffects');
+        const permFx = activeEffects.get(player.id) || null;
 
         // Berserk
         if (turnFx?.effect === 'berserk') {

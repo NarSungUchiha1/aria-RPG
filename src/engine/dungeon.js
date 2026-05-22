@@ -634,12 +634,20 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             [playerId, dungeonId]
         );
         try {
-            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-            if (sess.length) {
-                const lostGold = sess[0].session_gold || 0;
-                const lostXp   = sess[0].session_xp   || 0;
-                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            // FIX: Check death_protect (Ichor of the Fallen) — if active, skip loss penalty
+            const deathProtect = getEffect(playerId, dungeonId);
+            const isProtected  = deathProtect?.effect === 'death_protect';
+            if (isProtected) {
+                clearEffect(playerId);
+                console.log(`[death_protect] ${playerId} protected — no gold/XP loss`);
+            } else {
+                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+                if (sess.length) {
+                    const lostGold = sess[0].session_gold || 0;
+                    const lostXp   = sess[0].session_xp   || 0;
+                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+                }
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
@@ -806,12 +814,20 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             [playerId, dungeonId]
         );
         try {
-            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-            if (sess.length) {
-                const lostGold = sess[0].session_gold || 0;
-                const lostXp   = sess[0].session_xp   || 0;
-                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            // FIX: Check death_protect (Ichor of the Fallen) — if active, skip loss penalty
+            const deathProtect = getEffect(playerId, dungeonId);
+            const isProtected  = deathProtect?.effect === 'death_protect';
+            if (isProtected) {
+                clearEffect(playerId);
+                console.log(`[death_protect] ${playerId} protected — no gold/XP loss`);
+            } else {
+                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+                if (sess.length) {
+                    const lostGold = sess[0].session_gold || 0;
+                    const lostXp   = sess[0].session_xp   || 0;
+                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+                }
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
