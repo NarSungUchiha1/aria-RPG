@@ -114,36 +114,58 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null
 
 // ── WEIGHTED PRESTIGE RANK ───────────────────────────────
 async function getWeightedPrestigeRank() {
-    const [rows] = await db.execute(
-        "SELECT `rank`, COUNT(*) as cnt FROM players WHERE COALESCE(prestige_level,0) > 0 GROUP BY `rank`"
-    );
-    if (!rows.length) return 'PF';
+    // FIX: Old system was player-count driven — if most players are F/E rank,
+    // PF/PE spawned almost exclusively. Replaced with a flat base distribution
+    // so every prestige rank spawns regularly, with a mild higher-tier bias.
+    //
+    // Target rough distribution:
+    //   PF ~10%  PE ~12%  PD ~15%  PC ~18%  PB ~18%  PA ~15%  PS ~12%
+    //
+    // We still check which prestige players actually exist so we never spawn
+    // a rank nobody can enter.
 
-    const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const total = rows.reduce((sum, r) => sum + Number(r.cnt), 0);
+    const PRESTIGE_RANKS_ORDERED = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
+
+    // Base weights — flat-ish with mild upper-tier boost
+    const BASE_WEIGHTS = {
+        PF: 10, PE: 12, PD: 15, PC: 18, PB: 18, PA: 15, PS: 12
+    };
+
+    // Check which ranks actually have eligible prestige players
+    // A player can enter a prestige dungeon of their equivalent rank or lower
+    // (PF players can do PF, PE players can do PF+PE, etc.)
+    let eligibleRanks = new Set(PRESTIGE_RANKS_ORDERED);
+    try {
+        const [rows] = await db.execute(
+            "SELECT DISTINCT `rank` FROM players WHERE COALESCE(prestige_level,0) > 0"
+        );
+        if (rows.length) {
+            // Find highest prestige rank in player base
+            const RANK_TO_PRESTIGE = { F:'PF', E:'PE', D:'PD', C:'PC', B:'PB', A:'PA', S:'PS' };
+            const playerPrestigeRanks = rows.map(r => RANK_TO_PRESTIGE[r.rank]).filter(Boolean);
+            const highestIdx = Math.max(...playerPrestigeRanks.map(r => PRESTIGE_RANKS_ORDERED.indexOf(r)));
+            // Only spawn ranks up to the highest rank players can actually enter
+            eligibleRanks = new Set(PRESTIGE_RANKS_ORDERED.slice(0, highestIdx + 1));
+        }
+    } catch(e) {}
+
+    // Build final weights from eligible ranks only
     const weights = {};
-    rankOrder.forEach(r => { weights[r] = 0; });
-
-    for (const row of rows) {
-        const idx  = rankOrder.indexOf(row.rank);
-        if (idx === -1) continue;
-        const base = Number(row.cnt) / total;
-        weights[row.rank]                      += base * 0.6;
-        if (idx > 0)                    weights[rankOrder[idx - 1]] += base * 0.2;
-        if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
+    let total = 0;
+    for (const rank of PRESTIGE_RANKS_ORDERED) {
+        if (eligibleRanks.has(rank)) {
+            weights[rank] = BASE_WEIGHTS[rank] || 10;
+            total += weights[rank];
+        }
     }
+    if (total === 0) return 'PF';
 
-    const TIER_BOOST = { F: 0.5, E: 0.5, D: 1.5, C: 1.5, B: 2.0, A: 2.5, S: 3.0 };
-    rankOrder.forEach(r => { weights[r] = (weights[r] || 0) * (TIER_BOOST[r] || 1); });
-
-    const sum = Object.values(weights).reduce((a, b) => a + b, 0) || 1;
-    rankOrder.forEach(r => { weights[r] = (weights[r] || 0) / sum; });
-
+    const roll = Math.random() * total;
     let cumulative = 0;
-    const roll = Math.random();
-    for (const rank of rankOrder) {
-        cumulative += weights[rank] || 0;
-        if (roll <= cumulative) return PRESTIGE_RANK_MAP[rank] || 'PF';
+    for (const rank of PRESTIGE_RANKS_ORDERED) {
+        if (!weights[rank]) continue;
+        cumulative += weights[rank];
+        if (roll <= cumulative) return rank;
     }
     return 'PF';
 }
