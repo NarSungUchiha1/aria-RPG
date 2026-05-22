@@ -250,6 +250,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         }
     } catch(e) {}
 
+    const MAX_RAIDERS_MAP = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
         `┃◆ \n` +
@@ -258,7 +259,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +
-        `┃◆   Max Raiders: ${{ F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 }[rank] || 3}\n` +
+        `┃◆   Max Raiders: ${MAX_RAIDERS_MAP[rank] || 3}\n` +
         `┃◆ \n` +
         `┃◆   DM the bot: !enter to join!\n` +
         `┃◆   ⏳ Portal closes in 10 minutes.\n` +
@@ -365,6 +366,8 @@ async function lockDungeon(dungeonId) {
 
 async function getMaxStageForDungeon(dungeonId) {
     const [rows] = await db.execute("SELECT max_stage FROM dungeon WHERE id=?", [dungeonId]);
+    // FIX: guard against missing row
+    if (!rows.length) throw new Error(`Dungeon ${dungeonId} not found in getMaxStageForDungeon`);
     return rows[0].max_stage;
 }
 
@@ -385,7 +388,12 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     } catch (e) { isVoidWar = false; }
 
     const isBoosted = isEvent || isVoidWar;
-    const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
+
+    // FIX: get max_stage directly from DB, guarded
+    let maxStage = 3;
+    try { maxStage = await getMaxStageForDungeon(dungeonId); } catch(e) {}
+
+    const isBoss = (stage === maxStage);
     let enemiesToSpawn = [];
 
     if (isBoss) {
@@ -501,6 +509,11 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
+
+    // FIX: record damage contribution BEFORE distributing rewards so the attacker gets credit
+    await addDamageContribution(dungeonId, enemyId, playerId, damage);
+    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e2) {}
+
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
 
@@ -532,7 +545,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 );
                 if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
             }
-        } catch(e) {}
+        } catch(e2) {}
 
         try {
             const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -554,7 +567,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(potErr) {}
 
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
-        try { trackHpLost(playerId, dungeonId, retaliation); } catch(e) {}
+        try { trackHpLost(playerId, dungeonId, retaliation); } catch(e2) {}
 
         try {
             const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -651,12 +664,11 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 
     let evaded = false;
 
-    // ── DOUBLE STRIKE SUPPORT ─────────────────────────────────
     let hits = 1;
     try {
         const turnFx = getTurnEffect(playerId);
         if (turnFx?.effect === 'double_strike') hits = turnFx.data.hits || 2;
-    } catch (e) {}
+    } catch (e2) {}
 
     let totalDamage = 0;
     for (let i = 0; i < hits; i++) {
@@ -672,7 +684,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
 
-    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e) {}
+    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e2) {}
 
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
@@ -706,7 +718,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 );
                 if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
             }
-        } catch(e) {}
+        } catch(e2) {}
 
         try {
             const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -869,7 +881,7 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
         const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [c.player_id]);
         rewards.push({
             playerId: c.player_id,
-            nickname: pl[0].nickname,
+            nickname: pl[0]?.nickname || c.player_id,
             damage:   Number(c.damage_dealt),
             exp:      expEarned,
             gold:     goldEarned
@@ -1031,7 +1043,14 @@ async function getDungeonStatusText(dungeonId) {
     const [dungeon] = await db.execute("SELECT * FROM dungeon WHERE id=?", [dungeonId]);
     if (!dungeon.length) return "Dungeon not found.";
     const d = dungeon[0];
+
+    // FIX: Re-fetch fresh enemy list directly from DB (don't rely on stale dungeon object)
     const enemies = await getCurrentEnemies(dungeonId);
+
+    // FIX: Re-read stage_cleared from DB in real time
+    const [fresh] = await db.execute("SELECT stage_cleared FROM dungeon WHERE id=?", [dungeonId]);
+    const stageCleared = fresh[0]?.stage_cleared === 1;
+
     const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
     const [box, bar, bul, close] = isPrestige
         ? ['╔══〘 ✦ PRESTIGE STATUS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
@@ -1041,6 +1060,9 @@ async function getDungeonStatusText(dungeonId) {
     text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
     text += `${bul} Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}\n`;
     text += `${bar}\n`;
+
+    // FIX: Show enemies if they exist, REGARDLESS of stage_cleared flag
+    // The cleared flag and enemy list can desync — trust the enemy list
     if (enemies.length === 0) {
         text += `${bul} ✅ All enemies defeated!\n`;
         text += `${bul} 🧭 Use !onward to advance\n`;
@@ -1049,6 +1071,10 @@ async function getDungeonStatusText(dungeonId) {
         enemies.forEach((e, i) => {
             text += `${bul}   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
         });
+        if (stageCleared) {
+            // Desync: flag says cleared but enemies still in DB — reset the flag
+            db.execute("UPDATE dungeon SET stage_cleared=0 WHERE id=?", [dungeonId]).catch(() => {});
+        }
     }
     text += `${bar}\n${bul} 🧭 !skill <move> [target]\n${close}`;
     return text;

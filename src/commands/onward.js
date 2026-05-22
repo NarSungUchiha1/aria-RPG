@@ -5,6 +5,7 @@ const {
     advanceStage,
     getMaxStageForDungeon,
     getDungeonStatusText,
+    getCurrentEnemies,
     demoteAllRaiders
 } = require('../engine/dungeon');
 const { handleShardDrop } = require('./event');
@@ -39,21 +40,50 @@ module.exports = {
                 );
             }
 
-            if (dungeon.stage_cleared !== 1) {
-                return msg.reply(`══〘 ⚠️ BLOCKED 〙══╮\n┃◆ The path forward is sealed. Defeat all enemies first!\n┃◆ Use !dungeon to check status.\n╰═══════════════════════╯`);
+            // FIX: Always re-read the freshest dungeon state from DB
+            const [freshDungeon] = await db.execute(
+                "SELECT stage, max_stage, stage_cleared, dungeon_rank, boss_name, locked, is_active FROM dungeon WHERE id=?",
+                [dungeon.id]
+            );
+            if (!freshDungeon.length || !freshDungeon[0].is_active) {
+                return msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Dungeon no longer active.\n╰═══════════════════════╯`);
+            }
+            const d = freshDungeon[0];
+
+            // FIX: Cross-check enemies in DB — stage_cleared flag can desync.
+            // If enemies still exist, the stage is NOT actually cleared regardless of flag.
+            const liveEnemies = await getCurrentEnemies(dungeon.id);
+
+            if (liveEnemies.length > 0) {
+                // There are still enemies — if stage_cleared is incorrectly set, fix it
+                if (d.stage_cleared !== 0) {
+                    await db.execute("UPDATE dungeon SET stage_cleared=0 WHERE id=?", [dungeon.id]);
+                }
+                return msg.reply(
+                    `══〘 ⚠️ BLOCKED 〙══╮\n` +
+                    `┃◆ There are still ${liveEnemies.length} enemy/enemies alive!\n` +
+                    `┃◆ Defeat them first before advancing.\n` +
+                    `┃◆ Use !dungeon to check status.\n` +
+                    `╰═══════════════════════╯`
+                );
             }
 
-            const maxStage = await getMaxStageForDungeon(dungeon.id);
+            // Enemies are all dead. Ensure the flag is set.
+            if (d.stage_cleared !== 1) {
+                await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeon.id]);
+            }
+
+            const maxStage = d.max_stage;
 
             // ── DUNGEON CLEARED ──────────────────────────────────────────────
-            if (dungeon.stage >= maxStage) {
+            if (d.stage >= maxStage) {
                 const [participants] = await db.execute(
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
 
                 // Special Malachar clear message
-                if (dungeon.dungeon_rank === 'MALACHAR') {
+                if (d.dungeon_rank === 'MALACHAR') {
                     await client.sendMessage(RAID_GROUP, {
                         text:
                             `╔══════════════════════════════════════╗\n` +
@@ -74,8 +104,8 @@ module.exports = {
                     });
                 }
 
-                const rewardGold = dungeon.dungeon_rank === 'MALACHAR' ? 500000 : Math.floor(Math.random() * 20) + 90;
-                const rewardXp   = dungeon.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
+                const rewardGold = d.dungeon_rank === 'MALACHAR' ? 500000 : Math.floor(Math.random() * 20) + 90;
+                const rewardXp   = d.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
@@ -85,10 +115,10 @@ module.exports = {
                             await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
                             await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
                             await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
-                            if (dungeon.dungeon_rank === 'S') {
+                            if (d.dungeon_rank === 'S') {
                                 await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
                             }
-                            if (dungeon.dungeon_rank === 'MALACHAR') {
+                            if (d.dungeon_rank === 'MALACHAR') {
                                 await updateQuestProgress(p.player_id, 'malachar_clear', 1, client);
                             }
                         } catch (e) {}
@@ -113,7 +143,7 @@ module.exports = {
                         for (const p of participants) {
                             const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [p.player_id]);
                             if (!pl.length) continue;
-                            const result = await addWarDamage(p.player_id, pl[0].nickname, dungeon.dungeon_rank);
+                            const result = await addWarDamage(p.player_id, pl[0].nickname, d.dungeon_rank);
                             if (result && result.totalDamage >= result.goal) {
                                 await endVoidWar(client);
                             }
@@ -159,7 +189,7 @@ module.exports = {
                 (async () => {
                     try {
                         for (const p of participants) {
-                            const drop = await rollMaterialDrop(dungeon.dungeon_rank, p.player_id, client, RAID_GROUP);
+                            const drop = await rollMaterialDrop(d.dungeon_rank, p.player_id, client, RAID_GROUP);
                             if (drop) {
                                 const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
                                 await client.sendMessage(RAID_GROUP, {
@@ -189,13 +219,13 @@ module.exports = {
                 await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                 clearDungeonTimers(dungeon.id);
 
-                if (!dungeon.dungeon_rank || !dungeon.dungeon_rank.startsWith('P')) {
+                if (!d.dungeon_rank || !d.dungeon_rank.startsWith('P')) {
                     trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
                 }
 
                 return msg.reply(
                     `══〘 👑 DUNGEON CLEARED 〙══╮\n` +
-                    `┃◆ The chamber falls silent. ${dungeon.boss_name} lies vanquished.\n` +
+                    `┃◆ The chamber falls silent. ${d.boss_name} lies vanquished.\n` +
                     `┃◆ Each survivor feels the dungeon's gratitude:\n` +
                     `┃◆ 💰 +${rewardGold.toLocaleString()} Gold   ⭐ +${rewardXp.toLocaleString()} XP\n` +
                     `┃◆ As the exit shimmers into view, you step out into the light.\n` +
@@ -204,6 +234,8 @@ module.exports = {
             }
 
             // ── ADVANCE STAGE ─────────────────────────────────────────────────
+            // FIX: Use atomic CAS on stage_cleared=1 (not 2) to prevent double-advance.
+            // If it fails, another !onward is already in progress.
             const [lockResult] = await db.execute(
                 "UPDATE dungeon SET stage_cleared=2 WHERE id=? AND stage_cleared=1",
                 [dungeon.id]
@@ -214,8 +246,17 @@ module.exports = {
                 );
             }
 
-            const next = dungeon.stage + 1;
-            await advanceStage(dungeon.id, next);
+            const next = d.stage + 1;
+
+            // FIX: Wrap advanceStage in try/catch and ALWAYS reset stage_cleared on failure
+            // so the dungeon doesn't get permanently bricked at stage_cleared=2
+            try {
+                await advanceStage(dungeon.id, next);
+            } catch (advErr) {
+                console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
+                await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeon.id]);
+                return msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Please try again.\n╰═══════════════════════╯`);
+            }
 
             try { initStage(dungeon.id); } catch(e) {}
 
@@ -261,13 +302,12 @@ module.exports = {
                 } catch (err) { console.error("Onward failCallback error:", err); }
             };
 
-            await resetStageTimer(dungeon.id, client, targetChat, failCallback, dungeon.dungeon_rank);
+            await resetStageTimer(dungeon.id, client, targetChat, failCallback, d.dungeon_rank);
 
             // ── MALACHAR GRAND ENTRY + PHASE INIT ────────────────────────────
-            const isMalacharFinal = dungeon.dungeon_rank === 'MALACHAR' && next === maxStage;
+            const isMalacharFinal = d.dungeon_rank === 'MALACHAR' && next === maxStage;
 
             if (isMalacharFinal) {
-                // Init phase tracking now that Malachar is spawned in DB
                 await initMalacharPhase(dungeon.id);
 
                 await client.sendMessage(RAID_GROUP, {

@@ -631,8 +631,11 @@ async function startBot() {
                     await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [userId]).catch(()=>{});
                 } catch(e) {}
                 await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
+                // FIX: Invalidate HP cache after every command so dead-check is always fresh
+                playerCache.delete(userId);
             } catch (err) {
                 console.error("Command Error:", err);
+                playerCache.delete(userId); // also clear on error
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
             }
         });

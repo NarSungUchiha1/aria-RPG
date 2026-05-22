@@ -394,13 +394,10 @@ module.exports = {
                 count[0].cnt;
 
             const MAX_RAIDERS = {
-                F:3,
-                E:3,
-                D:4,
-                C:4,
-                B:5,
-                A:5,
-                S:5
+                // Normal dungeons
+                F:3, E:3, D:4, C:4, B:5, A:5, S:5,
+                // Prestige dungeons
+                PF:3, PE:4, PD:4, PC:4, PB:5, PA:5, PS:7
             };
 
             const maxRaiders =

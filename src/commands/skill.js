@@ -647,14 +647,18 @@ module.exports = {
 
                 const bul = dungeon.dungeon_rank?.startsWith('P') ? '┃★' : '┃◆';
                 reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
-                try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
 
                 try {
+                    // FIX: check phantom shift BEFORE demoting, so we can skip demotion on revival
                     const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
                     if (phantomResult) {
+                        // Revived — restore HP and alive status, do NOT demote
                         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
-                        try { await demoteRaider(client, userId); } catch(e2) {}
+                        // Skip the demote below — player is alive again
+                    } else {
+                        // Truly dead — demote now
+                        try { await demoteRaider(client, userId); } catch(e2) { console.error('Demote failed:', e2.message); }
                     }
                 } catch(e) { console.error('Phantom shift error:', e.message); }
 

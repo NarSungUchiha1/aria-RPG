@@ -27,11 +27,17 @@ const PRESTIGE_BOSSES = {
 
 const MAX_STAGES = { PF: 3, PE: 3, PD: 4, PC: 4, PB: 5, PA: 5, PS: 6 };
 
+// FIX: Updated player limits per spec
+const MAX_RAIDERS = { PF: 3, PE: 4, PD: 4, PC: 4, PB: 5, PA: 5, PS: 7 };
+
 // ── PRESTIGE LOBBY TIMER ─────────────────────────────────
-const PRESTIGE_LOBBY_WARN_MS  = 8  * 60 * 1000; // 8 min warning
-const PRESTIGE_LOBBY_CLOSE_MS = 10 * 60 * 1000; // 10 min close
+const PRESTIGE_LOBBY_WARN_MS  = 8  * 60 * 1000;
+const PRESTIGE_LOBBY_CLOSE_MS = 10 * 60 * 1000;
 
 const prestigeLobbyTimers = new Map();
+
+// FIX: mutex to prevent double-spawn race condition
+let _prestigeSpawnInProgress = false;
 
 function clearPrestigeLobbyTimer(dungeonId) {
     const t = prestigeLobbyTimers.get(dungeonId);
@@ -45,9 +51,10 @@ function clearPrestigeLobbyTimer(dungeonId) {
 function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null) {
     clearPrestigeLobbyTimer(dungeonId);
 
-    // If remaining time is provided, calculate relative timeouts
     const totalDuration = remaining || PRESTIGE_LOBBY_CLOSE_MS;
-    const warningDelay = remaining ? Math.max(0, totalDuration - (PRESTIGE_LOBBY_CLOSE_MS - PRESTIGE_LOBBY_WARN_MS)) : PRESTIGE_LOBBY_WARN_MS;
+    const warningDelay = remaining
+        ? Math.max(0, totalDuration - (PRESTIGE_LOBBY_CLOSE_MS - PRESTIGE_LOBBY_WARN_MS))
+        : PRESTIGE_LOBBY_WARN_MS;
     const closeDelay = remaining || PRESTIGE_LOBBY_CLOSE_MS;
 
     const warning = setTimeout(async () => {
@@ -104,11 +111,8 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null
 
     prestigeLobbyTimers.set(dungeonId, { warning, timeout });
 }
-// ─────────────────────────────────────────────────────────
 
 // ── WEIGHTED PRESTIGE RANK ───────────────────────────────
-// Same weighted concept as normal dungeons, but only counts prestige players.
-// Uses their base rank mapped to prestige rank.
 async function getWeightedPrestigeRank() {
     const [rows] = await db.execute(
         "SELECT `rank`, COUNT(*) as cnt FROM players WHERE COALESCE(prestige_level,0) > 0 GROUP BY `rank`"
@@ -129,11 +133,9 @@ async function getWeightedPrestigeRank() {
         if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
     }
 
-    // ── Boost PD, PC, PB, PA, PS — spawn more of the harder tiers ─────────────
     const TIER_BOOST = { F: 0.5, E: 0.5, D: 1.5, C: 1.5, B: 2.0, A: 2.5, S: 3.0 };
     rankOrder.forEach(r => { weights[r] = (weights[r] || 0) * (TIER_BOOST[r] || 1); });
 
-    // Normalise so weights still sum to ~1
     const sum = Object.values(weights).reduce((a, b) => a + b, 0) || 1;
     rankOrder.forEach(r => { weights[r] = (weights[r] || 0) / sum; });
 
@@ -145,7 +147,6 @@ async function getWeightedPrestigeRank() {
     }
     return 'PF';
 }
-// ─────────────────────────────────────────────────────────
 
 async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
     const data = prestigeEnemies[prestigeRank];
@@ -158,7 +159,6 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
     if (isBoss) {
         toSpawn = [{ ...data.boss }];
     } else {
-        // Enemy count scales with rank — harder ranks have more enemies
         const RANK_ENEMY_COUNT = {
             PF: [2, 4], PE: [3, 5], PD: [3, 6],
             PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [7, 10]
@@ -197,7 +197,6 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
 
     // Skip if any dungeon has active players inside
     try {
-        const db = require('../database/db');
         const [activePlayers] = await db.execute(
             "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
         );
@@ -209,6 +208,7 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
 
     const maxStage = MAX_STAGES[prestigeRank] || 3;
     const bossName = PRESTIGE_BOSSES[prestigeRank];
+    const maxRaiders = MAX_RAIDERS[prestigeRank] || 3;
 
     // Check no active prestige dungeon
     const [active] = await db.execute(
@@ -222,8 +222,6 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
         [prestigeRank, maxStage, bossName]
     );
     const dungeonId = result.insertId;
-
-    await spawnPrestigeEnemies(dungeonId, prestigeRank, 1);
 
     const lorelines = {
         PF: 'The void left something behind when the Leviathan fell.',
@@ -247,9 +245,10 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
             `┃★ 〝${lorelines[prestigeRank]}〞\n` +
             `┃★ \n` +
             `┃★────────────\n` +
-            `┃★ Rank:    ${prestigeRank}\n` +
-            `┃★ Stages:  ${maxStage}\n` +
-            `┃★ Boss:    ${bossName}\n` +
+            `┃★ Rank:       ${prestigeRank}\n` +
+            `┃★ Stages:     ${maxStage}\n` +
+            `┃★ Boss:       ${bossName}\n` +
+            `┃★ Max Raiders: ${maxRaiders}\n` +
             `┃★ \n` +
             `┃★ ⚠️ Prestige Hunters only.\n` +
             `┃★ DM !enter to join.\n` +
@@ -266,8 +265,13 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
 }
 
 // ── PUBLIC TRIGGER — called after any normal dungeon ends ──
-// Checks if prestige players exist, picks weighted rank, spawns after short delay.
+// FIX: mutex flag prevents race condition when called from multiple paths simultaneously
 async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
+    if (_prestigeSpawnInProgress) {
+        console.log('★ trySpawnPrestigeDungeon: already in progress — skipping');
+        return;
+    }
+    _prestigeSpawnInProgress = true;
     try {
         // Check if any prestige players exist
         const [prestigePlayers] = await db.execute(
@@ -291,6 +295,13 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         await new Promise(r => setTimeout(r, 3000));
 
         if (!RAID_GROUP) { console.error('★ trySpawnPrestigeDungeon: RAID_GROUP is undefined — set RAID_GROUP_JID env var'); return; }
+
+        // Re-check after delay — another call may have spawned in the meantime
+        const [doubleCheck] = await db.execute(
+            "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' LIMIT 1"
+        );
+        if (doubleCheck.length) { console.log('★ Prestige dungeon spawned by another call during delay — skip'); return; }
+
         console.log('★ RAID_GROUP for prestige spawn:', RAID_GROUP);
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`★ Auto-spawning prestige dungeon rank ${prestigeRank}`);
@@ -299,6 +310,8 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
     } catch (e) {
         console.error('★ trySpawnPrestigeDungeon error:', e.message);
         console.error(e.stack);
+    } finally {
+        _prestigeSpawnInProgress = false;
     }
 }
 
@@ -312,5 +325,6 @@ module.exports = {
     clearPrestigeLobbyTimer,
     PRESTIGE_RANK_MAP,
     PRESTIGE_RANK_ORDER,
-    MAX_STAGES
+    MAX_STAGES,
+    MAX_RAIDERS
 };
