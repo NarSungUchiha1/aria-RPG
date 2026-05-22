@@ -128,10 +128,15 @@ module.exports = {
                 // MVP
                 try {
                     const { calculateMvp } = require('../systems/mvpSystem');
-                    const playerIds = participants.map(p => p.player_id);
+                    // FIX: normalize IDs — strip WhatsApp suffix so they match what recordDamage stored
+                    const playerIds = participants.map(p =>
+                        String(p.player_id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0]
+                    );
                     const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, playerIds, 'dungeon');
                     if (mvpResult?.message) {
                         await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                    } else {
+                        console.log('[MVP] No result — stats may be empty for key dungeon_' + dungeon.id);
                     }
                 } catch (e) { console.error('[MVP dungeon]', e.message); }
 

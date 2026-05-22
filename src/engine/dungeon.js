@@ -7,7 +7,7 @@ const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
-const { initMvpTracking, recordDamage: mvpRecordDmg, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
+const { initMvpTracking, recordDamage: mvpRecordDmg } = require('../systems/mvpSystem');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -35,13 +35,7 @@ function clearLobbyTimer(dungeonId) {
     }
 }
 
-function getDungeonMvp(dungeonId) {
-    try { return getMvp(`dungeon_${dungeonId}`); } catch(e) { return null; }
-}
-
-function getDungeonMvpContributions(dungeonId) {
-    try { return getMvpContributions(`dungeon_${dungeonId}`); } catch(e) { return {}; }
-}
+// MVP helpers removed — calculateMvp is called directly in onward.js at dungeon clear
 
 async function getWeightedDungeonRank() {
     const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -512,7 +506,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
 
     // FIX: record damage contribution BEFORE distributing rewards so the attacker gets credit
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
-    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e2) {}
+    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, null, damage, damage); } catch(e2) {}
 
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
@@ -692,7 +686,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
 
-    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e2) {}
+    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, null, damage, damage); } catch(e2) {}
 
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
@@ -1129,6 +1123,4 @@ module.exports = {
     clearLobbyTimer,
     dungeonLocks,
     clearDungeonTimers,
-    getDungeonMvp,
-    getDungeonMvpContributions
 };
