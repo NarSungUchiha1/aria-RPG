@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const enemiesData = require('../data/enemies');
 const { calculateMoveDamage } = require('../systems/skillSystem');
-const { getFatigueMultiplier, increasePlayerFatigue } = require('../systems/fatigueSystem');
+const { getFatigueMultiplier, increasePlayerFatigue, calculateFatigueGain } = require('../systems/fatigueSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
@@ -609,7 +609,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
-                const fatigueGainA = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
+                const fatigueGainA = calculateFatigueGain();
                 await increasePlayerFatigue(playerId, fatigueGainA, p);
                 tickBuffs('player', playerId);
                 return {
@@ -644,7 +644,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
+    const fatigueGain = calculateFatigueGain();
     await increasePlayerFatigue(playerId, fatigueGain, p);
     tickBuffs('player', playerId);
 
@@ -782,7 +782,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
-                const fatigueGainA = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
+                const fatigueGainA = calculateFatigueGain();
                 await increasePlayerFatigue(playerId, fatigueGainA, player);
                 tickBuffs('player', playerId);
                 return {
@@ -816,7 +816,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
+    const fatigueGain = calculateFatigueGain();
     await increasePlayerFatigue(playerId, fatigueGain, player);
     tickBuffs('player', playerId);
 

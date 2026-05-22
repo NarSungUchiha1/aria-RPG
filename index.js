@@ -856,9 +856,11 @@ cron.schedule('*/10 * * * *', async () => {
 // Run every 10 mins to slowly recover player fatigue over time.
 cron.schedule('*/10 * * * *', async () => {
     try {
+        // FIX: Increased recovery from 2 to 5 per tick (every 10 mins = 30/hr)
+        // At flat 1 fatigue per attack, this means ~30 attacks worth recovered per hour
         await db.execute(`
             UPDATE players
-            SET fatigue = GREATEST(0, COALESCE(fatigue, 0) - 2)
+            SET fatigue = GREATEST(0, COALESCE(fatigue, 0) - 5)
             WHERE fatigue > 0
         `);
     } catch(e) { console.error('Fatigue recovery error:', e.message); }

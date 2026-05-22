@@ -282,16 +282,14 @@ module.exports = {
 
             if (spam.count >= SPAM_THRESHOLD) {
                 const spamHitNumber = spam.count - SPAM_THRESHOLD;
-                let fatigueTarget;
-                if (spamHitNumber === 0) {
-                    fatigueTarget = 35;
-                } else {
-                    fatigueTarget = Math.min(100, 35 + SPAM_FATIGUE * Math.pow(2, spamHitNumber));
-                }
+                // FIX: ADD fatigue penalty instead of jumping to a fixed target with GREATEST.
+                // Old code: GREATEST(fatigue, 35) meant once you were above 35 it did nothing.
+                // New code: each spam hit adds a fixed penalty on top of current fatigue.
+                const spamPenalty = spamHitNumber === 0 ? 10 : Math.min(30, 10 * (spamHitNumber + 1));
                 try {
                     await db.execute(
-                        'UPDATE players SET fatigue = LEAST(100, GREATEST(fatigue, ?)) WHERE id=?',
-                        [fatigueTarget, userId]
+                        'UPDATE players SET fatigue = LEAST(100, COALESCE(fatigue, 0) + ?) WHERE id=?',
+                        [spamPenalty, userId]
                     );
                 } catch(e) {}
                 if (spamHitNumber === 0) {
@@ -299,8 +297,8 @@ module.exports = {
                         `╔══〘 ⚠️ FATIGUE SPIKE 〙══╗\n` +
                         `┃◆ You are moving too fast.\n` +
                         `┃◆ Your body cannot keep up.\n` +
-                        `┃◆ 🔵 Fatigue: 35% and climbing.\n` +
-                        `┃◆ Keep spamming and deal 1 damage.\n` +
+                        `┃◆ 🔵 Fatigue +${spamPenalty}% penalty.\n` +
+                        `┃◆ Slow down or your damage suffers.\n` +
                         `╚═══════════════════════════╝`
                     ).catch(() => {});
                 }
@@ -469,7 +467,7 @@ module.exports = {
                 if (activeTurnEffect?.effect === 'lifesteal' && result.damage > 0) {
                     const healAmt = Math.floor(result.damage * (activeTurnEffect.data.percent || 0.25));
                     await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
-                    await db.execute('UPDATE players SET fatigue = LEAST(100, fatigue + 5) WHERE id=?', [userId]);
+                    await db.execute('UPDATE players SET fatigue = LEAST(100, COALESCE(fatigue, 0) + 5) WHERE id=?', [userId]);
                     reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP (fatigue +5%)\n`;
                 }
 
