@@ -1,6 +1,6 @@
 const db = require('../database/db');
 
-const REFERRAL_GROUP_JID   = '120363166048111971@g.us';
+const REFERRAL_GROUP_JID   = '120363407674463113@g.us';
 const REFERRAL_XP_REFERRER = 20;
 const REFERRAL_GOLD_NEW    = 200;
 
