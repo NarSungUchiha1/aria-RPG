@@ -34,7 +34,7 @@ async function getDuelHp(playerId) {
             'SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?',
             [playerId]
         );
-        if (rows[0]?.prestige_level > 0) return 70000;
+        if (rows[0]?.prestige_level > 0) return 100000;
     } catch {}
     return DUEL_HP;
 }
