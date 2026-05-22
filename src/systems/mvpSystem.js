@@ -145,4 +145,4 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     return { mvp, isExceptional, rewards, message };
 }
 
-module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp };
+module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp, mvpStats };

@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const { narrate } = require('../utils/narrator');
 const { narrateAI } = require('./aiSystems');
-const { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp } = require('./mvpSystem');
+const { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp, mvpStats } = require('./mvpSystem');
 const { calculateMoveDamage, calculateHeal } = require('./skillSystem');
 const { applyBuff, getBuffModifiers } = require('./activeBuffs');
 const { increasePlayerFatigue, getFatigueMultiplier, formatFatigueBar, clampFatigue } = require('./fatigueSystem');
@@ -741,16 +741,18 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     const { witnessDuelResult } = require('./ariaAwareness');
     witnessDuelResult(winnerId, winnerNick, loserId, loserNick, duelData.type || 'solo').catch(() => {});
 
-    // MVP announcement for party duels
-    if (duelData.type === 'party') {
-        try {
-            const allPlayers = [...(duelData.teamA || []), ...(duelData.teamB || [])];
-            const mvpResult  = await calculateMvp(duelData.duelKey || getDuelKey(winnerId, loserId), allPlayers, 'duel');
-            if (mvpResult?.message) {
-                await chat.sendMessage(mvpResult.message).catch(() => {});
-            }
-        } catch (e) { console.error('[MVP duel]', e.message); }
-    }
+    // FIX: MVP announcement for ALL duel types (solo + party)
+    try {
+        const allPlayers = [
+            ...(duelData.teamA || [winnerId]),
+            ...(duelData.teamB || [loserId])
+        ].map(id => String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0]);
+        const duelKey   = duelData.duelKey || getDuelKey(winnerId, loserId);
+        const mvpResult = await calculateMvp(duelKey, allPlayers, 'duel');
+        if (mvpResult?.message) {
+            await chat.sendMessage(mvpResult.message).catch(() => {});
+        }
+    } catch (e) { console.error('[MVP duel]', e.message); }
 
     return { winner: winnerId };
 }
@@ -1160,11 +1162,16 @@ async function handlePvPAttack(attackerId) {
     const newDefHp   = Math.max(0, data.hp[targetId] - damage);
     data.hp[targetId] = newDefHp;
 
-    // Record for MVP (party duels only)
-    if (data.type === 'party') {
+    // FIX: Record for MVP for ALL duel types (solo + party)
+    try {
+        if (!mvpStats.has(duel.duelKey)) {
+            // Late-init MVP tracking if not already done (e.g. solo duels)
+            const allIds = [...(data.teamA || []), ...(data.teamB || [])];
+            initMvpTracking(duel.duelKey, allIds);
+        }
         recordDamage(duel.duelKey, attackerId, targetId, damage, damage);
         if (newDefHp <= 0) recordKill(duel.duelKey, attackerId);
-    }
+    } catch(e) { console.error('[MVP record]', e.message); }
 
     const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
     await increasePlayerFatigue(attackerId, fatigueGain, attacker);
