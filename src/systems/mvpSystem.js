@@ -16,17 +16,24 @@ const EXCEPTIONAL_THRESHOLD = 0.40;
 
 const mvpStats = new Map();
 
-function _ensureKey(key, playerId) {
+function _ensureKey(key, rawPlayerId) {
     if (!mvpStats.has(key)) mvpStats.set(key, {});
     const stats = mvpStats.get(key);
-    if (playerId && !stats[playerId]) {
+    if (!rawPlayerId) return;
+    // FIX: normalize so all IDs use the same format
+    const playerId = String(rawPlayerId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
+    if (!stats[playerId]) {
         stats[playerId] = { damageDealt: 0, healingDone: 0, damageTaken: 0, kills: 0 };
     }
 }
 
 function initMvpTracking(key, playerIds) {
     const stats = {};
-    for (const id of playerIds) stats[id] = { damageDealt: 0, healingDone: 0, damageTaken: 0, kills: 0 };
+    for (const rawId of playerIds) {
+        // FIX: normalize IDs at init time so they match what recordDamage stores
+        const id = String(rawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
+        stats[id] = { damageDealt: 0, healingDone: 0, damageTaken: 0, kills: 0 };
+    }
     mvpStats.set(key, stats);
 }
 
