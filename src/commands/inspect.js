@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { MALACHAR_WEAPONS, WEAPON_BY_OWNER } = require('../data/malacharWeapons');
 
 module.exports = {
     name: 'inspect',
@@ -27,6 +28,31 @@ module.exports = {
             if (item.stamina_bonus)      bonuses.push(`🛡️ STA +${item.stamina_bonus}`);
             if (item.attack_bonus)       bonuses.push(`⚔️ ATK +${item.attack_bonus}`);
             if (item.defense_bonus)      bonuses.push(`🛡️ DEF +${item.defense_bonus}`);
+
+            // Check if this is one of the three bound weapons
+            const boundWeapon = MALACHAR_WEAPONS[item.item_name];
+
+            if (boundWeapon) {
+                const b = boundWeapon.stat_bonus || {};
+                let text =
+                    '╔══════════════════════════════════════╗\n' +
+                    '┃★\n' +
+                    '┃★ ⚔️ *' + item.item_name + '*\n' +
+                    '┃★ 🔒 BOUND — ' + (boundWeapon.owner_name) + '\n' +
+                    '┃★\n' +
+                    '┃★ 〝' + boundWeapon.lore + '〞\n' +
+                    '┃★\n' +
+                    '┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n' +
+                    '┃★ STAT BONUSES:\n' +
+                    Object.entries(b).map(([s, v]) => '┃★ +' + v + ' ' + s.toUpperCase()).join('\n') + '\n' +
+                    '┃★\n' +
+                    '┃★ MOVES:\n' +
+                    boundWeapon.moves.map(m => '┃★ ▸ *' + m.name + '*\n┃★   ' + m.desc).join('\n') + '\n' +
+                    '┃★\n' +
+                    '┃★ Equipped: ' + (item.equipped ? '✅ YES' : '❌ NO') + '\n' +
+                    '╚══════════════════════════════════════╝';
+                return msg.reply(text);
+            }
 
             let text =
                 `══〘 🔍 INSPECT 〙══╮\n` +
