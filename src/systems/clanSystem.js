@@ -1,117 +1,49 @@
 /**
- * CLAN SYSTEM
- * Each clan has one Blessed Move chosen by the clan leader.
- * The blessing triggers automatically in dungeons when its condition is met.
- * All clan members share the same blessing.
+ * CLAN SYSTEM — Rewritten
+ * - No hard limit on number of clans
+ * - High requirements + quest conditions to create a clan
+ * - Clan masters can assign custom quests to members
+ * - All existing blessings preserved
  */
 
 const db = require('../database/db');
 
-// ── PRESET CLANS — fixed, cannot be renamed ──────────────────────────────────
+// ── PRESET CLANS — fixed names with blessings ────────────────────────────────
 const PRESET_CLANS = [
-    { name: '🔥 MUGEN KANNAZUKI 🔥', blessing_id: 1 }, // Dragon's Breath
-    { name: 'ASHEN',                  blessing_id: 5 }, // Soul Shatter
-    { name: 'PHANTOM CREST',          blessing_id: 6 }  // Phantom Shift
+    { name: '🔥 MUGEN KANNAZUKI 🔥', blessing_id: 1 },
+    { name: 'ASHEN',                  blessing_id: 5 },
+    { name: 'PHANTOM CREST',          blessing_id: 6 },
+    { name: 'VOID REMNANTS',          blessing_id: 10 },
+    { name: 'WRATHBORNE',             blessing_id: 4 },
+    { name: 'THE ASSEMBLY',           blessing_id: 9 },
+    { name: 'ECLIPSE ORDER',          blessing_id: 8 },
+    { name: 'IRON REAPER',            blessing_id: 3 },
+    { name: 'ABYSSAL COURT',          blessing_id: 2 },
+    { name: 'HEAVEN FRACTURE',        blessing_id: 7 },
 ];
 
 // ── CLAN BLESSINGS ────────────────────────────────────────────────────────────
 const CLAN_BLESSINGS = {
-    1: {
-        name: "Dragon's Breath",
-        emoji: '🐉',
-        condition: 'HP drops below 30%',
-        effect: 'Unleashes a fire blast dealing 500% of your primary stat to ALL enemies. Ignores all defense.',
-        trigger: 'hp_below_30',
-        multiplier: 5.0,
-        aoe: true,
-        ignore_defense: true
-    },
-    2: {
-        name: "Void Collapse",
-        emoji: '🌑',
-        condition: 'After killing an enemy',
-        effect: 'The void implodes — deals 300% damage to all remaining enemies and reduces their DEF by 50% for 3 turns.',
-        trigger: 'on_kill',
-        multiplier: 3.0,
-        aoe: true,
-        def_reduction: 50
-    },
-    3: {
-        name: "Reaper's Mark",
-        emoji: '💀',
-        condition: 'Enemy drops below 25% HP',
-        effect: 'Instantly executes the enemy. Against bosses — deals 80% of their remaining HP instead.',
-        trigger: 'enemy_below_25',
-        execute: true,
-        boss_multiplier: 0.8
-    },
-    4: {
-        name: "Titan's Roar",
-        emoji: '⚡',
-        condition: 'You take 3 consecutive hits from enemies',
-        effect: 'Become invincible for 2 turns and deal 400% damage on your next hit.',
-        trigger: 'three_consecutive_hits',
-        multiplier: 4.0,
-        invincible_turns: 2
-    },
-    5: {
-        name: "Soul Shatter",
-        emoji: '💠',
-        condition: 'First move of every stage',
-        effect: 'Fractures all enemies — they take 50% extra damage from all sources for the entire stage.',
-        trigger: 'stage_first_move',
-        damage_amp: 0.5,
-        duration: 'stage'
-    },
-    6: {
-        name: "Phantom Shift",
-        emoji: '👻',
-        condition: 'When you would die from a hit',
-        effect: 'Survive with 1 HP, instantly heal to 60% max HP, boost ALL stats by 600% for 3 turns, and deal 600% damage to the attacker.',
-        trigger: 'on_death',
-        multiplier: 6.0,
-        heal_percent: 0.6,
-        stat_boost_percent: 6.0,
-        stat_boost_duration: 3
-    },
-    7: {
-        name: "Heaven's Fall",
-        emoji: '☄️',
-        condition: 'Every 5th skill used in a dungeon',
-        effect: 'A celestial strike falls on ALL enemies dealing 450% intelligence damage. Ignores all defense.',
-        trigger: 'every_5_skills',
-        multiplier: 4.5,
-        stat: 'intelligence',
-        aoe: true,
-        ignore_defense: true
-    },
-    8: {
-        name: "Abyssal Hunger",
-        emoji: '🕳️',
-        condition: 'After a healer heals you in a dungeon',
-        effect: 'Absorb the void — deal damage equal to 200% of the amount healed to a random enemy.',
-        trigger: 'on_healed',
-        heal_multiplier: 2.0
-    },
-    9: {
-        name: "Eclipse",
-        emoji: '🌒',
-        condition: 'When dungeon reaches the final stage',
-        effect: 'All enemies lose 40% of current HP instantly. Permanent +30% damage boost for rest of dungeon.',
-        trigger: 'final_stage',
-        hp_drain: 0.4,
-        damage_boost: 0.3
-    },
-    10: {
-        name: "Malachar's Will",
-        emoji: '👁️',
-        condition: 'Prestige only — all teammates below 50% HP',
-        effect: 'Channel Malachar — next 3 attacks deal 1000% damage and cannot miss or be evaded.',
-        trigger: 'all_allies_below_50',
-        multiplier: 10.0,
-        charges: 3,
-        prestige_only: true
-    }
+    1:  { name: "Dragon's Breath",  emoji: '🐉', condition: 'HP drops below 30%',                           effect: 'Fire blast — 500% primary stat to ALL enemies. Ignores defense.',            trigger: 'hp_below_30',             multiplier: 5.0,  aoe: true, ignore_defense: true },
+    2:  { name: "Void Collapse",    emoji: '🌑', condition: 'After killing an enemy',                       effect: 'Void implodes — 300% to all remaining enemies. DEF -50% for 3 turns.',     trigger: 'on_kill',                 multiplier: 3.0,  aoe: true, def_reduction: 50 },
+    3:  { name: "Reaper's Mark",    emoji: '💀', condition: 'Enemy drops below 25% HP',                     effect: 'Execute the enemy. Bosses take 80% remaining HP instead.',                  trigger: 'enemy_below_25',          execute: true,    boss_multiplier: 0.8 },
+    4:  { name: "Titan's Roar",     emoji: '⚡', condition: 'You take 3 consecutive hits',                  effect: 'Invincible 2 turns. Next hit 400% damage.',                                 trigger: 'three_consecutive_hits',  multiplier: 4.0,  invincible_turns: 2 },
+    5:  { name: "Soul Shatter",     emoji: '💠', condition: 'First move of every stage',                    effect: 'All enemies take 50% extra damage for the entire stage.',                   trigger: 'stage_first_move',        damage_amp: 0.5,  duration: 'stage' },
+    6:  { name: "Phantom Shift",    emoji: '👻', condition: 'When you would die from a hit',                effect: 'Survive at 1 HP, heal to 60%, all stats +600% for 3 turns, 600% retaliation.', trigger: 'on_death',             multiplier: 6.0,  heal_percent: 0.6, stat_boost_percent: 6.0, stat_boost_duration: 3 },
+    7:  { name: "Heaven's Fall",    emoji: '☄️', condition: 'Every 5th skill used',                         effect: 'Celestial strike — 450% INT damage to ALL enemies. Ignores defense.',        trigger: 'every_5_skills',          multiplier: 4.5,  stat: 'intelligence', aoe: true, ignore_defense: true },
+    8:  { name: "Abyssal Hunger",   emoji: '🕳️', condition: 'After a healer heals you in a dungeon',        effect: '200% of healing dealt as damage to a random enemy.',                        trigger: 'on_healed',               heal_multiplier: 2.0 },
+    9:  { name: "Eclipse",          emoji: '🌒', condition: 'When dungeon reaches the final stage',          effect: 'All enemies lose 40% HP instantly. +30% damage for rest of dungeon.',       trigger: 'final_stage',             hp_drain: 0.4,    damage_boost: 0.3 },
+    10: { name: "Malachar's Will",  emoji: '👁️', condition: 'Prestige only — all teammates below 50% HP',   effect: 'Next 3 attacks deal 1000% damage. Cannot miss or be evaded.',               trigger: 'all_allies_below_50',     multiplier: 10.0, charges: 3, prestige_only: true },
+};
+
+// ── CLAN CREATION REQUIREMENTS ────────────────────────────────────────────────
+// All must be met before !createclan is allowed
+const CREATION_REQUIREMENTS = {
+    minRank:         'A',      // Must be at least Rank A
+    minPrestige:     1,        // Must be prestige
+    minDungeons:     50,       // At least 50 dungeon clears
+    minGold:         25000,    // 25k gold cost to create
+    malacharKilled:  true,     // Must have been present when Malachar was killed
 };
 
 // ── TABLE SETUP ───────────────────────────────────────────────────────────────
@@ -119,44 +51,62 @@ async function ensureClanTables() {
     await db.execute(`
         CREATE TABLE IF NOT EXISTS clans (
             id           INT AUTO_INCREMENT PRIMARY KEY,
-            name         VARCHAR(50) UNIQUE NOT NULL,
-            leader_id    VARCHAR(50) NOT NULL,
+            name         VARCHAR(60) UNIQUE NOT NULL,
+            leader_id    VARCHAR(60) NOT NULL,
             blessing_id  INT NOT NULL DEFAULT 1,
-            created_at   DATETIME DEFAULT NOW(),
-            member_count INT DEFAULT 1
+            member_count INT NOT NULL DEFAULT 1,
+            created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `).catch(() => {});
 
     await db.execute(`
         CREATE TABLE IF NOT EXISTS clan_members (
-            player_id  VARCHAR(50) PRIMARY KEY,
-            clan_id    INT NOT NULL,
-            joined_at  DATETIME DEFAULT NOW(),
+            player_id VARCHAR(60) NOT NULL,
+            clan_id   INT NOT NULL,
+            role      VARCHAR(30) NOT NULL DEFAULT 'member',
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (player_id),
             FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
         )
     `).catch(() => {});
 
+    // Clan-assigned quests — given by clan master to a specific member
     await db.execute(`
-        CREATE TABLE IF NOT EXISTS clan_blessing_state (
-            player_id      VARCHAR(50) NOT NULL,
-            dungeon_id     INT NOT NULL,
-            hit_count      INT DEFAULT 0,
-            skill_count    INT DEFAULT 0,
-            blessing_used  TINYINT DEFAULT 0,
-            damage_boost   FLOAT DEFAULT 0,
-            invincible     INT DEFAULT 0,
-            last_triggered DATETIME DEFAULT NULL,
-            PRIMARY KEY (player_id, dungeon_id)
+        CREATE TABLE IF NOT EXISTS clan_quests (
+            id          INT AUTO_INCREMENT PRIMARY KEY,
+            clan_id     INT NOT NULL,
+            assigned_to VARCHAR(60) NOT NULL,
+            assigned_by VARCHAR(60) NOT NULL,
+            title       VARCHAR(120) NOT NULL,
+            description TEXT NOT NULL,
+            objective   VARCHAR(60) NOT NULL,
+            target      INT NOT NULL DEFAULT 1,
+            progress    INT NOT NULL DEFAULT 0,
+            reward_gold INT NOT NULL DEFAULT 0,
+            reward_xp   INT NOT NULL DEFAULT 0,
+            status      ENUM('active','completed','failed') DEFAULT 'active',
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX (clan_id),
+            INDEX (assigned_to)
         )
     `).catch(() => {});
+
+    // Track malachar kills for creation requirement
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS malachar_kills (
+            player_id  VARCHAR(60) PRIMARY KEY,
+            killed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `).catch(() => {});
+
+    await db.execute('ALTER TABLE clan_members ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT "member"').catch(() => {});
+    await db.execute('ALTER TABLE clans ADD COLUMN IF NOT EXISTS member_count INT NOT NULL DEFAULT 1').catch(() => {});
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 async function getPlayerClan(playerId) {
-    await ensureClanTables();
     const [rows] = await db.execute(
-        `SELECT c.*, cm.player_id as member_id
-         FROM clans c
+        `SELECT c.* FROM clans c
          JOIN clan_members cm ON cm.clan_id = c.id
          WHERE cm.player_id = ?`,
         [playerId]
@@ -171,52 +121,95 @@ async function getClanById(clanId) {
 
 async function getClanMembers(clanId) {
     const [rows] = await db.execute(
-        `SELECT p.id, p.nickname, p.role, p.rank
-         FROM clan_members cm
-         JOIN players p ON p.id = cm.player_id
+        `SELECT p.id, p.nickname, p.role, p.rank, p.prestige_level, cm.role as clan_role
+         FROM players p JOIN clan_members cm ON p.id = cm.player_id
          WHERE cm.clan_id = ?`,
         [clanId]
     );
     return rows;
 }
 
-async function getPlayerBlessingState(playerId, dungeonId) {
-    await ensureClanTables();
+async function getClanMemberRole(playerId, clanId) {
     const [rows] = await db.execute(
-        "SELECT * FROM clan_blessing_state WHERE player_id=? AND dungeon_id=?",
-        [playerId, dungeonId]
+        "SELECT role FROM clan_members WHERE player_id=? AND clan_id=?",
+        [playerId, clanId]
     );
-    if (rows.length) return rows[0];
-    await db.execute(
-        "INSERT IGNORE INTO clan_blessing_state (player_id, dungeon_id) VALUES (?, ?)",
-        [playerId, dungeonId]
-    );
-    return { player_id: playerId, dungeon_id: dungeonId, hit_count: 0, skill_count: 0, blessing_used: 0, damage_boost: 0, invincible: 0 };
+    return rows[0]?.role || null;
 }
 
-async function updateBlessingState(playerId, dungeonId, updates) {
-    const sets  = Object.keys(updates).map(k => `${k}=?`).join(', ');
-    const vals  = [...Object.values(updates), playerId, dungeonId];
-    await db.execute(`UPDATE clan_blessing_state SET ${sets} WHERE player_id=? AND dungeon_id=?`, vals);
+async function isOfficer(playerId, clanId) {
+    const role = await getClanMemberRole(playerId, clanId);
+    return role === 'officer' || role === 'master';
 }
 
-function getBlessingDisplay() {
-    return Object.entries(CLAN_BLESSINGS).map(([id, b]) =>
-        `┃◆ ${id}. ${b.emoji} *${b.name}*\n` +
-        `┃◆    📌 ${b.condition}\n` +
-        `┃◆    ⚡ ${b.effect}\n` +
-        `┃◆────────────`
-    ).join('\n');
+function getBlessingDisplay(blessingId) {
+    const b = CLAN_BLESSINGS[blessingId];
+    if (!b) return '';
+    return `${b.emoji} *${b.name}*\n📌 ${b.condition}\n⚡ ${b.effect}`;
+}
+
+// ── CREATION REQUIREMENT CHECK ────────────────────────────────────────────────
+async function checkCreationRequirements(playerId) {
+    const RANK_ORDER = ['F','E','D','C','B','A','S','PF','PE','PD','PC','PB','PA','PS'];
+    const fails = [];
+
+    const [player] = await db.execute(
+        "SELECT nickname, `rank`, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
+        [playerId]
+    );
+    if (!player.length) return { pass: false, fails: ['Not registered'] };
+    const p = player[0];
+
+    // Prestige check
+    if (p.prestige_level < CREATION_REQUIREMENTS.minPrestige) {
+        fails.push(`❌ Must be Prestige (you are not prestige)`);
+    }
+
+    // Rank check
+    const rankIdx    = RANK_ORDER.indexOf(p.rank);
+    const minRankIdx = RANK_ORDER.indexOf(CREATION_REQUIREMENTS.minRank);
+    if (rankIdx < minRankIdx && !p.rank.startsWith('P')) {
+        fails.push(`❌ Must be Rank ${CREATION_REQUIREMENTS.minRank}+ (you are ${p.rank})`);
+    }
+
+    // Dungeon clears check
+    const [clears] = await db.execute(
+        "SELECT COUNT(*) as cnt FROM quest_progress WHERE player_id=? AND quest_type='dungeon_clear'",
+        [playerId]
+    ).catch(() => [[{ cnt: 0 }]]);
+    const clearCount = Number(clears[0]?.cnt || 0);
+    if (clearCount < CREATION_REQUIREMENTS.minDungeons) {
+        fails.push(`❌ Need ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (you have ${clearCount})`);
+    }
+
+    // Malachar kill check
+    const [malachar] = await db.execute(
+        "SELECT player_id FROM malachar_kills WHERE player_id=?", [playerId]
+    ).catch(() => [[]]);
+    if (!malachar.length) {
+        fails.push(`❌ Must have slain Malachar`);
+    }
+
+    // Gold check
+    const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [playerId]);
+    const playerGold = Number(gold[0]?.gold || 0);
+    if (playerGold < CREATION_REQUIREMENTS.minGold) {
+        fails.push(`❌ Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you have ${playerGold.toLocaleString()})`);
+    }
+
+    return { pass: fails.length === 0, fails, playerGold, clearCount, p };
 }
 
 module.exports = {
     PRESET_CLANS,
     CLAN_BLESSINGS,
+    CREATION_REQUIREMENTS,
     ensureClanTables,
     getPlayerClan,
     getClanById,
     getClanMembers,
-    getPlayerBlessingState,
-    updateBlessingState,
-    getBlessingDisplay
+    getClanMemberRole,
+    isOfficer,
+    getBlessingDisplay,
+    checkCreationRequirements,
 };

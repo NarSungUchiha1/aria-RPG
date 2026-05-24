@@ -1,8 +1,12 @@
 const db = require('../database/db');
-const { ensureClanTables, getPlayerClan, getBlessingDisplay, CLAN_BLESSINGS } = require('../systems/clanSystem');
-
-const CREATE_COST = 5000;
-const { PRESET_CLANS } = require('../systems/clanSystem');
+const {
+    ensureClanTables,
+    getPlayerClan,
+    CLAN_BLESSINGS,
+    PRESET_CLANS,
+    CREATION_REQUIREMENTS,
+    checkCreationRequirements,
+} = require('../systems/clanSystem');
 
 module.exports = {
     name: 'createclan',
@@ -10,86 +14,122 @@ module.exports = {
         try {
             await ensureClanTables();
 
-            const [player] = await db.execute("SELECT nickname FROM players WHERE id=?", [userId]);
-            if (!player.length) return msg.reply("❌ Not registered.");
-
-            // Only prestige players can create clans
-            const [presRow] = await db.execute("SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]);
-            if ((presRow[0]?.prestige_level || 0) < 1) return msg.reply(
-                `══〘 🏰 CREATE CLAN 〙══╮\n┃◆ ❌ Only Prestige players can\n┃◆ create a clan.\n╰═══════════════════════╯`
-            );
-
-            // Max 3 clans globally
-            const [clanCount] = await db.execute("SELECT COUNT(*) as cnt FROM clans");
-            if (clanCount[0].cnt >= 3) return msg.reply(
-                `══〘 🏰 CREATE CLAN 〙══╮\n┃◆ ❌ The world already has 3 clans.\n┃◆ No more can be forged.\n╰═══════════════════════╯`
-            );
-
-            const existing = await getPlayerClan(userId);
-            if (existing) return msg.reply(
-                `══〘 🏰 CLAN 〙══╮\n┃◆ ❌ You are already in *${existing.name}*.\n┃◆ !leaveclan first.\n╰═══════════════════════╯`
-            );
-
-            // Show available preset clans
-            const [existingClans] = await db.execute("SELECT name FROM clans");
-            const taken = existingClans.map(r => r.name);
-            const available = PRESET_CLANS.filter(p => !taken.includes(p.name));
-
+            // ── Show requirements if no args ──────────────────────────────────
             if (!args[0]) {
-                if (!available.length) return msg.reply(
-                    `══〘 🏰 CREATE CLAN 〙══╮\n┃◆ All 3 clans have been claimed.\n╰═══════════════════════╯`
-                );
+                const check = await checkCreationRequirements(userId);
+                const RANK_ORDER = ['F','E','D','C','B','A','S'];
+
                 let text =
-                    `══〘 🏰 FORGE A CLAN 〙══╮\n` +
-                    `┃◆ Cost: ${CREATE_COST.toLocaleString()} Gold\n` +
-                    `┃◆────────────\n` +
-                    `┃◆ Available clans:\n`;
+                    `╔══〘 🏰 FORGE A CLAN 〙══╗\n` +
+                    `┃◆\n` +
+                    `┃◆ Creating a clan is not a privilege.\n` +
+                    `┃◆ It is earned. These are the terms:\n` +
+                    `┃◆\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ REQUIREMENTS\n` +
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ ${check.p?.prestige_level > 0 ? '✅' : '❌'} Be a Prestige hunter\n` +
+                    `┃◆ ${(RANK_ORDER.indexOf(check.p?.rank) >= RANK_ORDER.indexOf('A') || check.p?.rank?.startsWith('P')) ? '✅' : '❌'} Rank A or higher\n` +
+                    `┃◆ ${Number(check.clearCount) >= CREATION_REQUIREMENTS.minDungeons ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (${check.clearCount || 0} done)\n` +
+                    `┃◆ ${check.fails.some(f => f.includes('Malachar')) ? '❌' : '✅'} Have slain Malachar\n` +
+                    `┃◆ ${Number(check.playerGold) >= CREATION_REQUIREMENTS.minGold ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you: ${Number(check.playerGold||0).toLocaleString()})\n` +
+                    `┃◆\n`;
+
+                if (!check.pass) {
+                    text +=
+                        `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                        `┃◆ You do not yet qualify.\n` +
+                        `┃◆ Return when you are ready.\n` +
+                        `╚═══════════════════════════╝`;
+                    return msg.reply(text);
+                }
+
+                // Show available clan slots
+                const [existingClans] = await db.execute("SELECT name FROM clans");
+                const taken     = existingClans.map(r => r.name);
+                const available = PRESET_CLANS.filter(p => !taken.includes(p.name));
+
+                if (!available.length) {
+                    text +=
+                        `┃◆ All clan names are taken.\n` +
+                        `┃◆ Ask an admin to add more.\n` +
+                        `╚═══════════════════════════╝`;
+                    return msg.reply(text);
+                }
+
+                text +=
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ ✅ You qualify. Choose your clan:\n` +
+                    `┃◆\n`;
                 available.forEach((p, i) => {
                     const b = CLAN_BLESSINGS[p.blessing_id];
-                    text += `┃◆ ${i+1}. ${p.name}\n┃◆    ${b.emoji} ${b.name} — ${b.condition}\n┃◆\n`;
+                    text += `┃◆ ${i+1}. *${p.name}*\n┃◆    ${b.emoji} ${b.name}\n┃◆    📌 ${b.condition}\n┃◆\n`;
                 });
-                text += `┃◆ CMD: !createclan <number>\n╰═══════════════════════╯`;
+                text +=
+                    `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃◆ Cost: ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold\n` +
+                    `┃◆ CMD: !createclan <number>\n` +
+                    `╚═══════════════════════════╝`;
                 return msg.reply(text);
             }
 
-            const pick = parseInt(args[0]) - 1;
-            if (isNaN(pick) || !available[pick]) return msg.reply("❌ Invalid number.");
-            const chosen    = available[pick];
-            const clanName  = chosen.name;
-            const blessingId = chosen.blessing_id;
-
-            const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
-            if ((gold[0]?.gold || 0) < CREATE_COST) return msg.reply(
-                `══〘 🏰 CREATE CLAN 〙══╮\n┃◆ ❌ Need ${CREATE_COST.toLocaleString()} Gold.\n╰═══════════════════════╯`
+            // ── Attempt creation ──────────────────────────────────────────────
+            const check = await checkCreationRequirements(userId);
+            if (!check.pass) return msg.reply(
+                `╔══〘 🏰 CREATE CLAN 〙══╗\n` +
+                `┃◆ ❌ Requirements not met:\n` +
+                check.fails.map(f => `┃◆ ${f}`).join('\n') +
+                `\n╚═══════════════════════════╝`
             );
 
-            await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [CREATE_COST, userId]);
+            const existing = await getPlayerClan(userId);
+            if (existing) return msg.reply(`❌ Leave *${existing.name}* first with !leaveclan.`);
+
+            const [existingClans] = await db.execute("SELECT name FROM clans");
+            const taken     = existingClans.map(r => r.name);
+            const available = PRESET_CLANS.filter(p => !taken.includes(p.name));
+
+            const pick = parseInt(args[0]) - 1;
+            if (isNaN(pick) || !available[pick]) return msg.reply("❌ Invalid number. Type !createclan to see options.");
+
+            const chosen     = available[pick];
+            const clanName   = chosen.name;
+            const blessingId = chosen.blessing_id;
+
+            // Deduct gold
+            await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [CREATION_REQUIREMENTS.minGold, userId]);
 
             const [result] = await db.execute(
-                "INSERT INTO clans (name, leader_id, blessing_id) VALUES (?, ?, ?)",
+                "INSERT INTO clans (name, leader_id, blessing_id, member_count) VALUES (?, ?, ?, 1)",
                 [clanName, userId, blessingId]
             );
             const clanId = result.insertId;
 
             await db.execute(
-                "INSERT INTO clan_members (player_id, clan_id) VALUES (?, ?)",
+                "INSERT INTO clan_members (player_id, clan_id, role) VALUES (?, ?, 'master')",
                 [userId, clanId]
             );
 
             const blessing = CLAN_BLESSINGS[blessingId];
             return msg.reply(
-                `══〘 🏰 CLAN FORGED 〙══╮\n` +
-                `┃◆ \n` +
-                `┃◆ *${clanName}* rises.\n` +
-                `┃◆ Led by: ${player[0].nickname}\n` +
-                `┃◆────────────\n` +
-                `┃◆ ${blessing.emoji} Blessing: *${blessing.name}*\n` +
+                `╔══〘 🏰 CLAN FORGED 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ *${clanName}* rises from the fracture.\n` +
+                `┃◆ Led by: *${check.p.nickname}*\n` +
+                `┃◆\n` +
+                `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                `┃◆ ${blessing.emoji} *${blessing.name}*\n` +
                 `┃◆ 📌 ${blessing.condition}\n` +
                 `┃◆ ⚡ ${blessing.effect}\n` +
-                `┃◆────────────\n` +
-                `┃◆ !joinclan ${clanName} — share the link\n` +
-                `╰═══════════════════════╯`
+                `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                `┃◆ You are now Clan Master.\n` +
+                `┃◆ Use !clan assign @member <quest>\n` +
+                `┃◆ to give members their trials.\n` +
+                `┃◆\n` +
+                `┃◆ !clan — view your clan\n` +
+                `╚═══════════════════════════╝`
             );
+
         } catch (err) {
             console.error('createclan error:', err);
             if (err.code === 'ER_DUP_ENTRY') return msg.reply("❌ Clan name already taken.");

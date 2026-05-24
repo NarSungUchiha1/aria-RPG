@@ -17,6 +17,7 @@ const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
+const { recordMalacharKill } = require('../systems/clanQuestTracker');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -81,6 +82,13 @@ module.exports = {
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
+
+                // Record Malachar kills for clan creation requirement
+                if (d.dungeon_rank === 'MALACHAR') {
+                    for (const p of participants) {
+                        recordMalacharKill(p.player_id).catch(() => {});
+                    }
+                }
 
                 // Special Malachar clear message
                 if (d.dungeon_rank === 'MALACHAR') {

@@ -209,7 +209,10 @@ async function assignDailyQuests(playerId) {
 }
 
 // ── UPDATE QUEST PROGRESS ────────────────────────────────────────────────────
+const { updateClanQuestProgress } = require('./clanQuestTracker');
+
 async function updateQuestProgress(playerId, objectiveType, amount = 1, client = null) {
+    updateClanQuestProgress(playerId, objectiveType, amount, client).catch(() => {});
     await assignDailyQuests(playerId).catch(() => {});
     const today = new Date().toISOString().split('T')[0];
 
