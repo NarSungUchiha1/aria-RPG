@@ -8,6 +8,7 @@ const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
 const { initMvpTracking, recordDamage: mvpRecordDmg } = require('../systems/mvpSystem');
+const { updateClanQuestProgress } = require('../systems/clanQuestTracker');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -899,6 +900,16 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     }
 
     await db.execute("DELETE FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?", [dungeonId, enemyId]);
+
+    // Fire clan quest progress for kill events
+    const isBossKill = Number(enemy[0].exp) >= 2000;
+    for (const r of rewards) {
+        updateClanQuestProgress(r.playerId, 'kill_enemies', 1, null).catch(() => {});
+        if (isBossKill) {
+            updateClanQuestProgress(r.playerId, 'boss_kill', 1, null).catch(() => {});
+        }
+    }
+
     return { enemyName: enemy[0].name, contributors: rewards };
 }
 
