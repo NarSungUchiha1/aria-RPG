@@ -297,7 +297,23 @@ module.exports = {
                 );
             }
 
-            const dungeon = await getActiveDungeon();
+            // FIX: For prestige players, always prefer territory dungeon over normal
+            // Check if there's an active territory dungeon first
+            const [terrDungeons] = await db.execute(
+                "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+            );
+            const [normDungeons] = await db.execute(
+                "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+            );
+            // Prestige players go to territory dungeon if one exists, else normal
+            // Non-prestige players only see normal dungeons
+            const [pLevelCheck] = await db.execute(
+                "SELECT COALESCE(prestige_level,0) as pl FROM players WHERE id=?", [userId]
+            );
+            const playerIsPrestige = (pLevelCheck[0]?.pl || 0) > 0;
+            let dungeon = terrDungeons[0] && playerIsPrestige
+                ? terrDungeons[0]
+                : (normDungeons[0] || terrDungeons[0] || null);
 
             if (!dungeon) {
 

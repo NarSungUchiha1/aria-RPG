@@ -70,16 +70,22 @@ module.exports = {
                 '╰═══════════════════════╯'
             );
 
-            // Check no active territory dungeon already running for this territory
-            const [activeTerr] = await db.execute(
-                "SELECT id FROM dungeon WHERE dungeon_rank=? AND is_active=1 LIMIT 1",
-                ['TERRITORY_' + tid]
+            // Block if ANY territory dungeon is currently active
+            const [anyActiveTerr] = await db.execute(
+                "SELECT id, dungeon_rank FROM dungeon WHERE dungeon_rank LIKE 'TERRITORY_%' AND is_active=1 LIMIT 1"
             );
-            if (activeTerr.length) return msg.reply(
-                '══〘 🌑 CONQUER 〙══╮\n' +
-                '┃★ ❌ An assault on ' + territory.name + ' is already active.\n' +
-                '╰═══════════════════════╯'
-            );
+            if (anyActiveTerr.length) {
+                const activeTid = anyActiveTerr[0].dungeon_rank.replace('TERRITORY_', '');
+                const { TERRITORIES: T } = require('../systems/voidTerritories');
+                const activeName = T[activeTid]?.name || activeTid;
+                return msg.reply(
+                    '══〘 🌑 CONQUER 〙══╮\n' +
+                    '┃★ ❌ A territory assault is already active.\n' +
+                    '┃★ ' + activeName + ' is under siege.\n' +
+                    '┃★ Wait for it to end first.\n' +
+                    '╰═══════════════════════╯'
+                );
+            }
 
             const inWar = await isClanInTerritoryWar(myClan.id);
             if (inWar) return msg.reply(
