@@ -27,6 +27,16 @@ module.exports = {
                 `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Consumables cannot be equipped.\n┃◆ Use !use ${item.item_name}\n╰═══════════════════════╯`
             );
 
+            // Block non-owners from equipping bound/unique weapons
+            if (item.bound_to && item.bound_to !== userId) {
+                return msg.reply(
+                    '══〘 ⚔️ EQUIP 〙══╮\n' +
+                    '┃◆ ❌ This weapon is bound to another hunter.\n' +
+                    '┃◆ It cannot be wielded by anyone else.\n' +
+                    '╰═══════════════════════╯'
+                );
+            }
+
             // Block prestige players from equipping normal (non-prestige) weapons
             if (item.item_type === 'weapon') {
                 const [presRow] = await db.execute(
