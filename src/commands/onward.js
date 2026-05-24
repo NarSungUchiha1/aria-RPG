@@ -91,20 +91,6 @@ module.exports = {
                     }
                 }
 
-                // Special Malachar clear message + ARIA reaction
-                if (d.dungeon_rank === 'MALACHAR') {
-                    // Send ARIA's reaction after a delay — she speaks when the silence settles
-                    (async () => {
-                        try {
-                            const { ARIA_MALACHAR_REACTION, CHAPTER5_FACTION_REVEAL } = require('../systems/chapter5lore');
-                            await new Promise(r => setTimeout(r, 8000));
-                            await client.sendMessage(RAID_GROUP, { text: ARIA_MALACHAR_REACTION });
-                            await new Promise(r => setTimeout(r, 12000));
-                            await client.sendMessage(RAID_GROUP, { text: CHAPTER5_FACTION_REVEAL });
-                        } catch(e) { console.error('Chapter 5 lore error:', e.message); }
-                    })();
-                }
-
                 // Malachar clear announcement
                 if (d.dungeon_rank === 'MALACHAR') {
                     await client.sendMessage(RAID_GROUP, {
