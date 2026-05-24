@@ -60,6 +60,8 @@ async function beginDungeon(dungeonId, client) {
 
         clearLobbyTimer(dungeonId);
         autoStartTimers.delete(dungeonId);
+        // FIX: also cancel territory lobby timer if this is a territory dungeon
+        try { require('./conquer').clearTerritoryLobby(dungeonId); } catch(e) {}
 
         await lockDungeon(dungeonId);
 

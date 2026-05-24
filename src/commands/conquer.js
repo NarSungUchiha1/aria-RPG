@@ -31,6 +31,7 @@ function clearTerritoryLobby(dungeonId) {
 
 module.exports = {
     name: 'conquer',
+    clearTerritoryLobby,
     async execute(msg, args, { userId, client }) {
         try {
             await ensureTerritoryTables();
