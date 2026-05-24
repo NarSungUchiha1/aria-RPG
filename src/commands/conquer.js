@@ -1,8 +1,11 @@
 /**
  * !conquer <TERRITORY_ID>
- * Starts a territory conquest dungeon.
- * If territory is unclaimed → clan claims it on clear.
- * If territory is held by another clan → territory war starts.
+ *
+ * Works like a party duel — launches in the RAID GROUP.
+ * Attacker clan members DM !enter to join the assault party.
+ * If territory is held, defender clan gets notified and can field defenders.
+ * Territory dungeons are isolated — no normal dungeon spawns can interfere.
+ * Once the assault dungeon is locked (started), it runs independently.
  */
 
 const db = require('../database/db');
@@ -11,11 +14,20 @@ const {
     getTerritoryStatus, isClanInTerritoryWar,
     claimTerritory
 } = require('../systems/voidTerritories');
-const { getPlayerClan, getClanMemberRole } = require('../systems/clanSystem');
-const { spawnDungeon, lockDungeon, getActiveDungeon, startLobbyTimer } = require('../engine/dungeon');
+const { getPlayerClan, getClanMemberRole, getClanMembers } = require('../systems/clanSystem');
+const { addVoidResonance } = require('../systems/ascendantSystem');
 const territoryEnemies = require('../data/territoryEnemies');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const LOBBY_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+// Active territory assault lobbies: dungeonId → { tid, attackerClan, defenderClan, timer }
+const territoryLobbies = new Map();
+
+function clearTerritoryLobby(dungeonId) {
+    const t = territoryLobbies.get(dungeonId);
+    if (t) { clearTimeout(t.timer); territoryLobbies.delete(dungeonId); }
+}
 
 module.exports = {
     name: 'conquer',
@@ -26,7 +38,7 @@ module.exports = {
             const myClan = await getPlayerClan(userId);
             if (!myClan) return msg.reply(
                 '══〘 🌑 CONQUER 〙══╮\n' +
-                '┃★ ❌ You must be in a clan to challenge a territory.\n' +
+                '┃★ ❌ You must be in a clan.\n' +
                 '╰═══════════════════════╯'
             );
 
@@ -40,8 +52,9 @@ module.exports = {
             const tid = args[0]?.toUpperCase();
             if (!tid || !TERRITORIES[tid]) return msg.reply(
                 '══〘 🌑 CONQUER 〙══╮\n' +
-                '┃★ ❌ Specify a territory: ASSEMBLY, WRATHBORNE, or REMNANTS\n' +
-                '┃★ Check !territory for details.\n' +
+                '┃★ ❌ Specify a territory:\n' +
+                '┃★ ASSEMBLY, WRATHBORNE or REMNANTS\n' +
+                '┃★ Use !territory to check status.\n' +
                 '╰═══════════════════════╯'
             );
 
@@ -49,22 +62,24 @@ module.exports = {
             const status    = await getTerritoryStatus();
             const terr      = status[tid] || {};
 
-            // Already own it
             if (terr.clan_id === myClan.id) return msg.reply(
                 '══〘 🌑 CONQUER 〙══╮\n' +
-                '┃★ ❌ Your clan already controls ' + territory.name + '.\n' +
+                '┃★ ❌ Your clan already controls\n' +
+                '┃★ ' + territory.name + '.\n' +
                 '╰═══════════════════════╯'
             );
 
-            // Check no active dungeon
-            const active = await getActiveDungeon();
-            if (active) return msg.reply(
+            // Check no active territory dungeon already running for this territory
+            const [activeTerr] = await db.execute(
+                "SELECT id FROM dungeon WHERE dungeon_rank=? AND is_active=1 LIMIT 1",
+                ['TERRITORY_' + tid]
+            );
+            if (activeTerr.length) return msg.reply(
                 '══〘 🌑 CONQUER 〙══╮\n' +
-                '┃★ ❌ A dungeon is already active. Wait for it to end.\n' +
+                '┃★ ❌ An assault on ' + territory.name + ' is already active.\n' +
                 '╰═══════════════════════╯'
             );
 
-            // Check not already in territory war
             const inWar = await isClanInTerritoryWar(myClan.id);
             if (inWar) return msg.reply(
                 '══〘 🌑 CONQUER 〙══╮\n' +
@@ -72,43 +87,37 @@ module.exports = {
                 '╰═══════════════════════╯'
             );
 
-            // Check cooldown — can only attempt conquest once every 48 hours
+            // 48hr cooldown
             if (terr.last_attacked) {
                 const hoursSince = (Date.now() - new Date(terr.last_attacked)) / (1000 * 60 * 60);
                 if (hoursSince < 48) {
                     const hoursLeft = Math.ceil(48 - hoursSince);
                     return msg.reply(
                         '══〘 🌑 CONQUER 〙══╮\n' +
-                        '┃★ ❌ This territory was recently contested.\n' +
-                        '┃★ ⏳ Cooldown: ' + hoursLeft + ' hours remaining.\n' +
+                        '┃★ ❌ Territory on cooldown.\n' +
+                        '┃★ ⏳ ' + hoursLeft + ' hours remaining.\n' +
                         '╰═══════════════════════╯'
                     );
                 }
             }
 
             const isUnclaimed  = !terr.clan_id;
-            const defenderClan = terr.clan_id || null;
+            const defenderClan = terr.clan_id   || null;
             const defenderName = terr.clan_name || null;
 
-            // Spawn territory dungeon
-            const dungeonRank   = 'TERRITORY_' + tid;
-            const maxStage      = territory.stages;
-            const guardian      = territory.guardian;
-
-            await db.execute(
-                'ALTER TABLE dungeon MODIFY COLUMN dungeon_rank VARCHAR(40)'
-            ).catch(() => {});
+            // ── Spawn territory dungeon ───────────────────────────────────────
+            await db.execute('ALTER TABLE dungeon MODIFY COLUMN dungeon_rank VARCHAR(40)').catch(() => {});
 
             const [result] = await db.execute(
                 'INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked) VALUES (?, 1, ?, ?, 1, 0, 0, 0)',
-                [dungeonRank, maxStage, guardian]
+                ['TERRITORY_' + tid, territory.stages, territory.guardian]
             );
             const dungeonId = result.insertId;
 
             // Spawn first stage enemies
             const enemyData = territoryEnemies[tid];
             if (enemyData) {
-                const count   = Math.floor(Math.random() * 3) + 3;
+                const count = Math.floor(Math.random() * 3) + 3;
                 for (let i = 0; i < count; i++) {
                     const mini = enemyData.miniBosses[Math.floor(Math.random() * enemyData.miniBosses.length)];
                     await db.execute(
@@ -118,29 +127,62 @@ module.exports = {
                 }
             }
 
-            // Set territory as attacked
-            await db.execute(
-                'UPDATE void_territories SET last_attacked=NOW() WHERE territory_id=?',
-                [tid]
-            );
+            // Mark last attacked
+            await db.execute('UPDATE void_territories SET last_attacked=NOW() WHERE territory_id=?', [tid]);
 
             // Record territory war if contested
             if (!isUnclaimed) {
                 await db.execute(
-                    'INSERT INTO territory_wars (territory_id, attacker_clan, defender_clan, status, started_at) VALUES (?, ?, ?, \'active\', NOW())',
+                    "INSERT INTO territory_wars (territory_id, attacker_clan, defender_clan, status, started_at) VALUES (?, ?, ?, 'pending', NOW())",
                     [tid, myClan.id, defenderClan]
                 );
             }
 
-            // Store conquest context on the dungeon via flags table
-            await db.execute('CREATE TABLE IF NOT EXISTS dungeon_flags (dungeon_id INT PRIMARY KEY, unlimited_entry TINYINT DEFAULT 0, no_rank_check TINYINT DEFAULT 0, territory_id VARCHAR(30) DEFAULT NULL, conquering_clan INT DEFAULT NULL) ').catch(() => {});
+            // Store conquest context
+            await db.execute('CREATE TABLE IF NOT EXISTS dungeon_flags (dungeon_id INT PRIMARY KEY, unlimited_entry TINYINT DEFAULT 0, no_rank_check TINYINT DEFAULT 0, territory_id VARCHAR(30) DEFAULT NULL, conquering_clan INT DEFAULT NULL, defending_clan INT DEFAULT NULL)').catch(() => {});
+            await db.execute('ALTER TABLE dungeon_flags ADD COLUMN IF NOT EXISTS defending_clan INT DEFAULT NULL').catch(() => {});
             await db.execute(
-                'INSERT INTO dungeon_flags (dungeon_id, unlimited_entry, no_rank_check, territory_id, conquering_clan) VALUES (?, 0, 1, ?, ?) ON DUPLICATE KEY UPDATE territory_id=?, conquering_clan=?',
-                [dungeonId, tid, myClan.id, tid, myClan.id]
+                'INSERT INTO dungeon_flags (dungeon_id, unlimited_entry, no_rank_check, territory_id, conquering_clan, defending_clan) VALUES (?, 0, 1, ?, ?, ?) ON DUPLICATE KEY UPDATE territory_id=?, conquering_clan=?, defending_clan=?',
+                [dungeonId, tid, myClan.id, defenderClan, tid, myClan.id, defenderClan]
             );
 
-            // Announce
+            // ── Lobby timer — closes after 10 minutes if nobody enters ────────
+            const lobbyTimer = setTimeout(async () => {
+                try {
+                    const [active] = await db.execute('SELECT id FROM dungeon WHERE id=? AND is_active=1 AND locked=0', [dungeonId]);
+                    if (active.length) {
+                        await db.execute('UPDATE dungeon SET is_active=0 WHERE id=?', [dungeonId]);
+                        await client.sendMessage(RAID_GROUP, {
+                            text:
+                                '╔══〘 🌑 ASSAULT EXPIRED 〙══╗\n' +
+                                '┃★ ' + territory.emoji + ' ' + territory.name + '\n' +
+                                '┃★ The assault party never formed.\n' +
+                                '┃★ The territory stands.\n' +
+                                '╚═══════════════════════════╝'
+                        });
+                        // Reset territory war record if contested
+                        if (!isUnclaimed) {
+                            await db.execute(
+                                "UPDATE territory_wars SET status='completed' WHERE territory_id=? AND attacker_clan=? AND status='pending'",
+                                [tid, myClan.id]
+                            );
+                        }
+                    }
+                } catch(e) {}
+                territoryLobbies.delete(dungeonId);
+            }, LOBBY_DURATION_MS);
+
+            territoryLobbies.set(dungeonId, {
+                tid, attackerClan: myClan.id, defenderClan, timer: lobbyTimer
+            });
+
+            // ── Announce to RAID GROUP ────────────────────────────────────────
             const isWar = !isUnclaimed;
+
+            // Get attacker members for mentions
+            const attackerMembers = await getClanMembers(myClan.id);
+            const attackerMentions = attackerMembers.map(m => m.id + '@s.whatsapp.net');
+
             await client.sendMessage(RAID_GROUP, {
                 text:
                     '╔══〘 🌑 TERRITORY ASSAULT 〙══╗\n' +
@@ -150,34 +192,62 @@ module.exports = {
                     '┃★\n' +
                     (isWar
                         ? '┃★ ⚔️ *' + myClan.name + '* challenges\n' +
-                          '┃★ *' + defenderName + '* for control!\n'
-                        : '┃★ *' + myClan.name + '* moves to claim\n' +
+                          '┃★ *' + defenderName + '* for control!\n' +
+                          '┃★\n' +
+                          '┃★ ⚠️ *' + defenderName + '* — field your\n' +
+                          '┃★ defenders! DM !defend to hold\n' +
+                          '┃★ your territory.\n'
+                        : '┃★ ⚔️ *' + myClan.name + '* claims\n' +
                           '┃★ unclaimed territory.\n'
                     ) +
                     '┃★\n' +
                     '┃★ ' + territory.stages + ' stages.\n' +
-                    '┃★ Guardian: *' + guardian + '*\n' +
+                    '┃★ Guardian: *' + territory.guardian + '*\n' +
                     '┃★\n' +
-                    '┃★ Only *' + myClan.name + '* members can enter.\n' +
-                    '┃★ DM the bot !enter to join.\n' +
-                    '┃★ ⏳ Portal closes in 10 minutes.\n' +
+                    '┃★ *' + myClan.name + '* members:\n' +
+                    '┃★ DM the bot *!enter* to join.\n' +
+                    '┃★ ⏳ Lobby open for 10 minutes.\n' +
                     '┃★\n' +
-                    '╚═══════════════════════════╝'
+                    '╚═══════════════════════════╝',
+                mentions: attackerMentions
             });
 
-            startLobbyTimer(dungeonId, client);
+            // If contested — also notify defender clan members
+            if (isWar && defenderClan) {
+                const defenderMembers = await getClanMembers(defenderClan);
+                const defenderMentions = defenderMembers.map(m => m.id + '@s.whatsapp.net');
+                await client.sendMessage(RAID_GROUP, {
+                    text:
+                        '╔══〘 🛡️ TERRITORY UNDER ATTACK 〙══╗\n' +
+                        '┃★\n' +
+                        '┃★ *' + defenderName + '* —\n' +
+                        '┃★ your territory is being challenged.\n' +
+                        '┃★\n' +
+                        '┃★ DM the bot *!defend ' + tid + '* to\n' +
+                        '┃★ enter the defense dungeon and\n' +
+                        '┃★ hold your ground.\n' +
+                        '┃★\n' +
+                        '┃★ If no defenders enter — the\n' +
+                        '┃★ territory falls uncontested.\n' +
+                        '┃★\n' +
+                        '╚═══════════════════════════╝',
+                    mentions: defenderMentions
+                });
+            }
 
             return msg.reply(
                 '╔══〘 🌑 CONQUEST LAUNCHED 〙══╗\n' +
-                '┃★ ' + territory.name + '\n' +
-                '┃★ ' + territory.stages + ' stages — clear to ' + (isWar ? 'take control.' : 'claim it.') + '\n' +
-                '┃★ Announcement sent to the group.\n' +
+                '┃★ ' + territory.emoji + ' ' + territory.name + '\n' +
+                '┃★ ' + territory.stages + ' stages.\n' +
+                '┃★ Announced in group.\n' +
+                '┃★ Your clan members DM !enter.\n' +
+                (isWar ? '┃★ Defenders DM !defend ' + tid + '.\n' : '') +
                 '╚═══════════════════════════╝'
             );
 
         } catch (err) {
             console.error('conquer error:', err);
-            msg.reply('❌ Conquest failed.');
+            msg.reply('❌ Conquest failed: ' + err.message);
         }
     }
 };

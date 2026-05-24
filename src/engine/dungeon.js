@@ -74,8 +74,9 @@ async function getWeightedDungeonRank() {
 
 async function spawnDungeon(rank, client = null) {
     try {
+        // FIX: Territory dungeons run independently — don't block normal spawns
         const [activePlayers] = await db.execute(
-            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1 AND d.dungeon_rank NOT LIKE 'TERRITORY_%'"
         );
         if (activePlayers[0].cnt > 0) {
             console.log('⏭️ Spawn skipped — players still active in a dungeon');
@@ -312,8 +313,12 @@ async function demoteAllRaiders(client, dungeonId) {
     }
 }
 
-async function getActiveDungeon() {
-    const [rows] = await db.execute("SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1");
+async function getActiveDungeon(includeTerritory = false) {
+    const [rows] = await db.execute(
+        includeTerritory
+            ? "SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
+            : "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+    );
     return rows[0] || null;
 }
 

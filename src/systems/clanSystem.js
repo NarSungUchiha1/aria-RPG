@@ -43,7 +43,7 @@ const CREATION_REQUIREMENTS = {
     minPrestige:     1,        // Must be prestige
     minDungeons:     50,       // At least 50 dungeon clears
     minGold:         25000,    // 25k gold cost to create
-    malacharKilled:  true,     // Must have been present when Malachar was killed
+    minPsDungeons:   1,        // Must have cleared at least one PS dungeon
 };
 
 // ── TABLE SETUP ───────────────────────────────────────────────────────────────
@@ -182,12 +182,13 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Need ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (you have ${clearCount})`);
     }
 
-    // Malachar kill check
-    const [malachar] = await db.execute(
-        "SELECT player_id FROM malachar_kills WHERE player_id=?", [playerId]
-    ).catch(() => [[]]);
-    if (!malachar.length) {
-        fails.push(`❌ Must have slain Malachar`);
+    // PS dungeon clear check
+    const [psRow] = await db.execute(
+        "SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?", [playerId]
+    ).catch(() => [[{ clears: 0 }]]);
+    const psClears = Number(psRow[0]?.clears || 0);
+    if (psClears < CREATION_REQUIREMENTS.minPsDungeons) {
+        fails.push('❌ Must have cleared at least 1 PS dungeon (you have ' + psClears + ')');
     }
 
     // Gold check
@@ -198,6 +199,26 @@ async function checkCreationRequirements(playerId) {
     }
 
     return { pass: fails.length === 0, fails, playerGold, clearCount, p };
+}
+
+
+// ── CLAN BLESSING STATE ───────────────────────────────────────────────────────
+async function getPlayerBlessingState(playerId, dungeonId) {
+    const [rows] = await db.execute(
+        'SELECT * FROM clan_blessing_state WHERE player_id=? AND dungeon_id=?',
+        [playerId, dungeonId]
+    );
+    return rows[0] || null;
+}
+
+async function updateBlessingState(playerId, dungeonId, fields) {
+    if (!fields || !Object.keys(fields).length) return;
+    const setClauses = Object.keys(fields).map(k => k + '=?').join(', ');
+    const values     = [...Object.values(fields), playerId, dungeonId];
+    await db.execute(
+        'UPDATE clan_blessing_state SET ' + setClauses + ' WHERE player_id=? AND dungeon_id=?',
+        values
+    );
 }
 
 module.exports = {
@@ -212,4 +233,6 @@ module.exports = {
     isOfficer,
     getBlessingDisplay,
     checkCreationRequirements,
+    getPlayerBlessingState,
+    updateBlessingState,
 };

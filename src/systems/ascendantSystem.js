@@ -1,22 +1,28 @@
 /**
  * ASCENDANT RANK SYSTEM
  *
- * Only hunters present when Malachar fell can attempt Ascendant.
- * It is not earned through normal ranking — it is triggered.
- * When the void inside them reaches a threshold, they break through.
+ * Any player can accumulate void resonance IF they meet the requirements.
+ * Requirements (similar weight to clan creation):
+ *   - Prestige player (prestige_level >= 1)
+ *   - Rank PC or higher (PC, PB, PA, PS, or ASCENDANT)
+ *   - At least 1 PS dungeon cleared
+ *   - At least 100 total dungeon clears
  *
- * The threshold: void_resonance >= 100
- * void_resonance accumulates by:
- *   - Clearing prestige dungeons (+5 per clear)
- *   - Winning territory wars (+15)
- *   - Killing bosses in PS rank (+3 per boss)
- *   - Clearing The Remnant Sanctum territory (+20)
+ * Resonance builds from:
+ *   +5  per prestige dungeon clear
+ *   +3  per PS boss kill
+ *   +15 per territory war win
+ *   +20 per Remnant Sanctum clear
+ *   +25 for killing Malachar's Echo
+ *
+ * At 100 resonance → Ascendant triggers automatically.
  */
 
 const db = require('../database/db');
 
-const ASCENDANT_THRESHOLD    = 100;
-const ASCENDANT_RANK         = 'ASCENDANT';
+const ASCENDANT_THRESHOLD  = 100;
+const ASCENDANT_RANK       = 'ASCENDANT';
+const PRESTIGE_RANK_ORDER  = ['PF','PE','PD','PC','PB','PA','PS'];
 
 const VOID_RESONANCE_GAINS = {
     prestige_dungeon_clear: 5,
@@ -29,36 +35,84 @@ const VOID_RESONANCE_GAINS = {
 async function ensureAscendantTables() {
     await db.execute(`
         CREATE TABLE IF NOT EXISTS void_resonance (
-            player_id         VARCHAR(60) PRIMARY KEY,
-            resonance         INT DEFAULT 0,
-            last_updated      DATETIME DEFAULT NOW(),
-            ascendant_at      DATETIME DEFAULT NULL
+            player_id    VARCHAR(60) PRIMARY KEY,
+            resonance    INT DEFAULT 0,
+            last_updated DATETIME DEFAULT NOW(),
+            ascendant_at DATETIME DEFAULT NULL
+        )
+    `).catch(() => {});
+
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS ps_dungeon_clears (
+            player_id  VARCHAR(60) PRIMARY KEY,
+            clears     INT DEFAULT 0
         )
     `).catch(() => {});
 
     await db.execute(
-        'ALTER TABLE players MODIFY COLUMN \`rank\` VARCHAR(20)'
+        'ALTER TABLE players MODIFY COLUMN `rank` VARCHAR(20)'
     ).catch(() => {});
 }
 
-async function getVoidResonance(playerId) {
+// ── ELIGIBILITY CHECK ─────────────────────────────────────────────────────────
+async function checkResonanceEligibility(playerId) {
     await ensureAscendantTables();
-    const [rows] = await db.execute(
-        'SELECT resonance FROM void_resonance WHERE player_id=?',
+
+    const fails = [];
+
+    const [player] = await db.execute(
+        'SELECT `rank`, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?',
         [playerId]
     );
-    return rows[0]?.resonance || 0;
+    if (!player.length) return { eligible: false, fails: ['Not registered'] };
+    const p = player[0];
+
+    // Prestige check
+    if (p.prestige_level < 1) {
+        fails.push('❌ Must be a Prestige hunter');
+    }
+
+    // Rank PS required
+    const rankIdx = PRESTIGE_RANK_ORDER.indexOf(p.rank);
+    if (rankIdx < PRESTIGE_RANK_ORDER.indexOf('PS') && p.rank !== ASCENDANT_RANK) {
+        fails.push('❌ Must be Rank PS (you are ' + p.rank + ')');
+    }
+
+    // At least 1 PS dungeon cleared
+    const [psClears] = await db.execute(
+        'SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?',
+        [playerId]
+    ).catch(() => [[{ clears: 0 }]]);
+    if ((psClears[0]?.clears || 0) < 1) {
+        fails.push('❌ Must have cleared at least one PS dungeon');
+    }
+
+    // 100 total dungeon clears
+    const [totalClears] = await db.execute(
+        "SELECT COUNT(*) as cnt FROM quest_progress WHERE player_id=? AND quest_type='dungeon_clear'",
+        [playerId]
+    ).catch(() => [[{ cnt: 0 }]]);
+    const clearCount = Number(totalClears[0]?.cnt || 0);
+    if (clearCount < 100) {
+        fails.push('❌ Need 100 dungeon clears (' + clearCount + ' done)');
+    }
+
+    return {
+        eligible: fails.length === 0,
+        fails,
+        rank: p.rank,
+        prestige: p.prestige_level,
+        psClears: psClears[0]?.clears || 0,
+        totalClears: clearCount
+    };
 }
 
 async function addVoidResonance(playerId, eventType, client = null) {
     await ensureAscendantTables();
 
-    // Only Malachar-killers can accumulate void resonance
-    const [killed] = await db.execute(
-        'SELECT player_id FROM malachar_kills WHERE player_id=?',
-        [playerId]
-    ).catch(() => [[]]);
-    if (!killed.length) return;
+    // Check eligibility
+    const check = await checkResonanceEligibility(playerId);
+    if (!check.eligible) return;
 
     const gain = VOID_RESONANCE_GAINS[eventType] || 0;
     if (!gain) return;
@@ -68,53 +122,92 @@ async function addVoidResonance(playerId, eventType, client = null) {
         [playerId, gain, gain]
     );
 
-    const newRes = await getVoidResonance(playerId);
+    const [resRow] = await db.execute(
+        'SELECT resonance FROM void_resonance WHERE player_id=?', [playerId]
+    );
+    const newRes = resRow[0]?.resonance || 0;
 
     // Threshold crossed — trigger breakthrough
     if (newRes >= ASCENDANT_THRESHOLD) {
         const [alreadyAscendant] = await db.execute(
-            'SELECT \`rank\` FROM players WHERE id=? AND \`rank\`=?',
+            'SELECT `rank` FROM players WHERE id=? AND `rank`=?',
             [playerId, ASCENDANT_RANK]
         );
         if (!alreadyAscendant.length) {
             await triggerAscendant(playerId, client);
         }
-    } else if (client) {
-        // Nudge at 50 and 75
-        if ((newRes >= 50 && newRes - gain < 50) || (newRes >= 75 && newRes - gain < 75)) {
-            try {
-                await client.sendMessage(playerId + '@s.whatsapp.net', {
-                    text:
-                        '══〘 👁️ VOID RESONANCE 〙══╮\n' +
-                        '┃★ Something stirs inside you.\n' +
-                        '┃★\n' +
-                        '┃★ Resonance: ' + newRes + ' / ' + ASCENDANT_THRESHOLD + '\n' +
-                        '┃★ ' + '🟣'.repeat(Math.floor(newRes / 10)) + '⬛'.repeat(10 - Math.floor(newRes / 10)) + '\n' +
-                        '┃★\n' +
-                        '┃★ You are getting closer to\n' +
-                        '┃★ something that has no name yet.\n' +
-                        '╰═══════════════════════╯'
-                });
-            } catch(e) {}
+        return;
+    }
+
+    // Milestone nudges at 25, 50, 75
+    if (client) {
+        const oldRes = newRes - gain;
+        const milestones = [25, 50, 75];
+        const hit = milestones.some(m => oldRes < m && newRes >= m);
+        if (hit) {
+            const bar = '🟣'.repeat(Math.floor(newRes / 10)) + '⬛'.repeat(10 - Math.floor(newRes / 10));
+            client.sendMessage(playerId + '@s.whatsapp.net', {
+                text:
+                    '══〘 👁️ VOID RESONANCE 〙══╮\n' +
+                    '┃★ Something stirs inside you.\n' +
+                    '┃★\n' +
+                    '┃★ ' + bar + '\n' +
+                    '┃★ ' + newRes + ' / ' + ASCENDANT_THRESHOLD + '\n' +
+                    '┃★\n' +
+                    '┃★ You are getting closer to\n' +
+                    '┃★ something that has no name yet.\n' +
+                    '╰═══════════════════════╯'
+            }).catch(() => {});
         }
     }
 }
 
+// Track PS dungeon clears separately so eligibility check works
+async function recordPsDungeonClear(playerId) {
+    await ensureAscendantTables();
+    await db.execute(
+        'INSERT INTO ps_dungeon_clears (player_id, clears) VALUES (?, 1) ON DUPLICATE KEY UPDATE clears = clears + 1',
+        [playerId]
+    ).catch(() => {});
+}
+
+async function getVoidResonance(playerId) {
+    await ensureAscendantTables();
+    const [rows] = await db.execute(
+        'SELECT resonance FROM void_resonance WHERE player_id=?', [playerId]
+    );
+    return rows[0]?.resonance || 0;
+}
+
+async function getVoidResonanceStatus(playerId) {
+    await ensureAscendantTables();
+    const check = await checkResonanceEligibility(playerId);
+
+    const [rows] = await db.execute(
+        'SELECT resonance, ascendant_at FROM void_resonance WHERE player_id=?', [playerId]
+    ).catch(() => [[]]);
+
+    return {
+        resonance:   rows[0]?.resonance || 0,
+        isAscendant: !!rows[0]?.ascendant_at,
+        eligible:    check.eligible,
+        fails:       check.fails,
+        threshold:   ASCENDANT_THRESHOLD,
+        psClears:    check.psClears || 0,
+        totalClears: check.totalClears || 0,
+        rank:        check.rank
+    };
+}
+
 async function triggerAscendant(playerId, client = null) {
     const [player] = await db.execute(
-        'SELECT nickname, role, rank FROM players WHERE id=?',
-        [playerId]
+        'SELECT nickname, role FROM players WHERE id=?', [playerId]
     );
     if (!player.length) return;
     const p = player[0];
 
-    // Set rank to ASCENDANT — do NOT strip gold/xp
-    await db.execute(
-        'UPDATE players SET \`rank\`=? WHERE id=?',
-        [ASCENDANT_RANK, playerId]
-    );
+    await db.execute('UPDATE players SET `rank`=? WHERE id=?', [ASCENDANT_RANK, playerId]);
 
-    // Massive stat boost — Ascendants are beyond PS
     const ASCENDANT_STAT_BOOST = {
         Berserker: { strength: 800,  agility: 350,  intelligence: 50,   stamina: 400,  hp: 12000, max_hp: 12000 },
         Assassin:  { strength: 400,  agility: 900,  intelligence: 50,   stamina: 350,  hp: 10000, max_hp: 10000 },
@@ -130,11 +223,11 @@ async function triggerAscendant(playerId, client = null) {
     );
 
     await db.execute(
-        'UPDATE void_resonance SET ascendant_at=NOW() WHERE player_id=?',
-        [playerId]
+        'UPDATE void_resonance SET ascendant_at=NOW() WHERE player_id=?', [playerId]
     );
 
-    // Notify player
+    const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+
     if (client) {
         try {
             await client.sendMessage(playerId + '@s.whatsapp.net', {
@@ -152,8 +245,6 @@ async function triggerAscendant(playerId, client = null) {
                     '┃★\n' +
                     '┃★      A S C E N D A N T\n' +
                     '┃★\n' +
-                    '┃★   *' + p.nickname + '* has broken through.\n' +
-                    '┃★\n' +
                     '┃★   You don\'t rank up from here.\n' +
                     '┃★   There is nothing above this.\n' +
                     '┃★   There is only what you do with it.\n' +
@@ -161,11 +252,7 @@ async function triggerAscendant(playerId, client = null) {
                     '╚══════════════════════════════════════╝'
             });
         } catch(e) {}
-    }
 
-    // Announce to RAID_GROUP
-    if (client) {
-        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
         try {
             await client.sendMessage(RAID_GROUP, {
                 text:
@@ -180,7 +267,7 @@ async function triggerAscendant(playerId, client = null) {
                     '┃★   has broken through.\n' +
                     '┃★\n' +
                     '┃★   Whatever Malachar left behind\n' +
-                    '┃★   — they are carrying it now.\n' +
+                    '┃★   — they carry it now.\n' +
                     '┃★   And it has made them something\n' +
                     '┃★   the void itself will fear.\n' +
                     '┃★\n' +
@@ -191,32 +278,14 @@ async function triggerAscendant(playerId, client = null) {
     }
 }
 
-async function getVoidResonanceStatus(playerId) {
-    await ensureAscendantTables();
-    const [rows] = await db.execute(
-        'SELECT resonance, ascendant_at FROM void_resonance WHERE player_id=?',
-        [playerId]
-    );
-    if (!rows.length) return { resonance: 0, isAscendant: false, eligible: false };
-
-    const [killed] = await db.execute(
-        'SELECT player_id FROM malachar_kills WHERE player_id=?', [playerId]
-    ).catch(() => [[]]);
-
-    return {
-        resonance:   rows[0].resonance || 0,
-        isAscendant: !!rows[0].ascendant_at,
-        eligible:    killed.length > 0,
-        threshold:   ASCENDANT_THRESHOLD
-    };
-}
-
 module.exports = {
     ASCENDANT_THRESHOLD,
     ASCENDANT_RANK,
     VOID_RESONANCE_GAINS,
     ensureAscendantTables,
+    checkResonanceEligibility,
     addVoidResonance,
+    recordPsDungeonClear,
     getVoidResonance,
     getVoidResonanceStatus,
     triggerAscendant

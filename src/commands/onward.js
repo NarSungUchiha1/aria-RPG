@@ -18,7 +18,7 @@ const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
-const { addVoidResonance } = require('../systems/ascendantSystem');
+const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -138,11 +138,13 @@ module.exports = {
                 (async () => {
                     try {
                         const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+                        const isPS = d.dungeon_rank === 'PS';
                         const isTerritory = d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_');
                         const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
                         const isMalacharEcho = d.boss_name === "Malachar's Echo";
                         for (const p of participants) {
                             if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client);
+                            if (isPS) await recordPsDungeonClear(p.player_id);
                             if (isRemnants) await addVoidResonance(p.player_id, 'remnant_sanctum_clear', client);
                             if (isMalacharEcho) await addVoidResonance(p.player_id, 'malachar_echo_kill', client);
                         }
@@ -253,7 +255,13 @@ module.exports = {
                             const terr = TERRITORIES[flagRow[0].territory_id];
                             const [clanRow] = await db.execute('SELECT name FROM clans WHERE id=?', [flagRow[0].conquering_clan]);
                             // Resonance gains for territory war win
-                            for (const p of participants) { addVoidResonance(p.player_id, 'territory_war_win', client).catch(() => {}); }
+                            for (const p of participants) {
+                                // Only attackers get war win resonance, not defenders
+                                const [isDefender] = await db.execute('SELECT is_defender FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [p.player_id, dungeon.id]).catch(() => [[{}]]);
+                                if (!isDefender[0]?.is_defender) {
+                                    addVoidResonance(p.player_id, 'territory_war_win', client).catch(() => {});
+                                }
+                            }
                             await client.sendMessage(RAID_GROUP, { text:
                                 '╔══〘 🌑 TERRITORY CLAIMED 〙══╗\n' +
                                 '┃★\n' +
