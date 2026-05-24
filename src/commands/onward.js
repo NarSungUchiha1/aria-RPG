@@ -347,6 +347,9 @@ module.exports = {
 
             const targetChat = await msg.getChat();
 
+            const isTerritory = d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_');
+            const territoryId  = isTerritory ? d.dungeon_rank.replace('TERRITORY_', '') : null;
+
             const failCallback = async () => {
                 try {
                     const [players] = await db.execute(
@@ -360,9 +363,30 @@ module.exports = {
                     await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                     clearDungeonTimers(dungeon.id);
                     clearMalacharPhase(dungeon.id);
-                    await targetChat.sendMessage(
-                        `══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯`
-                    );
+
+                    // FIX: Territory dungeon timeout — clean up war record and notify group
+                    if (isTerritory && territoryId) {
+                        await db.execute(
+                            "UPDATE territory_wars SET status='completed' WHERE territory_id=? AND status IN ('pending','active')",
+                            [territoryId]
+                        ).catch(() => {});
+                        const { TERRITORIES } = require('../systems/voidTerritories');
+                        const terr = TERRITORIES[territoryId];
+                        await client.sendMessage(RAID_GROUP, {
+                            text:
+                                '╔══〘 🌑 ASSAULT FAILED 〙══╗\n' +
+                                '┃★\n' +
+                                '┃★ ' + (terr ? terr.emoji + ' *' + terr.name + '*' : territoryId) + '\n' +
+                                '┃★ The assault party was overwhelmed.\n' +
+                                '┃★ The territory holds.\n' +
+                                '┃★\n' +
+                                '╚═══════════════════════════╝'
+                        }).catch(() => {});
+                    } else {
+                        await targetChat.sendMessage(
+                            '══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯'
+                        );
+                    }
                 } catch (err) { console.error("Onward failCallback error:", err); }
             };
 
