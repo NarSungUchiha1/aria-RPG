@@ -179,9 +179,12 @@ module.exports = {
             // ── Announce to RAID GROUP ────────────────────────────────────────
             const isWar = !isUnclaimed;
 
-            // Get attacker members for mentions
-            const attackerMembers = await getClanMembers(myClan.id);
-            const attackerMentions = attackerMembers.map(m => m.id + '@s.whatsapp.net');
+            // Get attacker members for mentions — safe fallback if query fails
+            let attackerMentions = [];
+            try {
+                const attackerMembers = await getClanMembers(myClan.id);
+                attackerMentions = attackerMembers.map(m => m.id + '@s.whatsapp.net');
+            } catch(e) { console.error('getClanMembers attacker error:', e.message); }
 
             await client.sendMessage(RAID_GROUP, {
                 text:
@@ -214,8 +217,11 @@ module.exports = {
 
             // If contested — also notify defender clan members
             if (isWar && defenderClan) {
-                const defenderMembers = await getClanMembers(defenderClan);
-                const defenderMentions = defenderMembers.map(m => m.id + '@s.whatsapp.net');
+                let defenderMentions = [];
+                try {
+                    const defenderMembers = await getClanMembers(defenderClan);
+                    defenderMentions = defenderMembers.map(m => m.id + '@s.whatsapp.net');
+                } catch(e) { console.error('getClanMembers defender error:', e.message); }
                 await client.sendMessage(RAID_GROUP, {
                     text:
                         '╔══〘 🛡️ TERRITORY UNDER ATTACK 〙══╗\n' +
