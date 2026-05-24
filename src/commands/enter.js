@@ -317,11 +317,14 @@ module.exports = {
                 [dungeon.id]
             ).catch(() => [[]]);
 
+            const isTerritoryDungeon =
+                dungeon.dungeon_rank?.startsWith('TERRITORY_');
+
             const isUnlimited =
-                isMalachar || flags[0]?.unlimited_entry === 1;
+                isMalachar || isTerritoryDungeon || flags[0]?.unlimited_entry === 1;
 
             const noRankCheck =
-                isMalachar || flags[0]?.no_rank_check === 1;
+                isMalachar || isTerritoryDungeon || flags[0]?.no_rank_check === 1;
 
             const isPrestigeDungeon =
                 dungeon.dungeon_rank?.startsWith('P');
@@ -346,9 +349,6 @@ module.exports = {
 ╚═══════════════════════════╝`
                 );
             }
-
-            // FIX: Territory dungeons are also allowed for prestige players
-            const isTerritoryDungeon = dungeon.dungeon_rank && dungeon.dungeon_rank.startsWith('TERRITORY_');
 
             if (
                 !noRankCheck &&
