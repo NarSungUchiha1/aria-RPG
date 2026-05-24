@@ -319,7 +319,12 @@ module.exports = {
             player.mana = currentMana - manaCost;
         }
 
-        const dungeon = await getActiveDungeon();
+        // FIX: use the dungeon the player is actually IN, not the globally active one
+        // This prevents territory/normal dungeon crossover bugs
+        const playerDungeonId = await isPlayerInAnyDungeon(userId);
+        const dungeon = playerDungeonId
+            ? await (async () => { const [r] = await db.execute('SELECT * FROM dungeon WHERE id=?', [playerDungeonId]); return r[0] || null; })()
+            : await getActiveDungeon(true);
 
         async function resolvePlayerTarget(targetArg) {
             if (!targetArg) return player;

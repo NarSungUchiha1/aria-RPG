@@ -297,23 +297,42 @@ module.exports = {
                 );
             }
 
-            // FIX: For prestige players, always prefer territory dungeon over normal
-            // Check if there's an active territory dungeon first
-            const [terrDungeons] = await db.execute(
-                "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+            // Find the right dungeon for this player:
+            // 1. If there's an active territory dungeon AND player is in the conquering/defending clan → territory dungeon
+            // 2. Otherwise → normal dungeon
+            // This prevents prestige players from being routed into the wrong dungeon
+            let dungeon = null;
+
+            const [terrActive] = await db.execute(
+                "SELECT d.* FROM dungeon d JOIN dungeon_flags df ON df.dungeon_id=d.id WHERE d.is_active=1 AND d.dungeon_rank LIKE 'TERRITORY_%' ORDER BY d.id DESC LIMIT 1"
             );
-            const [normDungeons] = await db.execute(
-                "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
-            );
-            // Prestige players go to territory dungeon if one exists, else normal
-            // Non-prestige players only see normal dungeons
-            const [pLevelCheck] = await db.execute(
-                "SELECT COALESCE(prestige_level,0) as pl FROM players WHERE id=?", [userId]
-            );
-            const playerIsPrestige = (pLevelCheck[0]?.pl || 0) > 0;
-            let dungeon = terrDungeons[0] && playerIsPrestige
-                ? terrDungeons[0]
-                : (normDungeons[0] || terrDungeons[0] || null);
+
+            if (terrActive.length) {
+                const tf = terrActive[0];
+                // Get the clan this player belongs to
+                const { getPlayerClan } = require('../systems/clanSystem');
+                const playerClan = await getPlayerClan(userId);
+                const playerClanId = playerClan?.id || null;
+
+                // Check if player's clan is the attacker or defender
+                const [flagRow] = await db.execute(
+                    'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?', [tf.id]
+                ).catch(() => [[{}]]);
+                const isAttacker = flagRow[0]?.conquering_clan === playerClanId;
+                const isDefender = flagRow[0]?.defending_clan === playerClanId;
+
+                if (isAttacker || isDefender) {
+                    dungeon = tf;
+                }
+            }
+
+            // Fall back to normal dungeon if not part of territory assault
+            if (!dungeon) {
+                const [normRows] = await db.execute(
+                    "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+                );
+                dungeon = normRows[0] || null;
+            }
 
             if (!dungeon) {
 
