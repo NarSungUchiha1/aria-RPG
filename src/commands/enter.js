@@ -345,10 +345,14 @@ module.exports = {
                 );
             }
 
+            // FIX: Territory dungeons are also allowed for prestige players
+            const isTerritoryDungeon = dungeon.dungeon_rank && dungeon.dungeon_rank.startsWith('TERRITORY_');
+
             if (
                 !noRankCheck &&
                 !isPrestigeDungeon &&
                 !isMalachar &&
+                !isTerritoryDungeon &&
                 isPrestigePlayer
             ) {
 
