@@ -18,6 +18,7 @@ const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
+const { addVoidResonance } = require('../systems/ascendantSystem');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -90,7 +91,21 @@ module.exports = {
                     }
                 }
 
-                // Special Malachar clear message
+                // Special Malachar clear message + ARIA reaction
+                if (d.dungeon_rank === 'MALACHAR') {
+                    // Send ARIA's reaction after a delay — she speaks when the silence settles
+                    (async () => {
+                        try {
+                            const { ARIA_MALACHAR_REACTION, CHAPTER5_FACTION_REVEAL } = require('../systems/chapter5lore');
+                            await new Promise(r => setTimeout(r, 8000));
+                            await client.sendMessage(RAID_GROUP, { text: ARIA_MALACHAR_REACTION });
+                            await new Promise(r => setTimeout(r, 12000));
+                            await client.sendMessage(RAID_GROUP, { text: CHAPTER5_FACTION_REVEAL });
+                        } catch(e) { console.error('Chapter 5 lore error:', e.message); }
+                    })();
+                }
+
+                // Malachar clear announcement
                 if (d.dungeon_rank === 'MALACHAR') {
                     await client.sendMessage(RAID_GROUP, {
                         text:
@@ -132,6 +147,21 @@ module.exports = {
                         } catch (e) {}
                     })();
                 }
+
+                // Void resonance gains for Ascendant progression
+                (async () => {
+                    try {
+                        const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+                        const isTerritory = d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_');
+                        const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
+                        const isMalacharEcho = d.boss_name === "Malachar's Echo";
+                        for (const p of participants) {
+                            if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client);
+                            if (isRemnants) await addVoidResonance(p.player_id, 'remnant_sanctum_clear', client);
+                            if (isMalacharEcho) await addVoidResonance(p.player_id, 'malachar_echo_kill', client);
+                        }
+                    } catch(e) { console.error('Resonance gain error:', e.message); }
+                })();
 
                 // MVP
                 try {
@@ -225,6 +255,33 @@ module.exports = {
 
                 // Clear Malachar phase state
                 clearMalacharPhase(dungeon.id);
+
+                // Territory claim on conquest clear
+                (async () => {
+                    try {
+                        const [flagRow] = await db.execute('SELECT territory_id, conquering_clan FROM dungeon_flags WHERE dungeon_id=?', [dungeon.id]);
+                        if (flagRow.length && flagRow[0].territory_id && flagRow[0].conquering_clan) {
+                            const { claimTerritory, TERRITORIES } = require('../systems/voidTerritories');
+                            await claimTerritory(flagRow[0].territory_id, flagRow[0].conquering_clan);
+                            await db.execute('UPDATE territory_wars SET status=\'completed\', winner_clan=? WHERE territory_id=? AND attacker_clan=? AND status=\'active\'', [flagRow[0].conquering_clan, flagRow[0].territory_id, flagRow[0].conquering_clan]);
+                            const terr = TERRITORIES[flagRow[0].territory_id];
+                            const [clanRow] = await db.execute('SELECT name FROM clans WHERE id=?', [flagRow[0].conquering_clan]);
+                            // Resonance gains for territory war win
+                            for (const p of participants) { addVoidResonance(p.player_id, 'territory_war_win', client).catch(() => {}); }
+                            await client.sendMessage(RAID_GROUP, { text:
+                                '╔══〘 🌑 TERRITORY CLAIMED 〙══╗\n' +
+                                '┃★\n' +
+                                '┃★ ' + (terr ? terr.emoji : '') + ' *' + (terr ? terr.name : flagRow[0].territory_id) + '*\n' +
+                                '┃★ now belongs to *' + (clanRow[0]?.name || 'Unknown') + '*.\n' +
+                                '┃★\n' +
+                                '┃★ Bonus active for all members:\n' +
+                                '┃★ ' + (terr ? terr.bonus.description : '') + '\n' +
+                                '┃★\n' +
+                                '╚═══════════════════════════╝'
+                            }).catch(() => {});
+                        }
+                    } catch(e) { console.error('Territory claim error:', e.message); }
+                })();
 
                 // Close dungeon
                 await demoteAllRaiders(client, dungeon.id);
