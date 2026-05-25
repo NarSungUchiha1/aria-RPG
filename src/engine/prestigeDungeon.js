@@ -126,9 +126,10 @@ async function getWeightedPrestigeRank() {
 
     const PRESTIGE_RANKS_ORDERED = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
 
-    // Base weights — flat-ish with mild upper-tier boost
+    // Base weights — PF gets a hard floor but higher ranks are strongly boosted
+    // Even with most players at PF, PD+ should spawn regularly
     const BASE_WEIGHTS = {
-        PF: 10, PE: 12, PD: 15, PC: 18, PB: 18, PA: 15, PS: 12
+        PF: 8, PE: 10, PD: 16, PC: 20, PB: 20, PA: 16, PS: 10
     };
 
     // Check which ranks actually have eligible prestige players

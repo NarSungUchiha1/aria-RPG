@@ -4,12 +4,11 @@ module.exports = {
     name: 'help',
     async execute(msg, args, { userId, isAdmin }) {
 
-        // Get player role + prestige
         let isPrestige = false;
         let role = null;
         try {
             const [row] = await db.execute(
-                "SELECT role, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
+                "SELECT role, `rank`, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
                 [userId]
             );
             isPrestige = (row[0]?.prestige_level || 0) > 0;
@@ -107,11 +106,13 @@ module.exports = {
 ┃◆  🏰 CLANS
 ┃◆ !clan → View your clan info
 ┃◆ !clan join <name> → Request to join (Rank D+)
-┃◆ !leaveclan → Leave  |  !clanlist → All 3 clans
+┃◆ !leaveclan → Leave  |  !clanlist → All clans
+┃◆ !myquest → Your active clan quest
 ┃◆
 ┃◆  💚 HEALER MARKET  [Healer GC]
 ┃◆ !healers → Browse available healers
 ┃◆ !hire <#> → Book a healer
+┃◆ !removelisting → Remove your listing
 ┃◆
 ┃◆  🌍 WORLD BOSS & EVENTS
 ┃◆ !worldboss → Active world boss [GC]
@@ -127,6 +128,8 @@ module.exports = {
 ┃◆ !spawnwanderer → Force spawn Wanderer [Exp GC]
 ┃◆ !begin / !clear / !closedungeon
 ┃◆ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
+┃◆ !chapter5 → Launch Chapter 5 sequence
+┃◆ !givemalacharweapon → Give bound weapons
 ┃◆ !give @user gold/xp/item <value>
 ┃◆ !setrole @user <role>
 ┃◆ !event / !event end
@@ -149,6 +152,7 @@ module.exports = {
 ┃★ !stats → Combat record & history
 ┃★ !moveset → Your void skill set
 ┃★ !daily → Claim daily bonus
+┃★ !resonance → Void resonance (path to Ascendant)
 ┃★
 ┃★  🌀 VOID RIFT SYSTEM  [Exploration GC]
 ┃★ !explore → List rifts (prestige tiers unlocked)
@@ -172,7 +176,7 @@ module.exports = {
 ┃★ !wanderertrade → Trade materials with the Wanderer
 ┃★
 ┃★  🌀 PRESTIGE DUNGEONS
-┃★ !enter → Join a prestige dungeon
+┃★ !enter → Join a prestige dungeon (DM bot)
 ┃★ !dungeon → View enemies & stage [GC]
 ┃★ !skill <move> [target] → Use a move [GC]
 ┃★ !onward → Advance to next stage [GC]
@@ -180,6 +184,12 @@ module.exports = {
 ┃★ !pickup <#> → Collect drop
 ┃★ !checkbag → View bag  |  !emptybag → Bank
 ┃★ !repairbag → Repair bag
+┃★
+┃★  🌑 VOID TERRITORIES
+┃★ !territory → View all 3 void territories
+┃★ !conquer <ASSEMBLY/WRATHBORNE/REMNANTS>
+┃★    → Launch territory assault (master/officer)
+┃★ !defend <name> → Defend held territory (DM bot)
 ┃★
 ┃★  ⚔️ PVP DUELS
 ┃★ !duel @user [bet] → Challenge
@@ -206,7 +216,10 @@ module.exports = {
 ┃★ !clan → View clan & blessing
 ┃★ !createclan → Forge a clan (Prestige only)
 ┃★ !clan join <name> → Join  |  !leaveclan → Leave
-┃★ !clanlist → All 3 clans
+┃★ !clanlist → All clans
+┃★ !clan assign @u <quest> → Assign quest (officer+)
+┃★ !clan quests → Active quests (officer+)
+┃★ !myquest → Your active clan quest
 ┃★
 ┃★  ⚔️ CLAN WARS
 ┃★ !clanwar → View war status
@@ -243,6 +256,8 @@ module.exports = {
 ┃★ !begin / !clear / !closedungeon
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
 ┃★ !startvoidwar  |  !voidstorm  |  !leviathanphase
+┃★ !chapter5 → Launch Chapter 5 sequence
+┃★ !givemalacharweapon → Give bound weapons
 ┃★ !give @user gold/xp/item <value>  |  !payxp @user <amount>
 ┃★ !setrole @user <role>
 ┃★ !event / !event end
@@ -265,16 +280,24 @@ module.exports = {
 ┃★ !stats → Combat record & PvP history
 ┃★ !moveset → Your void skill set
 ┃★ !daily → Claim daily gold & XP bonus
+┃★ !resonance → Void resonance (path to Ascendant)
 ┃★
 ┃★  🌀 PRESTIGE DUNGEONS
-┃★ !enter → Join an active prestige dungeon
+┃★ !enter → Join an active prestige dungeon (DM bot)
 ┃★ !dungeon → View enemies & stage [GC]
 ┃★ !skill <move> [target] → Use a move [GC]
+┃★    e.g. !skill Void Strike 1
 ┃★ !onward → Advance to next stage [GC]
-┃★ !respawn → Revive after death
+┃★ !respawn → Revive after death (DM bot)
 ┃★ !pickup <#> → Collect void material drop
 ┃★ !checkbag → View bag  |  !emptybag → Bank
 ┃★ !repairbag → Repair bag durability
+┃★
+┃★  🌑 VOID TERRITORIES
+┃★ !territory → View all 3 void territories
+┃★ !conquer <ASSEMBLY/WRATHBORNE/REMNANTS>
+┃★    → Launch territory assault (master/officer)
+┃★ !defend <name> → Defend held territory (DM bot)
 ┃★
 ┃★  ⚔️ PVP DUELS
 ┃★ !duel @user [bet] → Challenge a player
@@ -299,10 +322,15 @@ module.exports = {
 ┃★
 ┃★  🏰 CLANS
 ┃★ !clan → View your clan & blessing
-┃★ !createclan → Forge a clan (Prestige only)
+┃★ !createclan → Forge a clan
+┃★    Requires: Prestige + Rank A + 50 clears +
+┃★              1 PS clear + 25,000 Gold
 ┃★ !clan join <name> → Join  |  !leaveclan → Leave
-┃★ !clan accept @user → Accept member
-┃★ !clanlist → View all 3 clans
+┃★ !clan accept @user → Accept member (officer+)
+┃★ !clan assign @u <quest> → Assign quest (officer+)
+┃★ !clan quests → View active quests (officer+)
+┃★ !clanlist → View all clans
+┃★ !myquest → Your active clan quest
 ┃★
 ┃★  ⚔️ CLAN WARS
 ┃★ !clanwar → View war status
@@ -358,12 +386,12 @@ module.exports = {
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
 ┃★ !leviathanphase → Force Leviathan to final phase
 ┃★ !startvoidwar  |  !voidstorm
+┃★ !chapter5 → Launch Chapter 5 sequence
+┃★ !givemalacharweapon → Give bound weapons
 ┃★ !give @user gold/xp/item <value>
 ┃★ !gift @user <item>  |  !payxp @user <amount>
 ┃★ !setrole @user <role>
 ┃★ !event / !event end
-┃★ !chapter → View/advance story chapter
-┃★ !chapter4 → Trigger chapter 4 sequence
 ┃★ !announce <msg> → Broadcast to GC
 ┃★ !restock → Refill shop stock
 ┃★ !promote / !demote @user → Bot admin
@@ -393,8 +421,9 @@ module.exports = {
 ┃  ◆ !enter → DM the bot to join a dungeon
 ┃  ◆ !dungeon → View enemies & stage [GC]
 ┃  ◆ !skill <move> [target] → Use a move [GC]
+┃  ◆    e.g. !skill Slash 1  (hits enemy #1)
 ┃  ◆ !onward → Advance to next stage [GC]
-┃  ◆ !respawn → Revive after death
+┃  ◆ !respawn → Revive after death (DM bot)
 ┃  ◆ !pickup <#> → Collect a material drop
 ┃  ◆ !checkbag → View bag  |  !emptybag → Bank
 ┃  ◆ !repairbag → Repair bag durability
@@ -472,7 +501,8 @@ module.exports = {
 ┃  ◆ !clan → View your clan info
 ┃  ◆ !createclan → Start a clan (Prestige only)
 ┃  ◆ !clan join <name> → Request to join (Rank D+)
-┃  ◆ !leaveclan → Leave  |  !clanlist → All 3 clans
+┃  ◆ !leaveclan → Leave  |  !clanlist → All clans
+┃  ◆ !myquest → Your active clan quest
 ┃
 ┃  💚 HEALER MARKET  [Healer GC]
 ┃  ◆ !healers → Browse available healers
@@ -503,6 +533,8 @@ module.exports = {
 ┃  ◆ !leviathanphase → Force Leviathan to final phase
 ┃  ◆ !startvoidwar → Begin a Void War
 ┃  ◆ !voidstorm → Trigger a void storm event
+┃  ◆ !chapter5 → Launch Chapter 5 sequence
+┃  ◆ !givemalacharweapon → Give bound weapons
 ┃  ◆ !give @user gold/xp/item <value> → Grant resources
 ┃  ◆ !gift @user <item> → Quick item gift
 ┃  ◆ !payxp @user <amount> → Grant XP directly

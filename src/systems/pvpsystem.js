@@ -40,7 +40,9 @@ async function getDuelHp(playerId) {
 }
 
 function normalizeIds(ids) {
-    return Array.isArray(ids) ? ids.map(id => String(id)) : [];
+    return Array.isArray(ids)
+        ? ids.map(id => String(id || '').replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@lid/g, '').split(':')[0].split('@')[0].trim())
+        : [];
 }
 
 function getDuelKeyFromTeams(teamA, teamB) {
