@@ -42,6 +42,23 @@ function setCachedPlayer(userId, data) {
     playerCache.set(userId, { data, ts: Date.now() });
 }
 
+// ── Per-user command queue ─────────────────────────────────
+// Prevents race conditions when a player types commands faster than they resolve.
+// Each user gets their own sequential queue — different users still run in parallel.
+const userQueues = new Map();
+
+function enqueueCommand(userId, fn) {
+    if (!userQueues.has(userId)) userQueues.set(userId, Promise.resolve());
+    const queue = userQueues.get(userId).then(fn).catch(err => {
+        console.error(`[Queue error] ${userId}:`, err.message);
+    });
+    userQueues.set(userId, queue);
+    queue.finally(() => {
+        if (userQueues.get(userId) === queue) userQueues.delete(userId);
+    });
+    return queue;
+}
+
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
 // ── Keep Render awake — ping self every 10 minutes ────────────────────────────
@@ -141,7 +158,8 @@ const DUNGEON_GC_ONLY = new Set([
 ]);
 
 const HEALER_GC_ONLY = new Set([
-    'healers', 'listservice', 'removelisting', 'hire', 'contracts'
+    'healers', 'listservice', 'hire', 'contracts'
+    // removelisting intentionally excluded — any role can unlist from anywhere
 ]);
 
 const BLACKSMITH_GC_ONLY = new Set([
@@ -630,12 +648,22 @@ async function startBot() {
                 try {
                     await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [userId]).catch(()=>{});
                 } catch(e) {}
-                await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
-                // FIX: Invalidate HP cache after every command so dead-check is always fresh
-                playerCache.delete(userId);
+                // FIX: Wrap in per-user queue so rapid commands are serialised per user.
+                // If a player types !skill !skill fast, the second waits for the first to finish.
+                await enqueueCommand(userId, async () => {
+                    try {
+                        await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
+                    } catch (execErr) {
+                        console.error("Command Error:", execErr);
+                        await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
+                    } finally {
+                        // Always invalidate HP cache so dead-check is fresh next command
+                        playerCache.delete(userId);
+                    }
+                });
             } catch (err) {
-                console.error("Command Error:", err);
-                playerCache.delete(userId); // also clear on error
+                console.error("Outer Command Error:", err);
+                playerCache.delete(userId);
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
             }
         });
@@ -761,6 +789,10 @@ cron.schedule('0 */1 * * *', async () => {
         } catch (e) { isEventRunning = false; }
         if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
 
+        // FIX: also skip spawn if a territory assault is active
+        const [terrActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
+        if (terrActive.length) { console.log('⏭️ Spawn skipped — territory assault active.'); return; }
+
         const active = await getActiveDungeon();
         if (active) {
             const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
@@ -784,6 +816,10 @@ cron.schedule('*/20 * * * *', async () => {
             hasActiveEvent = eventRows.length > 0;
         } catch (e) { hasActiveEvent = false; }
         if (!hasActiveEvent) return;
+
+        // FIX: also skip if territory assault active
+        const [terrActiveE] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
+        if (terrActiveE.length) { console.log('⏭️ Event spawn skipped — territory assault active.'); return; }
 
         const active = await getActiveDungeon();
         if (active) {
