@@ -26,15 +26,14 @@ const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-    // Intelligence damage skills use mana
-    if (move.type === 'damage' && move.stat === 'intelligence') {
-        return true;
-    }
-    // Healing skills — only weapon heals cost mana, role heals are free
-    if (move.type === 'heal') {
-        if (move.source === 'role')   return false;
-        if (move.source === 'weapon') return true;
-    }
+    // FIX: Any move with a cost > 0 consumes mana
+    // Previously only INT damage and weapon heals triggered this —
+    // everything else with cost defined was silently free
+    if (move.cost && move.cost > 0) return true;
+
+    // Role heals are always free (no cost defined, but explicit check)
+    if (move.type === 'heal' && move.source === 'role') return false;
+
     return false;
 }
 
