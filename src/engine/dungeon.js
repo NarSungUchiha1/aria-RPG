@@ -483,9 +483,11 @@ function calculateEnemyRetaliation(enemy, player) {
     let shieldAbsorbed = 0;
 
     if (playerShield > 0 && damage > 0) {
-        const maxAbsorb = Math.min(playerShield, Math.floor(damage * 0.60));
+        // FIX: absorb up to the full shield value (was capped at 60% of damage)
+        // Stand Firm gives 8000 shield — it should absorb 8000 damage total, not 60%
+        const maxAbsorb = Math.min(playerShield, damage);
         shieldAbsorbed  = maxAbsorb;
-        damage          = Math.max(1, damage - shieldAbsorbed);
+        damage          = Math.max(0, damage - shieldAbsorbed);
     }
 
     return { damage, shieldAbsorbed, defenseBlocked: Math.floor(rawDamage * reduction) };

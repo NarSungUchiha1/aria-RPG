@@ -77,6 +77,26 @@ function tickBuffs(targetType, targetId) {
     if (!activeBuffs.has(key)) return;
     const buffs = activeBuffs.get(key);
     const remaining = buffs.filter(b => {
+        // FIX: Shields only deplete via consumeShield (damage absorption)
+        // not via tick — so shields last their full duration regardless of attack speed
+        if (b.type === 'shield') return b.remainingTurns > 0;
+        b.remainingTurns--;
+        return b.remainingTurns > 0;
+    });
+    if (remaining.length === 0) {
+        activeBuffs.delete(key);
+    } else {
+        activeBuffs.set(key, remaining);
+    }
+}
+
+// Tick shields separately — called once per stage/turn instead of per attack
+function tickShields(targetType, targetId) {
+    const key = getBuffKey(targetType, targetId);
+    if (!activeBuffs.has(key)) return;
+    const buffs = activeBuffs.get(key);
+    const remaining = buffs.filter(b => {
+        if (b.type !== 'shield') return true;
         b.remainingTurns--;
         return b.remainingTurns > 0;
     });
@@ -98,5 +118,6 @@ module.exports = {
     getBuffModifiers,
     consumeShield,
     tickBuffs,
+    tickShields,
     clearBuffs
 };

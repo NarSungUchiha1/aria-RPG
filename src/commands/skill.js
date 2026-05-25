@@ -365,6 +365,22 @@ module.exports = {
             }
 
             const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+
+            // FIX: Reward healer for healing in dungeon
+            if (dungeon) {
+                const healReward = Math.floor(heal * 0.1);
+                if (healReward > 0) {
+                    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [healReward, userId]).catch(() => {});
+                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [healReward, userId]).catch(() => {});
+                    await db.execute(
+                        'UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?',
+                        [healReward, healReward, userId, dungeon.id]
+                    ).catch(() => {});
+                    try { recordHeal(`dungeon_${dungeon.id}`, userId, heal); } catch(e) {}
+                    try { trackContribution(dungeon.id, userId, player.nickname, 'heal', heal); } catch(e) {}
+                }
+            }
+
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
@@ -716,6 +732,20 @@ module.exports = {
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
                 const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
+
+                // FIX: Reward caster for shielding in dungeon
+                if (dungeon) {
+                    const shieldReward = Math.floor(shieldValue * 0.05);
+                    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [shieldReward, userId]).catch(() => {});
+                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [shieldReward, userId]).catch(() => {});
+                    await db.execute(
+                        'UPDATE dungeon_players SET session_gold = session_gold + ?, session_xp = session_xp + ? WHERE player_id=? AND dungeon_id=?',
+                        [shieldReward, shieldReward, userId, dungeon.id]
+                    ).catch(() => {});
+                    try { mvpRecordHeal(dungeon.id, userId, shieldValue); } catch(e) {}
+                    try { trackContribution(dungeon.id, userId, player.nickname, 'shield', shieldValue); } catch(e) {}
+                }
+
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 

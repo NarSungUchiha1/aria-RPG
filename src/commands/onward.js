@@ -17,6 +17,7 @@ const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
+const { tickShields } = require('../systems/activeBuffs');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
 const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
 
@@ -341,6 +342,8 @@ module.exports = {
                     );
                     for (const p of alive) {
                         await updateQuestProgress(p.player_id, 'stage_clear', 1, client);
+                        // Tick shield duration — shields last per stage not per attack
+                        try { tickShields('player', p.player_id); } catch(e) {}
                     }
                 } catch (e) {}
             })();
