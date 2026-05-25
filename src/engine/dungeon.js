@@ -466,11 +466,14 @@ function calculatePlayerDamage(player, enemy, weaponBonus = 0) {
     return Math.max(1, Math.floor(rawDamage * fatigueMultiplier));
 }
 
-function calculateEnemyRetaliation(enemy, player) {
+function calculateEnemyRetaliation(enemy, player, playerId = null) {
+    // FIX: use playerId if provided (consistent with consumeShield),
+    // fall back to player.id from DB row
+    const buffKey = playerId || player?.id;
     let buffMods = { defense: 0, shield: 0 };
     try {
-        if (player?.id) {
-            const mods = getBuffModifiers('player', player.id);
+        if (buffKey) {
+            const mods = getBuffModifiers('player', buffKey);
             if (mods) buffMods = mods;
         }
     } catch (e) {}
@@ -530,7 +533,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     let retaliation = 0, playerHp = Number(p.hp), retaliationMessage = '';
     let shieldAbsorbed = 0, defenseBlocked = 0;
     if (!defeated) {
-        const ret = calculateEnemyRetaliation(e, p);
+        const ret = calculateEnemyRetaliation(e, p, playerId);
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
@@ -711,7 +714,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     let shieldAbsorbed = 0, defenseBlocked = 0;
 
     if (!defeated) {
-        const ret = calculateEnemyRetaliation(e, p);
+        const ret = calculateEnemyRetaliation(e, p, playerId);
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
