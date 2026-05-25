@@ -304,25 +304,33 @@ module.exports = {
             let dungeon = null;
 
             const [terrActive] = await db.execute(
-                "SELECT d.* FROM dungeon d JOIN dungeon_flags df ON df.dungeon_id=d.id WHERE d.is_active=1 AND d.dungeon_rank LIKE 'TERRITORY_%' ORDER BY d.id DESC LIMIT 1"
+                "SELECT d.* FROM dungeon d LEFT JOIN dungeon_flags df ON df.dungeon_id=d.id WHERE d.is_active=1 AND d.dungeon_rank LIKE 'TERRITORY_%' ORDER BY d.id DESC LIMIT 1"
             );
 
             if (terrActive.length) {
-                const tf = terrActive[0];
-                // Get the clan this player belongs to
-                const { getPlayerClan } = require('../systems/clanSystem');
-                const playerClan = await getPlayerClan(userId);
-                const playerClanId = playerClan?.id || null;
+                try {
+                    const tf = terrActive[0];
+                    const { getPlayerClan } = require('../systems/clanSystem');
+                    const playerClan = await getPlayerClan(userId);
+                    const playerClanId = playerClan?.id || null;
 
-                // Check if player's clan is the attacker or defender
-                const [flagRow] = await db.execute(
-                    'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?', [tf.id]
-                ).catch(() => [[{}]]);
-                const isAttacker = flagRow[0]?.conquering_clan === playerClanId;
-                const isDefender = flagRow[0]?.defending_clan === playerClanId;
+                    const [flagRow] = await db.execute(
+                        'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?', [tf.id]
+                    ).catch(() => [[{}]]);
 
-                if (isAttacker || isDefender) {
-                    dungeon = tf;
+                    const conquering = flagRow[0]?.conquering_clan;
+                    const defending  = flagRow[0]?.defending_clan;
+
+                    // FIX: compare as same type — DB returns int, playerClanId is int
+                    const isAttacker = playerClanId && Number(conquering) === Number(playerClanId);
+                    const isDefender = playerClanId && defending && Number(defending) === Number(playerClanId);
+
+                    if (isAttacker || isDefender) {
+                        dungeon = tf;
+                    }
+                } catch(terrErr) {
+                    console.error('[enter] Territory routing error:', terrErr.message);
+                    // Don't block entry — fall through to normal dungeon
                 }
             }
 
