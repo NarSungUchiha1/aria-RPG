@@ -584,6 +584,26 @@ count = count + 1`,
                     userId
                 );
 
+                // If territory dungeon — check if defenders are waiting and trigger war
+                if (dungeon.dungeon_rank && dungeon.dungeon_rank.startsWith('TERRITORY_')) {
+                    try {
+                        const { defenderPool, tryStartTerritoryWar } = require('./defend');
+                        const tid = dungeon.dungeon_rank.replace('TERRITORY_', '');
+                        const defenders = defenderPool.get(dungeon.id);
+                        if (defenders && defenders.size > 0) {
+                            const [flagRow] = await db.execute(
+                                'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?',
+                                [dungeon.id]
+                            ).catch(() => [[{}]]);
+                            const attackerClanId = flagRow[0]?.conquering_clan;
+                            const defenderClanId = flagRow[0]?.defending_clan;
+                            if (attackerClanId && defenderClanId) {
+                                tryStartTerritoryWar(dungeon.id, tid, attackerClanId, defenderClanId, client).catch(() => {});
+                            }
+                        }
+                    } catch(e) { console.error('[TerritoryWar enter check]', e.message); }
+                }
+
                 assignDailyQuests(userId)
                     .catch(() => {});
 

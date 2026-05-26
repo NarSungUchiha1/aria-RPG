@@ -703,6 +703,38 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
             `${titleLines.length ? `┃◆ ━━━━━━━━━━━━━━━━\n${titleLines.join('\n')}\n` : ''}` +
             `╰═══════════════════════════╯`
         );
+        // Territory war resolution
+        try {
+            const warCtx = territoryWars.get(duelKey);
+            if (warCtx) {
+                territoryWars.delete(duelKey);
+                const { claimTerritory, TERRITORIES } = require('./voidTerritories');
+                const { addVoidResonance } = require('./ascendantSystem');
+                const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const terr = TERRITORIES[warCtx.tid];
+                const attackersWon = winners.some(id => warCtx.attackers.includes(String(id)));
+
+                if (attackersWon) {
+                    await claimTerritory(warCtx.tid, warCtx.attackerClan);
+                    await db.execute("UPDATE territory_wars SET status='completed', winner_clan=? WHERE territory_id=? AND attacker_clan=? AND status IN ('pending','active')", [warCtx.attackerClan, warCtx.tid, warCtx.attackerClan]);
+                    for (const pid of warCtx.attackers) { addVoidResonance(pid, 'territory_war_win', chat).catch(() => {}); }
+                    const [aClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.attackerClan]);
+                    await chat.sendMessage({
+                        text: '╔══〘 🌑 TERRITORY SEIZED 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ now belongs to *' + (aClan[0]?.name || 'Attackers') + '*.\n┃★\n┃★ Bonus: ' + (terr?.bonus?.description || '') + '\n┃★\n╚═══════════════════════════╝'
+                    }).catch(() => {});
+                } else {
+                    await db.execute("UPDATE territory_wars SET status='completed', winner_clan=? WHERE territory_id=? AND defender_clan=? AND status IN ('pending','active')", [warCtx.defenderClan, warCtx.tid, warCtx.defenderClan]);
+                    const [dClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.defenderClan]);
+                    await chat.sendMessage({
+                        text: '╔══〘 🛡️ TERRITORY HELD 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ stands firm for *' + (dClan[0]?.name || 'Defenders') + '*.\n┃★\n┃★ The assault has been repelled.\n┃★\n╚═══════════════════════════╝'
+                    }).catch(() => {});
+                }
+                // Clean up dungeon
+                await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [warCtx.dungeonId]).catch(() => {});
+                await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [warCtx.dungeonId]).catch(() => {});
+            }
+        } catch(terrErr) { console.error('[TerritoryWar victory]', terrErr.message); }
+
         return { winner: winners };
     }
 
@@ -1247,6 +1279,9 @@ async function handlePvPAttack(attackerId) {
 
 module.exports = {
     startPvPDuel,
+    setDuelActive,
+    setTurn,
+    territoryWars,
     handlePvPAttack,
     handlePvPSkill,
     isPlayerInDuel,
