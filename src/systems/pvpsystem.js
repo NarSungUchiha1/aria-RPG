@@ -956,23 +956,6 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const bl = await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => null);
             if (bl?.message) pendingBlMsgs.push(bl.message);
         }
-        // FIX: Demote defeated players from admin and block their further participation
-        for (const { tid } of allDefeated) {
-            try {
-                const RAID_GROUP_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                const metadata = await chat.client?.groupMetadata?.(RAID_GROUP_JID).catch(() => null);
-                if (metadata) {
-                    const participant = metadata.participants.find(p =>
-                        String(p.id).replace(/@[^@]+$/, '').split(':')[0] === String(tid)
-                    );
-                    if (participant) {
-                        await chat.client.groupParticipantsUpdate(RAID_GROUP_JID, [participant.id], 'demote').catch(() => {});
-                        console.log('[PvP] Demoted defeated player:', tid);
-                    }
-                }
-            } catch(e) { console.error('[PvP demote]', e.message); }
-        }
-
         if (allDefeated.length > 0) {
             const bl = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
             if (bl?.message) {
@@ -1248,7 +1231,31 @@ async function handlePvPAttack(attackerId) {
     const round    = data.round;
 
     const attackerHp = data.hp[attackerId];
-    const newDefHp   = Math.max(0, data.hp[targetId] - damage);
+
+    // Apply attacker potion buffs in solo duel
+    let finalDamage = damage;
+    try {
+        const { getTurnEffect } = require('./potionEffects');
+        const turnFx = getTurnEffect(String(attackerId));
+        if (turnFx?.effect === 'berserk')    finalDamage = Math.floor(finalDamage * (turnFx.data.mult || 3.0));
+        if (turnFx?.effect === 'stat_boost') finalDamage = Math.floor(finalDamage * (turnFx.data.mult || 1.25));
+        if (turnFx?.effect === 'chaos_mode') finalDamage = Math.floor(finalDamage * (1 + (turnFx.data.amp || 0.5)));
+    } catch(e) {}
+
+    // Apply defender shield absorption in solo duel
+    try {
+        const { getBuffModifiers, consumeShield } = require('./activeBuffs');
+        const defMods = getBuffModifiers('player', String(targetId));
+        if (defMods?.shield > 0) {
+            const absorbed = Math.min(defMods.shield, finalDamage);
+            if (absorbed > 0) {
+                consumeShield('player', String(targetId), absorbed);
+                finalDamage = Math.max(0, finalDamage - absorbed);
+            }
+        }
+    } catch(e) {}
+
+    const newDefHp = Math.max(0, data.hp[targetId] - finalDamage);
     data.hp[targetId] = newDefHp;
 
     // FIX: Record for MVP for ALL duel types (solo + party)
