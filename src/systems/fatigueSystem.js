@@ -31,12 +31,12 @@ function formatFatigueBar(fatigue = 0) {
 
 // ── ROLE-BASED FATIGUE RATE ────────────────────────────────────────────────
 const ROLE_FATIGUE_RATE = {
-    Tank:      0.22,
+    Tank:      0.5,   // Tank tires slower — was 0.22 which rounded to 0 (never fatigued)
     Berserker: 1.0,
     Assassin:  1.0,
-    Mage:      1.0,
-    Healer:    1.0,
-    Explorer:  1.0
+    Mage:      0.8,   // Mage tires slightly slower (intelligence based)
+    Healer:    0.7,   // Healer tires slower (support role)
+    Explorer:  0.8
 };
 
 // ── STAMINA-BASED FATIGUE REDUCTION ────────────────────────────────────────
