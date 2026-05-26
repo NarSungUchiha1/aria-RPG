@@ -891,6 +891,29 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const defForCalc = { ...def, hp: defHp, max_hp: data.maxHp[tid] };
             let dmg = calculateMoveDamage(attacker, move, defForCalc, items);
             dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
+
+            // Apply attacker potion buffs
+            try {
+                const { getTurnEffect } = require('./potionEffects');
+                const turnFx = getTurnEffect(String(attackerId));
+                if (turnFx?.effect === 'berserk')    dmg = Math.floor(dmg * (turnFx.data.mult || 3.0));
+                if (turnFx?.effect === 'stat_boost') dmg = Math.floor(dmg * (turnFx.data.mult || 1.25));
+                if (turnFx?.effect === 'chaos_mode') dmg = Math.floor(dmg * (1 + (turnFx.data.amp || 0.5)));
+            } catch(e) {}
+
+            // Apply defender shield absorption
+            try {
+                const { getBuffModifiers, consumeShield } = require('./activeBuffs');
+                const defMods = getBuffModifiers('player', String(tid));
+                if (defMods?.shield > 0) {
+                    const absorbed = Math.min(defMods.shield, dmg);
+                    if (absorbed > 0) {
+                        consumeShield('player', String(tid), absorbed);
+                        dmg = Math.max(0, dmg - absorbed);
+                    }
+                }
+            } catch(e) {}
+
             const newHp = Math.max(0, defHp - dmg);
             data.hp[tid] = newHp;
             results.push({ tid, nick: def.nickname, rank: def.rank, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
@@ -915,9 +938,41 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         // ── Collect blessings (don't send yet) ────────────────────────────
         const pendingBlMsgs = [];
         for (const { tid, def } of allDefeated) {
+            // Demote defeated player from admin in raid GC
+            try {
+                const RAID_GROUP_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                if (chat.client) {
+                    const metadata = await chat.client.groupMetadata(RAID_GROUP_JID).catch(() => null);
+                    if (metadata) {
+                        const participant = metadata.participants.find(p =>
+                            String(p.id).replace(/@[^@]+$/,'').split(':')[0] === String(tid)
+                        );
+                        if (participant) {
+                            await chat.client.groupParticipantsUpdate(RAID_GROUP_JID, [participant.id], 'demote').catch(() => {});
+                        }
+                    }
+                }
+            } catch(e) {}
             const bl = await triggerBlessingIfReadyInDuel('on_death', def, data, { attackerId }).catch(() => null);
             if (bl?.message) pendingBlMsgs.push(bl.message);
         }
+        // FIX: Demote defeated players from admin and block their further participation
+        for (const { tid } of allDefeated) {
+            try {
+                const RAID_GROUP_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const metadata = await chat.client?.groupMetadata?.(RAID_GROUP_JID).catch(() => null);
+                if (metadata) {
+                    const participant = metadata.participants.find(p =>
+                        String(p.id).replace(/@[^@]+$/, '').split(':')[0] === String(tid)
+                    );
+                    if (participant) {
+                        await chat.client.groupParticipantsUpdate(RAID_GROUP_JID, [participant.id], 'demote').catch(() => {});
+                        console.log('[PvP] Demoted defeated player:', tid);
+                    }
+                }
+            } catch(e) { console.error('[PvP demote]', e.message); }
+        }
+
         if (allDefeated.length > 0) {
             const bl = await triggerBlessingIfReadyInDuel('on_kill', attacker, data).catch(() => null);
             if (bl?.message) {

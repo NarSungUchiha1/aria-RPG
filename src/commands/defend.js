@@ -97,7 +97,8 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
 
         // Register duel in pvpsystem
         const fakeChat = {
-            sendMessage: (opts) => client.sendMessage(RAID_GROUP, opts)
+            sendMessage: (opts) => client.sendMessage(RAID_GROUP, opts),
+            client: client  // expose client so pvpsystem can demote players on death
         };
 
         await setDuelActive(attackers, defenders, fakeChat, 0, turnOrder);
