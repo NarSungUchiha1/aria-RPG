@@ -937,7 +937,33 @@ async function advanceStage(dungeonId, nextStage) {
     await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=? AND current_hp <= 0", [dungeonId]);
     const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
     const rank = dungeon[0]?.dungeon_rank;
-    if (rank && rank.startsWith('P')) {
+    if (rank && rank.startsWith('TERRITORY_')) {
+        // Territory dungeon — spawn territory enemies
+        const tid = rank.replace('TERRITORY_', '');
+        const territoryEnemies = require('../data/territoryEnemies');
+        const enemyData = territoryEnemies[tid];
+        if (enemyData) {
+            const [dungeonRow] = await db.execute("SELECT max_stage FROM dungeon WHERE id=?", [dungeonId]);
+            const maxStage = dungeonRow[0]?.max_stage || 4;
+            const isBoss = nextStage === maxStage;
+            if (isBoss) {
+                const boss = enemyData.boss;
+                await db.execute(
+                    'INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [dungeonId, boss.name, boss.hp, boss.hp, boss.atk, boss.def, boss.exp, boss.gold, boss.evasion || 0, JSON.stringify(boss.moves || [])]
+                );
+            } else {
+                const count = Math.floor(Math.random() * 3) + 3;
+                for (let i = 0; i < count; i++) {
+                    const mini = enemyData.miniBosses[Math.floor(Math.random() * enemyData.miniBosses.length)];
+                    await db.execute(
+                        'INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [dungeonId, mini.name, mini.hp, mini.hp, mini.atk, mini.def, mini.exp, mini.gold, mini.evasion || 0, JSON.stringify(mini.moves || [])]
+                    );
+                }
+            }
+        }
+    } else if (rank && rank.startsWith('P')) {
         const { spawnPrestigeEnemies } = require('./prestigeDungeon');
         await spawnPrestigeEnemies(dungeonId, rank, nextStage);
     } else {
