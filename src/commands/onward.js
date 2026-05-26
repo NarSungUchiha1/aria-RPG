@@ -2,6 +2,7 @@ const db = require('../database/db');
 const {
     getActiveDungeon,
     isPlayerInDungeon,
+    isPlayerInAnyDungeon,
     advanceStage,
     getMaxStageForDungeon,
     getDungeonStatusText,
