@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { POTIONS } = require('../systems/potions');
-const { getActiveDungeon, isPlayerInDungeon, getCurrentEnemies } = require('../engine/dungeon');
+const { getActiveDungeon, isPlayerInDungeon, getCurrentEnemies, isPlayerInAnyDungeon } = require('../engine/dungeon');
 const {
     setEffect, getEffect, clearEffect, setTurnEffect, getTurnEffect,
     getDeaths, getHpLost
@@ -77,7 +77,14 @@ module.exports = {
                 `══〘 🧪 USE POTION 〙══╮\n┃◆ ❌ Prestige players only.\n╰═══════════════════════╯`
             );
 
-            const dungeon = await getActiveDungeon();
+            // FIX: find the dungeon the player is actually in (handles territory dungeons)
+            const playerDungeonId = await isPlayerInAnyDungeon(userId);
+            let dungeon = null;
+            if (playerDungeonId) {
+                const [dRows] = await db.execute('SELECT * FROM dungeon WHERE id=?', [playerDungeonId]);
+                dungeon = dRows[0] || null;
+            }
+            if (!dungeon) dungeon = await getActiveDungeon(true);
             const inDungeon = dungeon ? await isPlayerInDungeon(userId, dungeon.id) : false;
             const dungeonId = dungeon?.id || null;
 

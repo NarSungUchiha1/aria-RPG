@@ -146,6 +146,19 @@ module.exports = {
                     `╰═══════════════════════╯`;
             }
 
+            // Territory bonus display
+            try {
+                const { getPlayerTerritoryBonuses } = require('../systems/territoryBonusSystem');
+                const bonuses = await getPlayerTerritoryBonuses(userId);
+                if (bonuses.length) {
+                    const isP = (p.prestige_level || 0) > 0;
+                    const bul = isP ? '┃★' : '┃◆';
+                    reply += bul + '────────────\n';
+                    reply += bul + ' 🌑 TERRITORY BONUSES ACTIVE:\n';
+                    bonuses.forEach(b => { reply += bul + ' ✦ ' + b.label + ': ' + b.description + '\n'; });
+                }
+            } catch(e) {}
+
             return msg.reply(reply);
         } catch (err) {
             console.error(err);

@@ -1,3 +1,4 @@
+const db = require('../database/db');
 const { spawnDungeon, getActiveDungeon, getWeightedDungeonRank } = require('../engine/dungeon');
 
 module.exports = {

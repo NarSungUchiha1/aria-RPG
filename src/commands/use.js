@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
-const { getActiveDungeon, getCurrentEnemies } = require('../engine/dungeon');
+const { getActiveDungeon, getCurrentEnemies, isPlayerInAnyDungeon } = require('../engine/dungeon');
 
 // ── Grade multipliers ─────────────────────────────────────
 const GRADE_MULT = { F: 1.0, E: 1.2, D: 1.4, C: 1.6, B: 1.8, A: 2.0, S: 2.3 };
@@ -434,7 +434,12 @@ module.exports = {
 
             // DUNGEON DEBUFF (Poison Vial — applies to enemy)
             if (def.type === 'dungeon_debuff') {
-                const dungeon = await getActiveDungeon();
+
+                // FIX: use player actual dungeon
+                const _pDungId = await isPlayerInAnyDungeon(userId);
+                let dungeon = null;
+                if (_pDungId) { const [_dr] = await db.execute('SELECT * FROM dungeon WHERE id=?', [_pDungId]); dungeon = _dr[0] || null; }
+                if (!dungeon) dungeon = await getActiveDungeon(true);
                 if (!dungeon || !dungeon.locked) {
                     // Refund
                     await db.execute(
@@ -467,7 +472,12 @@ module.exports = {
 
             // DUNGEON DAMAGE (Fire Scroll)
             if (def.type === 'dungeon_damage') {
-                const dungeon = await getActiveDungeon();
+
+                // FIX: use player actual dungeon
+                const _pDungId = await isPlayerInAnyDungeon(userId);
+                let dungeon = null;
+                if (_pDungId) { const [_dr] = await db.execute('SELECT * FROM dungeon WHERE id=?', [_pDungId]); dungeon = _dr[0] || null; }
+                if (!dungeon) dungeon = await getActiveDungeon(true);
                 if (!dungeon || !dungeon.locked) {
                     await db.execute(
                         "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped, grade) VALUES (?,?,?,1,0,?)",
