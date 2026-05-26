@@ -26,19 +26,16 @@ const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-    // Role heals are always free
-    if (move.type === 'heal' && move.source === 'role') return false;
+    // Damage moves NEVER cost mana regardless of role or stat
+    if (move.type === 'damage') return false;
 
-    // Intelligence damage moves cost mana
-    if (move.type === 'damage' && move.stat === 'intelligence') return true;
+    // Heals, buffs, debuffs, shields — only Healers and Mages pay mana
+    // Everyone else uses them for free
+    if (['heal', 'buff', 'debuff', 'shield', 'cleanse'].includes(move.type)) {
+        const isManaUser = player && ['Healer', 'Mage'].includes(player.role);
+        return isManaUser && move.cost > 0;
+    }
 
-    // Weapon heals cost mana
-    if (move.type === 'heal' && move.source === 'weapon') return true;
-
-    // Buff/debuff/shield/cleanse moves cost mana if they have cost > 0
-    if (['buff', 'debuff', 'shield', 'cleanse'].includes(move.type) && move.cost > 0) return true;
-
-    // All other damage moves (strength, agility, stamina) are FREE — no mana cost
     return false;
 }
 
