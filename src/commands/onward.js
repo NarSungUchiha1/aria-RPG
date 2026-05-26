@@ -29,7 +29,15 @@ module.exports = {
     name: 'onward',
     async execute(msg, args, { userId, client }) {
         try {
-            const dungeon = await getActiveDungeon();
+            // FIX: find the dungeon the player is actually IN first (handles territory dungeons)
+            const playerDungeonId = await isPlayerInAnyDungeon(userId);
+            let dungeon = null;
+            if (playerDungeonId) {
+                const [dRows] = await db.execute('SELECT * FROM dungeon WHERE id=? AND is_active=1', [playerDungeonId]);
+                dungeon = dRows[0] || null;
+            }
+            if (!dungeon) dungeon = await getActiveDungeon(true); // fallback including territory
+
             if (!dungeon) return msg.reply(
                 `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ No active dungeon.\n╰═══════════════════════╯`
             );
@@ -117,9 +125,13 @@ module.exports = {
                 const rewardGold = d.dungeon_rank === 'MALACHAR' ? 500000 : Math.floor(Math.random() * 20) + 90;
                 const rewardXp   = d.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
+                const { applyGoldBonus, applyXpBonus } = require('../systems/territoryBonusSystem');
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [rewardXp,   p.player_id]);
+                    // Apply territory bonuses on top
+                    await applyGoldBonus(p.player_id, rewardGold).catch(() => {});
+                    await applyXpBonus(p.player_id, rewardXp).catch(() => {});
                     (async () => {
                         try {
                             await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);

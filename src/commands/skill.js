@@ -26,14 +26,19 @@ const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-    // FIX: Any move with a cost > 0 consumes mana
-    // Previously only INT damage and weapon heals triggered this —
-    // everything else with cost defined was silently free
-    if (move.cost && move.cost > 0) return true;
-
-    // Role heals are always free (no cost defined, but explicit check)
+    // Role heals are always free
     if (move.type === 'heal' && move.source === 'role') return false;
 
+    // Intelligence damage moves cost mana
+    if (move.type === 'damage' && move.stat === 'intelligence') return true;
+
+    // Weapon heals cost mana
+    if (move.type === 'heal' && move.source === 'weapon') return true;
+
+    // Buff/debuff/shield/cleanse moves cost mana if they have cost > 0
+    if (['buff', 'debuff', 'shield', 'cleanse'].includes(move.type) && move.cost > 0) return true;
+
+    // All other damage moves (strength, agility, stamina) are FREE — no mana cost
     return false;
 }
 
@@ -319,8 +324,25 @@ module.exports = {
         }
 
         // FIX: use the dungeon the player is actually IN, not the globally active one
-        // This prevents territory/normal dungeon crossover bugs
-        const playerDungeonId = await isPlayerInAnyDungeon(userId);
+        // Also try partial ID match in case of LID/phone number mismatch
+        let playerDungeonId = await isPlayerInAnyDungeon(userId);
+
+        // FIX: If not found with exact ID, try matching by partial ID
+        // Some WhatsApp accounts use LID format which can cause ID mismatches
+        if (!playerDungeonId) {
+            const partialId = userId.replace(/[^0-9]/g, '');
+            if (partialId.length >= 8) {
+                const [partialRows] = await db.execute(
+                    "SELECT dungeon_id FROM dungeon_players dp JOIN players p ON p.id=dp.player_id WHERE p.id LIKE ? AND dp.is_alive=1 LIMIT 1",
+                    ['%' + partialId + '%']
+                );
+                if (partialRows.length) {
+                    playerDungeonId = partialRows[0].dungeon_id;
+                    console.log('[skill] LID mismatch detected for', userId, '→ found via partial match');
+                }
+            }
+        }
+
         const dungeon = playerDungeonId
             ? await (async () => { const [r] = await db.execute('SELECT * FROM dungeon WHERE id=?', [playerDungeonId]); return r[0] || null; })()
             : await getActiveDungeon(true);
@@ -412,7 +434,20 @@ module.exports = {
                 } catch(e) { console.error('Leviathan hit error:', e.message); }
             }
 
-            const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
+            let result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
+
+            // Apply territory damage bonus
+            try {
+                const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
+                const terrMult = await getDamageBonusMultiplier(userId);
+                if (terrMult > 1.0 && result.damage > 0) {
+                    const bonusDmg = Math.floor(result.damage * (terrMult - 1.0));
+                    if (bonusDmg > 0) {
+                        await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE dungeon_id=? AND current_hp > 0 ORDER BY id LIMIT 1', [bonusDmg, dungeon.id]).catch(() => {});
+                        result.damage += bonusDmg;
+                    }
+                }
+            } catch(e) {}
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
             const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
@@ -644,6 +679,16 @@ module.exports = {
                     reply += `┃◆ ${player.nickname} reels from the counter: ${result.retaliation} damage (HP: ${result.playerHp}/${player.max_hp})\n`;
                 }
             }
+
+            // FIX: Always show player's current HP after every skill use
+            try {
+                const [freshHp] = await db.execute('SELECT hp, max_hp FROM players WHERE id=?', [userId]);
+                if (freshHp.length && !result.playerDied) {
+                    const curHp = freshHp[0].hp;
+                    const maxHp = freshHp[0].max_hp;
+                    reply += `┃◆────────────\n┃◆ ❤️ HP: ${curHp}/${maxHp}\n`;
+                }
+            } catch(e) {}
 
             if (result.playerDied) {
                 try {
