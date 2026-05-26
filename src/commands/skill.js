@@ -24,6 +24,9 @@ const SPAM_THRESHOLD  = 2;
 const SPAM_FATIGUE    = 50;
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
+function mvpRecordHeal(dungeonId, playerId, amount) {
+    try { recordHeal('dungeon_' + dungeonId, playerId, null, amount, amount); } catch(e) {}
+}
 
 function requiresMana(move, player) {
     // Damage moves NEVER cost mana regardless of role or stat
