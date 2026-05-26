@@ -306,7 +306,7 @@ module.exports = {
             }
         }
 
-        if (requiresMana(move)) {
+        if (requiresMana(move, player)) {
             const manaCost = move.cost || 5;
             const currentMana = Number(player.mana) || 0;
             const isCaster = ['Mage', 'Healer', 'Explorer'].includes(player.role);
