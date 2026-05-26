@@ -19,7 +19,7 @@ const { addVoidResonance } = require('../systems/ascendantSystem');
 const territoryEnemies = require('../data/territoryEnemies');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-const LOBBY_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+const LOBBY_DURATION_MS = 60 * 60 * 1000; // 1 hour — defenders have 1 hour to respond
 
 // Active territory assault lobbies: dungeonId → { tid, attackerClan, defenderClan, timer }
 const territoryLobbies = new Map();
@@ -163,8 +163,10 @@ module.exports = {
                             text:
                                 '╔══〘 🌑 ASSAULT EXPIRED 〙══╗\n' +
                                 '┃★ ' + territory.emoji + ' ' + territory.name + '\n' +
-                                '┃★ The assault party never formed.\n' +
-                                '┃★ The territory stands.\n' +
+                                '┃★ The defenders never responded.\n' +
+                                '┃★ Attackers win uncontested!\n' +
+                                '┃★ Territory will be claimed when\n' +
+                                '┃★ the dungeon is cleared.\n' +
                                 '╚═══════════════════════════╝'
                         });
                         // Reset territory war record if contested
