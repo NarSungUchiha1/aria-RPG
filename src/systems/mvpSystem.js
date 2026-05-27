@@ -44,14 +44,20 @@ function recordDamage(key, attackerRawId, targetId, damage, actualDamage) {
     const stats = mvpStats.get(key);
     const amt = actualDamage || damage || 0;
     if (stats[attackerId]) stats[attackerId].damageDealt += amt;
-    if (targetId && stats[targetId]) stats[targetId].damageTaken += amt;
+    // Record damage taken for Tank scoring — normalize targetId
+    if (targetId) {
+        const normTarget = String(targetId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
+        if (stats[normTarget]) stats[normTarget].damageTaken += amt;
+    }
 }
 
-function recordHeal(key, healerRawId, amount) {
+function recordHeal(key, healerRawId, targetId, amount, actualAmount) {
+    // Support both 3-arg and 5-arg call signatures
+    const healAmount = actualAmount || amount || 0;
     const healerId = String(healerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, healerId);
     const stats = mvpStats.get(key);
-    if (stats[healerId]) stats[healerId].healingDone += (amount || 0);
+    if (stats[healerId]) stats[healerId].healingDone += healAmount;
 }
 
 function recordKill(key, killerRawId) {
@@ -99,9 +105,27 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     }
 
     if (!results.length) return null;
-    results.sort((a, b) => b.score - a.score);
+
+    // Sort by score descending but pick MVP as best performer relative to their role peers
+    // Normalize scores so a Healer who healed 5k competes fairly with a Berserker who dealt 50k
+    // Each player's score is normalized as % contribution within their metric group
+    const damageGroup = results.filter(r => r.metric === 'damage');
+    const healGroup   = results.filter(r => r.metric === 'healing');
+    const tankGroup   = results.filter(r => r.metric === 'damage tanked');
+
+    const maxDmg  = Math.max(1, ...damageGroup.map(r => r.score));
+    const maxHeal = Math.max(1, ...healGroup.map(r => r.score));
+    const maxTank = Math.max(1, ...tankGroup.map(r => r.score));
+
+    results.forEach(r => {
+        if (r.metric === 'damage')       r.normalizedScore = r.score / maxDmg;
+        else if (r.metric === 'healing') r.normalizedScore = r.score / maxHeal;
+        else                             r.normalizedScore = r.score / maxTank;
+    });
+
+    results.sort((a, b) => b.normalizedScore - a.normalizedScore);
     const mvp = results[0];
-    if (mvp.score === 0) return null; // nobody dealt damage — skip
+    if (mvp.score === 0) return null;
 
     const totalScore = results.reduce((sum, r) => sum + r.score, 0);
     const isExceptional = totalScore > 0 && (mvp.score / totalScore) >= EXCEPTIONAL_THRESHOLD;
