@@ -14,6 +14,7 @@ const activeDuels = new Map();
 const duelPool    = new Map();
 const turnTimers  = new Map(); // duelKey -> timeout
 const duelBlessingStates = new Map();
+const territoryWars = new Map(); // duelKey -> { tid, attackerClan, defenderClan, attackers, defenders, dungeonId }
 
 // ── Party Assembly State ──────────────────────────────────────────────────────
 // Holds both teams during the 2-minute assembly window before a party duel starts.
