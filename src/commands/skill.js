@@ -32,11 +32,12 @@ function requiresMana(move, player) {
     // Damage moves NEVER cost mana regardless of role or stat
     if (move.type === 'damage') return false;
 
-    // Heals, buffs, debuffs, shields — only Healers and Mages pay mana
-    // Everyone else uses them for free
+    // Support moves (heal/buff/debuff/shield/cleanse) cost mana for Healers and Mages
+    // Source doesn't matter — role heals cost mana too for Healer/Mage
     if (['heal', 'buff', 'debuff', 'shield', 'cleanse'].includes(move.type)) {
         const isManaUser = player && ['Healer', 'Mage'].includes(player.role);
-        return isManaUser && move.cost > 0;
+        if (!isManaUser) return false; // other roles use support moves for free
+        return move.cost > 0; // Healer/Mage always pay mana for support moves
     }
 
     return false;
