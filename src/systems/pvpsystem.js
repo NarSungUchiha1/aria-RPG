@@ -1343,6 +1343,7 @@ module.exports = {
     startPvPDuel,
     setDuelActive,
     setTurn,
+    getDuelKey,
     territoryWars,
     handlePvPAttack,
     handlePvPSkill,

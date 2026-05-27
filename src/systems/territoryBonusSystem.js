@@ -9,7 +9,8 @@
  */
 
 const db = require('../database/db');
-const { getClanTerritoryBonuses, getPlayerClan } = require('./voidTerritories');
+const { getClanTerritoryBonuses } = require('./voidTerritories');
+const { getPlayerClan } = require('./clanSystem');
 
 // Cache clan bonuses for 2 minutes to avoid DB spam
 const bonusCache = new Map();
