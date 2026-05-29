@@ -67,10 +67,11 @@ module.exports = {
                         `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                         `┃◆ MANAGEMENT\n` +
                         `┃◆ !clan accept @user\n` +
-                        `┃◆ !clan kick @user\n` +
-                        `┃◆ !clan assign @user <quest title> | <desc> | <objective> | <target> | <gold> | <xp>\n`;
+                        `┃◆ !clan kick @user\n`;
                     if (isMaster) {
                         text +=
+                            `┃◆ !clan assign @user <quest> — assign quest\n` +
+                            `┃◆ !clan quests — view all active quests\n` +
                             `┃◆ !clan promote @user — make officer\n` +
                             `┃◆ !clan demote @user — back to member\n` +
                             `┃◆ !clan transfer @user — transfer mastership\n`;
@@ -243,8 +244,8 @@ module.exports = {
             if (sub === 'assign') {
                 const myClan = await getPlayerClan(userId);
                 if (!myClan) return msg.reply("❌ Not in a clan.");
-                const myRole = await getClanMemberRole(userId, myClan.id);
-                if (!['master','officer'].includes(myRole)) return msg.reply("❌ Officers and masters only.");
+                // Only the clan master can assign quests
+                if (myClan.leader_id !== userId) return msg.reply("❌ Only the clan master can assign quests.");
 
                 const targetRaw = msg.mentionedIds?.[0] || args[1];
                 if (!targetRaw) return msg.reply(
@@ -335,8 +336,7 @@ module.exports = {
             if (sub === 'quests') {
                 const myClan = await getPlayerClan(userId);
                 if (!myClan) return msg.reply("❌ Not in a clan.");
-                const myRole = await getClanMemberRole(userId, myClan.id);
-                if (!['master','officer'].includes(myRole)) return msg.reply("❌ Officers and masters only.");
+                if (myClan.leader_id !== userId) return msg.reply("❌ Clan master only.");
 
                 const [quests] = await db.execute(
                     `SELECT cq.*, p.nickname as assignee_nick, p2.nickname as assigner_nick
