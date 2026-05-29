@@ -584,22 +584,27 @@ count = count + 1`,
                     userId
                 );
 
-                // If territory dungeon — check if defenders are waiting and trigger war
+                // If territory dungeon — check if both sides have players and trigger war
                 if (dungeon.dungeon_rank && dungeon.dungeon_rank.startsWith('TERRITORY_')) {
                     try {
-                        const { defenderPool, tryStartTerritoryWar } = require('./defend');
+                        const { tryStartTerritoryWar } = require('./defend');
                         const tid = dungeon.dungeon_rank.replace('TERRITORY_', '');
-                        const defenders = defenderPool.get(dungeon.id);
-                        if (defenders && defenders.size > 0) {
-                            const [flagRow] = await db.execute(
-                                'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?',
-                                [dungeon.id]
-                            ).catch(() => [[{}]]);
-                            const attackerClanId = flagRow[0]?.conquering_clan;
-                            const defenderClanId = flagRow[0]?.defending_clan;
-                            if (attackerClanId && defenderClanId) {
-                                tryStartTerritoryWar(dungeon.id, tid, attackerClanId, defenderClanId, client).catch(() => {});
-                            }
+
+                        // Check DB directly — more reliable than in-memory pool
+                        const [defRows] = await db.execute(
+                            'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_defender=1 AND is_alive=1',
+                            [dungeon.id]
+                        );
+                        const [flagRow] = await db.execute(
+                            'SELECT conquering_clan, defending_clan FROM dungeon_flags WHERE dungeon_id=?',
+                            [dungeon.id]
+                        ).catch(() => [[{}]]);
+
+                        const attackerClanId = flagRow[0]?.conquering_clan;
+                        const defenderClanId = flagRow[0]?.defending_clan;
+
+                        if (defRows[0].cnt > 0 && attackerClanId && defenderClanId) {
+                            tryStartTerritoryWar(dungeon.id, tid, Number(attackerClanId), Number(defenderClanId), client).catch(() => {});
                         }
                     } catch(e) { console.error('[TerritoryWar enter check]', e.message); }
                 }
