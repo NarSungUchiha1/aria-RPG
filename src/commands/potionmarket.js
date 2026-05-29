@@ -1,7 +1,7 @@
 const db = require('../database/db');
 const { POTIONS, MIN_PRICES } = require('../systems/potions');
 
-const MAX_LISTINGS = 5;
+// No listing limit — explorers can list as many potions as they have
 
 // ✅ Potion Market GC
 const POTION_GC = "120363425913743048@g.us";
