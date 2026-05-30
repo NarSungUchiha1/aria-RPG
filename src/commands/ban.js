@@ -106,15 +106,15 @@ module.exports = {
 
         // ── !unban @user ───────────────────────────────────────────────────
         if (sub === 'unban') {
-            const mention = msg.mentionedJids?.[0] || args[1];
+            const mention = msg.mentionedIds?.[0] || args[1];
             if (!mention) return msg.reply('❌ Tag a player: !ban unban @user');
-            const targetId = String(mention).replace(/@s\.whatsapp\.net|@c\.us/g, '').split(':')[0];
+            const targetId = String(mention).replace(/@[^@]+$/, '').split(':')[0];
             await db.execute('DELETE FROM banned_players WHERE player_id=?', [targetId]);
             return msg.reply('══〘 ✅ UNBANNED 〙══╮\n┃◆ Player ' + targetId + ' unbanned.\n╰═══════════════╯');
         }
 
         // ── !ban @user [erase] ─────────────────────────────────────────────
-        const mention = msg.mentionedJids?.[0] || args[0];
+        const mention = msg.mentionedIds?.[0] || args[0];
         if (!mention) return msg.reply(
             '══〘 🚫 BAN 〙══╮\n' +
             '┃◆ !ban @user — ban player\n' +
@@ -126,7 +126,7 @@ module.exports = {
             '╰═══════════════════════╯'
         );
 
-        const targetId = String(mention).replace(/@s\.whatsapp\.net|@c\.us/g, '').split(':')[0];
+        const targetId = String(mention).replace(/@[^@]+$/, '').split(':')[0];
         const shouldErase = args.includes('erase');
 
         const [pRows] = await db.execute('SELECT nickname FROM players WHERE id=?', [targetId]);
