@@ -8,6 +8,8 @@ module.exports = {
         if (!mention) return msg.reply('❌ Tag a player: !unban @user');
         const targetId = String(mention).replace(/@s\.whatsapp\.net|@c\.us/g, '').split(':')[0];
         await db.execute('DELETE FROM banned_players WHERE player_id=?', [targetId]);
-        return msg.reply('══〘 ✅ UNBANNED 〙══╮\n┃◆ Player ' + targetId + ' unbanned.\n╰═══════════════╯');
+        // Remove from in-memory set immediately
+        try { if (global.bannedPlayers) global.bannedPlayers.delete(targetId); } catch(e) {}
+        return msg.reply('══〘 ✅ UNBANNED 〙══╮\n┃◆ ' + targetId + ' can use the bot again.\n╰═══════════════╯');
     }
 };

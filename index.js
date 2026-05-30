@@ -171,6 +171,9 @@ const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
 const DM_ONLY = new Set(['enter']);
 
 const commands = new Map();
+const bannedPlayers = new Set(); // in-memory ban list loaded at startup
+global.bannedPlayers = bannedPlayers; // expose for ban/unban commands
+
 const commandPath = path.join(__dirname, "src/commands");
 
 if (fs.existsSync(commandPath)) {
@@ -526,20 +529,9 @@ async function startBot() {
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
 
-            // Check if player is banned — allow !ban and !unban for admins
+            // Check if player is banned — in-memory for speed
             if (cmdName !== 'ban' && cmdName !== 'unban') {
-                try {
-                    const [banCheck] = await db.execute(
-                        'SELECT player_id FROM banned_players WHERE player_id=? LIMIT 1',
-                        [userId]
-                    );
-                    if (banCheck.length) {
-                        // Banned — silently ignore ALL their commands
-                        return;
-                    }
-                } catch(e) {
-                    // Table might not exist yet — ignore
-                }
+                if (bannedPlayers.has(userId)) return; // silently ignore
             }
 
             const command = commands.get(cmdName);

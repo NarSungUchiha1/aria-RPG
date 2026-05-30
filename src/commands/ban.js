@@ -86,6 +86,7 @@ module.exports = {
                     [m.id, m.nickname, userId, m.nickname, userId]
                 );
                 if (shouldErase) await erasePlayer(m.id);
+                try { if (global.bannedPlayers) global.bannedPlayers.add(m.id); } catch(e) {}
             }
 
             // Also delete the clan itself if erasing
@@ -135,6 +136,9 @@ module.exports = {
             'INSERT INTO banned_players (player_id, nickname, banned_by) VALUES (?,?,?) ON DUPLICATE KEY UPDATE nickname=?, banned_by=?',
             [targetId, nick, userId, nick, userId]
         );
+
+        // Update in-memory ban set immediately
+        try { if (global.bannedPlayers) global.bannedPlayers.add(targetId); } catch(e) {}
 
         if (shouldErase) await erasePlayer(targetId);
 
