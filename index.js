@@ -158,8 +158,8 @@ const DUNGEON_GC_ONLY = new Set([
 ]);
 
 const HEALER_GC_ONLY = new Set([
-    'healers', 'listservice', 'hire', 'contracts'
-    // removelisting intentionally excluded — any role can unlist from anywhere
+    'healers', 'hire', 'contracts'
+    // listservice and removelisting excluded — now work for both Healers and Explorers anywhere
 ]);
 
 const BLACKSMITH_GC_ONLY = new Set([
@@ -525,6 +525,17 @@ async function startBot() {
 
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
+
+            // Check if player is banned — allow !ban command itself for admins
+            if (cmdName !== 'ban') {
+                try {
+                    const [banCheck] = await db.execute(
+                        'SELECT player_id FROM banned_players WHERE player_id=? LIMIT 1',
+                        [userId]
+                    );
+                    if (banCheck.length) return; // silently ignore banned players
+                } catch(e) {}
+            }
 
             const command = commands.get(cmdName);
             if (!command) {
