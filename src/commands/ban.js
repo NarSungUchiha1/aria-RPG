@@ -21,21 +21,31 @@ async function ensureBanTable() {
 }
 
 async function erasePlayer(playerId) {
-    await db.execute('DELETE FROM players WHERE id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM currency WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM xp WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM inventory WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM dungeon_players WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM clan_members WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM player_materials WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM void_resonance WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM player_quests WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM player_achievements WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM potion_inventory WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM dungeon_entry_log WHERE player_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM healer_listings WHERE healer_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM explorer_listings WHERE explorer_id=?', [playerId]).catch(() => {});
-    await db.execute('DELETE FROM healer_contracts WHERE healer_id=?', [playerId]).catch(() => {});
+    const id = String(playerId).replace(/@s\.whatsapp\.net|@c\.us/g,'').split(':')[0];
+    const tables = [
+        ['players',          'id'],
+        ['currency',         'player_id'],
+        ['xp',               'player_id'],
+        ['inventory',        'player_id'],
+        ['dungeon_players',  'player_id'],
+        ['clan_members',     'player_id'],
+        ['player_materials', 'player_id'],
+        ['void_resonance',   'player_id'],
+        ['player_quests',    'player_id'],
+        ['player_achievements','player_id'],
+        ['potion_inventory', 'player_id'],
+        ['dungeon_entry_log','player_id'],
+        ['healer_listings',  'healer_id'],
+        ['healer_contracts', 'healer_id'],
+        ['explorer_listings','explorer_id'],
+        ['forged_weapons',   'player_id'],
+        ['exploration_materials','player_id'],
+        ['explorations',     'player_id'],
+    ];
+    for (const [table, col] of tables) {
+        await db.execute(`DELETE FROM ${table} WHERE ${col}=?`, [id]).catch(() => {});
+    }
+    console.log('[BAN] Erased player:', id);
 }
 
 module.exports = {

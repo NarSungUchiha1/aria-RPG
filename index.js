@@ -526,15 +526,20 @@ async function startBot() {
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
 
-            // Check if player is banned — allow !ban command itself for admins
-            if (cmdName !== 'ban') {
+            // Check if player is banned — allow !ban and !unban for admins
+            if (cmdName !== 'ban' && cmdName !== 'unban') {
                 try {
                     const [banCheck] = await db.execute(
                         'SELECT player_id FROM banned_players WHERE player_id=? LIMIT 1',
                         [userId]
                     );
-                    if (banCheck.length) return; // silently ignore banned players
-                } catch(e) {}
+                    if (banCheck.length) {
+                        // Banned — silently ignore ALL their commands
+                        return;
+                    }
+                } catch(e) {
+                    // Table might not exist yet — ignore
+                }
             }
 
             const command = commands.get(cmdName);
