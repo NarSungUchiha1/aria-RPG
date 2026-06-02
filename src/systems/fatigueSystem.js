@@ -1,8 +1,7 @@
 const db = require('../database/db');
 
 const FATIGUE_MAX = 100;
-const FATIGUE_MIN_MULTIPLIER = 0.35;  // FIX: was 0.02 (1 damage at full fatigue) — now 35% min
-                                       // 2% was way too punishing, players dealt 1 damage at 100 fatigue
+const FATIGUE_MIN_MULTIPLIER = 0.01;  // At 100 fatigue: deal 1 damage (effectively 0)
 const FATIGUE_RECOVERY_PER_TICK = 2;
 
 function clampFatigue(value = 0) {
@@ -16,8 +15,9 @@ function getFatigueMultiplier(player = {}) {
     // FIX: Linear falloff instead of quadratic
     // Quadratic was too steep — at fatigue 50 players were already at ~76% damage
     // Linear: fatigue 25 → 91%  |  50 → 82%  |  75 → 74%  |  100 → 35%
+    // Curve: 25→80%  50→58%  75→34%  100→1%
     const normalized = fatigue / FATIGUE_MAX;  // 0 → 1
-    const multiplier = 1 - normalized * (1 - FATIGUE_MIN_MULTIPLIER);
+    const multiplier = Math.pow(1 - normalized, 0.8) * (1 - FATIGUE_MIN_MULTIPLIER) + FATIGUE_MIN_MULTIPLIER;
     return Math.max(FATIGUE_MIN_MULTIPLIER, multiplier);
 }
 
