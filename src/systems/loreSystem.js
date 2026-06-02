@@ -317,6 +317,33 @@ function getRandomDungeonLore(chapterNum) {
     return loreList[Math.floor(Math.random() * loreList.length)];
 }
 
+// Auto-advance story based on total dungeon clears across all players
+async function checkStoryProgress(client, raidGroup) {
+    try {
+        const currentChapter = await getCurrentChapter();
+        const thresholds = { 1: 50, 2: 150, 3: 300, 4: 500 }; // clears needed per chapter
+        const threshold = thresholds[currentChapter];
+        if (!threshold) return; // already at max chapter
+
+        const db = require('../database/db');
+        const [rows] = await db.execute('SELECT COUNT(*) as cnt FROM dungeon WHERE is_active=0 AND locked=1');
+        const totalClears = rows[0]?.cnt || 0;
+
+        if (totalClears >= threshold) {
+            const next = currentChapter + 1;
+            await setChapter(next);
+            const chapter = CHAPTERS.find(c => c.id === next);
+            if (chapter && client && raidGroup) {
+                for (const line of chapter.story.slice(0, 3)) { // only first 3 lines to avoid spam
+                    if (!line) continue;
+                    await client.sendMessage(raidGroup, { text: line });
+                    await new Promise(r => setTimeout(r, 3000));
+                }
+            }
+        }
+    } catch(e) {}
+}
+
 module.exports = {
     CHAPTERS,
     getCurrentChapter,

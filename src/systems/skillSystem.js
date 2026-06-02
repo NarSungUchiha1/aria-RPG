@@ -80,6 +80,10 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
 
     let statValue = baseStat + buffValue;
 
+    // Apply fatigue multiplier to all skill damage
+    const { getFatigueMultiplier } = require('./fatigueSystem');
+    const fatigueMultiplier = getFatigueMultiplier(player);
+
     let totalBonus = 0;
 
     if (Array.isArray(equippedItems)) {

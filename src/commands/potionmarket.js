@@ -171,21 +171,7 @@ module.exports = {
                     );
                 }
 
-                // listing limit
-                const [myListings] = await db.execute(
-                    `SELECT COUNT(*) as cnt
-                     FROM potion_market
-                     WHERE seller_id=?
-                     AND stock > 0`,
-                    [userId]
-                );
-
-                if (myListings[0].cnt >= MAX_LISTINGS) {
-                    return msg.reply(
-                        `❌ Max ${MAX_LISTINGS} active listings.`
-                    );
-                }
-
+                // No listing limit — explorers can list as many as they want
                 // remove from inventory
                 await db.execute(
                     `UPDATE potion_inventory
@@ -211,6 +197,37 @@ module.exports = {
 ┃◆ Visible in the Void Market.
 ╚═══════════════════════════╝`
                 );
+            }
+
+            /* =====================================
+               🧪 MY LISTINGS
+            ===================================== */
+
+            if (sub === 'mylistings' || sub === 'mine') {
+
+                const [myListings] = await db.execute(
+                    `SELECT * FROM potion_market WHERE seller_id=? AND stock > 0 ORDER BY listed_at DESC`,
+                    [userId]
+                );
+
+                if (!myListings.length) return msg.reply(
+`╔══〘 🧪 MY LISTINGS 〙══╗
+┃◆ You have no active listings.
+┃◆ !potionmarket list <potion> <price>
+╚═══════════════════════════╝`
+                );
+
+                let text = `╔══〘 🧪 MY LISTINGS 〙══╗
+┃◆
+`;
+                myListings.forEach((l, i) => {
+                    text += `┃◆ ${i+1}. ${l.potion_name} — 💰 ${l.price.toLocaleString()}G
+`;
+                });
+                text += `┃◆
+┃◆ !potionmarket unlist <#> to remove
+╚═══════════════════════════╝`;
+                return msg.reply(text);
             }
 
             /* =====================================

@@ -39,37 +39,18 @@ function clearLobbyTimer(dungeonId) {
 // MVP helpers removed — calculateMvp is called directly in onward.js at dungeon clear
 
 async function getWeightedDungeonRank() {
+    // FIX: Completely random — no player-count dependency
+    // Mid-high ranks favoured slightly
     const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const [rows] = await db.execute(
-        "SELECT `rank`, COUNT(*) as cnt FROM players GROUP BY `rank`"
-    );
-    if (!rows.length) return 'F';
-
-    const total = rows.reduce((sum, r) => sum + Number(r.cnt), 0);
-    const weights = {};
-    rankOrder.forEach(r => { weights[r] = 0; });
-
-    const floorWeights = { F: 0.05, E: 0.08, D: 0.15, C: 0.18, B: 0.20, A: 0.18, S: 0.16 };
-    rankOrder.forEach(r => { weights[r] = floorWeights[r] || 0.05; });
-
-    for (const row of rows) {
-        const idx  = rankOrder.indexOf(row.rank);
-        const base = (Number(row.cnt) / total) * 0.5;
-        weights[row.rank]                      += base * 0.6;
-        if (idx > 0)                    weights[rankOrder[idx - 1]] += base * 0.2;
-        if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
-    }
-
+    const weights   = { F: 8, E: 12, D: 16, C: 20, B: 18, A: 14, S: 12 };
     const weightSum = rankOrder.reduce((s, r) => s + weights[r], 0);
-    rankOrder.forEach(r => { weights[r] /= weightSum; });
-
-    let cumulative = 0;
-    const roll = Math.random();
+    let cumulative  = 0;
+    const roll      = Math.random() * weightSum;
     for (const rank of rankOrder) {
-        cumulative += weights[rank] || 0;
+        cumulative += weights[rank];
         if (roll <= cumulative) return rank;
     }
-    return 'F';
+    return 'C';
 }
 
 async function spawnDungeon(rank, client = null) {

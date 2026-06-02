@@ -127,6 +127,21 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     const mvp = results[0];
     if (mvp.score === 0) return null;
 
+    // Also pick top performer from each OTHER role group for consolation rewards
+    const roleRewards = [];
+    for (const group of [damageGroup, healGroup, tankGroup]) {
+        const top = group.sort((a, b) => b.score - a.score)[0];
+        if (top && top.id !== mvp.id && top.score > 0) roleRewards.push(top);
+    }
+
+    // Give consolation rewards to top of each role group
+    for (const r of roleRewards) {
+        const consolation = Math.floor(MVP_REWARDS.standard.gold * 0.4);
+        const consolationXp = Math.floor(MVP_REWARDS.standard.xp * 0.4);
+        await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [consolation, r.id]).catch(() => {});
+        await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [consolationXp, r.id]).catch(() => {});
+    }
+
     const totalScore = results.reduce((sum, r) => sum + r.score, 0);
     const isExceptional = totalScore > 0 && (mvp.score / totalScore) >= EXCEPTIONAL_THRESHOLD;
     const rewards = isExceptional ? MVP_REWARDS.exceptional : MVP_REWARDS.standard;

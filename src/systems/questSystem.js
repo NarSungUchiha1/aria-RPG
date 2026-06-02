@@ -38,46 +38,34 @@ async function ensureTables() {
         `ALTER TABLE player_quests ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST`
     ).catch(() => {}); // silently ignored if column already exists
 
-    // ── Seed quests if table is empty ─────────────────────────────────────────
+    // ── Seed quests from questData.js ──────────────────────────────────────────
     const [count] = await db.execute('SELECT COUNT(*) as cnt FROM quests').catch(() => [[{ cnt: 1 }]]);
-    if (count[0].cnt > 0) return;
+    if (count[0].cnt >= 50) return; // already seeded
 
-    const seeds = [
-        // ── DAILY ─────────────────────────────────────────────────────────────
-        ['Dungeon Diver',      'Enter any dungeon.',                       'daily', 'dungeon_enter',   null, 1,  500,  300, 0, null, null],
-        ['Stage Clearer',      'Clear 2 dungeon stages.',                  'daily', 'stage_clear',     null, 2,  800,  500, 0, null, null],
-        ['Dungeon Victor',     'Clear a full dungeon without dying.',      'daily', 'dungeon_survive', null, 1, 1200,  800, 0, null, null],
-        ['Blood & Gold',       'Clear any dungeon.',                       'daily', 'dungeon_clear',   null, 1,  700,  600, 0, null, null],
-        ['Repeat Raider',      'Clear 3 dungeon stages total.',            'daily', 'stage_clear',     null, 3, 1000,  700, 0, null, null],
-        ['PvP Challenger',     'Win a duel.',                              'daily', 'pvp_win',         null, 1,  600,  400, 0, null, null],
-        ['Survivor',           'Survive any dungeon.',                     'daily', 'dungeon_survive', null, 1,  600,  400, 0, null, null],
-        ['Stage Grinder',      'Clear 5 stages in one day.',               'daily', 'stage_clear',     null, 5, 1500, 1000, 0, null, null],
+    const questData = require('../data/questData');
 
-        // ── ACHIEVEMENT ───────────────────────────────────────────────────────
-        ['First Blood',        'Win your first PvP duel.',                 'achievement', 'pvp_win',         null,  1, 2000, 1500, 10, null, 'Duelist'],
-        ['Veteran Duelist',    'Win 10 PvP duels.',                        'achievement', 'pvp_win',         null, 10, 8000, 5000, 30, null, 'Gladiator'],
-        ['Void Conqueror',     'Clear 10 dungeons.',                       'achievement', 'dungeon_clear',   null, 10, 5000, 4000, 20, null, 'Dungeon Breaker'],
-        ['Unkillable',         'Survive 5 full dungeons without dying.',   'achievement', 'dungeon_survive', null,  5, 6000, 4500, 25, null, 'Iron Will'],
-        ['Stage Hunter',       'Clear 25 total stages.',                   'achievement', 'stage_clear',     null, 25, 7000, 5000, 30, null, 'Stage Slayer'],
-        ['S-Rank Slayer',      'Clear an S-rank dungeon.',                 'achievement', 'srank_clear',     null,  1, 4000, 3000, 20, null, 'S-Rank Hunter'],
-        ['Champion',           'Win 25 PvP duels.',                        'achievement', 'pvp_win',         null, 25,15000,10000, 50, null, 'Champion'],
-
-        // ── PARTY (weekly) ────────────────────────────────────────────────────
-        ['Party Raid',         'Clear a dungeon with a full team.',        'party', 'dungeon_clear',   null, 1, 3000, 2000, 15, null, null],
-        ['Team Surge',         'Clear 10 stages as a group this week.',    'party', 'stage_clear',     null,10, 5000, 3500, 20, null, null],
-        ['Void Tide',          'Clear 3 dungeons together this week.',     'party', 'dungeon_clear',   null, 3, 7000, 5000, 30, null, null],
-    ];
-
-    for (const [title, desc, type, objType, objTarget, objCount, gold, xp, sp, item, rewardTitle] of seeds) {
+    // Seed daily quests
+    for (const [title, desc, objType, objCount, gold, xp] of questData.daily) {
         await db.execute(
-            `INSERT IGNORE INTO quests
-             (title, description, quest_type, objective_type, objective_target, objective_count,
-              reward_gold, reward_xp, reward_sp, reward_item, reward_title, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [title, desc, type, objType, objTarget, objCount, gold, xp, sp, item, rewardTitle]
+            'INSERT IGNORE INTO quests (title, description, quest_type, objective_type, objective_count, reward_gold, reward_xp, reward_sp, is_active) VALUES (?,?,?,?,?,?,?,0,1)',
+            [title, desc, 'daily', objType, objCount, gold, xp]
         ).catch(() => {});
     }
-}
+    // Seed achievements
+    for (const [title, desc, objType, objCount, gold, xp, sp, rewardTitle] of questData.achievements) {
+        await db.execute(
+            'INSERT IGNORE INTO quests (title, description, quest_type, objective_type, objective_count, reward_gold, reward_xp, reward_sp, reward_title, is_active) VALUES (?,?,?,?,?,?,?,?,?,1)',
+            [title, desc, 'achievement', objType, objCount, gold, xp, sp, rewardTitle]
+        ).catch(() => {});
+    }
+    // Seed party quests
+    for (const [title, desc, objType, objCount, gold, xp, sp] of questData.party) {
+        await db.execute(
+            'INSERT IGNORE INTO quests (title, description, quest_type, objective_type, objective_count, reward_gold, reward_xp, reward_sp, is_active) VALUES (?,?,?,?,?,?,?,?,1)',
+            [title, desc, 'party', objType, objCount, gold, xp, sp]
+        ).catch(() => {});
+    }
+
 
 // ── PROGRESS BAR ─────────────────────────────────────────────────────────────
 function progressBar(current, total, length = 8) {
@@ -148,7 +136,7 @@ async function assignDailyQuests(playerId) {
 
     // Only assign DAILY quests — not achievements or party
     const [quests] = await db.execute(
-        "SELECT * FROM quests WHERE is_active=1 AND quest_type='daily' ORDER BY RAND() LIMIT 3"
+        "SELECT * FROM quests WHERE is_active=1 AND quest_type='daily' ORDER BY RAND() LIMIT 5"
     );
     for (const q of quests) {
         await db.execute(
@@ -296,3 +284,4 @@ module.exports = {
     updateQuestProgress,
     claimQuestRewards
 };
+}
