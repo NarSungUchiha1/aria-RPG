@@ -216,9 +216,12 @@ module.exports = {
                     '┃★ ' + territory.stages + ' stages.\n' +
                     '┃★ Guardian: *' + territory.guardian + '*\n' +
                     '┃★\n' +
-                    '┃★ *' + myClan.name + '* members:\n' +
-                    '┃★ DM the bot *!enter* to join.\n' +
-                    '┃★ ⏳ Lobby open for 10 minutes.\n' +
+                    '┃★ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n' +
+                    '┃★ ⚔️ *' + myClan.name + '* ATTACKERS:\n' +
+                    '┃★ DM ARIA *!enter* to join the assault.\n' +
+                    (isWar ? '┃★\n┃★ 🛡️ DEFENDERS:\n┃★ DM ARIA *!defend ' + tid + '* to hold.\n' : '') +
+                    '┃★ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n' +
+                    '┃★ ⏳ Lobby open for 1 hour.\n' +
                     '┃★\n' +
                     '╚═══════════════════════════╝',
                 mentions: attackerMentions
