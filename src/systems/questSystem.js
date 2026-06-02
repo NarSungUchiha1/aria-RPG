@@ -65,7 +65,7 @@ async function ensureTables() {
             [title, desc, 'party', objType, objCount, gold, xp, sp]
         ).catch(() => {});
     }
-
+}
 
 // ── PROGRESS BAR ─────────────────────────────────────────────────────────────
 function progressBar(current, total, length = 8) {
@@ -284,4 +284,3 @@ module.exports = {
     updateQuestProgress,
     claimQuestRewards
 };
-}
