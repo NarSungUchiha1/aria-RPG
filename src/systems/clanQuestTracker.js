@@ -66,11 +66,26 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
             if (newProgress >= quest.target) {
                 await db.execute('UPDATE clan_quests SET status=\'completed\' WHERE id=?', [quest.id]);
 
-                if (quest.reward_gold > 0) {
-                    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [quest.reward_gold, playerId]);
+                // FIX: Deduct rewards from clan leader — not created from thin air
+                const [clanLeaderRow] = await db.execute('SELECT leader_id FROM clans WHERE id=?', [quest.clan_id]).catch(() => [[]]);
+                const leaderId = clanLeaderRow[0]?.leader_id;
+
+                if (quest.reward_gold > 0 && leaderId) {
+                    // Check leader has enough
+                    const [leaderGold] = await db.execute('SELECT gold FROM currency WHERE player_id=?', [leaderId]).catch(() => [[{gold:0}]]);
+                    const actualGold = Math.min(quest.reward_gold, Number(leaderGold[0]?.gold || 0));
+                    if (actualGold > 0) {
+                        await db.execute('UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?', [actualGold, leaderId]);
+                        await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [actualGold, playerId]);
+                    }
                 }
-                if (quest.reward_xp > 0) {
-                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [quest.reward_xp, playerId]);
+                if (quest.reward_xp > 0 && leaderId) {
+                    const [leaderXp] = await db.execute('SELECT xp FROM xp WHERE player_id=?', [leaderId]).catch(() => [[{xp:0}]]);
+                    const actualXp = Math.min(quest.reward_xp, Number(leaderXp[0]?.xp || 0));
+                    if (actualXp > 0) {
+                        await db.execute('UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?', [actualXp, leaderId]);
+                        await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [actualXp, playerId]);
+                    }
                 }
 
                 // Notify player
