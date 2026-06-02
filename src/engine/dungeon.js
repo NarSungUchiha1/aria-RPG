@@ -480,8 +480,20 @@ function calculateEnemyRetaliation(enemy, player, playerId = null) {
 
     const playerDef    = Number(buffMods.defense) || 0;
     const reduction    = Math.min(0.5, playerDef / 100);
-    const rawDamage    = Number(enemy.atk) || 0;
-    let damage         = Math.floor(rawDamage * (1 - reduction));
+
+    // Apply enemy debuffs — e.g. Taunt reduces enemy ATK, Intimidate reduces defense
+    let rawDamage = Number(enemy.atk) || 0;
+    try {
+        const { getBuffModifiers: getEnemyMods } = require('../systems/activeBuffs');
+        const enemyDebuffs = getEnemyMods('enemy', String(enemy.id));
+        if (enemyDebuffs) {
+            const atkMod = Number(enemyDebuffs.attack) || 0;
+            const strMod = Number(enemyDebuffs.strength) || 0;
+            rawDamage = Math.max(1, rawDamage + atkMod + strMod);
+        }
+    } catch(e) {}
+
+    let damage = Math.floor(rawDamage * (1 - reduction));
     const playerShield = Number(buffMods.shield) || 0;
     let shieldAbsorbed = 0;
 
