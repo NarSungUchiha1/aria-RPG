@@ -172,9 +172,12 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Must be Rank ${CREATION_REQUIREMENTS.minRank}+ (you are ${p.rank})`);
     }
 
-    // Dungeon clears check
+    // Dungeon clears check — count from player_quests progress
     const [clears] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM quest_progress WHERE player_id=? AND quest_type='dungeon_clear'",
+        `SELECT COALESCE(SUM(pq.progress), 0) as cnt
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='dungeon_clear'`,
         [playerId]
     ).catch(() => [[{ cnt: 0 }]]);
     const clearCount = Number(clears[0]?.cnt || 0);

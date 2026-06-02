@@ -904,12 +904,15 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
 
     await db.execute("DELETE FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?", [dungeonId, enemyId]);
 
-    // Fire clan quest progress for kill events
+    // Fire quest + clan quest progress for kill events
     const isBossKill = Number(enemy[0].exp) >= 2000;
+    const { updateQuestProgress } = require('../systems/questSystem');
     for (const r of rewards) {
         updateClanQuestProgress(r.playerId, 'kill_enemies', 1, null).catch(() => {});
+        updateQuestProgress(r.playerId, 'kill_enemies', 1, null).catch(() => {});
         if (isBossKill) {
             updateClanQuestProgress(r.playerId, 'boss_kill', 1, null).catch(() => {});
+            updateQuestProgress(r.playerId, 'boss_kill', 1, null).catch(() => {});
         }
     }
 

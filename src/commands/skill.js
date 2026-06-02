@@ -24,6 +24,7 @@ const SPAM_THRESHOLD  = 2;
 const SPAM_FATIGUE    = 50;
 const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
+const { updateQuestProgress } = require('../systems/questSystem');
 function mvpRecordHeal(dungeonId, playerId, amount) {
     try { recordHeal('dungeon_' + dungeonId, playerId, null, amount, amount); } catch(e) {}
 }
@@ -268,6 +269,9 @@ module.exports = {
         const move = matchedMove;
         const targetArg = remainingArgs;
 
+        // Track skill_use for quests
+        updateQuestProgress(userId, 'skill_use', 1, client).catch(() => {});
+
         const cd = getMoveCooldown(userId, move.name);
         const noCdFx = getTurnEffect ? getTurnEffect(userId) : null;
         if (cd > 0 && noCdFx?.effect !== 'no_cooldown') return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
@@ -404,6 +408,7 @@ module.exports = {
                 }
             }
 
+            updateQuestProgress(userId, 'healing_done', 1, client).catch(() => {});
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
@@ -792,6 +797,7 @@ module.exports = {
                     try { trackContribution(dungeon.id, userId, player.nickname, 'shield', shieldValue); } catch(e) {}
                 }
 
+                updateQuestProgress(userId, 'shield_apply', 1, client).catch(() => {});
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 

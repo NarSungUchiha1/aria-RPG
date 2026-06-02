@@ -282,6 +282,10 @@ async function trackPvPWin(winnerId) {
     try {
         const { updateQuestProgress } = require('./questSystem');
         await updateQuestProgress(winnerId, 'pvp_win', 1, null);
+        if (data?.type === 'party') {
+            const winTeam = data.teamA.includes(String(winnerId)) ? data.teamA : data.teamB;
+            for (const pid of winTeam) { updateQuestProgress(pid, 'party_duel', 1, null).catch(() => {}); }
+        }
     } catch (e) {}
 }
 

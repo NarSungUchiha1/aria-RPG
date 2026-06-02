@@ -136,6 +136,7 @@ module.exports = {
                     (async () => {
                         try {
                             await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
+                            if (isPrestige) await updateQuestProgress(p.player_id, 'prestige_clear', 1, client).catch(() => {});
                             await updateQuestProgress(p.player_id, 'dungeon_survive', 1, client);
                             await updateQuestProgress(p.player_id, 'dungeon_enter',   1, client);
                             if (d.dungeon_rank === 'S') {
@@ -346,6 +347,13 @@ module.exports = {
                      )`,
                     [dungeon.id, dungeon.id]
                 );
+            } catch(e) {}
+
+            // Check if story should auto-advance
+            try {
+                const { checkStoryProgress } = require('../systems/loreSystem');
+                const RAID_G = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                checkStoryProgress(client, RAID_G).catch(() => {});
             } catch(e) {}
 
             (async () => {
