@@ -159,23 +159,30 @@ module.exports = {
                     const [active] = await db.execute('SELECT id FROM dungeon WHERE id=? AND is_active=1 AND locked=0', [dungeonId]);
                     if (active.length) {
                         await db.execute('UPDATE dungeon SET is_active=0 WHERE id=?', [dungeonId]);
-                        await client.sendMessage(RAID_GROUP, {
-                            text:
-                                '╔══〘 🌑 ASSAULT EXPIRED 〙══╗\n' +
-                                '┃★ ' + territory.emoji + ' ' + territory.name + '\n' +
-                                '┃★ The defenders never responded.\n' +
-                                '┃★ Attackers win uncontested!\n' +
-                                '┃★ Territory will be claimed when\n' +
-                                '┃★ the dungeon is cleared.\n' +
-                                '╚═══════════════════════════╝'
-                        });
-                        // Reset territory war record if contested
                         if (!isUnclaimed) {
                             await db.execute(
                                 "UPDATE territory_wars SET status='completed' WHERE territory_id=? AND attacker_clan=? AND status='pending'",
                                 [tid, myClan.id]
                             );
                         }
+
+                        // Lock dungeon so attackers must now fight through the guards
+                        await db.execute('UPDATE dungeon SET locked=1 WHERE id=?', [dungeonId]).catch(() => {});
+                        const { lockDungeon, beginDungeon } = require('../engine/dungeon');
+                        await beginDungeon(dungeonId, client).catch(() => {});
+
+                        await client.sendMessage(RAID_GROUP, {
+                            text:
+                                '╔══〘 🌑 NO DEFENDERS CAME 〙══╗\n' +
+                                '┃★ ' + territory.emoji + ' ' + territory.name + '\n' +
+                                '┃★ No clan answered the call.\n' +
+                                '┃★ But the territory is not unguarded.\n' +
+                                '┃★\n' +
+                                '┃★ ⚔️ Fight through the void guards\n' +
+                                '┃★ to claim what is yours.\n' +
+                                '┃★ Use !skill <move> to attack!\n' +
+                                '╚═══════════════════════════╝'
+                        });
                     }
                 } catch(e) {}
                 territoryLobbies.delete(dungeonId);
