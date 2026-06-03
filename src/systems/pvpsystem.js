@@ -894,6 +894,11 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const def = dRows[0];
             const defHp = data.hp[tid];
             const defForCalc = { ...def, hp: defHp, max_hp: data.maxHp[tid] };
+            // Fetch fresh fatigue for attacker
+            try {
+                const [fRow] = await db.execute('SELECT fatigue FROM players WHERE id=?', [attacker.id]);
+                if (fRow.length) attacker = { ...attacker, fatigue: Number(fRow[0].fatigue) || 0 };
+            } catch(e) {}
             let dmg = calculateMoveDamage(attacker, move, defForCalc, items);
             dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
 

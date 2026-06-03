@@ -80,7 +80,8 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
 
     let statValue = baseStat + buffValue;
 
-    // Apply fatigue multiplier to all skill damage
+    // Apply fatigue multiplier — uses player.fatigue passed in
+    // Callers must pass fresh player object with updated fatigue
     const { getFatigueMultiplier } = require('./fatigueSystem');
     const fatigueMultiplier = getFatigueMultiplier(player);
 
@@ -185,7 +186,7 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
         console.log('Potion damage calc error:', e.message);
     }
 
-    return Math.max(1, damage);
+    return Math.max(1, Math.floor(damage * fatigueMultiplier));
 }
 
 function calculateHeal(player, move) {

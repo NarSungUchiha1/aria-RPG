@@ -440,6 +440,11 @@ module.exports = {
                 } catch(e) { console.error('Leviathan hit error:', e.message); }
             }
 
+            // Refresh fatigue before damage calc so it's not stale
+            try {
+                const [freshP] = await db.execute('SELECT fatigue FROM players WHERE id=?', [userId]);
+                if (freshP.length) player = { ...player, fatigue: Number(freshP[0].fatigue) || 0 };
+            } catch(e) {}
             let result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
 
             // Apply territory damage bonus
