@@ -131,6 +131,11 @@ async function getClanTerritoryBonuses(clanId) {
 }
 
 async function isClanInTerritoryWar(clanId) {
+    // Auto-expire wars older than 2 hours before checking
+    await db.execute(
+        "UPDATE territory_wars SET status='expired' WHERE status IN ('pending','active') AND started_at < DATE_SUB(NOW(), INTERVAL 2 HOUR)"
+    ).catch(() => {});
+
     const [rows] = await db.execute(
         "SELECT id FROM territory_wars WHERE (attacker_clan=? OR defender_clan=?) AND status IN ('pending','active') LIMIT 1",
         [clanId, clanId]
