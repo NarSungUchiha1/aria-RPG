@@ -24,12 +24,12 @@ let lastPairingCode = '';
 let isReady = false;
 let isBotRunning = false;
 let sock = null;
-let BOT_NUMBER = ''; // phone number from sock.user.id
-let BOT_LID    = ''; // linked device ID from sock.user.lid — this is what appears in @mentions
+let BOT_NUMBER = '';
+let BOT_LID    = '';
 
-// ✅ Simple player cache — reduces DB hits on every command
+// ✅ Simple player cache
 const playerCache = new Map();
-const CACHE_TTL = 120000; // 2 minutes
+const CACHE_TTL = 120000;
 
 function getCachedPlayer(userId) {
     const cached = playerCache.get(userId);
@@ -43,8 +43,6 @@ function setCachedPlayer(userId, data) {
 }
 
 // ── Per-user command queue ─────────────────────────────────
-// Prevents race conditions when a player types commands faster than they resolve.
-// Each user gets their own sequential queue — different users still run in parallel.
 const userQueues = new Map();
 
 function enqueueCommand(userId, fn) {
@@ -61,14 +59,11 @@ function enqueueCommand(userId, fn) {
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
-// ── Keep Render awake — ping self every 10 minutes ────────────────────────────
 const RENDER_URL = process.env.RENDER_EXTERNAL_URL || '';
 if (RENDER_URL) {
     setInterval(async () => {
-        try {
-            await fetch(`${RENDER_URL}/ping`);
-        } catch {}
-    }, 10 * 60 * 1000); // every 10 minutes
+        try { await fetch(`${RENDER_URL}/ping`); } catch {}
+    }, 10 * 60 * 1000);
 }
 
 app.get('/', async (req, res) => {
@@ -141,11 +136,7 @@ if (fs.existsSync(ADMIN_FILE)) {
     }
 }
 
-// ── BLOCKED USERS ────────────────────────────────────────────
-// Add phone numbers (without +) to block from all commands
-const BLOCKED_USERS = new Set([
-    // e.g. '2348012345678'
-]);
+const BLOCKED_USERS = new Set([]);
 
 function normalizeId(id) {
     if (!id) return "";
@@ -159,7 +150,6 @@ const DUNGEON_GC_ONLY = new Set([
 
 const HEALER_GC_ONLY = new Set([
     'healers', 'hire', 'contracts'
-    // listservice and removelisting excluded — now work for both Healers and Explorers anywhere
 ]);
 
 const BLACKSMITH_GC_ONLY = new Set([
@@ -170,10 +160,17 @@ const HEALER_GC_JID      = '120363427051780444@g.us';
 const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
 const DM_ONLY = new Set(['enter']);
 
-const commands = new Map();
-const bannedPlayers = new Set(); // in-memory ban list loaded at startup
-global.bannedPlayers = bannedPlayers; // expose for ban/unban commands
+// ── Ban system ─────────────────────────────────────────────
+const bannedPlayers = new Set();
+global.bannedPlayers = bannedPlayers;
 
+// ── Community whitelist ────────────────────────────────────
+// Set COMMUNITY_JID in Render env vars to restrict ARIA to DMs + community groups only
+const COMMUNITY_JID = process.env.COMMUNITY_JID || '';
+const allowedGroupJids = new Set();
+global.allowedGroupJids = allowedGroupJids;
+
+const commands = new Map();
 const commandPath = path.join(__dirname, "src/commands");
 
 if (fs.existsSync(commandPath)) {
@@ -184,7 +181,6 @@ if (fs.existsSync(commandPath)) {
                 const cmd = require('./src/commands/' + file);
                 if (cmd?.name) {
                     commands.set(cmd.name, cmd);
-                    // ✅ Register aliases e.g. !use → usepotion
                     if (Array.isArray(cmd.aliases)) {
                         cmd.aliases.forEach(alias => commands.set(alias, cmd));
                     }
@@ -336,20 +332,17 @@ async function startBot() {
                 console.log(`⚠️ Connection closed (code: ${statusCode}).`);
 
                 if (statusCode === DisconnectReason.loggedOut) {
-    // Explicitly logged out — clear session and get fresh pair
-    console.log('🔄 Logged out. Clearing session for fresh pair...');
-    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-    setTimeout(() => startBot(), 5000);
-} else {
-    // Any other disconnect including 401 — just reconnect, don't clear session
-    const delay = statusCode === 440
-        ? 15000 + Math.floor(Math.random() * 10000)
-        : statusCode === 401
-        ? 8000 + Math.floor(Math.random() * 5000)
-        : 5000 + Math.floor(Math.random() * 5000);
-    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
-    setTimeout(() => startBot(), delay);
-
+                    console.log('🔄 Logged out. Clearing session for fresh pair...');
+                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+                    setTimeout(() => startBot(), 5000);
+                } else {
+                    const delay = statusCode === 440
+                        ? 15000 + Math.floor(Math.random() * 10000)
+                        : statusCode === 401
+                        ? 8000 + Math.floor(Math.random() * 5000)
+                        : 5000 + Math.floor(Math.random() * 5000);
+                    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
+                    setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
                 const rawId  = sock.user?.id  || '';
@@ -357,8 +350,16 @@ async function startBot() {
                 BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
                 BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
+                isReady = true;
 
-                // Load all groups in our community into the whitelist
+                // Load banned players into memory
+                try {
+                    const [bans] = await db.execute('SELECT player_id FROM banned_players');
+                    bans.forEach(b => bannedPlayers.add(String(b.player_id)));
+                    console.log(`[BAN] 🚫 ${bannedPlayers.size} banned players loaded`);
+                } catch(e) { console.log('[BAN] No ban table yet — skipping'); }
+
+                // Load community groups into whitelist
                 if (COMMUNITY_JID) {
                     try {
                         const allGroups = await sock.groupFetchAllParticipating();
@@ -372,7 +373,6 @@ async function startBot() {
                         console.error('Community load error:', e.message);
                     }
                 }
-                isReady = true;
 
                 // Init all missing DB tables
                 const { ensureMemoryTables } = require('./src/systems/ariaMemory');
@@ -400,11 +400,8 @@ async function startBot() {
                     )
                 `).catch(() => {});
                 await db.execute("ALTER TABLE players ADD COLUMN fatigue INT DEFAULT 0").catch(() => {});
-                // Clear any stale lock from previous crash
                 await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
 
-                // ✅ Startup dungeon cleanup — only wipe dungeons older than 2 hours that are still unlocked
-                // This prevents reconnects from killing active/lobby dungeons
                 try {
                     await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)").catch(() => {});
                     const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
@@ -418,25 +415,24 @@ async function startBot() {
                     }
                     console.log('🧹 Stale dungeon state cleared on startup.');
 
-                // Restart prestige lobby timer if a prestige dungeon is waiting
-                try {
-                    const [activePD] = await db.execute(
-                        "SELECT id, created_at FROM dungeon WHERE is_active=1 AND locked=0 AND dungeon_rank LIKE 'P%' LIMIT 1"
-                    );
-                    if (activePD.length) {
-                        const { startPrestigeLobbyTimer } = require('./src/engine/prestigeDungeon');
-                        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
-                        const elapsed = Date.now() - new Date(activePD[0].created_at).getTime();
-                        const remaining = (20 * 60 * 1000) - elapsed;
-                        if (remaining > 0 && RAID_GROUP) {
-                            console.log(`★ Restarting prestige lobby timer — ${Math.floor(remaining/60000)}min remaining`);
-                            startPrestigeLobbyTimer(activePD[0].id, sock, RAID_GROUP, remaining);
-                        } else if (remaining <= 0) {
-                            await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [activePD[0].id]);
-                            console.log(`★ Prestige dungeon ${activePD[0].id} expired on startup cleanup`);
+                    try {
+                        const [activePD] = await db.execute(
+                            "SELECT id, created_at FROM dungeon WHERE is_active=1 AND locked=0 AND dungeon_rank LIKE 'P%' LIMIT 1"
+                        );
+                        if (activePD.length) {
+                            const { startPrestigeLobbyTimer } = require('./src/engine/prestigeDungeon');
+                            const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
+                            const elapsed = Date.now() - new Date(activePD[0].created_at).getTime();
+                            const remaining = (20 * 60 * 1000) - elapsed;
+                            if (remaining > 0 && RAID_GROUP) {
+                                console.log(`★ Restarting prestige lobby timer — ${Math.floor(remaining/60000)}min remaining`);
+                                startPrestigeLobbyTimer(activePD[0].id, sock, RAID_GROUP, remaining);
+                            } else if (remaining <= 0) {
+                                await db.execute("UPDATE dungeon SET is_active=0 WHERE id=?", [activePD[0].id]);
+                                console.log(`★ Prestige dungeon ${activePD[0].id} expired on startup cleanup`);
+                            }
                         }
-                    }
-                } catch(e) { console.error('Prestige lobby restart error:', e.message); }
+                    } catch(e) { console.error('Prestige lobby restart error:', e.message); }
                 } catch (e) {
                     console.error('Startup dungeon cleanup error:', e.message);
                 }
@@ -453,7 +449,6 @@ async function startBot() {
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
             const msg = messages[0];
             if (!msg) return;
-
             if (!msg.message || msg.key.fromMe) return;
 
             const jid = msg.key.remoteJid;
@@ -464,11 +459,9 @@ async function startBot() {
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
 
-            // ── Full message log — see everything ─────────────────────────────
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
 
-            // ── @Aria mention handler + reply detection ───────────────────────
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
             const quotedNum = quotedParticipant.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -483,7 +476,6 @@ async function startBot() {
                || text.toLowerCase().includes('@aria ')
                || text.toLowerCase() === '@aria';
 
-            // Debug — shows why trigger did/didn't fire
             if (text.toLowerCase().includes('aria') || mentionedJids.length > 0) {
                 console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned} mentionedJids=${JSON.stringify(mentionedJids)}`);
             }
@@ -491,8 +483,6 @@ async function startBot() {
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
                                   (BOT_LID    && quotedNum === BOT_LID);
 
-            // Replies: only trigger if genuinely asking something
-            // Question words OR sentence long enough to be a real question (5+ words)
             const stripped = text.replace(/@\d+/g, '').trim().toLowerCase();
             const QUESTION_STARTERS = /^(what|who|how|when|where|why|can|could|would|should|is|are|do|does|did|will|was|were|tell|show|give|explain|help|check|find|get|which|whose|whom)\b/;
             const isAskingQuestion = text.includes('?')
@@ -524,7 +514,6 @@ async function startBot() {
             }
 
             if (!text.startsWith('!')) {
-                // ── ARIA silently witnesses group messages ─────────────────
                 if (jid.endsWith('@g.us') && text.length > 8) {
                     try {
                         const db2 = require('./src/database/db');
@@ -544,20 +533,32 @@ async function startBot() {
             const args = text.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
 
-            // Check if player is banned — in-memory for speed
+            // ── Community whitelist — only DMs and community groups ────────
+            if (COMMUNITY_JID && jid.endsWith('@g.us') && !allowedGroupJids.has(jid)) {
+                try {
+                    const meta = await sock.groupMetadata(jid);
+                    if (meta.linkedParent === COMMUNITY_JID) {
+                        allowedGroupJids.add(jid); // cache for next time
+                    } else {
+                        return; // not in our community — silently ignore
+                    }
+                } catch(e) {
+                    return; // can't verify — ignore
+                }
+            }
+
+            // ── Ban check ─────────────────────────────────────────────────
             if (cmdName !== 'ban' && cmdName !== 'unban') {
-                if (bannedPlayers.has(userId)) return; // silently ignore
+                if (bannedPlayers.has(userId)) return;
             }
 
             const command = commands.get(cmdName);
             if (!command) {
-                // Route unknown !commands to AI — it'll try to help or explain
                 const { handleUnknownCommand } = require('./src/systems/aiSystems');
                 await handleUnknownCommand(sock, jid, msg, userId, cmdName, args);
                 return;
             }
 
-            // Block check
             if (BLOCKED_USERS.has(userId)) return;
 
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
@@ -652,7 +653,7 @@ async function startBot() {
                             hp = rows[0].hp;
                             setCachedPlayer(userId, rows[0]);
                         } else {
-                            setCachedPlayer(userId, { hp: null }); // cache miss so we dont re-query
+                            setCachedPlayer(userId, { hp: null });
                         }
                     }
                     if (hp !== null && hp <= 0) {
@@ -667,12 +668,10 @@ async function startBot() {
                     }
                 }
 
-                // ✅ Update last_active on every command
                 try {
                     await db.execute("UPDATE players SET last_active=NOW() WHERE id=?", [userId]).catch(()=>{});
                 } catch(e) {}
-                // FIX: Wrap in per-user queue so rapid commands are serialised per user.
-                // If a player types !skill !skill fast, the second waits for the first to finish.
+
                 await enqueueCommand(userId, async () => {
                     try {
                         await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
@@ -680,7 +679,6 @@ async function startBot() {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
                     } finally {
-                        // Always invalidate HP cache so dead-check is fresh next command
                         playerCache.delete(userId);
                     }
                 });
@@ -690,7 +688,6 @@ async function startBot() {
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
             }
         });
-
 
         // ==================== REFERRAL TRACKING ====================
         sock.ev.on('group-participants.update', async ({ id, participants, action, author }) => {
@@ -704,12 +701,10 @@ async function startBot() {
                     const newUserId = participantJid.split('@')[0];
 
                     if (!author) {
-                        // No referrer — still give new player bonus and welcome them
                         await db.execute(
                             `INSERT INTO referral_pending_bonus (player_id, gold) VALUES (?, ?) ON DUPLICATE KEY UPDATE gold = gold + ?`,
                             [newUserId, REFERRAL_GOLD_NEW, REFERRAL_GOLD_NEW]
                         ).catch(() => {});
-
                         await sock.sendMessage(REFERRAL_GROUP_JID, {
                             text:
                                 `══〘 🔗 NEW HUNTER 〙══╮\n` +
@@ -760,7 +755,6 @@ async function startBot() {
             }
         });
 
-
     } catch (err) {
         console.error('💥 startBot error:', err.message);
         isBotRunning = false;
@@ -796,9 +790,7 @@ process.on('unhandledRejection', (reason) => {
     console.error('💥 UNHANDLED REJECTION:', reason);
 });
 
-
-// ==================== CRON JOBS (registered once) ====================
-// ==================== SCHEDULED DUNGEON SPAWN ====================
+// ==================== CRON JOBS ====================
 const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
 
 cron.schedule('0 */1 * * *', async () => {
@@ -812,7 +804,6 @@ cron.schedule('0 */1 * * *', async () => {
         } catch (e) { isEventRunning = false; }
         if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
 
-        // FIX: also skip spawn if a territory assault is active
         const [terrActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
         if (terrActive.length) { console.log('⏭️ Spawn skipped — territory assault active.'); return; }
 
@@ -840,7 +831,6 @@ cron.schedule('*/20 * * * *', async () => {
         } catch (e) { hasActiveEvent = false; }
         if (!hasActiveEvent) return;
 
-        // FIX: also skip if territory assault active
         const [terrActiveE] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
         if (terrActiveE.length) { console.log('⏭️ Event spawn skipped — territory assault active.'); return; }
 
@@ -870,53 +860,35 @@ cron.schedule('*/10 * * * *', async () => {
     }
 });
 
-
-
-
-        // ==================== SHOP RESTOCK ====================
+// ==================== SHOP RESTOCK ====================
 const { restockAllItems } = require('./src/systems/shopSystem');
 cron.schedule('0 0 * * *', async () => {
     console.log('🛒 Restocking shop...');
-    try {
-        await restockAllItems();
-    } catch (err) {
-        console.error('Shop restock failed:', err);
-    }
+    try { await restockAllItems(); } catch (err) { console.error('Shop restock failed:', err); }
 });
 
 // ==================== PRESTIGE SHOP RESTOCK ====================
 cron.schedule('0 0 * * *', async () => {
     console.log('💎 Restocking prestige shop...');
-    try {
-        await restockPrestigeShop();
-    } catch (err) {
-        console.error('Prestige shop restock failed:', err);
-    }
+    try { await restockPrestigeShop(); } catch (err) { console.error('Prestige shop restock failed:', err); }
 });
-
 
 startBot();
 
-
 // ==================== MANA REGENERATION ====================
-// Full mana regen over 2 days = 2880 mins
-// Run every 10 mins → restore max_mana / 288 per tick
 cron.schedule('*/10 * * * *', async () => {
     try {
         await db.execute(`
             UPDATE players 
-            SET mana = LEAST(max_mana, mana + GREATEST(1, FLOOR(max_mana / 288)))
+            SET mana = LEAST(max_mana, mana + GREATEST(1, FLOOR(max_mana / 48)))
             WHERE mana < max_mana AND max_mana > 0
         `);
     } catch(e) { console.error('Mana regen error:', e.message); }
 });
 
 // ==================== FATIGUE RECOVERY ====================
-// Run every 10 mins to slowly recover player fatigue over time.
 cron.schedule('*/10 * * * *', async () => {
     try {
-        // FIX: Increased recovery from 2 to 5 per tick (every 10 mins = 30/hr)
-        // At flat 1 fatigue per attack, this means ~30 attacks worth recovered per hour
         await db.execute(`
             UPDATE players
             SET fatigue = GREATEST(0, COALESCE(fatigue, 0) - 5)
@@ -942,7 +914,7 @@ cron.schedule('*/10 * * * *', async () => {
 });
 
 // ==================== WEEKLY INACTIVE CLEANUP ====================
-cron.schedule('0 3 * * 1', async () => { // every Monday 3am
+cron.schedule('0 3 * * 1', async () => {
     try {
         const { clearInactivePlayers } = require('./src/systems/prestigeSystem');
         await clearInactivePlayers();
@@ -951,9 +923,6 @@ cron.schedule('0 3 * * 1', async () => { // every Monday 3am
 });
 
 // ==================== PRESTIGE DUNGEON SPAWN ====================
-
-// ==================== PRESTIGE DUNGEON SPAWN ====================
-// Backup spawn — only fires if no prestige dungeon ran in last 25 mins
 cron.schedule('30 */1 * * *', async () => {
     if (!isReady || !sock) return;
     try {
@@ -962,11 +931,9 @@ cron.schedule('30 */1 * * *', async () => {
         );
         if (!prestigePlayers.length) return;
 
-        // Don't spawn if any dungeon is active
         const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
         if (anyActive.length) { console.log('⏭️ Prestige cron skipped — dungeon active'); return; }
 
-        // Don't spawn if a prestige dungeon ran in the last 25 minutes
         const [recentP] = await db.execute(
             "SELECT id FROM dungeon WHERE dungeon_rank LIKE 'P%' AND created_at > DATE_SUB(NOW(), INTERVAL 25 MINUTE) LIMIT 1"
         );
