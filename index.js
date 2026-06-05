@@ -357,6 +357,21 @@ async function startBot() {
                 BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
                 BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
+
+                // Load all groups in our community into the whitelist
+                if (COMMUNITY_JID) {
+                    try {
+                        const allGroups = await sock.groupFetchAllParticipating();
+                        for (const [gJid, meta] of Object.entries(allGroups)) {
+                            if (meta.linkedParent === COMMUNITY_JID || gJid === COMMUNITY_JID) {
+                                allowedGroupJids.add(gJid);
+                            }
+                        }
+                        console.log(`🏘️ Community groups loaded: ${allowedGroupJids.size}`);
+                    } catch(e) {
+                        console.error('Community load error:', e.message);
+                    }
+                }
                 isReady = true;
 
                 // Init all missing DB tables
