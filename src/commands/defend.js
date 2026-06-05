@@ -187,7 +187,7 @@ module.exports = {
             );
 
             const [already] = await db.execute(
-                'SELECT id FROM dungeon_players WHERE dungeon_id=? AND player_id=?',
+                'SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND player_id=?',
                 [dungeon.id, userId]
             );
             if (already.length) return msg.reply('❌ You are already registered for this war.');
