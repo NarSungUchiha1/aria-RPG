@@ -64,8 +64,13 @@ function createTurnOrder(teamAPlayers, teamBPlayers) {
     return order;
 }
 
+function normBlessKey(playerId) {
+    // Normalize to match how ids are stored in activeDuels
+    return String(playerId || '').replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@lid/g, '').split(':')[0].trim();
+}
+
 function getDuelBlessingState(playerId) {
-    const key = String(playerId);
+    const key = normBlessKey(playerId);
     if (!duelBlessingStates.has(key)) {
         duelBlessingStates.set(key, { hit_count: 0, skill_count: 0, blessing_used: 0, last_triggered: null });
     }
@@ -73,13 +78,14 @@ function getDuelBlessingState(playerId) {
 }
 
 function updateDuelBlessingState(playerId, updates) {
-    const state = getDuelBlessingState(playerId);
+    const key = normBlessKey(playerId);
+    const state = getDuelBlessingState(key);
     Object.assign(state, updates);
-    duelBlessingStates.set(String(playerId), state);
+    duelBlessingStates.set(key, state);
 }
 
 function clearDuelBlessingState(playerId) {
-    duelBlessingStates.delete(String(playerId));
+    duelBlessingStates.delete(normBlessKey(playerId));
 }
 
 function findNextAlivePlayer(duelKey, currentId) {
@@ -895,11 +901,12 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const defHp = data.hp[tid];
             const defForCalc = { ...def, hp: defHp, max_hp: data.maxHp[tid] };
             // Fetch fresh fatigue for attacker
+            let attackerWithFatigue = attacker;
             try {
                 const [fRow] = await db.execute('SELECT fatigue FROM players WHERE id=?', [attacker.id]);
-                if (fRow.length) attacker = { ...attacker, fatigue: Number(fRow[0].fatigue) || 0 };
+                if (fRow.length) attackerWithFatigue = { ...attacker, fatigue: Number(fRow[0].fatigue) || 0 };
             } catch(e) {}
-            let dmg = calculateMoveDamage(attacker, move, defForCalc, items);
+            let dmg = calculateMoveDamage(attackerWithFatigue, move, defForCalc, items);
             dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
 
             // Apply attacker potion buffs

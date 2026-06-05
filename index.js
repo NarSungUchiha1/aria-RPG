@@ -534,16 +534,20 @@ async function startBot() {
             const cmdName = args.shift().toLowerCase();
 
             // ── Community whitelist — only DMs and community groups ────────
-            if (COMMUNITY_JID && jid.endsWith('@g.us') && !allowedGroupJids.has(jid)) {
-                try {
-                    const meta = await sock.groupMetadata(jid);
-                    if (meta.linkedParent === COMMUNITY_JID) {
-                        allowedGroupJids.add(jid); // cache for next time
-                    } else {
-                        return; // not in our community — silently ignore
+            if (COMMUNITY_JID && jid.endsWith('@g.us')) {
+                if (!allowedGroupJids.has(jid)) {
+                    // Only fetch metadata once per unknown group then cache result
+                    try {
+                        const meta = await sock.groupMetadata(jid).catch(() => null);
+                        if (meta?.linkedParent === COMMUNITY_JID) {
+                            allowedGroupJids.add(jid); // whitelisted — cache it
+                        } else {
+                            allowedGroupJids.set?.(jid, false); // not in community — still cache rejection
+                            return;
+                        }
+                    } catch(e) {
+                        return;
                     }
-                } catch(e) {
-                    return; // can't verify — ignore
                 }
             }
 
