@@ -52,8 +52,12 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
         const attackerClanName = aClan[0]?.name || 'Attackers';
         const defenderClanName = dClan[0]?.name || 'Defenders';
 
-        // Lock the territory dungeon
+        // Lock the territory dungeon and CLEAR all enemies — PvP replaces the dungeon run
         await db.execute('UPDATE dungeon SET locked=1 WHERE id=?', [dungeonId]);
+        await db.execute('DELETE FROM dungeon_enemies WHERE dungeon_id=?', [dungeonId]);
+        // Remove all players from dungeon_players so !skill doesn't route to dungeon
+        // PvP is handled entirely by pvpsystem in-memory
+        await db.execute('UPDATE dungeon_players SET is_alive=0 WHERE dungeon_id=?', [dungeonId]);
 
         const allMentions = [...attackers, ...defenders].map(id => id + '@s.whatsapp.net');
 
