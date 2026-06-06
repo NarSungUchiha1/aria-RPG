@@ -949,7 +949,26 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             const newHp = Math.max(0, defHp - dmg);
             data.hp[tid] = newHp;
             results.push({ tid, nick: def.nickname, rank: def.rank, dmg, newHp, maxHp: data.maxHp[tid], defeated: newHp <= 0 });
-            if (newHp <= 0) allDefeated.push({ tid, nick: def.nickname, rank: def.rank, def });
+            if (newHp <= 0) {
+                // Check Mirror Toxin (death_reflect) — killer takes the hit instead
+                try {
+                    const { getEffect, consumeCharge } = require('./potionEffects');
+                    const mirror = getEffect ? (getEffect(String(tid), 'pvp') || getEffect(String(tid), null)) : null;
+                    if (mirror?.effect === 'death_reflect') {
+                        // Reflect — kill the attacker instead, revive defender
+                        data.hp[tid] = 1;
+                        data.hp[String(attackerId)] = 0;
+                        consumeCharge(String(tid));
+                        results.push({ tid: String(attackerId), nick: attacker.nickname, rank: attacker.rank, dmg: 0, newHp: 0, maxHp: data.maxHp[String(attackerId)], defeated: true });
+                        allDefeated.push({ tid: String(attackerId), nick: attacker.nickname, rank: attacker.rank, def: attacker });
+                        await chat.sendMessage(`🪞 *Mirror Toxin!*\n┃★ ${def.nickname}'s death rebounds!\n┃★ ${attacker.nickname} is destroyed instead!`);
+                    } else {
+                        allDefeated.push({ tid, nick: def.nickname, rank: def.rank, def });
+                    }
+                } catch(e) {
+                    allDefeated.push({ tid, nick: def.nickname, rank: def.rank, def });
+                }
+            }
         }
 
         const totalDmg = results.reduce((s, r) => s + r.dmg, 0);
