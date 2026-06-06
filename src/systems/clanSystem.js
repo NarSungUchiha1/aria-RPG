@@ -1,28 +1,6 @@
-/**
- * CLAN SYSTEM — Rewritten
- * - No hard limit on number of clans
- * - High requirements + quest conditions to create a clan
- * - Clan masters can assign custom quests to members
- * - All existing blessings preserved
- */
-
 const db = require('../database/db');
 
-// ── PRESET CLANS — fixed names with blessings ────────────────────────────────
-const PRESET_CLANS = [
-    { name: '🔥 MUGEN KANNAZUKI 🔥', blessing_id: 1 },
-    { name: 'ASHEN',                  blessing_id: 5 },
-    { name: 'PHANTOM CREST',          blessing_id: 6 },
-    { name: 'VOID REMNANTS',          blessing_id: 10 },
-    { name: 'WRATHBORNE',             blessing_id: 4 },
-    { name: 'THE ASSEMBLY',           blessing_id: 9 },
-    { name: 'ECLIPSE ORDER',          blessing_id: 8 },
-    { name: 'IRON REAPER',            blessing_id: 3 },
-    { name: 'ABYSSAL COURT',          blessing_id: 2 },
-    { name: 'HEAVEN FRACTURE',        blessing_id: 7 },
-];
-
-// ── CLAN BLESSINGS ────────────────────────────────────────────────────────────
+// ── PRESET CLAN BLESSINGS ─────────────────────────────────────────────────────
 const CLAN_BLESSINGS = {
     1:  { name: "Dragon's Breath",  emoji: '🐉', condition: 'HP drops below 30%',                           effect: 'Fire blast — 500% primary stat to ALL enemies. Ignores defense.',            trigger: 'hp_below_30',             multiplier: 5.0,  aoe: true, ignore_defense: true },
     2:  { name: "Void Collapse",    emoji: '🌑', condition: 'After killing an enemy',                       effect: 'Void implodes — 300% to all remaining enemies. DEF -50% for 3 turns.',     trigger: 'on_kill',                 multiplier: 3.0,  aoe: true, def_reduction: 50 },
@@ -37,13 +15,12 @@ const CLAN_BLESSINGS = {
 };
 
 // ── CLAN CREATION REQUIREMENTS ────────────────────────────────────────────────
-// All must be met before !createclan is allowed
 const CREATION_REQUIREMENTS = {
-    minRank:         'A',      // Must be at least Rank A
-    minPrestige:     1,        // Must be prestige
-    minDungeons:     50,       // At least 50 dungeon clears
-    minGold:         25000,    // 25k gold cost to create
-    minPsDungeons:   1,        // Must have cleared at least one PS dungeon
+    minRank:        'A',    // Must be at least Rank A
+    minPrestige:    1,      // Must be Prestige
+    minDungeons:    50,     // At least 50 dungeon clears
+    minGold:        25000,  // 25k gold cost
+    minPsDungeons:  1,      // Must have cleared at least 1 PS dungeon
 };
 
 // ── TABLE SETUP ───────────────────────────────────────────────────────────────
@@ -70,7 +47,6 @@ async function ensureClanTables() {
         )
     `).catch(() => {});
 
-    // Clan-assigned quests — given by clan master to a specific member
     await db.execute(`
         CREATE TABLE IF NOT EXISTS clan_quests (
             id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -91,7 +67,6 @@ async function ensureClanTables() {
         )
     `).catch(() => {});
 
-    // Track malachar kills for creation requirement
     await db.execute(`
         CREATE TABLE IF NOT EXISTS malachar_kills (
             player_id  VARCHAR(60) PRIMARY KEY,
@@ -137,18 +112,7 @@ async function getClanMemberRole(playerId, clanId) {
     return rows[0]?.role || null;
 }
 
-async function isOfficer(playerId, clanId) {
-    const role = await getClanMemberRole(playerId, clanId);
-    return role === 'officer' || role === 'master';
-}
-
-function getBlessingDisplay(blessingId) {
-    const b = CLAN_BLESSINGS[blessingId];
-    if (!b) return '';
-    return `${b.emoji} *${b.name}*\n📌 ${b.condition}\n⚡ ${b.effect}`;
-}
-
-// ── CREATION REQUIREMENT CHECK ────────────────────────────────────────────────
+// ── CREATION REQUIREMENTS CHECK ───────────────────────────────────────────────
 async function checkCreationRequirements(playerId) {
     const RANK_ORDER = ['F','E','D','C','B','A','S','PF','PE','PD','PC','PB','PA','PS'];
     const fails = [];
@@ -160,19 +124,19 @@ async function checkCreationRequirements(playerId) {
     if (!player.length) return { pass: false, fails: ['Not registered'] };
     const p = player[0];
 
-    // Prestige check
-    if (p.prestige_level < CREATION_REQUIREMENTS.minPrestige) {
-        fails.push(`❌ Must be Prestige (you are not prestige)`);
+    // 1. Must be Prestige
+    if ((p.prestige_level || 0) < CREATION_REQUIREMENTS.minPrestige) {
+        fails.push('❌ Must be a Prestige hunter');
     }
 
-    // Rank check
+    // 2. Must be Rank A or higher
     const rankIdx    = RANK_ORDER.indexOf(p.rank);
     const minRankIdx = RANK_ORDER.indexOf(CREATION_REQUIREMENTS.minRank);
-    if (rankIdx < minRankIdx && !p.rank.startsWith('P')) {
+    if (rankIdx < minRankIdx && !String(p.rank).startsWith('P')) {
         fails.push(`❌ Must be Rank ${CREATION_REQUIREMENTS.minRank}+ (you are ${p.rank})`);
     }
 
-    // Dungeon clears check — count from player_quests progress
+    // 3. Must have 50+ dungeon clears (tracked via quest progress)
     const [clears] = await db.execute(
         `SELECT COALESCE(SUM(pq.progress), 0) as cnt
          FROM player_quests pq
@@ -185,16 +149,17 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Need ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (you have ${clearCount})`);
     }
 
-    // PS dungeon clear check
+    // 4. Must have cleared at least 1 PS dungeon
     const [psRow] = await db.execute(
-        "SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?", [playerId]
+        "SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?",
+        [playerId]
     ).catch(() => [[{ clears: 0 }]]);
     const psClears = Number(psRow[0]?.clears || 0);
     if (psClears < CREATION_REQUIREMENTS.minPsDungeons) {
-        fails.push('❌ Must have cleared at least 1 PS dungeon (you have ' + psClears + ')');
+        fails.push(`❌ Must have cleared at least 1 PS dungeon (you have ${psClears})`);
     }
 
-    // Gold check
+    // 5. Must have enough gold
     const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [playerId]);
     const playerGold = Number(gold[0]?.gold || 0);
     if (playerGold < CREATION_REQUIREMENTS.minGold) {
@@ -204,8 +169,7 @@ async function checkCreationRequirements(playerId) {
     return { pass: fails.length === 0, fails, playerGold, clearCount, p };
 }
 
-
-// ── CLAN BLESSING STATE ───────────────────────────────────────────────────────
+// ── BLESSING STATE ────────────────────────────────────────────────────────────
 async function getPlayerBlessingState(playerId, dungeonId) {
     const [rows] = await db.execute(
         'SELECT * FROM clan_blessing_state WHERE player_id=? AND dungeon_id=?',
@@ -225,7 +189,6 @@ async function updateBlessingState(playerId, dungeonId, fields) {
 }
 
 module.exports = {
-    PRESET_CLANS,
     CLAN_BLESSINGS,
     CREATION_REQUIREMENTS,
     ensureClanTables,
@@ -233,8 +196,6 @@ module.exports = {
     getClanById,
     getClanMembers,
     getClanMemberRole,
-    isOfficer,
-    getBlessingDisplay,
     checkCreationRequirements,
     getPlayerBlessingState,
     updateBlessingState,
