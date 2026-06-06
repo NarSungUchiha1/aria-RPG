@@ -803,18 +803,33 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 }
 
 // ── Shared combat message ─────────────────────────────────────────────────────
-async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, damage, attackerHp, opponentHp, nextTurnNick, roundNum, extra = '', attackerMaxHp = DUEL_HP, opponentMaxHp = DUEL_HP) {
+async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, damage, attackerHp, opponentHp, nextTurnNick, roundNum, extra = '', attackerMaxHp = DUEL_HP, opponentMaxHp = DUEL_HP, isWar = false) {
+    const header = isWar
+        ? `╔══〘 ⚔️ TERRITORY WAR — ROUND ${roundNum} 〙══╗`
+        : `══〘 ⚔️ DUEL — ROUND ${roundNum} 〙══╮`;
+    const footer = isWar ? `╚═══════════════════════════╝` : `╰═══════════════════════╯`;
+    const bul = isWar ? '┃★' : '┃◆';
+
+    const narration = await narrateAI('skillDamage', { attacker: attackerNick, move: moveName, target: opponentNick, damage }).catch(() => '');
+
+    // HP bars
+    const hpBar = (hp, max) => {
+        const pct = Math.max(0, Math.min(10, Math.floor((hp / max) * 10)));
+        return '🟥'.repeat(pct) + '⬛'.repeat(10 - pct);
+    };
+
     await chat.sendMessage(
-        `══〘 ⚔️ DUEL — ROUND ${roundNum} 〙══╮\n` +
-        `┃◆ ${await narrateAI('skillDamage', { attacker: attackerNick, move: moveName, target: opponentNick, damage })}\n` +
-        `┃◆ 💥 Damage: ${damage}\n` +
+        `${header}\n` +
+        `${bul}\n` +
+        (narration ? `${bul} 〝${narration}〞\n${bul}\n` : '') +
+        `${bul} 💥 *${moveName}* — ${damage.toLocaleString()} damage\n` +
         `${extra}` +
-        `┃◆────────────\n` +
-        `┃◆ ❤️ ${attackerNick}: ${attackerHp}/${attackerMaxHp}\n` +
-        `┃◆ ❤️ ${opponentNick}: ${opponentHp}/${opponentMaxHp}\n` +
-        `┃◆────────────\n` +
-        `┃◆ ⚡ ${nextTurnNick}'s turn! ⏰ 45 seconds!\n` +
-        `╰═══════════════════════╯`
+        `${bul}────────────\n` +
+        `${bul} ❤️ ${attackerNick}: ${hpBar(attackerHp, attackerMaxHp)} ${attackerHp.toLocaleString()}/${attackerMaxHp.toLocaleString()}\n` +
+        `${bul} ❤️ ${opponentNick}: ${hpBar(opponentHp, opponentMaxHp)} ${opponentHp.toLocaleString()}/${opponentMaxHp.toLocaleString()}\n` +
+        `${bul}────────────\n` +
+        `${bul} ⚡ *${nextTurnNick}'s turn!* ⏰ 45s\n` +
+        `${footer}`
     );
 }
 
@@ -1371,5 +1386,7 @@ module.exports = {
     startPartyAssembly,
     joinPartyAssembly,
     readyPartyDuel,
-    getAssemblyByPlayer
+    getAssemblyByPlayer,
+    startTurnTimer,
+    duelPool
 };
