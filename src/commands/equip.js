@@ -111,8 +111,7 @@ module.exports = {
                 }
             }
 
-            // Block prestige players from equipping normal (non-prestige) weapons
-            // FIX: Malachar bound weapons (is_unique=1, bound_to=owner) bypass this check
+            // Weapon tier restrictions
             if (item.item_type === 'weapon') {
                 const isBoundWeapon = item.is_unique === 1 && item.bound_to === userId;
                 if (!isBoundWeapon) {
@@ -120,15 +119,28 @@ module.exports = {
                         "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
                         [userId]
                     );
-                    const isPrestige = (presRow[0]?.prestige_level || 0) > 0;
+                    const prestigeLevel = presRow[0]?.prestige_level || 0;
                     const isPrestigeWeapon = item.grade === 'P';
-                    if (isPrestige && !isPrestigeWeapon) return msg.reply(
+                    const isForgedWeapon   = item.is_forged === 1 || item.item_source === 'forge';
+
+                    // Prestige players cannot use normal weapons
+                    if (prestigeLevel > 0 && !isPrestigeWeapon && !isForgedWeapon) return msg.reply(
                         `╔══〘 ✦ EQUIP 〙══╗\n` +
                         `┃★ ❌ Normal weapons are void-dead\n` +
                         `┃★ at your level.\n` +
                         `┃★ Use !melt to convert them to gold.\n` +
                         `┃★ Equip from !prestigeshop instead.\n` +
                         `╚═══════════════════════════╝`
+                    );
+
+                    // Normal rank players cannot use prestige or forged weapons
+                    if (prestigeLevel === 0 && (isPrestigeWeapon || isForgedWeapon)) return msg.reply(
+                        `══〘 ⚔️ EQUIP 〙══╮\n` +
+                        `┃◆ ❌ This weapon requires Prestige.\n` +
+                        `┃◆ Forged and prestige weapons are\n` +
+                        `┃◆ beyond your current rank.\n` +
+                        `┃◆ Reach Prestige first.\n` +
+                        `╰═══════════════════════╯`
                     );
                 }
             }

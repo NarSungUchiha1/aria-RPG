@@ -157,6 +157,7 @@ const BLACKSMITH_GC_ONLY = new Set([
 ]);
 
 const HEALER_GC_JID      = '120363427051780444@g.us';
+const CASINO_GC_JID      = process.env.CASINO_GC_JID || '';
 const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
 const DM_ONLY = new Set(['enter']);
 
@@ -878,6 +879,40 @@ cron.schedule('0 0 * * *', async () => {
 });
 
 startBot();
+
+// ==================== WEEKLY BOUNTY ====================
+// Every Monday at 8am — pick the Most Wanted
+cron.schedule('0 8 * * 1', async () => {
+    if (!isReady || !sock) return;
+    try {
+        const { selectWeeklyTarget } = require('./src/commands/bounty');
+        const target = await selectWeeklyTarget();
+        if (!target) return;
+        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+        await sock.sendMessage(RAID_GROUP, {
+            text:
+                `╔══〘 🎯 MOST WANTED 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ A new bounty has been posted.\n` +
+                `┃◆\n` +
+                `┃◆ 🎯 *${target.nickname}* [${target.rank}]\n` +
+                `┃◆\n` +
+                `┃◆ This hunter has proven themselves\n` +
+                `┃◆ too dangerous to ignore.\n` +
+                `┃◆\n` +
+                `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}G\n` +
+                `┃◆ ⭐ Reward: ${target.reward_xp?.toLocaleString()} XP\n` +
+                `┃◆\n` +
+                `┃◆ Duel them. Beat them.\n` +
+                `┃◆ Then !bounty claim to collect.\n` +
+                `┃◆\n` +
+                `┃◆ Good luck. You'll need it.\n` +
+                `╚═══════════════════════════╝`
+        });
+        console.log(`🎯 Weekly bounty set: ${target.nickname}`);
+    } catch(e) { console.error('Bounty cron error:', e.message); }
+});
+
 
 // ==================== MANA REGENERATION ====================
 cron.schedule('*/10 * * * *', async () => {
