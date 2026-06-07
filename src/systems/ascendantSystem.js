@@ -6,7 +6,7 @@
  *   - Prestige player (prestige_level >= 1)
  *   - Rank PC or higher (PC, PB, PA, PS, or ASCENDANT)
  *   - At least 1 PS dungeon cleared
- *   - At least 100 total dungeon clears
+ *   - At least 200 total dungeon clears
  *
  * Resonance builds from:
  *   +5  per prestige dungeon clear
@@ -80,21 +80,27 @@ async function checkResonanceEligibility(playerId) {
 
     // At least 1 PS dungeon cleared
     const [psClears] = await db.execute(
-        'SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?',
+        `SELECT COALESCE(SUM(pq.progress), 0) as clears
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='prestige_clear'`,
         [playerId]
     ).catch(() => [[{ clears: 0 }]]);
     if ((psClears[0]?.clears || 0) < 1) {
         fails.push('❌ Must have cleared at least one PS dungeon');
     }
 
-    // 100 total dungeon clears
+    // 200 total dungeon clears
     const [totalClears] = await db.execute(
-        "SELECT COUNT(*) as cnt FROM quest_progress WHERE player_id=? AND quest_type='dungeon_clear'",
+        `SELECT COALESCE(SUM(pq.progress), 0) as cnt
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='dungeon_clear'`,
         [playerId]
     ).catch(() => [[{ cnt: 0 }]]);
     const clearCount = Number(totalClears[0]?.cnt || 0);
-    if (clearCount < 100) {
-        fails.push('❌ Need 100 dungeon clears (' + clearCount + ' done)');
+    if (clearCount < 200) {
+        fails.push('❌ Need 200 dungeon clears (' + clearCount + ' done)');
     }
 
     return {

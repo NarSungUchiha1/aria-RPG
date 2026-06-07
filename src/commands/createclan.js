@@ -15,6 +15,18 @@ module.exports = {
 
             // ── Show blessing menu if no args ─────────────────────────────────
             if (!args[0]) {
+                // Block players already in a clan
+                const alreadyIn = await getPlayerClan(userId);
+                if (alreadyIn) return msg.reply(
+                    `══〘 🏰 CREATE CLAN 〙══╮
+` +
+                    `┃◆ ❌ You are already in *${alreadyIn.name}*.
+` +
+                    `┃◆ Leave first: !leaveclan
+` +
+                    `╰═══════════════════════╯`
+                );
+
                 const check = await checkCreationRequirements(userId);
 
                 // Show requirements if not met
