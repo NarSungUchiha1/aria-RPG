@@ -60,16 +60,14 @@ async function getTriesLeft(userId, game) {
 }
 
 // ── Slot machine ──────────────────────────────────────────────────────────────
-const REELS = ['💎', '🔥', '⭐', '🌙', '🍀', '💀', '🎯', '✨'];
+// Only 5 symbols — better chance of matching
+const REELS = ['💎', '🔥', '⭐', '🌙', '🍀'];
 const SLOT_PAYOUTS = {
-    '💎💎💎': 10,   // jackpot
-    '🔥🔥🔥': 6,
-    '⭐⭐⭐': 5,
-    '🌙🌙🌙': 4,
+    '💎💎💎': 10,  // jackpot — 1/125 chance
+    '🔥🔥🔥': 5,
+    '⭐⭐⭐': 4,
+    '🌙🌙🌙': 3,
     '🍀🍀🍀': 3,
-    '🎯🎯🎯': 3,
-    '✨✨✨': 3,
-    '💀💀💀': 0,    // lose all
 };
 
 function spinSlots() {
@@ -166,28 +164,34 @@ module.exports = {
         if (!pRows.length) return msg.reply('❌ Not registered.');
         const nick = pRows[0].nickname;
 
-        // ── !casino — help ─────────────────────────────────────────────────
-        if (cmd === 'casino' || (!args[0] && !['hit','stand','bj','blackjack'].includes(cmd))) {
+        // ── !casino — game list ────────────────────────────────────────────
+        if (cmd === 'casino') {
             return msg.reply(
                 `╔══〘 🎰 ARIA CASINO 〙══╗\n` +
                 `┃◆\n` +
+                `┃◆ Choose your game:\n` +
+                `┃◆\n` +
                 `┃◆ 🎲 *!dice <bet>*\n` +
-                `┃◆    Roll vs house. Higher wins.\n` +
-                `┃◆\n` +
                 `┃◆ 🎰 *!slots <bet>*\n` +
-                `┃◆    3 reels. Match to win.\n` +
-                `┃◆    💎💎💎 = 10× jackpot!\n` +
-                `┃◆\n` +
                 `┃◆ 🪙 *!coinflip <bet> [h/t]*\n` +
-                `┃◆    50/50. Double or nothing.\n` +
-                `┃◆\n` +
                 `┃◆ 🃏 *!blackjack <bet>*\n` +
-                `┃◆    Beat the dealer. !hit or !stand.\n` +
                 `┃◆\n` +
                 `┃◆ Min: ${MIN_BET.toLocaleString()}G  Max: ${MAX_BET.toLocaleString()}G\n` +
-                `┃◆ Limit: ${DAILY_LIMIT} tries per game per day\n` +
+                `┃◆ Limit: ${DAILY_LIMIT} tries/game/day\n` +
                 `╚═══════════════════════════╝`
             );
+        }
+
+        // ── No args on individual games — show game intro ──────────────────
+        if (!args[0] && !['hit','stand','bj','blackjack'].includes(cmd)) {
+            const intros = {
+                dice:      `╔══〘 🎲 DICE 〙══╗\n┃◆\n┃◆ Roll 2 dice against the house.\n┃◆ Higher total wins.\n┃◆ Win = double your bet.\n┃◆ Tie = bet returned.\n┃◆ House rolls with a +2 bonus.\n┃◆\n┃◆ !dice <bet>\n╚═══════════════════════════╝`,
+                slots:     `╔══〘 🎰 SLOTS 〙══╗\n┃◆\n┃◆ Spin 3 reels. Match to win.\n┃◆ Symbols: 💎 🔥 ⭐ 🌙 🍀\n┃◆\n┃◆ 💎💎💎 = 10× JACKPOT\n┃◆ 🔥🔥🔥 = 5×\n┃◆ ⭐⭐⭐ = 4×\n┃◆ 🌙🌙🌙 = 3×\n┃◆ 🍀🍀🍀 = 3×\n┃◆ Two of a kind = 1.5×\n┃◆ No match = lose bet\n┃◆\n┃◆ !slots <bet>\n╚═══════════════════════════╝`,
+                coinflip:  `╔══〘 🪙 COIN FLIP 〙══╗\n┃◆\n┃◆ 50/50. Heads or tails.\n┃◆ Win = double your bet.\n┃◆ Lose = lose your bet.\n┃◆\n┃◆ !coinflip <bet> h — bet heads\n┃◆ !coinflip <bet> t — bet tails\n┃◆ (default: heads)\n╚═══════════════════════════╝`,
+                blackjack: `╔══〘 🃏 BLACKJACK 〙══╗\n┃◆\n┃◆ Get closer to 21 than the dealer.\n┃◆ Go over 21 = bust, you lose.\n┃◆\n┃◆ Win = 2× your bet\n┃◆ Blackjack (21 on deal) = 2.5×\n┃◆ Tie = bet returned\n┃◆\n┃◆ Dealer draws until 17+.\n┃◆ Card values:\n┃◆ 2-10 = face value\n┃◆ J Q K = 10  |  A = 11 or 1\n┃◆\n┃◆ !blackjack <bet> — start\n┃◆ !hit — draw a card\n┃◆ !stand — hold your hand\n╚═══════════════════════════╝`,
+            };
+            const intro = intros[cmd] || intros['blackjack'];
+            return msg.reply(intro);
         }
 
         // ── !dice <bet> ────────────────────────────────────────────────────
@@ -201,8 +205,9 @@ module.exports = {
                 `══〘 🎲 DICE 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
             );
 
+            // Player rolls 2d6 (2-12), house rolls 2d6+2 (4-14) — house edge
             const you   = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
-            const house = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
+            const house = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6) + 2;
             const won   = you > house;
             const tie   = you === house;
             const delta = tie ? 0 : won ? bet : -bet;
