@@ -169,7 +169,7 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you have ${playerGold.toLocaleString()})`);
     }
 
-    return { pass: fails.length === 0, fails, playerGold, clearCount, p };
+    return { pass: fails.length === 0, fails, playerGold, clearCount, psClears, p };
 }
 
 // ── BLESSING STATE ────────────────────────────────────────────────────────────
