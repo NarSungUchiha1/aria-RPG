@@ -54,11 +54,18 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (blessing.prestige_only && !(player.prestige_level > 0)) return null;
 
         const state = await getPlayerBlessingState(playerId, dungeonId);
+        // FIX: if no state row exists treat as used=0, not crash
+        if (!state) {
+            // Insert a fresh state row so future updates work
+            await db.execute(
+                'INSERT IGNORE INTO clan_blessing_state (player_id, dungeon_id, blessing_used) VALUES (?,?,0)',
+                [playerId, dungeonId]
+            ).catch(() => {});
+        }
+        const oneUseTriggers = ['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move','on_kill'];
+        if (oneUseTriggers.includes(trigger) && state?.blessing_used) return null;
 
-        const oneUseTriggers = ['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move'];
-        if (oneUseTriggers.includes(trigger) && state.blessing_used) return null;
-
-        const repeatTriggers = ['on_kill','every_5_skills','three_consecutive_hits','on_healed','enemy_below_25'];
+        const repeatTriggers = ['every_5_skills','three_consecutive_hits','on_healed','enemy_below_25'];
         if (repeatTriggers.includes(trigger) && state.last_triggered) {
             const secsSince = (Date.now() - new Date(state.last_triggered).getTime()) / 1000;
             if (secsSince < 30) return null;
@@ -85,12 +92,29 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃◆ DEF means nothing. It burns through.
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
+                // Apply DEF reduction to all remaining enemies (50% for 3 turns via def column)
+                await db.execute(
+                    'UPDATE dungeon_enemies SET def = GREATEST(0, FLOOR(def * 0.5)) WHERE dungeon_id=? AND current_hp>0',
+                    [dungeonId]
+                ).catch(() => {});
+
+                // Award XP for each enemy hit
+                const xpPerEnemy = 50;
+                const enemyCount = enemies[0].length;
+                if (enemyCount > 0) {
+                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpPerEnemy * enemyCount, playerId]).catch(() => {});
+                }
+
+                // Mark as used this stage — reset on stage advance (one use per stage)
+                await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
 ┃◆ The kill tears a hole in space.
 ┃◆ The void rushes in — and takes
 ┃◆ everything with it.
 ┃◆ 💥 ALL remaining enemies hit.
 ┃◆ DEF shattered by 50% this stage.
+┃◆ ⭐ +${xpPerEnemy * enemyCount} XP collected.
 ╚═══════════════════════════╝`;
             } else {
                 blessingMsg = `╔══〘 ✨ ${blessing.name} 〙══╗
@@ -120,7 +144,8 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'three_consecutive_hits') {
             const newHits = (state.hit_count || 0) + 1;
             if (newHits >= 3) {
-                await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2 });
+                // invincible=2 (turns), damage_boost=4.0 (400% multiplier for next hit)
+                await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2, damage_boost: 4.0 });
                 blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗
 ┃◆ Three hits. Enough.
 ┃◆ ${player.nickname} lets out a roar
@@ -211,7 +236,8 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         if (trigger === 'all_allies_below_50') {
-            await updateBlessingState(playerId, dungeonId, { invincible: blessing.charges || 3, blessing_used: 1 });
+            // Store damage_boost = 10.0 (1000%) for next 3 attacks, skill_count used as charge counter
+            await updateBlessingState(playerId, dungeonId, { damage_boost: 10.0, skill_count: 3, blessing_used: 1 });
             blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
 ┃★ The bloodline does not ask.
 ┃★ It takes.

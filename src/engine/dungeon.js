@@ -447,6 +447,44 @@ function calculatePlayerDamage(player, enemy, weaponBonus = 0) {
     return Math.max(1, Math.floor(rawDamage * fatigueMultiplier));
 }
 
+async function applyClanBlessingDamageBoost(playerId, dungeonId, damage) {
+    try {
+        const { getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
+        const state = await getPlayerBlessingState(playerId, dungeonId);
+        if (!state) return damage;
+
+        // Titan's Roar or Malachar's Will damage boost
+        const boost = Number(state.damage_boost || 0);
+        if (boost > 1) {
+            const boostedDmg = Math.floor(damage * boost);
+            // Consume one charge (Malachar uses skill_count as charges)
+            if (state.skill_count > 0) {
+                const newCharges = state.skill_count - 1;
+                await updateBlessingState(playerId, dungeonId, {
+                    skill_count: newCharges,
+                    damage_boost: newCharges > 0 ? boost : 0
+                });
+            } else {
+                await updateBlessingState(playerId, dungeonId, { damage_boost: 0 });
+            }
+            return boostedDmg;
+        }
+    } catch(e) {}
+    return damage;
+}
+
+async function checkClanInvincible(playerId, dungeonId) {
+    try {
+        const { getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
+        const state = await getPlayerBlessingState(playerId, dungeonId);
+        if (!state || !state.invincible) return false;
+        // Reduce invincible turns
+        await updateBlessingState(playerId, dungeonId, { invincible: Math.max(0, state.invincible - 1) });
+        return true;
+    } catch(e) {}
+    return false;
+}
+
 function calculateEnemyRetaliation(enemy, player, playerId = null) {
     // FIX: use playerId if provided (consistent with consumeShield),
     // fall back to player.id from DB row
@@ -504,6 +542,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
 
     let evaded = false;
     let damage = calculatePlayerDamage(p, e, weaponBonus);
+    damage = await applyClanBlessingDamageBoost(playerId, dungeonId, damage);
     if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
@@ -526,7 +565,13 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     let retaliation = 0, playerHp = Number(p.hp), retaliationMessage = '';
     let shieldAbsorbed = 0, defenseBlocked = 0;
     if (!defeated) {
-        const ret = calculateEnemyRetaliation(e, p, playerId);
+        // Check Titan's Roar invincibility
+        const isInvincible = await checkClanInvincible(playerId, dungeonId);
+        if (isInvincible) {
+            retaliation = 0;
+            retaliationMessage = `🛡️ ${p.nickname} is invincible — the attack bounces off.`;
+        }
+        const ret = isInvincible ? { damage: 0, shieldAbsorbed: 0, defenseBlocked: 0 } : calculateEnemyRetaliation(e, p, playerId);
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
@@ -931,6 +976,11 @@ async function addDamageContribution(dungeonId, enemyId, playerId, damage) {
 async function advanceStage(dungeonId, nextStage) {
     await db.execute("UPDATE dungeon SET stage=?, stage_cleared=0 WHERE id=?", [nextStage, dungeonId]);
     await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=? AND current_hp <= 0", [dungeonId]);
+    // Reset per-stage blessings (Void Collapse #2, Soul Shatter #5) so they can fire again next stage
+    await db.execute(
+        "UPDATE clan_blessing_state SET blessing_used=0 WHERE dungeon_id=? AND blessing_used=1",
+        [dungeonId]
+    ).catch(() => {});
     const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
     const rank = dungeon[0]?.dungeon_rank;
     if (rank && rank.startsWith('TERRITORY_')) {
