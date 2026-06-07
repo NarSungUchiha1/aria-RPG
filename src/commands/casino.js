@@ -301,7 +301,7 @@ module.exports = {
                 // Blackjack!
                 const payout = Math.floor(bet * 2.5);
                 await addGold(userId, payout);
-                bjGames.delete(userId);
+                await deleteBjGame(userId);
                 return msg.reply(
                     `╔══〘 🃏 BLACKJACK! 〙══╗\n` +
                     `┃◆ Your hand: ${hand.join(' ')} = 21\n` +
