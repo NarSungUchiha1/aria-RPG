@@ -40,6 +40,7 @@ module.exports = {
                         `┃◆ ${check.p?.prestige_level > 0 ? '✅' : '❌'} Be a Prestige hunter\n` +
                         `┃◆ ${(RANK_ORDER.indexOf(check.p?.rank) >= RANK_ORDER.indexOf('A') || check.p?.rank?.startsWith('P')) ? '✅' : '❌'} Rank A or higher\n` +
                         `┃◆ ${Number(check.clearCount) >= CREATION_REQUIREMENTS.minDungeons ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (${check.clearCount || 0} done)\n` +
+                        `┃◆ ${Number(check.psClears||0) >= 1 ? '✅' : '❌'} 1 PS dungeon cleared (${check.psClears || 0} done)\n` +
                         `┃◆ ${Number(check.playerGold) >= CREATION_REQUIREMENTS.minGold ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you: ${Number(check.playerGold||0).toLocaleString()})\n` +
                         `┃◆\n` +
                         `┃◆ You do not yet qualify.\n` +
