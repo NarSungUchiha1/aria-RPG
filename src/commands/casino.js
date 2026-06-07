@@ -100,8 +100,47 @@ function handTotal(hand) {
 }
 function drawCard() { return CARDS[Math.floor(Math.random() * CARDS.length)]; }
 
-// Active blackjack games: userId → { hand, dealerHand, bet, jid }
-const bjGames = new Map();
+// Active blackjack games — DB backed
+async function ensureBjTable() {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS casino_blackjack (
+            player_id   VARCHAR(60) PRIMARY KEY,
+            hand        TEXT NOT NULL,
+            dealer_hand TEXT NOT NULL,
+            bet         INT NOT NULL,
+            jid         VARCHAR(100),
+            started_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `).catch(() => {});
+}
+
+async function getBjGame(userId) {
+    await ensureBjTable();
+    const [rows] = await db.execute('SELECT * FROM casino_blackjack WHERE player_id=?', [userId]);
+    if (!rows.length) return null;
+    return {
+        hand: JSON.parse(rows[0].hand),
+        dealerHand: JSON.parse(rows[0].dealer_hand),
+        bet: rows[0].bet,
+        jid: rows[0].jid
+    };
+}
+
+async function saveBjGame(userId, game) {
+    await ensureBjTable();
+    await db.execute(
+        `INSERT INTO casino_blackjack (player_id, hand, dealer_hand, bet, jid)
+         VALUES (?,?,?,?,?)
+         ON DUPLICATE KEY UPDATE hand=?, dealer_hand=?, bet=?, jid=?`,
+        [userId, JSON.stringify(game.hand), JSON.stringify(game.dealerHand), game.bet, game.jid,
+         JSON.stringify(game.hand), JSON.stringify(game.dealerHand), game.bet, game.jid]
+    );
+}
+
+async function deleteBjGame(userId) {
+    await ensureBjTable();
+    await db.execute('DELETE FROM casino_blackjack WHERE player_id=?', [userId]);
+}
 
 async function checkGold(userId) {
     const [rows] = await db.execute('SELECT gold FROM currency WHERE player_id=?', [userId]);
@@ -128,7 +167,7 @@ module.exports = {
         const nick = pRows[0].nickname;
 
         // ── !casino — help ─────────────────────────────────────────────────
-        if (cmd === 'casino' || !args[0]) {
+        if (cmd === 'casino' || (!args[0] && !['hit','stand','bj','blackjack'].includes(cmd))) {
             return msg.reply(
                 `╔══〘 🎰 ARIA CASINO 〙══╗\n` +
                 `┃◆\n` +
@@ -242,7 +281,8 @@ module.exports = {
 
         // ── !blackjack <bet> ───────────────────────────────────────────────
         if (cmd === 'blackjack' || cmd === 'bj') {
-            if (bjGames.has(userId)) return msg.reply('❌ Finish your current game first. !hit or !stand');
+            const existingGame = await getBjGame(userId);
+            if (existingGame) return msg.reply('❌ Finish your current game first. !hit or !stand');
             if (!await checkAndIncrementTry(userId, 'blackjack')) return msg.reply(
                 `══〘 🃏 BLACKJACK 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
             );
@@ -254,7 +294,7 @@ module.exports = {
 
             const hand = [drawCard(), drawCard()];
             const dealerHand = [drawCard(), drawCard()];
-            bjGames.set(userId, { hand, dealerHand, bet, jid });
+            await saveBjGame(userId, { hand, dealerHand, bet, jid });
 
             const total = handTotal(hand);
             if (total === 21) {
@@ -285,13 +325,13 @@ module.exports = {
 
         // ── !hit ───────────────────────────────────────────────────────────
         if (cmd === 'hit') {
-            const game = bjGames.get(userId);
+            const game = await getBjGame(userId);
             if (!game) return msg.reply('❌ No active blackjack game. !blackjack <bet> to start.');
             game.hand.push(drawCard());
             const total = handTotal(game.hand);
 
             if (total > 21) {
-                bjGames.delete(userId);
+                await deleteBjGame(userId);
                 return msg.reply(
                     `╔══〘 🃏 BUST 〙══╗\n` +
                     `┃◆ Your hand: ${game.hand.join(' ')} = ${total}\n` +
@@ -311,9 +351,9 @@ module.exports = {
 
         // ── !stand ─────────────────────────────────────────────────────────
         if (cmd === 'stand') {
-            const game = bjGames.get(userId);
+            const game = await getBjGame(userId);
             if (!game) return msg.reply('❌ No active blackjack game. !blackjack <bet> to start.');
-            bjGames.delete(userId);
+            await deleteBjGame(userId);
 
             const playerTotal = handTotal(game.hand);
             // Dealer draws until 17+
