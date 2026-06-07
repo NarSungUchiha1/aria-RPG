@@ -39,7 +39,7 @@ module.exports = {
                     '┃★ ' + (check.prestige >= 1 ? '✅' : '❌') + ' Be a Prestige hunter\n' +
                     '┃★ ' + (['PS','ASCENDANT'].includes(check.rank) ? '✅' : '❌') + ' Rank PS required (you: ' + (check.rank || p.rank) + ')\n' +
                     '┃★ ' + ((check.psClears || 0) >= 1 ? '✅' : '❌') + ' Clear at least 1 PS dungeon\n' +
-                    '┃★ ' + ((check.totalClears || 0) >= 100 ? '✅' : '❌') + ' 100 dungeon clears (' + (check.totalClears || 0) + ' done)\n' +
+                    '┃★ ' + ((check.totalClears || 0) >= 200 ? '✅' : '❌') + ' 200 dungeon clears (' + (check.totalClears || 0) + ' done)\n' +
                     '┃★\n' +
                     '┃★ Return when all are met.\n' +
                     '╚═══════════════════════════╝';
