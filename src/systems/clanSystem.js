@@ -149,12 +149,15 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Need ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (you have ${clearCount})`);
     }
 
-    // 4. Must have cleared at least 1 PS dungeon
+    // 4. Must have cleared at least 1 PS dungeon (tracked via quest progress)
     const [psRow] = await db.execute(
-        "SELECT COALESCE(clears,0) as clears FROM ps_dungeon_clears WHERE player_id=?",
+        `SELECT COALESCE(SUM(pq.progress), 0) as cnt
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='prestige_clear'`,
         [playerId]
-    ).catch(() => [[{ clears: 0 }]]);
-    const psClears = Number(psRow[0]?.clears || 0);
+    ).catch(() => [[{ cnt: 0 }]]);
+    const psClears = Number(psRow[0]?.cnt || 0);
     if (psClears < CREATION_REQUIREMENTS.minPsDungeons) {
         fails.push(`❌ Must have cleared at least 1 PS dungeon (you have ${psClears})`);
     }
