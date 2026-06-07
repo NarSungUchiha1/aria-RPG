@@ -7,16 +7,57 @@
  * !slots <bet>    — slot machine (3 reels)
  * !coinflip <bet> [heads/tails] — 50/50
  * !blackjack <bet> — draw cards vs house, closest to 21 wins
- * !daily          — daily free casino chips (100 gold)
  */
 
 const db = require('../database/db');
 
 const CASINO_GC = process.env.CASINO_GC_JID || '';
-const MIN_BET = 100;
+const MIN_BET = 1000;
 const MAX_BET = 50000;
+const DAILY_LIMIT = 3; // tries per game per day
 
 function clamp(bet) { return Math.max(MIN_BET, Math.min(MAX_BET, Math.floor(bet))); }
+
+// ── Daily try limit — DB backed ──────────────────────────────────────────────
+async function ensureCasinoTable() {
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS casino_tries (
+            player_id  VARCHAR(60) NOT NULL,
+            game       VARCHAR(20) NOT NULL,
+            try_date   DATE NOT NULL,
+            tries      INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (player_id, game, try_date)
+        )
+    `).catch(() => {});
+}
+
+async function checkAndIncrementTry(userId, game) {
+    await ensureCasinoTable();
+    const today = new Date().toISOString().split('T')[0];
+    // Upsert — increment tries
+    await db.execute(
+        `INSERT INTO casino_tries (player_id, game, try_date, tries)
+         VALUES (?, ?, ?, 1)
+         ON DUPLICATE KEY UPDATE tries = tries + 1`,
+        [userId, game, today]
+    );
+    // Check if over limit AFTER incrementing
+    const [rows] = await db.execute(
+        'SELECT tries FROM casino_tries WHERE player_id=? AND game=? AND try_date=?',
+        [userId, game, today]
+    );
+    return Number(rows[0]?.tries || 1) <= DAILY_LIMIT;
+}
+
+async function getTriesLeft(userId, game) {
+    await ensureCasinoTable();
+    const today = new Date().toISOString().split('T')[0];
+    const [rows] = await db.execute(
+        'SELECT tries FROM casino_tries WHERE player_id=? AND game=? AND try_date=?',
+        [userId, game, today]
+    );
+    return Math.max(0, DAILY_LIMIT - Number(rows[0]?.tries || 0));
+}
 
 // ── Slot machine ──────────────────────────────────────────────────────────────
 const REELS = ['💎', '🔥', '⭐', '🌙', '🍀', '💀', '🎯', '✨'];
@@ -105,6 +146,7 @@ module.exports = {
                 `┃◆    Beat the dealer. !hit or !stand.\n` +
                 `┃◆\n` +
                 `┃◆ Min: ${MIN_BET.toLocaleString()}G  Max: ${MAX_BET.toLocaleString()}G\n` +
+                `┃◆ Limit: ${DAILY_LIMIT} tries per game per day\n` +
                 `╚═══════════════════════════╝`
             );
         }
@@ -115,6 +157,10 @@ module.exports = {
             if (!bet) return msg.reply('❌ !dice <amount>');
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold. You have ${gold.toLocaleString()}G.`);
+
+            if (!await checkAndIncrementTry(userId, 'dice')) return msg.reply(
+                `══〘 🎲 DICE 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
+            );
 
             const you   = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
             const house = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
@@ -131,6 +177,7 @@ module.exports = {
                 (tie ? `┃◆ 🤝 Tie — bet returned.\n` : won
                     ? `┃◆ ✅ You win! +${bet.toLocaleString()}G\n`
                     : `┃◆ ❌ House wins. -${bet.toLocaleString()}G\n`) +
+                `┃◆ Tries left today: ${await getTriesLeft(userId, 'dice')}\n` +
                 `╚═══════════════════════════╝`
             );
         }
@@ -141,6 +188,10 @@ module.exports = {
             if (!bet) return msg.reply('❌ !slots <amount>');
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold. You have ${gold.toLocaleString()}G.`);
+
+            if (!await checkAndIncrementTry(userId, 'slots')) return msg.reply(
+                `══〘 🎰 SLOTS 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
+            );
 
             await addGold(userId, -bet);
             const reels = spinSlots();
@@ -170,6 +221,10 @@ module.exports = {
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold.`);
 
+            if (!await checkAndIncrementTry(userId, 'coinflip')) return msg.reply(
+                `══〘 🪙 COIN FLIP 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
+            );
+
             const guess  = args[1]?.toLowerCase()?.startsWith('t') ? 'tails' : 'heads';
             const result = Math.random() < 0.5 ? 'heads' : 'tails';
             const won    = guess === result;
@@ -188,6 +243,9 @@ module.exports = {
         // ── !blackjack <bet> ───────────────────────────────────────────────
         if (cmd === 'blackjack' || cmd === 'bj') {
             if (bjGames.has(userId)) return msg.reply('❌ Finish your current game first. !hit or !stand');
+            if (!await checkAndIncrementTry(userId, 'blackjack')) return msg.reply(
+                `══〘 🃏 BLACKJACK 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
+            );
             const bet = clamp(parseInt(args[0]) || 0);
             if (!bet) return msg.reply('❌ !blackjack <amount>');
             const gold = await checkGold(userId);

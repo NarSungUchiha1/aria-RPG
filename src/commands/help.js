@@ -85,7 +85,16 @@ module.exports = {
 ┃◆ !transfer @user <amount> → Send XP
 ┃◆ !trade @user <item #> → Give an item (Rank D+)
 ┃◆ !tradematerial @user <mat> <qty> → Trade materials
-┃◆ !bounty → View active bounties
+┃◆ !bounty → Most Wanted — weekly target\n"
+                "┃◆ !bounty claim → Claim after beating them\n"
+                "┃◆ !bounty history → Past bounties\n"
+                "┃◆────────────\n"
+                "┃◆ 🎰 CASINO (Casino GC)\n"
+                "┃◆ !dice <bet> → Roll vs house\n"
+                "┃◆ !slots <bet> → Spin the reels\n"
+                "┃◆ !coinflip <bet> [h/t] → 50/50\n"
+                "┃◆ !blackjack <bet> → Beat the dealer\n"
+                "┃◆ Min: 1,000G | 3 tries/game/day
 ┃◆
 ┃◆  ✨ PROGRESSION
 ┃◆ !rankup → Rank up (costs XP)
@@ -229,7 +238,11 @@ module.exports = {
 ┃★  💰 ECONOMY & TRADING
 ┃★ !pay @user <amount>  |  !transfer @user <amount>
 ┃★ !trade @user <item #>  |  !tradematerial @user <mat> <qty>
-┃★ !bounty → Active bounties
+┃★ !bounty → Most Wanted weekly bounty
+"
+                "┃★ !bounty claim → Claim reward after win
+"
+                "┃★ !dice/!slots/!coinflip/!blackjack → Casino
 ┃★
 ┃★  📈 PROGRESSION
 ┃★ !rankup → Rank up through prestige ranks
