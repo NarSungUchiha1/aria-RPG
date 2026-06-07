@@ -94,6 +94,22 @@ module.exports = {
             const existing = await getPlayerClan(userId);
             if (existing) return msg.reply(`❌ Leave *${existing.name}* first with !leaveclan.`);
 
+            // Check 30-day leave penalty
+            const [penalty] = await db.execute(
+                "SELECT can_join_at FROM clan_leave_penalty WHERE player_id=? AND can_join_at > NOW()",
+                [userId]
+            ).catch(() => [[]]);
+            if (penalty.length) {
+                const canJoin = new Date(penalty[0].can_join_at).toDateString();
+                return msg.reply(
+                    `══〘 🏰 CREATE CLAN 〙══╮\n` +
+                    `┃◆ ❌ You left a clan recently.\n` +
+                    `┃◆ You can create or join a clan\n` +
+                    `┃◆ after: *${canJoin}*\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
             // Check name not taken
             const [nameTaken] = await db.execute('SELECT id FROM clans WHERE name=?', [clanName]);
             if (nameTaken.length) return msg.reply(`❌ The name *${clanName}* is already taken. Choose another.`);
