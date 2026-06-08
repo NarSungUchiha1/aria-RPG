@@ -14,7 +14,7 @@ const db = require('../database/db');
 const CASINO_GC = process.env.CASINO_GC_JID || '';
 const MIN_BET = 1000;
 const MAX_BET = 50000;
-const DAILY_LIMIT = 3; // tries per game per day
+const DAILY_LIMIT = 5; // tries per game per day
 
 function clamp(bet) { return Math.max(MIN_BET, Math.min(MAX_BET, Math.floor(bet))); }
 
@@ -78,8 +78,8 @@ function slotPayout(reels, bet) {
     const key = reels.join('');
     const mult = SLOT_PAYOUTS[key];
     if (mult !== undefined) return mult === 0 ? 0 : bet * mult;
-    // Two of a kind = 1.5x
-    if (reels[0]===reels[1] || reels[1]===reels[2] || reels[0]===reels[2]) return Math.floor(bet * 1.5);
+    // Two of a kind = 1.8x (medium difficulty)
+    if (reels[0]===reels[1] || reels[1]===reels[2] || reels[0]===reels[2]) return Math.floor(bet * 1.8);
     return 0; // no match
 }
 
@@ -150,7 +150,7 @@ async function addGold(userId, amount) {
 
 module.exports = {
     name: 'casino',
-    aliases: ['dice', 'slots', 'coinflip', 'blackjack', 'bj', 'hit', 'stand'],
+    aliases: ['dice', 'slots', 'coinflip', 'blackjack', 'bj', 'hit', 'stand', 'roulette', 'war', 'highlow'],
     async execute(msg, args, { userId, client }) {
         const jid = msg.from;
         const cmd = msg.body?.split(' ')[0]?.replace('!','').toLowerCase();
@@ -189,6 +189,9 @@ module.exports = {
                 slots:     `╔══〘 🎰 SLOTS 〙══╗\n┃◆\n┃◆ Spin 3 reels. Match to win.\n┃◆ Symbols: 💎 🔥 ⭐ 🌙 🍀\n┃◆\n┃◆ 💎💎💎 = 10× JACKPOT\n┃◆ 🔥🔥🔥 = 5×\n┃◆ ⭐⭐⭐ = 4×\n┃◆ 🌙🌙🌙 = 3×\n┃◆ 🍀🍀🍀 = 3×\n┃◆ Two of a kind = 1.5×\n┃◆ No match = lose bet\n┃◆\n┃◆ !slots <bet>\n╚═══════════════════════════╝`,
                 coinflip:  `╔══〘 🪙 COIN FLIP 〙══╗\n┃◆\n┃◆ 50/50. Heads or tails.\n┃◆ Win = double your bet.\n┃◆ Lose = lose your bet.\n┃◆\n┃◆ !coinflip <bet> h — bet heads\n┃◆ !coinflip <bet> t — bet tails\n┃◆ (default: heads)\n╚═══════════════════════════╝`,
                 blackjack: `╔══〘 🃏 BLACKJACK 〙══╗\n┃◆\n┃◆ Get closer to 21 than the dealer.\n┃◆ Go over 21 = bust, you lose.\n┃◆\n┃◆ Win = 2× your bet\n┃◆ Blackjack (21 on deal) = 2.5×\n┃◆ Tie = bet returned\n┃◆\n┃◆ Dealer draws until 17+.\n┃◆ Card values:\n┃◆ 2-10 = face value\n┃◆ J Q K = 10  |  A = 11 or 1\n┃◆\n┃◆ !blackjack <bet> — start\n┃◆ !hit — draw a card\n┃◆ !stand — hold your hand\n╚═══════════════════════════╝`,
+                roulette:  `╔══〘 🎯 ROULETTE 〙══╗\n┃◆\n┃◆ Bet on where the ball lands.\n┃◆\n┃◆ red / black = 2×\n┃◆ odd / even = 2×\n┃◆ 1-18 / 19-36 = 2×\n┃◆ exact number (0-36) = 35×\n┃◆\n┃◆ !roulette <bet> red\n┃◆ !roulette <bet> black\n┃◆ !roulette <bet> 17\n╚═══════════════════════════╝`,
+                war:       `╔══〘 ⚔️ WAR 〙══╗\n┃◆\n┃◆ You and the dealer each draw one card.\n┃◆ Higher card wins. Tie = bet returned.\n┃◆\n┃◆ Win = 2× your bet\n┃◆ Card values: 2-10 face, J=11 Q=12 K=13 A=14\n┃◆\n┃◆ !war <bet>\n╚═══════════════════════════╝`,
+                highlow:   `╔══〘 📈 HIGH / LOW 〙══╗\n┃◆\n┃◆ A card is drawn. Guess if the\n┃◆ next card is higher or lower.\n┃◆\n┃◆ Win = 1.8× your bet\n┃◆ Tie = bet returned\n┃◆\n┃◆ !highlow <bet> h — bet higher\n┃◆ !highlow <bet> l — bet lower\n╚═══════════════════════════╝`,
             };
             const intro = intros[cmd] || intros['blackjack'];
             return msg.reply(intro);
@@ -205,9 +208,9 @@ module.exports = {
                 `══〘 🎲 DICE 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`
             );
 
-            // Player rolls 2d6 (2-12), house rolls 2d6+2 (4-14) — house edge
+            // Medium difficulty — same 2d6 each, house wins ties (gives ~47% player win rate)
             const you   = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
-            const house = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6) + 2;
+            const house = Math.ceil(Math.random() * 6) + Math.ceil(Math.random() * 6);
             const won   = you > house;
             const tie   = you === house;
             const delta = tie ? 0 : won ? bet : -bet;
@@ -319,11 +322,13 @@ module.exports = {
 
             return msg.reply(
                 `╔══〘 🃏 BLACKJACK 〙══╗\n` +
-                `┃◆ Your hand: ${hand.join(' ')} = ${total}\n` +
-                `┃◆ Dealer shows: ${dealerHand[0]} ?\n` +
                 `┃◆\n` +
-                `┃◆ !hit — draw another card\n` +
+                `┃◆ Your hand:   ${hand.join(' ')} = ${total}\n` +
+                `┃◆ Dealer shows: ${dealerHand[0]} 🂠 (hidden)\n` +
+                `┃◆\n` +
+                `┃◆ !hit — draw a card\n` +
                 `┃◆ !stand — hold your hand\n` +
+                `┃◆ Bet: ${bet.toLocaleString()}G\n` +
                 `╚═══════════════════════════╝`
             );
         }
@@ -347,9 +352,123 @@ module.exports = {
 
             return msg.reply(
                 `╔══〘 🃏 HIT 〙══╗\n` +
-                `┃◆ Your hand: ${game.hand.join(' ')} = ${total}\n` +
+                `┃◆\n` +
+                `┃◆ Your hand:    ${game.hand.join(' ')} = ${total}\n` +
+                `┃◆ Dealer shows: ${game.dealerHand[0]} 🂠 (hidden)\n` +
+                `┃◆\n` +
                 `┃◆ !hit — draw again\n` +
                 `┃◆ !stand — hold\n` +
+                `╚═══════════════════════════╝`
+            );
+        }
+
+        // ── !roulette <bet> <choice> ──────────────────────────────────────────
+        if (cmd === 'roulette') {
+            const bet = clamp(parseInt(args[0]) || 0);
+            const choice = args[1]?.toLowerCase();
+            if (!bet || !choice) return msg.reply('❌ !roulette <bet> <red/black/odd/even/0-36>');
+            const gold = await checkGold(userId);
+            if (gold < bet) return msg.reply(`❌ Not enough gold.`);
+            if (!await checkAndIncrementTry(userId, 'roulette')) return msg.reply(
+                `══〘 🎯 ROULETTE 〙══╮\n┃◆ ❌ Daily limit (${DAILY_LIMIT} tries) reached.\n╰═══════════════════════╯`
+            );
+
+            const spin = Math.floor(Math.random() * 37); // 0-36
+            const isRed = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36].includes(spin);
+            const isBlack = spin > 0 && !isRed;
+
+            let won = false, payout = 0;
+            const numChoice = parseInt(choice);
+            if (!isNaN(numChoice) && numChoice >= 0 && numChoice <= 36) {
+                won = spin === numChoice;
+                payout = won ? bet * 35 : 0;
+            } else if (choice === 'red')   { won = isRed;          payout = won ? bet * 2 : 0; }
+            else if (choice === 'black')   { won = isBlack;         payout = won ? bet * 2 : 0; }
+            else if (choice === 'odd')     { won = spin > 0 && spin % 2 === 1; payout = won ? bet * 2 : 0; }
+            else if (choice === 'even')    { won = spin > 0 && spin % 2 === 0; payout = won ? bet * 2 : 0; }
+            else if (choice === '1-18')    { won = spin >= 1 && spin <= 18; payout = won ? bet * 2 : 0; }
+            else if (choice === '19-36')   { won = spin >= 19 && spin <= 36; payout = won ? bet * 2 : 0; }
+            else return msg.reply('❌ Invalid choice. Use: red black odd even 1-18 19-36 or a number 0-36');
+
+            await addGold(userId, won ? payout - bet : -bet);
+            const color = spin === 0 ? '🟢' : isRed ? '🔴' : '⚫';
+
+            return msg.reply(
+                `╔══〘 🎯 ROULETTE 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ The ball lands on... ${color} *${spin}*\n` +
+                `┃◆ Your bet: *${choice}*\n` +
+                `┃◆\n` +
+                (won ? `┃◆ ✅ +${payout.toLocaleString()}G\n` : `┃◆ ❌ -${bet.toLocaleString()}G\n`) +
+                `╚═══════════════════════════╝`
+            );
+        }
+
+        // ── !war <bet> ────────────────────────────────────────────────────────
+        if (cmd === 'war') {
+            const bet = clamp(parseInt(args[0]) || 0);
+            if (!bet) return msg.reply('❌ !war <bet>');
+            const gold = await checkGold(userId);
+            if (gold < bet) return msg.reply(`❌ Not enough gold.`);
+            if (!await checkAndIncrementTry(userId, 'war')) return msg.reply(
+                `══〘 ⚔️ WAR 〙══╮\n┃◆ ❌ Daily limit (${DAILY_LIMIT} tries) reached.\n╰═══════════════════════╯`
+            );
+
+            const warValue = c => { if(c==='A') return 14; if(c==='K') return 13; if(c==='Q') return 12; if(c==='J') return 11; return parseInt(c); };
+            const yourCard   = drawCard();
+            const dealerCard = drawCard();
+            const youVal     = warValue(yourCard);
+            const dealVal    = warValue(dealerCard);
+            const tie        = youVal === dealVal;
+            const won        = youVal > dealVal;
+
+            await addGold(userId, tie ? 0 : won ? bet : -bet);
+
+            return msg.reply(
+                `╔══〘 ⚔️ WAR 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ Your card:   *${yourCard}* (${youVal})\n` +
+                `┃◆ Dealer card: *${dealerCard}* (${dealVal})\n` +
+                `┃◆\n` +
+                (tie  ? `┃◆ 🤝 Tie! Bet returned.\n` :
+                 won  ? `┃◆ ✅ You win! +${bet.toLocaleString()}G\n` :
+                        `┃◆ ❌ Dealer wins. -${bet.toLocaleString()}G\n`) +
+                `╚═══════════════════════════╝`
+            );
+        }
+
+        // ── !highlow <bet> [h/l] ──────────────────────────────────────────────
+        if (cmd === 'highlow') {
+            const bet    = clamp(parseInt(args[0]) || 0);
+            const guess  = args[1]?.toLowerCase()?.startsWith('l') ? 'lower' : 'higher';
+            if (!bet) return msg.reply('❌ !highlow <bet> [h/l]');
+            const gold = await checkGold(userId);
+            if (gold < bet) return msg.reply(`❌ Not enough gold.`);
+            if (!await checkAndIncrementTry(userId, 'highlow')) return msg.reply(
+                `══〘 📈 HIGH/LOW 〙══╮\n┃◆ ❌ Daily limit (${DAILY_LIMIT} tries) reached.\n╰═══════════════════════╯`
+            );
+
+            const hlVal = c => { if(c==='A') return 14; if(c==='K') return 13; if(c==='Q') return 12; if(c==='J') return 11; return parseInt(c); };
+            const first  = drawCard();
+            const second = drawCard();
+            const fVal   = hlVal(first);
+            const sVal   = hlVal(second);
+            const tie    = fVal === sVal;
+            const won    = tie ? false : (guess === 'higher' ? sVal > fVal : sVal < fVal);
+            const payout = Math.floor(bet * 1.8);
+
+            await addGold(userId, tie ? 0 : won ? payout - bet : -bet);
+
+            return msg.reply(
+                `╔══〘 📈 HIGH / LOW 〙══╗\n` +
+                `┃◆\n` +
+                `┃◆ First card:  *${first}* (${fVal})\n` +
+                `┃◆ Your guess:  *${guess}*\n` +
+                `┃◆ Next card:   *${second}* (${sVal})\n` +
+                `┃◆\n` +
+                (tie  ? `┃◆ 🤝 Same card! Bet returned.\n` :
+                 won  ? `┃◆ ✅ Correct! +${(payout-bet).toLocaleString()}G\n` :
+                        `┃◆ ❌ Wrong. -${bet.toLocaleString()}G\n`) +
                 `╚═══════════════════════════╝`
             );
         }
@@ -361,8 +480,8 @@ module.exports = {
             await deleteBjGame(userId);
 
             const playerTotal = handTotal(game.hand);
-            // Dealer draws until 17+
-            while (handTotal(game.dealerHand) < 17) game.dealerHand.push(drawCard());
+            // Dealer draws until 16+ (medium difficulty — slightly favors player)
+            while (handTotal(game.dealerHand) < 16) game.dealerHand.push(drawCard());
             const dealerTotal = handTotal(game.dealerHand);
 
             const bust     = dealerTotal > 21;

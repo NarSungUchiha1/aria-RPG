@@ -16,92 +16,118 @@ module.exports = {
     name: 'inventory',
     async execute(msg, args, { userId }) {
         try {
-            // Explorers don't use the weapon/item inventory
             const [roleCheck] = await db.execute("SELECT role FROM players WHERE id=?", [userId]);
             if (roleCheck[0]?.role === 'Explorer') return msg.reply(
                 `╔══〘 🎒 INVENTORY 〙══╗\n┃◆ ❌ Explorers don't carry\n┃◆ weapons or equipment.\n┃◆ Use !expmaterials for\n┃◆ your materials.\n┃◆ Use !usepotion for potions.\n╚═══════════════════════════╝`
             );
 
             const [inDungeon] = await db.execute(
-                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
-                [userId]
+                "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1", [userId]
             );
             if (inDungeon.length) return msg.reply(
-                `══〘 🎒 INVENTORY 〙══╮\n` +
-                `┃◆ ❌ Cannot view inventory\n` +
-                `┃◆ while inside a dungeon.\n` +
-                `╰═══════════════════════╯`
+                `══〘 🎒 INVENTORY 〙══╮\n┃◆ ❌ Cannot view inventory\n┃◆ while inside a dungeon.\n╰═══════════════════════╯`
             );
 
             const [playerRow] = await db.execute(
-                "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?",
-                [userId]
+                "SELECT COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]
             );
             const isPrestige = (playerRow[0]?.prestige_level || 0) > 0;
 
-            const [items] = await db.execute(
-                `SELECT id, item_name, item_type, equipped, grade, durability, max_durability
-                 FROM inventory WHERE player_id=? ORDER BY id`,
+            // Fetch items — exclude Void Shards, group duplicates with count
+            const [rawItems] = await db.execute(
+                `SELECT item_name, item_type, grade, durability, max_durability,
+                        MAX(equipped) as equipped,
+                        COUNT(*) as stack_count
+                 FROM inventory
+                 WHERE player_id=?
+                 AND item_name NOT LIKE '%Void Shard%'
+                 GROUP BY item_name, item_type, grade, durability, max_durability
+                 ORDER BY MAX(equipped) DESC, item_type, grade DESC, item_name`,
                 [userId]
             );
 
-            if (!items.length) {
-                const empty =
+            // Also get IDs for equip/inspect numbering (use first id per group)
+            const [items] = await db.execute(
+                `SELECT id, item_name, item_type, equipped, grade, durability, max_durability
+                 FROM inventory
+                 WHERE player_id=?
+                 AND item_name NOT LIKE '%Void Shard%'
+                 ORDER BY equipped DESC, item_type, grade DESC, item_name, id`,
+                [userId]
+            );
+
+            // Build stacked list — merge duplicates
+            const stacked = [];
+            const seen = new Map();
+            items.forEach((it) => {
+                const key = `${it.item_name}__${it.grade}__${it.equipped}`;
+                if (seen.has(key)) {
+                    seen.get(key).count++;
+                } else {
+                    const entry = { ...it, count: 1 };
+                    seen.set(key, entry);
+                    stacked.push(entry);
+                }
+            });
+
+            if (!stacked.length) {
+                return msg.reply(
                     `${isPrestige ? '╔══〘 ✦ VOID INVENTORY 〙══╗' : '══〘 🎒 INVENTORY 〙══╮'}\n` +
                     `${isPrestige ? '┃★' : '┃◆'} Your inventory is empty.\n` +
-                    `${isPrestige ? '┃★' : '┃◆'} ${isPrestige ? 'Visit !prestigeshop.' : 'Visit !shop to buy items.'}\n` +
-                    `${isPrestige ? '╚═══════════════════════════╝' : '╰═══════════════════════╯'}`;
-                return msg.reply(empty);
+                    `${isPrestige ? '┃★' : '┃◆'} ${isPrestige ? 'Visit !prestigeshop.' : 'Visit !shop.'}\n` +
+                    `${isPrestige ? '╚═══════════════════════════╝' : '╰═══════════════════════╯'}`
+                );
             }
 
+            const p = isPrestige ? '┃★' : '┃◆';
+
             if (isPrestige) {
-                let text = `╔══〘 ✦ VOID INVENTORY 〙══╗\n┃★ \n`;
-                items.forEach((it, i) => {
-                    const grade = it.grade || 'F';
-                    const dur   = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
-                    const eq    = it.equipped ? '✅' : '❌';
-                    const isPrestigeItem = grade === 'P';
-                    const gradeTag = isPrestigeItem ? '[✦]' : `[${grade}]`;
+                let text = `╔══〘 ✦ VOID INVENTORY 〙══╗\n${p} \n`;
+                stacked.forEach((it, i) => {
+                    const grade    = it.grade || 'F';
+                    const dur      = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
+                    const eq       = it.equipped ? '✅' : '❌';
+                    const gradeTag = grade === 'P' ? '[✦]' : `[${grade}]`;
+                    const qty      = it.count > 1 ? ` ×${it.count}` : '';
 
                     if (it.item_type === 'bag') {
                         try {
                             const { BAGS } = require('../systems/bagSystem');
                             const slots = BAGS[it.item_name]?.slots || '?';
-                            text += `┃★ ${i + 1}. 🎒 *${it.item_name}* ${gradeTag}\n`;
-                            text += `┃★   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
+                            text += `${p} ${i+1}. 🎒 *${it.item_name}*${qty} ${gradeTag}\n`;
+                            text += `${p}   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
                         } catch(e) {
-                            text += `┃★ ${i + 1}. 🎒 *${it.item_name}* 🔧${dur}  ${eq}\n`;
+                            text += `${p} ${i+1}. 🎒 *${it.item_name}*${qty} 🔧${dur}  ${eq}\n`;
                         }
                     } else {
-                        text += `┃★ ${i + 1}. *${it.item_name}* ${gradeTag} 🔧${dur}\n`;
-                        text += `┃★   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
+                        text += `${p} ${i+1}. *${it.item_name}*${qty} ${gradeTag} 🔧${dur}\n`;
+                        text += `${p}   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
                     }
-                    text += `┃★────────────\n`;
+                    text += `${p}────────────\n`;
                 });
-                text +=
-                    `┃★ !equip <#> • !inspect <#>\n` +
-                    `┃★ !melt <#> to convert to gold\n` +
-                    `╚═══════════════════════════╝`;
+                text += `${p} !equip <#> • !inspect <#>\n${p} !melt <#> to convert to gold\n╚═══════════════════════════╝`;
                 return msg.reply(text);
             }
 
-            // Normal player UI
+            // Normal player
             let text = `══〘 🎒 INVENTORY 〙══╮\n`;
-            items.forEach((it, i) => {
+            stacked.forEach((it, i) => {
                 const grade = it.grade || 'F';
                 const dur   = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
-                const eq    = it.equipped ? '✅ EQUIPPED' : '❌ UNEQUIPPED';
+                const eq    = it.equipped ? '✅ EQUIPPED' : '❌';
+                const qty   = it.count > 1 ? ` ×${it.count}` : '';
+
                 if (it.item_type === 'bag') {
                     try {
                         const { BAGS } = require('../systems/bagSystem');
                         const slots = BAGS[it.item_name]?.slots || '?';
-                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name}\n`;
+                        text += `┃◆ ${i+1}. 🎒 ${it.item_name}${qty}\n`;
                         text += `┃◆   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
                     } catch(e) {
-                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name} 🔧${dur}  ${eq}\n`;
+                        text += `┃◆ ${i+1}. 🎒 ${it.item_name}${qty} 🔧${dur}  ${eq}\n`;
                     }
                 } else {
-                    text += `┃◆ ${i + 1}. ${it.item_name} [${grade}] 🔧${dur}\n`;
+                    text += `┃◆ ${i+1}. ${it.item_name}${qty} [${grade}] 🔧${dur}\n`;
                     text += `┃◆   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
                 }
                 text += `┃◆────────────\n`;
@@ -109,15 +135,13 @@ module.exports = {
             text += `┃◆ !equip <#> • !inspect <#>\n`;
             text += `┃◆ !repair <#> • !upgradeweapon <#>\n`;
 
-            // Add potions section
             try {
                 const [potions] = await db.execute(
                     "SELECT potion_name, quantity FROM potion_inventory WHERE player_id=? AND quantity > 0 ORDER BY potion_name",
                     [userId]
                 );
                 if (potions.length) {
-                    text += `┃◆────────────\n`;
-                    text += `┃◆ 🧪 POTIONS:\n`;
+                    text += `┃◆────────────\n┃◆ 🧪 POTIONS:\n`;
                     potions.forEach(pot => {
                         text += `┃◆   • *${pot.potion_name}* ×${pot.quantity}\n`;
                     });
@@ -130,11 +154,7 @@ module.exports = {
 
         } catch (err) {
             console.error(err);
-            msg.reply(
-                `══〘 🎒 INVENTORY 〙══╮\n` +
-                `┃◆ ❌ Could not load inventory.\n` +
-                `╰═══════════════════════╯`
-            );
+            msg.reply(`══〘 🎒 INVENTORY 〙══╮\n┃◆ ❌ Could not load inventory.\n╰═══════════════════════╯`);
         }
     }
 };
