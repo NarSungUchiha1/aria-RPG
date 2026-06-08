@@ -169,12 +169,13 @@ module.exports = {
             return msg.reply(
                 `╔══〘 🎰 ARIA CASINO 〙══╗\n` +
                 `┃◆\n` +
-                `┃◆ Choose your game:\n` +
-                `┃◆\n` +
                 `┃◆ 🎲 *!dice <bet>*\n` +
                 `┃◆ 🎰 *!slots <bet>*\n` +
                 `┃◆ 🪙 *!coinflip <bet> [h/t]*\n` +
                 `┃◆ 🃏 *!blackjack <bet>*\n` +
+                `┃◆ 🎯 *!roulette <bet> <choice>*\n` +
+                `┃◆ ⚔️ *!war <bet>*\n` +
+                `┃◆ 📈 *!highlow <bet> [h/l]*\n` +
                 `┃◆\n` +
                 `┃◆ Min: ${MIN_BET.toLocaleString()}G  Max: ${MAX_BET.toLocaleString()}G\n` +
                 `┃◆ Limit: ${DAILY_LIMIT} tries/game/day\n` +
