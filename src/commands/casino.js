@@ -335,11 +335,17 @@ module.exports = {
         }
 
         // ── !hit ───────────────────────────────────────────────────────────
-        if (cmd === 'hit') {
-            const game = await getBjGame(userId);
-            if (!game) return msg.reply('❌ No active blackjack game. !blackjack <bet> to start.');
-            game.hand.push(drawCard());
-            const total = handTotal(game.hand);
+       if (cmd === 'hit') {
+    const game = await getBjGame(userId);
+
+    if (!game)
+        return msg.reply('❌ No active blackjack game.');
+
+    game.hand.push(drawCard());
+
+    await saveBjGame(userId, game);
+
+    const total = handTotal(game.hand);
 
             if (total > 21) {
                 await deleteBjGame(userId);
@@ -482,7 +488,7 @@ module.exports = {
 
             const playerTotal = handTotal(game.hand);
             // Dealer draws until 16+ (medium difficulty — slightly favors player)
-            while (handTotal(game.dealerHand) < 16) game.dealerHand.push(drawCard());
+            while (handTotal(game.dealerHand) < 17) game.dealerHand.push(drawCard());
             const dealerTotal = handTotal(game.dealerHand);
 
             const bust     = dealerTotal > 21;
