@@ -149,15 +149,36 @@ async function checkCreationRequirements(playerId) {
         fails.push(`❌ Need ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (you have ${clearCount})`);
     }
 
-    // 4. Must have cleared at least 1 PS dungeon (tracked via quest progress)
+    // 4. Must have cleared at least 1 PS dungeon
+    // Check quest progress first, fall back to dungeon history
     const [psRow] = await db.execute(
         `SELECT COALESCE(SUM(pq.progress), 0) as cnt
          FROM player_quests pq
          JOIN quests q ON q.id = pq.quest_id
-         WHERE pq.player_id=? AND q.objective_type='prestige_clear'`,
+         WHERE pq.player_id=? AND q.objective_type='prestige_clear' AND pq.progress > 0`,
         [playerId]
     ).catch(() => [[{ cnt: 0 }]]);
-    const psClears = Number(psRow[0]?.cnt || 0);
+
+    // Fallback: check dungeon completion history directly
+    const [psHistory] = await db.execute(
+        `SELECT COUNT(*) as cnt FROM dungeon d
+         JOIN dungeon_players dp ON dp.dungeon_id = d.id
+         WHERE dp.player_id=? AND d.dungeon_rank='PS' AND d.is_active=0`,
+        [playerId]
+    ).catch(() => [[{ cnt: 0 }]]);
+
+    // Also check ps_dungeon_clears table if it exists
+    const [psDirect] = await db.execute(
+        `SELECT COALESCE(clears, 0) as cnt FROM ps_dungeon_clears WHERE player_id=?`,
+        [playerId]
+    ).catch(() => [[{ cnt: 0 }]]);
+
+    const psClears = Math.max(
+        Number(psRow[0]?.cnt || 0),
+        Number(psHistory[0]?.cnt || 0),
+        Number(psDirect[0]?.cnt || 0)
+    );
+
     if (psClears < CREATION_REQUIREMENTS.minPsDungeons) {
         fails.push(`❌ Must have cleared at least 1 PS dungeon (you have ${psClears})`);
     }
