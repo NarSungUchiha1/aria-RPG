@@ -33,20 +33,9 @@ module.exports = {
             );
             const isPrestige = (playerRow[0]?.prestige_level || 0) > 0;
 
-            // Fetch items — exclude Void Shards, group duplicates with count
-            const [rawItems] = await db.execute(
-                `SELECT item_name, item_type, grade, durability, max_durability,
-                        MAX(equipped) as equipped,
-                        COUNT(*) as stack_count
-                 FROM inventory
-                 WHERE player_id=?
-                 AND item_name NOT LIKE '%Void Shard%'
-                 GROUP BY item_name, item_type, grade, durability, max_durability
-                 ORDER BY MAX(equipped) DESC, item_type, grade DESC, item_name`,
-                [userId]
-            );
-
-            // Also get IDs for equip/inspect numbering (use first id per group)
+            // Fetch ALL items — exclude Void Shards
+            // Weapons and armor keep individual rows (so !equip <#> numbering stays correct)
+            // Consumables/materials/potions are stacked by name
             const [items] = await db.execute(
                 `SELECT id, item_name, item_type, equipped, grade, durability, max_durability
                  FROM inventory
@@ -56,17 +45,23 @@ module.exports = {
                 [userId]
             );
 
-            // Build stacked list — merge duplicates
+            const STACKABLE_TYPES = new Set(['potion','consumable','material','scroll','charm']);
             const stacked = [];
-            const seen = new Map();
+            const seenStack = new Map();
             items.forEach((it) => {
-                const key = `${it.item_name}__${it.grade}__${it.equipped}`;
-                if (seen.has(key)) {
-                    seen.get(key).count++;
+                const isStackable = STACKABLE_TYPES.has(it.item_type?.toLowerCase()) || CONSUMABLES.has(it.item_name);
+                if (isStackable) {
+                    const key = `${it.item_name}__${it.item_type}`;
+                    if (seenStack.has(key)) {
+                        seenStack.get(key).count++;
+                    } else {
+                        const entry = { ...it, count: 1 };
+                        seenStack.set(key, entry);
+                        stacked.push(entry);
+                    }
                 } else {
-                    const entry = { ...it, count: 1 };
-                    seen.set(key, entry);
-                    stacked.push(entry);
+                    // Weapons/armor/bags keep individual rows — count always 1
+                    stacked.push({ ...it, count: 1 });
                 }
             });
 
