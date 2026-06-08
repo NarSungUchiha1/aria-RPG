@@ -114,61 +114,8 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null
 
 // ── WEIGHTED PRESTIGE RANK ───────────────────────────────
 async function getWeightedPrestigeRank() {
-    // FIX: Old system was player-count driven — if most players are F/E rank,
-    // PF/PE spawned almost exclusively. Replaced with a flat base distribution
-    // so every prestige rank spawns regularly, with a mild higher-tier bias.
-    //
-    // Target rough distribution:
-    //   PF ~10%  PE ~12%  PD ~15%  PC ~18%  PB ~18%  PA ~15%  PS ~12%
-    //
-    // We still check which prestige players actually exist so we never spawn
-    // a rank nobody can enter.
-
-    const PRESTIGE_RANKS_ORDERED = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
-
-    // Base weights — PF gets a hard floor but higher ranks are strongly boosted
-    // Even with most players at PF, PD+ should spawn regularly
-    const BASE_WEIGHTS = {
-        PF: 8, PE: 10, PD: 16, PC: 20, PB: 20, PA: 16, PS: 10
-    };
-
-    // Check which ranks actually have eligible prestige players
-    // A player can enter a prestige dungeon of their equivalent rank or lower
-    // (PF players can do PF, PE players can do PF+PE, etc.)
-    let eligibleRanks = new Set(PRESTIGE_RANKS_ORDERED);
-    try {
-        const [rows] = await db.execute(
-            "SELECT DISTINCT `rank` FROM players WHERE COALESCE(prestige_level,0) > 0"
-        );
-        if (rows.length) {
-            // Find highest prestige rank in player base
-            const RANK_TO_PRESTIGE = { F:'PF', E:'PE', D:'PD', C:'PC', B:'PB', A:'PA', S:'PS' };
-            const playerPrestigeRanks = rows.map(r => RANK_TO_PRESTIGE[r.rank]).filter(Boolean);
-            const highestIdx = Math.max(...playerPrestigeRanks.map(r => PRESTIGE_RANKS_ORDERED.indexOf(r)));
-            // Only spawn ranks up to the highest rank players can actually enter
-            eligibleRanks = new Set(PRESTIGE_RANKS_ORDERED.slice(0, highestIdx + 1));
-        }
-    } catch(e) {}
-
-    // Build final weights from eligible ranks only
-    const weights = {};
-    let total = 0;
-    for (const rank of PRESTIGE_RANKS_ORDERED) {
-        if (eligibleRanks.has(rank)) {
-            weights[rank] = BASE_WEIGHTS[rank] || 10;
-            total += weights[rank];
-        }
-    }
-    if (total === 0) return 'PF';
-
-    const roll = Math.random() * total;
-    let cumulative = 0;
-    for (const rank of PRESTIGE_RANKS_ORDERED) {
-        if (!weights[rank]) continue;
-        cumulative += weights[rank];
-        if (roll <= cumulative) return rank;
-    }
-    return 'PF';
+    const ranks = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
+    return ranks[Math.floor(Math.random() * ranks.length)];
 }
 
 async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
