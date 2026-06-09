@@ -1,6 +1,7 @@
 const db = require('../database/db');
 const { returnFromRift, EXPLORATION_GC } = require('../systems/explorationSystem');
 const { narrateRift } = require('../systems/riftNarrator');
+const { updateQuestProgress } = require('../systems/questSystem');
 
 module.exports = {
     name: 'return',
@@ -59,6 +60,20 @@ module.exports = {
                     `╚═══════════════════════════╝`
                 );
             }
+
+            // Track quest progress for rift completion
+            try {
+                const dropsCount = Object.values(result.drops || {}).reduce((s, v) => s + v, 0);
+                await updateQuestProgress(userId, 'rift_complete', 1).catch(() => {});
+                if (dropsCount > 0) {
+                    await updateQuestProgress(userId, 'materials_gathered', dropsCount).catch(() => {});
+                }
+                // Record in rift_completions history table
+                await db.execute(
+                    'INSERT INTO rift_completions (player_id, `rank`, survived, drops_count, xp_earned) VALUES (?,?,1,?,?) ON DUPLICATE KEY UPDATE id=id',
+                    [userId, result.rank || 'F', dropsCount, result.xpEarned || 0]
+                ).catch(() => {});
+            } catch(e) { console.error('Explorer quest track error:', e.message); }
 
             // Survived but wounded
             const drops    = result.drops;
