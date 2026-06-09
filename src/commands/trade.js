@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 
 const RANK_ORDER = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 

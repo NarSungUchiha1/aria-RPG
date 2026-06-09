@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 
 // Melt values — reasonable return, not worth holding onto
 const MELT_VALUE = {

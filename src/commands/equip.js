@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 
 module.exports = {
     name: 'equip',
@@ -6,17 +7,13 @@ module.exports = {
         if (!args[0]) return msg.reply(
             `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Use: !equip <number>\n╰═══════════════════════╯`
         );
-        const idx = parseInt(args[0]) - 1;
-        if (isNaN(idx) || idx < 0) return msg.reply(
+        const num = parseInt(args[0]);
+        if (isNaN(num) || num < 1) return msg.reply(
             `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Invalid number.\n╰═══════════════════════╯`
         );
 
         try {
-            const [items] = await db.execute(
-                "SELECT * FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY equipped DESC, id",
-                [userId]
-            );
-            const item = items[idx];
+            const item = await getInventoryItem(userId, num);
             if (!item) return msg.reply(
                 `══〘 ⚔️ EQUIP 〙══╮\n┃◆ ❌ Item not found.\n┃◆ Use !inventory to check.\n╰═══════════════════════╯`
             );

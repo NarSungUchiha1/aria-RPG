@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 const { MALACHAR_WEAPONS, WEAPON_BY_OWNER } = require('../data/malacharWeapons');
 
 module.exports = {

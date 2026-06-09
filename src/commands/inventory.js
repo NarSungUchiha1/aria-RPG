@@ -1,3 +1,4 @@
+const { getStackedInventory } = require('../utils/inventoryHelper');
 const db = require('../database/db');
 
 const CONSUMABLES = new Set([
@@ -19,20 +20,22 @@ function isStackable(item) {
 }
 
 function buildStackedList(items) {
+    // IMPORTANT: preserve the raw index (1-based) of the first occurrence
+    // so item numbers shown in !inventory match !equip, !melt, !repair etc.
     const stacked = [];
     const seen = new Map();
-    items.forEach(it => {
+    items.forEach((it, rawIdx) => {
         if (isStackable(it)) {
             const key = `${it.item_name}__${it.item_type}`;
             if (seen.has(key)) {
                 seen.get(key).count++;
             } else {
-                const entry = { ...it, count: 1 };
+                const entry = { ...it, count: 1, displayNum: rawIdx + 1 };
                 seen.set(key, entry);
                 stacked.push(entry);
             }
         } else {
-            stacked.push({ ...it, count: 1 });
+            stacked.push({ ...it, count: 1, displayNum: rawIdx + 1 });
         }
     });
     return stacked;
@@ -64,17 +67,8 @@ module.exports = {
             );
             const isPrestige = (playerRow[0]?.prestige_level || 0) > 0;
 
-            // Exclude Void Shards — they have no use in inventory
-            const [items] = await db.execute(
-                `SELECT id, item_name, item_type, equipped, grade, durability, max_durability
-                 FROM inventory
-                 WHERE player_id=?
-                 AND item_name NOT LIKE '%Void Shard%'
-                 ORDER BY equipped DESC, id`,
-                [userId]
-            );
-
-            const stacked = buildStackedList(items);
+            // Use shared helper — same stacking logic as equip/melt/repair
+            const stacked = await getStackedInventory(userId);
 
             if (!stacked.length) {
                 const empty =
@@ -88,6 +82,7 @@ module.exports = {
             if (isPrestige) {
                 let text = `╔══〘 ✦ VOID INVENTORY 〙══╗\n┃★ \n`;
                 stacked.forEach((it, i) => {
+                    const num      = it.displayNum || (i + 1);
                     const grade    = it.grade || 'F';
                     const dur      = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
                     const eq       = it.equipped ? '✅' : '❌';
@@ -98,13 +93,13 @@ module.exports = {
                         try {
                             const { BAGS } = require('../systems/bagSystem');
                             const slots = BAGS[it.item_name]?.slots || '?';
-                            text += `┃★ ${i + 1}. 🎒 *${it.item_name}*${qty} ${gradeTag}\n`;
+                            text += `┃★ ${num}. 🎒 *${it.item_name}*${qty} ${gradeTag}\n`;
                             text += `┃★   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
                         } catch(e) {
-                            text += `┃★ ${i + 1}. 🎒 *${it.item_name}*${qty} 🔧${dur}  ${eq}\n`;
+                            text += `┃★ ${num}. 🎒 *${it.item_name}*${qty} 🔧${dur}  ${eq}\n`;
                         }
                     } else {
-                        text += `┃★ ${i + 1}. *${it.item_name}*${qty} ${gradeTag} 🔧${dur}\n`;
+                        text += `┃★ ${num}. *${it.item_name}*${qty} ${gradeTag} 🔧${dur}\n`;
                         text += `┃★   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
                     }
                     text += `┃★────────────\n`;
@@ -119,6 +114,7 @@ module.exports = {
             // Normal player UI
             let text = `══〘 🎒 INVENTORY 〙══╮\n`;
             stacked.forEach((it, i) => {
+                const num   = it.displayNum || (i + 1);
                 const grade = it.grade || 'F';
                 const dur   = it.durability !== null ? `${it.durability}/${it.max_durability}` : '—';
                 const eq    = it.equipped ? '✅ EQUIPPED' : '❌';
@@ -128,13 +124,13 @@ module.exports = {
                     try {
                         const { BAGS } = require('../systems/bagSystem');
                         const slots = BAGS[it.item_name]?.slots || '?';
-                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name}${qty}\n`;
+                        text += `┃◆ ${num}. 🎒 ${it.item_name}${qty}\n`;
                         text += `┃◆   📦 ${slots} slots  🔧 ${dur}  ${eq}\n`;
                     } catch(e) {
-                        text += `┃◆ ${i + 1}. 🎒 ${it.item_name}${qty} 🔧${dur}  ${eq}\n`;
+                        text += `┃◆ ${num}. 🎒 ${it.item_name}${qty} 🔧${dur}  ${eq}\n`;
                     }
                 } else {
-                    text += `┃◆ ${i + 1}. ${it.item_name}${qty} [${grade}] 🔧${dur}\n`;
+                    text += `┃◆ ${num}. ${it.item_name}${qty} [${grade}] 🔧${dur}\n`;
                     text += `┃◆   ➤ ${getDisplayType(it.item_name, it.item_type)}  ${eq}\n`;
                 }
                 text += `┃◆────────────\n`;

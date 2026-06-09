@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 const { getNextGrade, upgradeCosts, durabilityValues, getGradeIncrementCount } = require('../data/weaponGrades');
 const itemStats = require('../data/itemStats');
 

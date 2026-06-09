@@ -1,4 +1,5 @@
 const db = require('../database/db');
+const { getInventoryItem } = require('../utils/inventoryHelper');
 const { repairCostPerDurability } = require('../data/weaponGrades');
 
 module.exports = {
