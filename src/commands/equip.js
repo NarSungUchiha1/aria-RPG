@@ -13,8 +13,7 @@ module.exports = {
 
         try {
             const [items] = await db.execute(
-                "SELECT * FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY id    
-                [userId]
+                "SELECT * FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY id",[userId]
             );
             const item = items[idx];
             if (!item) return msg.reply(
