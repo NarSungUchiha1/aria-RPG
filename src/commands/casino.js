@@ -37,6 +37,10 @@ async function triesLeft(userId, game) {
     return DAILY_LIMIT - Number(r[0]?.tries || 0);
 }
 
+function limitMsg() {
+    return `══〘 🎰 CASINO 〙══╮\n┃◆ ❌ Daily limit reached (${DAILY_LIMIT} tries).\n┃◆ Come back tomorrow.\n╰═══════════════════════╯`;
+}
+
 async function useTry(userId, game) {
     await ensureTables();
     const today = new Date().toISOString().split('T')[0];
@@ -51,7 +55,13 @@ async function useTry(userId, game) {
 }
 
 // ── Cards ─────────────────────────────────────────────────────────────────────
-const DECK = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+// Realistic deck — 4 of each card (suits don't matter for value)
+const DECK = [
+    '2','2','2','2', '3','3','3','3', '4','4','4','4', '5','5','5','5',
+    '6','6','6','6', '7','7','7','7', '8','8','8','8', '9','9','9','9',
+    '10','10','10','10', 'J','J','J','J', 'Q','Q','Q','Q', 'K','K','K','K',
+    'A','A','A','A'
+];
 function draw() { return DECK[Math.floor(Math.random() * DECK.length)]; }
 function cardVal(c) {
     if (['J','Q','K'].includes(c)) return 10;
@@ -94,12 +104,27 @@ async function bjDelete(userId) {
 
 // ── Slots ─────────────────────────────────────────────────────────────────────
 const REELS = ['💎','🔥','⭐','🌙','🍀'];
+
+// Strip variation selectors and ZWJ so emoji comparisons work
+// regardless of how WhatsApp encodes them
+function normEmoji(s) {
+    return String(s || '').replace(/[️︎‍⃣]/g, '').trim();
+}
+
 function spin() { return [0,1,2].map(() => REELS[Math.floor(Math.random() * REELS.length)]); }
+
 function slotPayout(r, bet) {
-    const k = r.join('');
-    const payouts = { '💎💎💎':10, '🔥🔥🔥':5, '⭐⭐⭐':4, '🌙🌙🌙':3, '🍀🍀🍀':3 };
+    const norm = r.map(normEmoji);
+    const k = norm.join('');
+    const payouts = {
+        [normEmoji('💎')+normEmoji('💎')+normEmoji('💎')]: 10,
+        [normEmoji('🔥')+normEmoji('🔥')+normEmoji('🔥')]: 5,
+        [normEmoji('⭐')+normEmoji('⭐')+normEmoji('⭐')]: 4,
+        [normEmoji('🌙')+normEmoji('🌙')+normEmoji('🌙')]: 3,
+        [normEmoji('🍀')+normEmoji('🍀')+normEmoji('🍀')]: 3,
+    };
     if (payouts[k] !== undefined) return bet * payouts[k];
-    if (r[0]===r[1] || r[1]===r[2] || r[0]===r[2]) return Math.floor(bet * 1.8);
+    if (norm[0]===norm[1] || norm[1]===norm[2] || norm[0]===norm[2]) return Math.floor(bet * 1.8);
     return 0;
 }
 
@@ -196,14 +221,14 @@ module.exports = {
             const payout  = slotPayout(reels, bet);
             if (payout > 0) await addGold(userId, payout);
 
-            const isJP = reels.join('') === '💎💎💎';
+            const isJP = reels.map(normEmoji).join('') === normEmoji('💎').repeat(3);
             return msg.reply(
                 `╔══〘 🎰 SLOTS 〙══╗\n` +
                 `┃◆\n` +
                 `┃◆  ${reels[0]} │ ${reels[1]} │ ${reels[2]}\n` +
                 `┃◆\n` +
-                (isJP       ? `┃◆ 💎 JACKPOT! +${payout.toLocaleString()}G\n` :
-                 payout > 0 ? `┃◆ ✅ +${payout.toLocaleString()}G\n` :
+                (isJP       ? `┃◆ 💎 JACKPOT! +${(payout-bet).toLocaleString()}G profit!\n` :
+                 payout > 0 ? `┃◆ ✅ +${(payout-bet).toLocaleString()}G profit\n` :
                               `┃◆ ❌ No match. -${bet.toLocaleString()}G\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'slots')}\n` +
                 `╚═══════════════════════════╝`
@@ -286,16 +311,24 @@ module.exports = {
             const game = await bjGet(userId);
             if (!game) return msg.reply('❌ No active game. Start with !blackjack <bet>');
 
-            game.hand.push(draw());
+            const newCard = draw();
+            game.hand.push(newCard);
             const total = handTotal(game.hand);
-            await bjSave(userId, game.hand, game.dealerHand, game.bet);
+
+            // Save THEN check bust — ensures card is recorded
+            try {
+                await bjSave(userId, game.hand, game.dealerHand, game.bet);
+            } catch(e) {
+                console.error('bjSave error on hit:', e.message);
+            }
 
             // Bust
             if (total > 21) {
-                await bjDelete(userId);
+                await bjDelete(userId).catch(() => {});
                 return msg.reply(
                     `╔══〘 🃏 BUST 〙══╗\n` +
                     `┃◆\n` +
+                    `┃◆ Drew: *${newCard}*\n` +
                     `┃◆ Your hand: ${game.hand.join(' ')} = ${total}\n` +
                     `┃◆\n` +
                     `┃◆ ❌ Bust! -${game.bet.toLocaleString()}G\n` +
@@ -303,9 +336,9 @@ module.exports = {
                 );
             }
 
-            // 5 card limit — auto stand
-            if (game.hand.length >= 5) {
-                while (handTotal(game.dealerHand) < 16) game.dealerHand.push(draw());
+            // 8 card limit — auto stand
+            if (game.hand.length >= 8) {
+                while (handTotal(game.dealerHand) < 17) game.dealerHand.push(draw());
                 const dTotal = handTotal(game.dealerHand);
                 const bust   = dTotal > 21;
                 const won    = bust || total > dTotal;
@@ -313,10 +346,10 @@ module.exports = {
                 const payout = tie ? game.bet : won ? game.bet * 2 : 0;
                 if (payout > 0) await addGold(userId, payout);
                 await bjDelete(userId);
-
                 return msg.reply(
-                    `╔══〘 🃏 5 CARDS — AUTO STAND 〙══╗\n` +
+                    `╔══〘 🃏 MAX CARDS 〙══╗\n` +
                     `┃◆\n` +
+                    `┃◆ Drew: *${newCard}*\n` +
                     `┃◆ Your hand: ${game.hand.join(' ')} = ${total}\n` +
                     `┃◆ Dealer:   ${game.dealerHand.join(' ')} = ${dTotal}${bust ? ' BUST' : ''}\n` +
                     `┃◆\n` +
@@ -330,9 +363,10 @@ module.exports = {
             return msg.reply(
                 `╔══〘 🃏 HIT 〙══╗\n` +
                 `┃◆\n` +
+                `┃◆ Drew: *${newCard}*\n` +
                 `┃◆ Your hand:    ${game.hand.join(' ')} = ${total}\n` +
                 `┃◆ Dealer shows: ${game.dealerHand[0]} 🂠\n` +
-                `┃◆ Cards: ${game.hand.length}/5\n` +
+                `┃◆ Cards: ${game.hand.length}/8\n` +
                 `┃◆\n` +
                 `┃◆ !hit — draw  !stand — hold\n` +
                 `╚═══════════════════════════╝`
@@ -349,7 +383,7 @@ module.exports = {
             const playerTotal = handTotal(game.hand);
 
             // Dealer draws using the SAME dealerHand stored in DB
-            while (handTotal(game.dealerHand) < 16) game.dealerHand.push(draw());
+            while (handTotal(game.dealerHand) < 17) game.dealerHand.push(draw());
             const dealerTotal = handTotal(game.dealerHand);
 
             const bust   = dealerTotal > 21;
