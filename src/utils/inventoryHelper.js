@@ -12,10 +12,20 @@ function isStackable(item) {
     return STACKABLE_TYPES.has(item.item_type?.toLowerCase()) || CONSUMABLES.has(item.item_name);
 }
 
+/**
+ * Fetches the stacked inventory list — same list inventory.js displays.
+ * Only uses columns confirmed to exist in the inventory table.
+ * Optional columns (grade, attack_bonus) use COALESCE so they don't crash
+ * if they haven't been added yet on a fresh DB.
+ */
 async function getStackedInventory(userId) {
     const [items] = await db.execute(
-        `SELECT id, item_name, item_type, equipped, grade, durability, max_durability,
-                is_unique, bound_to, is_forged, item_source, attack_bonus, strength_bonus
+        `SELECT id, item_name, item_type, equipped,
+                quantity,
+                COALESCE(durability, 100)     AS durability,
+                COALESCE(max_durability, 100) AS max_durability,
+                COALESCE(grade, 'F')          AS grade,
+                COALESCE(attack_bonus, 0)     AS attack_bonus
          FROM inventory
          WHERE player_id=?
          AND item_name NOT LIKE '%Void Shard%'
@@ -45,6 +55,10 @@ async function getStackedInventory(userId) {
     return stacked;
 }
 
+/**
+ * Resolves a 1-based display number to the actual DB item row.
+ * Returns null if not found.
+ */
 async function getInventoryItem(userId, number) {
     const list = await getStackedInventory(userId);
     const item = list[number - 1];
