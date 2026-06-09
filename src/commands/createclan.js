@@ -127,6 +127,25 @@ module.exports = {
             const [nameTaken] = await db.execute('SELECT id FROM clans WHERE name=?', [clanName]);
             if (nameTaken.length) return msg.reply(`❌ The name *${clanName}* is already taken. Choose another.`);
 
+            // Check blessing not already taken by another clan
+            const [blessingTaken] = await db.execute('SELECT name FROM clans WHERE blessing_id=?', [blessingNum]);
+            if (blessingTaken.length) {
+                const blessing = CLAN_BLESSINGS[blessingNum];
+                return msg.reply(
+                    `══〘 🏰 CREATE CLAN 〙══╮
+` +
+                    `┃◆ ❌ ${blessing.emoji} *${blessing.name}* is already
+` +
+                    `┃◆ held by clan *${blessingTaken[0].name}*.
+` +
+                    `┃◆ Each blessing belongs to one clan.
+` +
+                    `┃◆ Choose a different blessing.
+` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
             // Check gold
             const [goldRow] = await db.execute('SELECT gold FROM currency WHERE player_id=?', [userId]);
             const gold = Number(goldRow[0]?.gold || 0);
