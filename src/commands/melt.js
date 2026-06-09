@@ -85,7 +85,7 @@ module.exports = {
 
             // Pull full inventory — same order as !inventory
             const [allItems] = await db.execute(
-                "SELECT id, item_name, item_type, grade, equipped FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY id",
+                "SELECT id, item_name, item_type, grade, equipped FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY equipped DESC, id",
                 [userId]
             );
 
