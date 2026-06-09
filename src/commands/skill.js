@@ -98,37 +98,64 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
                     [dungeonId]
                 ).catch(() => [[]]);
 
+                const enemyCount = voidEnemies.length;
+
                 // Deal 300% damage to all remaining enemies
                 const voidDmg = Math.floor((player.strength || player.intelligence || 100) * 3.0);
+                let voidKills = 0;
                 for (const ve of voidEnemies) {
                     const newHp = Math.max(0, ve.current_hp - voidDmg);
                     await db.execute('UPDATE dungeon_enemies SET current_hp=? WHERE id=?', [newHp, ve.id]).catch(() => {});
+                    if (newHp <= 0) voidKills++;
                 }
 
-                // DEF reduction 50% on all remaining alive enemies
+                // DEF -50% on survivors
                 await db.execute(
                     'UPDATE dungeon_enemies SET def = GREATEST(0, FLOOR(def * 0.5)) WHERE dungeon_id=? AND current_hp>0',
                     [dungeonId]
                 ).catch(() => {});
 
-                // XP per enemy hit
-                const xpPerEnemy = 50;
-                const enemyCount = voidEnemies.length;
+                // XP + Gold per enemy hit (contribution reward)
+                const xpPerEnemy   = 50;
+                const goldPerEnemy = 25;
                 if (enemyCount > 0) {
-                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpPerEnemy * enemyCount, playerId]).catch(() => {});
+                    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?',
+                        [xpPerEnemy * enemyCount, playerId]).catch(() => {});
+                    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?',
+                        [goldPerEnemy * enemyCount, playerId]).catch(() => {});
+                    // Track session gold for dungeon completion
+                    await db.execute('UPDATE dungeon_players SET session_gold = session_gold + ? WHERE player_id=? AND dungeon_id=?',
+                        [goldPerEnemy * enemyCount, playerId, dungeonId]).catch(() => {});
                 }
 
                 // One use per dungeon run
                 await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
 
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
-┃◆ The kill tears a hole in space.
-┃◆ The void rushes in — and takes
-┃◆ everything with it.
-┃◆ 💥 ${enemyCount} enemies hit for ${voidDmg} damage.
-┃◆ 🛡️ DEF shattered by 50%.
-┃◆ ⭐ +${xpPerEnemy * enemyCount} XP collected.
-╚═══════════════════════════╝`;
+` +
+                    `┃◆
+` +
+                    `┃◆ The kill tears a hole in space.
+` +
+                    `┃◆ The void rushes in.
+` +
+                    `┃◆
+` +
+                    `┃◆ 💥 ${enemyCount} enemies hit for *${voidDmg}* dmg
+` +
+                    (voidKills > 0 ? `┃◆ 💀 ${voidKills} enemies destroyed
+` : '') +
+                    `┃◆ 🛡️ Survivors: DEF -50%
+` +
+                    `┃◆
+` +
+                    `┃◆ ⭐ +${xpPerEnemy * enemyCount} XP
+` +
+                    `┃◆ 💰 +${goldPerEnemy * enemyCount} Gold
+` +
+                    `┃◆ (contribution reward)
+` +
+                    `╚═══════════════════════════╝`;
             } else {
                 blessingMsg = `╔══〘 ✨ ${blessing.name} 〙══╗
 ┃◆ ${blessing.emoji} The bloodline stirs.
