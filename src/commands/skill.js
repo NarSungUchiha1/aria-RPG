@@ -74,7 +74,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         let blessingMsg = '';
 
-        if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
+        if (trigger === 'hp_below_30' || trigger === 'on_kill') {
             const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
             const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
             const primaryStatKey = roleStatMap[player.role] || 'strength';
@@ -164,7 +164,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃◆ ${blessing.effect}
 ╚═══════════════════════════╝`;
             }
-            if (['hp_below_30','final_stage','all_allies_below_50'].includes(trigger)) {
+            if (trigger === 'hp_below_30') {
                 await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
             }
         }
