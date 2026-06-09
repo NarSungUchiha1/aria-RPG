@@ -14,6 +14,7 @@ const db = require('../database/db');
 const { TERRITORIES, ensureTerritoryTables, getTerritoryStatus } = require('../systems/voidTerritories');
 const { getPlayerClan } = require('../systems/clanSystem');
 const { setDuelActive, setTurn, territoryWars, getDuelKey } = require('../systems/pvpsystem');
+const { promoteRaider } = require('../engine/dungeon');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -125,17 +126,51 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
         // Start first turn
         setTurn(duelKey, turnOrder[0]);
 
-        // Announce first turn
-        const [firstPlayer] = await db.execute('SELECT nickname FROM players WHERE id=?', [turnOrder[0]]);
+        // Start turn timer — activates the duel state machine
+        const { startTurnTimer } = require('../systems/pvpsystem');
+        const fakeChat2 = {
+            sendMessage: (content) => {
+                const payload = typeof content === 'string' ? { text: content } : content;
+                return client.sendMessage(RAID_GROUP, payload).catch(() => {});
+            },
+            client: client
+        };
+        // Find first opponent for timer
+        const firstOpponent = attackers.includes(turnOrder[0]) ? defenders[0] : attackers[0];
+        startTurnTimer(duelKey, turnOrder[0], firstOpponent, fakeChat2, 1);
+
+        // Get clan names for announcement
+        const [atkClan] = await db.execute('SELECT name FROM clans WHERE id=?', [attackerClanId]);
+        const [defClan] = await db.execute('SELECT name FROM clans WHERE id=?', [defenderClanId]);
+        const atkName = atkClan[0]?.name || 'Attackers';
+        const defName = defClan[0]?.name || 'Defenders';
+        const firstTeam = attackers.includes(turnOrder[0]) ? atkName : defName;
+
+        // Get all attacker/defender nicknames
+        const atkNicks = await Promise.all(attackers.map(async id => {
+            const [r] = await db.execute('SELECT nickname FROM players WHERE id=?', [id]);
+            return r[0]?.nickname || id;
+        }));
+        const defNicks = await Promise.all(defenders.map(async id => {
+            const [r] = await db.execute('SELECT nickname FROM players WHERE id=?', [id]);
+            return r[0]?.nickname || id;
+        }));
+
         await client.sendMessage(RAID_GROUP, {
             text:
-                '╔══〘 ⚔️ WAR BEGINS 〙══╗\n' +
+                '╔══〘 ⚔️ TERRITORY WAR 〙══╗\n' +
                 '┃★\n' +
-                '┃★ ⚔️ First to move:\n' +
-                '┃★ *' + (firstPlayer[0]?.nickname || turnOrder[0]) + '*\n' +
+                '┃★ ⚔️  *' + atkName + '*\n' +
+                '┃★    ' + atkNicks.join(', ') + '\n' +
                 '┃★\n' +
-                '┃★ Use !attack <move> to fight.\n' +
-                '┃★ Use !moveset to see your moves.\n' +
+                '┃★ 🛡️  *' + defName + '*\n' +
+                '┃★    ' + defNicks.join(', ') + '\n' +
+                '┃★\n' +
+                '┃★ First to move: *' + firstTeam + '*\n' +
+                '┃★\n' +
+                '┃★ Use *!attack <move>* to fight.\n' +
+                '┃★ Use *!moveset* to see your moves.\n' +
+                '┃★ 45 seconds per turn.\n' +
                 '┃★\n' +
                 '╚═══════════════════════════╝'
         });
