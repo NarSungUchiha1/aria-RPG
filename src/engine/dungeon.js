@@ -572,6 +572,35 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             retaliationMessage = `🛡️ ${p.nickname} is invincible — the attack bounces off.`;
         }
         const ret = isInvincible ? { damage: 0, shieldAbsorbed: 0, defenseBlocked: 0 } : calculateEnemyRetaliation(e, p, playerId);
+
+        // Track consecutive hits taken for Titan's Roar (#4)
+        if (!isInvincible && ret.damage > 0) {
+            try {
+                const { getPlayerBlessingState, updateBlessingState, getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
+                const clan = await getPlayerClan(playerId);
+                if (clan && CLAN_BLESSINGS[clan.blessing_id]?.trigger === 'three_consecutive_hits') {
+                    const state = await getPlayerBlessingState(playerId, dungeonId);
+                    const newHits = (state?.hit_count || 0) + 1;
+                    if (newHits >= 3) {
+                        await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2, damage_boost: 4.0 });
+                        // Announce Titan's Roar
+                        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                        if (sock) await sock.sendMessage(RAID_GROUP, {
+                            text:
+                                `╔══〘 ⚡ TITAN'S ROAR 〙══╗\n` +
+                                `┃◆ 3 hits taken.\n` +
+                                `┃◆ *${p.nickname}* erupts.\n` +
+                                `┃◆\n` +
+                                `┃◆ 🛡️ Invincible for 2 turns.\n` +
+                                `┃◆ ⚡ Next hit deals 400% damage.\n` +
+                                `╚═══════════════════════════╝`
+                        }).catch(() => {});
+                    } else {
+                        await updateBlessingState(playerId, dungeonId, { hit_count: newHits });
+                    }
+                }
+            } catch(e2) { console.error('Titan Roar track error:', e2.message); }
+        }
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
