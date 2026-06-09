@@ -65,8 +65,9 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         const oneUseTriggers = ['hp_below_30','on_death','final_stage','all_allies_below_50','stage_first_move','on_kill'];
         if (oneUseTriggers.includes(trigger) && state?.blessing_used) return null;
 
-        const repeatTriggers = ['every_5_skills','three_consecutive_hits','on_healed','enemy_below_25'];
-        if (repeatTriggers.includes(trigger) && state.last_triggered) {
+        // Cooldown only for on_healed and enemy_below_25 (not hit counters)
+        const cooldownTriggers = ['on_healed', 'enemy_below_25'];
+        if (cooldownTriggers.includes(trigger) && state?.last_triggered) {
             const secsSince = (Date.now() - new Date(state.last_triggered).getTime()) / 1000;
             if (secsSince < 30) return null;
         }
@@ -84,11 +85,12 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             }
             const totalDmgDealt = enemies[0].length * dmg;
             if (trigger === 'hp_below_30') {
+                await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
                 blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
 ┃◆ The bloodline awakens.
 ┃◆ ${player.nickname} reaches the edge —
 ┃◆ and the dragon inside ignites.
-┃◆ 🔥 Void fire erupts on ALL enemies.
+┃◆ 🔥 ${enemies[0].length} enemies hit for ${dmg} damage each.
 ┃◆ DEF means nothing. It burns through.
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
@@ -207,6 +209,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
             );
             if (rndEnemy.length) {
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, rndEnemy[0].id]);
+                await updateBlessingState(playerId, dungeonId, { last_triggered: new Date().toISOString() });
                 blessingMsg = `\n🕳️ *Abyssal Hunger* absorbs ${healAmt} healing → ${dmg} void damage on enemy!`;
             }
         }
@@ -244,9 +247,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         if (trigger === 'stage_first_move') {
+            // DEF reduced BY 50% (halved), not reduced BY 50% OF 50%
             await db.execute(
-                'UPDATE dungeon_enemies SET def = GREATEST(0, def - FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
-                [blessing.damage_amp || 0.5, dungeonId]
+                'UPDATE dungeon_enemies SET def = GREATEST(0, FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
+                [1 - (blessing.damage_amp || 0.5), dungeonId]
             );
             blessingMsg = `╔══〘 💠 SOUL SHATTER 〙══╗
 ┃◆ ASHEN blood burns cold.
