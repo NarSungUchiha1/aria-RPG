@@ -513,6 +513,18 @@ module.exports = {
             } catch(e) {}
             let result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
 
+            // Reset consecutive hit counter on player attack (Titan's Roar #4)
+            try {
+                const { getPlayerClan, getPlayerBlessingState, updateBlessingState, CLAN_BLESSINGS } = require('../systems/clanSystem');
+                const pClan = await getPlayerClan(userId);
+                if (pClan && CLAN_BLESSINGS[pClan.blessing_id]?.trigger === 'three_consecutive_hits') {
+                    const bState = await getPlayerBlessingState(userId, dungeon.id);
+                    if (bState && bState.hit_count > 0) {
+                        await updateBlessingState(userId, dungeon.id, { hit_count: 0 });
+                    }
+                }
+            } catch(e) {}
+
             // Apply territory damage bonus
             try {
                 const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
