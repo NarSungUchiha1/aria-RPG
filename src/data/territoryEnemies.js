@@ -60,7 +60,7 @@ module.exports = {
     REMNANTS: {
         boss: {
             name: "Malachar's Echo",
-            hp: 1100000, atk: 2500, def: 1600, exp: 20000, gold: 12000,
+            hp: 1100000, atk: 25000, def: 1600, exp: 20000, gold: 12000,
             evasion: 15,
             moves: [
                 { name: 'Fractured Memory', damage: 2.5 },
@@ -70,11 +70,11 @@ module.exports = {
             ]
         },
         miniBosses: [
-            { name: 'Memory Shard',         hp: 82000,  atk: 2000, def: 800,  exp: 3000, gold: 1600, evasion: 20, moves: [{ name: 'Echo Strike', damage: 2.0 }, { name: 'Fragment Pulse', damage: 1.6 }] },
-            { name: 'Void Remnant Shade',   hp: 96000,  atk: 2100, def: 600,  exp: 3400, gold: 1800, evasion: 25, moves: [{ name: 'Remnant Slash', damage: 2.4 }, { name: 'Hollow Cry', damage: 1.8 }] },
-            { name: 'Corrupted Believer',   hp: 125000, atk: 1950, def: 1300, exp: 4000, gold: 2100, evasion: 5,  moves: [{ name: 'Faithful Strike', damage: 2.0 }, { name: 'Zealot Surge', damage: 2.8 }] },
-            { name: 'Fracture Phantom',     hp: 70000,  atk: 1950, def: 300,  exp: 2800, gold: 1400, evasion: 35, moves: [{ name: 'Phase Rend', damage: 3.0 }, { name: 'Void Phase', damage: 2.2 }] },
-            { name: 'Ancient Void Walker',  hp: 145000, atk: 2100, def: 1600, exp: 5000, gold: 2800, evasion: 10, moves: [{ name: 'Ancient Tread', damage: 2.4 }, { name: 'Void March', damage: 1.8 }, { name: 'Fracture Step', damage: 3.2 }] },
+            { name: 'Memory Shard',         hp: 82000,  atk: 4000, def: 800,  exp: 3000, gold: 1600, evasion: 20, moves: [{ name: 'Echo Strike', damage: 2.0 }, { name: 'Fragment Pulse', damage: 1.6 }] },
+            { name: 'Void Remnant Shade',   hp: 96000,  atk: 2600, def: 600,  exp: 3400, gold: 1800, evasion: 25, moves: [{ name: 'Remnant Slash', damage: 2.4 }, { name: 'Hollow Cry', damage: 1.8 }] },
+            { name: 'Corrupted Believer',   hp: 125000, atk: 3950, def: 1300, exp: 4000, gold: 2100, evasion: 5,  moves: [{ name: 'Faithful Strike', damage: 2.0 }, { name: 'Zealot Surge', damage: 2.8 }] },
+            { name: 'Fracture Phantom',     hp: 70000,  atk: 2150, def: 300,  exp: 2800, gold: 1400, evasion: 35, moves: [{ name: 'Phase Rend', damage: 3.0 }, { name: 'Void Phase', damage: 2.2 }] },
+            { name: 'Ancient Void Walker',  hp: 145000, atk: 4100, def: 1600, exp: 5000, gold: 2800, evasion: 10, moves: [{ name: 'Ancient Tread', damage: 2.4 }, { name: 'Void March', damage: 1.8 }, { name: 'Fracture Step', damage: 3.2 }] },
         ]
     }
 };
