@@ -384,15 +384,18 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
     if (trigger === 'all_allies_below_50') {
         const allLow = allies.length > 0 && allies.every(id => data.hp[id] > 0 && data.hp[id] <= Math.floor(data.maxHp[id] * 0.5));
         if (allLow) {
-            applyBuff('player', player.id, {
-                type: 'buff',
-                stat: 'all',
-                value: 200,
-                duration: 2,
-                source: 'clan_blessing'
-            });
-            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗\n┃◆ ${player.nickname} channels desperation into might!\n┃◆ Power surges for 2 turns!\n╚═══════════════════════════╝`;
-            updateDuelBlessingState(player.id, { blessing_used: 1 });
+            updateDuelBlessingState(player.id, { damage_boost: 10.0, skill_count: 3, blessing_used: 1 });
+            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗\n┃◆ ${player.nickname} channels Malachar.\n┃◆ Next 3 attacks deal 1000% damage.\n┃◆ Cannot be evaded.\n╚═══════════════════════════╝`;
+        }
+    }
+
+    if (trigger === 'three_consecutive_hits') {
+        const newHits = (state.hit_count || 0) + 1;
+        if (newHits >= 3) {
+            updateDuelBlessingState(player.id, { hit_count: 0, invincible: 2, damage_boost: 4.0 });
+            blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗\n┃◆ 3 hits taken.\n┃◆ ${player.nickname} erupts in fury!\n┃◆ 🛡️ Invincible 2 turns.\n┃◆ ⚡ Next hit: 400% damage.\n╚═══════════════════════════╝`;
+        } else {
+            updateDuelBlessingState(player.id, { hit_count: newHits });
         }
     }
 
@@ -922,6 +925,19 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                 if (fRow.length) attackerWithFatigue = { ...attacker, fatigue: Number(fRow[0].fatigue) || 0 };
             } catch(e) {}
             let dmg = calculateMoveDamage(attackerWithFatigue, move, defForCalc, items);
+
+    // Apply damage_boost from Titan's Roar (#4) or Malachar's Will (#10)
+    const atkBlessState = getDuelBlessingState(attackerId);
+    const pvpBoost = Number(atkBlessState.damage_boost || 0);
+    if (pvpBoost >= 1) {
+        dmg = Math.floor(dmg * pvpBoost);
+        // Consume charge
+        const newCharges = (atkBlessState.skill_count || 0) - 1;
+        updateDuelBlessingState(attackerId, {
+            skill_count: Math.max(0, newCharges),
+            damage_boost: newCharges > 0 ? pvpBoost : 0
+        });
+    }
             dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
 
             // Apply attacker potion buffs
@@ -1373,12 +1389,19 @@ async function handlePvPAttack(attackerId) {
 
     const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId, targetName: defender.nickname }).catch(() => null);
     if (bl25) await chat.sendMessage(bl25.message).catch(() => {});
+    // hp_below_30 fires when DEFENDER'S HP drops below 30%
     const blLow = await triggerBlessingIfReadyInDuel('hp_below_30', defender, data).catch(() => null);
     if (blLow) await chat.sendMessage(blLow.message).catch(() => {});
     const bl5 = await triggerBlessingIfReadyInDuel('every_5_skills', attacker, data).catch(() => null);
     if (bl5) await chat.sendMessage(bl5.message).catch(() => {});
     const blAll = await triggerBlessingIfReadyInDuel('all_allies_below_50', attacker, data).catch(() => null);
     if (blAll) await chat.sendMessage(blAll.message).catch(() => {});
+    // Titan's Roar — defender took a hit, track consecutive hits
+    const blTitan = await triggerBlessingIfReadyInDuel('three_consecutive_hits', defender, data).catch(() => null);
+    if (blTitan) await chat.sendMessage(blTitan.message).catch(() => {});
+    // Reset attacker's consecutive hit counter (they attacked = break streak)
+    const atkState = getDuelBlessingState(attackerId);
+    if (atkState.hit_count > 0) updateDuelBlessingState(attackerId, { hit_count: 0 });
 
     data.round++;
     const nextTurn = await nextTurnAfterMove();
