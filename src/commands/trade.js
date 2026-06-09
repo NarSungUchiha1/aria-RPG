@@ -61,7 +61,7 @@ module.exports = {
             );
 
             const [items] = await db.execute(
-                "SELECT * FROM inventory WHERE player_id=? ORDER BY id", [userId]
+                "SELECT * FROM inventory WHERE player_id=? AND item_name NOT LIKE '%Void Shard%' ORDER BY id", [userId]
             );
             if (index >= items.length) return msg.reply(
                 `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You don't have that item.\n╰═══════════════════════╯`
