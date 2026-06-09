@@ -453,11 +453,22 @@ async function applyClanBlessingDamageBoost(playerId, dungeonId, damage) {
         const state = await getPlayerBlessingState(playerId, dungeonId);
         if (!state) return damage;
 
-        // Titan's Roar or Malachar's Will damage boost
         const boost = Number(state.damage_boost || 0);
-        if (boost > 1) {
+        if (!boost) return damage;
+
+        // Eclipse (#9) — damage_boost is a percentage (0.3 = +30%)
+        // Only active during the final stage (boss fight)
+        // Stored as < 1, applied as multiplier: damage * (1 + 0.3) = 1.3x
+        if (boost > 0 && boost < 1) {
+            return Math.floor(damage * (1 + boost));
+            // Not consumed per hit — lasts the whole boss fight
+            // Cleared automatically when dungeon ends via blessing_state cleanup
+        }
+
+        // Titan's Roar (#4) or Malachar's Will (#10) — stored as multiplier > 1
+        // These are consumed per hit
+        if (boost >= 1) {
             const boostedDmg = Math.floor(damage * boost);
-            // Consume one charge (Malachar uses skill_count as charges)
             if (state.skill_count > 0) {
                 const newCharges = state.skill_count - 1;
                 await updateBlessingState(playerId, dungeonId, {
@@ -1041,6 +1052,19 @@ async function advanceStage(dungeonId, nextStage) {
     } else if (rank && rank.startsWith('P')) {
         const { spawnPrestigeEnemies } = require('./prestigeDungeon');
         await spawnPrestigeEnemies(dungeonId, rank, nextStage);
+    } else if (rank && rank.startsWith('TERRITORY_')) {
+        // Territory dungeon — spawn territory-specific void guards
+        const territoryId = rank.replace('TERRITORY_', '');
+        const { getTerritoryEnemies } = require('../data/territoryEnemies');
+        const enemies = getTerritoryEnemies(territoryId, nextStage);
+        for (const e of enemies) {
+            await db.execute(
+                `INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [dungeonId, e.name, e.hp, e.hp, e.atk, e.def,
+                 e.exp, e.gold, e.evasion || 0, JSON.stringify(e.moves || [])]
+            );
+        }
     } else {
         await spawnStageEnemies(dungeonId, rank, nextStage);
     }
