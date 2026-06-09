@@ -92,28 +92,41 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃◆ DEF means nothing. It burns through.
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
-                // Apply DEF reduction to all remaining enemies (50% for 3 turns via def column)
+                // Fetch remaining enemies
+                const [voidEnemies] = await db.execute(
+                    'SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0',
+                    [dungeonId]
+                ).catch(() => [[]]);
+
+                // Deal 300% damage to all remaining enemies
+                const voidDmg = Math.floor((player.strength || player.intelligence || 100) * 3.0);
+                for (const ve of voidEnemies) {
+                    const newHp = Math.max(0, ve.current_hp - voidDmg);
+                    await db.execute('UPDATE dungeon_enemies SET current_hp=? WHERE id=?', [newHp, ve.id]).catch(() => {});
+                }
+
+                // DEF reduction 50% on all remaining alive enemies
                 await db.execute(
                     'UPDATE dungeon_enemies SET def = GREATEST(0, FLOOR(def * 0.5)) WHERE dungeon_id=? AND current_hp>0',
                     [dungeonId]
                 ).catch(() => {});
 
-                // Award XP for each enemy hit
+                // XP per enemy hit
                 const xpPerEnemy = 50;
-                const enemyCount = enemies[0].length;
+                const enemyCount = voidEnemies.length;
                 if (enemyCount > 0) {
                     await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [xpPerEnemy * enemyCount, playerId]).catch(() => {});
                 }
 
-                // Mark as used this stage — reset on stage advance (one use per stage)
+                // One use per dungeon run
                 await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
 
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
 ┃◆ The kill tears a hole in space.
 ┃◆ The void rushes in — and takes
 ┃◆ everything with it.
-┃◆ 💥 ALL remaining enemies hit.
-┃◆ DEF shattered by 50% this stage.
+┃◆ 💥 ${enemyCount} enemies hit for ${voidDmg} damage.
+┃◆ 🛡️ DEF shattered by 50%.
 ┃◆ ⭐ +${xpPerEnemy * enemyCount} XP collected.
 ╚═══════════════════════════╝`;
             } else {
