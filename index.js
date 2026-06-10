@@ -167,9 +167,12 @@ global.bannedPlayers = bannedPlayers;
 
 // ── Community whitelist ────────────────────────────────────
 // Set COMMUNITY_JID in Render env vars to restrict ARIA to DMs + community groups only
-const COMMUNITY_JID = process.env.COMMUNITY_JID || '';
+const COMMUNITY_JID   = process.env.COMMUNITY_JID || '';
 const allowedGroupJids = new Set();
 global.allowedGroupJids = allowedGroupJids;
+
+// ── Test group — bypasses all GC restrictions ──────────────
+const TEST_GROUP_JID = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
 
 const commands = new Map();
 const commandPath = path.join(__dirname, "src/commands");
@@ -535,7 +538,7 @@ async function startBot() {
 
             // In test group — accept both !command and !test command
             if (jid === TEST_GROUP_JID && text.toLowerCase().startsWith('!test ')) {
-                cmdText = '!' + text.slice(6).trim(); // strip '!test ' prefix
+                cmdText = '!' + text.slice(6).trim();
             }
 
             const args = cmdText.slice(1).trim().split(/\s+/);
@@ -544,13 +547,11 @@ async function startBot() {
             // ── Community whitelist — only DMs and community groups ────────
             if (COMMUNITY_JID && jid.endsWith('@g.us')) {
                 if (!allowedGroupJids.has(jid)) {
-                    // Only fetch metadata once per unknown group then cache result
                     try {
                         const meta = await sock.groupMetadata(jid).catch(() => null);
                         if (meta?.linkedParent === COMMUNITY_JID) {
-                            allowedGroupJids.add(jid); // whitelisted — cache it
+                            allowedGroupJids.add(jid);
                         } else {
-                            allowedGroupJids.set?.(jid, false); // not in community — still cache rejection
                             return;
                         }
                     } catch(e) {
@@ -782,7 +783,7 @@ async function startBot() {
 // ==================== DATABASE HEARTBEAT ====================
 let _heartbeatRunning = false;
 cron.schedule('*/5 * * * *', async () => {
-    if (_heartbeatRunning) return; // skip if previous still running
+    if (_heartbeatRunning) return;
     _heartbeatRunning = true;
     try {
         await db.query('SELECT 1');
@@ -897,7 +898,6 @@ cron.schedule('5 0 * * *', async () => {
 startBot();
 
 // ==================== WEEKLY BOUNTY ====================
-// Every Monday at 8am — pick the Most Wanted
 cron.schedule('0 8 * * 1', async () => {
     if (!isReady || !sock) return;
     try {
@@ -928,7 +928,6 @@ cron.schedule('0 8 * * 1', async () => {
         console.log(`🎯 Weekly bounty set: ${target.nickname}`);
     } catch(e) { console.error('Bounty cron error:', e.message); }
 });
-
 
 // ==================== MANA REGENERATION ====================
 cron.schedule('2-59/10 * * * *', async () => {
