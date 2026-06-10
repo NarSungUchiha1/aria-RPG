@@ -915,7 +915,7 @@ cron.schedule('0 8 * * 1', async () => {
 
 
 // ==================== MANA REGENERATION ====================
-cron.schedule('*/10 * * * *', async () => {
+cron.schedule('2-59/10 * * * *', async () => {
     try {
         await db.execute(`
             UPDATE players 
@@ -926,7 +926,7 @@ cron.schedule('*/10 * * * *', async () => {
 });
 
 // ==================== FATIGUE RECOVERY ====================
-cron.schedule('*/10 * * * *', async () => {
+cron.schedule('4-59/10 * * * *', async () => {
     try {
         await db.execute(`
             UPDATE players
@@ -937,7 +937,7 @@ cron.schedule('*/10 * * * *', async () => {
 });
 
 // ==================== VOID WAR AUTO-END ====================
-cron.schedule('*/10 * * * *', async () => {
+cron.schedule('6-59/10 * * * *', async () => {
     if (!isReady || !sock) return;
     try {
         const { getActiveWar, endVoidWar } = require('./src/systems/voidwar');
