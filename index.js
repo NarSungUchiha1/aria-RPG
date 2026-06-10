@@ -768,12 +768,16 @@ async function startBot() {
 }
 
 // ==================== DATABASE HEARTBEAT ====================
+let _heartbeatRunning = false;
 cron.schedule('*/5 * * * *', async () => {
+    if (_heartbeatRunning) return; // skip if previous still running
+    _heartbeatRunning = true;
     try {
         await db.query('SELECT 1');
-        console.log('💓 DB heartbeat OK');
     } catch (err) {
         console.log('💔 DB Heartbeat failed:', err.message);
+    } finally {
+        _heartbeatRunning = false;
     }
 });
 
@@ -853,7 +857,7 @@ cron.schedule('*/20 * * * *', async () => {
 });
 
 // ==================== EVENT AUTO-END ====================
-cron.schedule('*/10 * * * *', async () => {
+cron.schedule('8-59/10 * * * *', async () => {
     try {
         const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
         if (!expired.length) return;
@@ -873,7 +877,7 @@ cron.schedule('0 0 * * *', async () => {
 });
 
 // ==================== PRESTIGE SHOP RESTOCK ====================
-cron.schedule('0 0 * * *', async () => {
+cron.schedule('5 0 * * *', async () => {
     console.log('💎 Restocking prestige shop...');
     try { await restockPrestigeShop(); } catch (err) { console.error('Prestige shop restock failed:', err); }
 });
