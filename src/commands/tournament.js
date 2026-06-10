@@ -237,6 +237,97 @@ module.exports = {
             return msg.reply(text);
         }
 
+        // ── ADMIN: force phase ────────────────────────────────────────────
+        if (sub === 'forcephase') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament. Use !tournament start first.');
+            const phase = args[1]?.toLowerCase();
+            const validPhases = ['registration','battle_royale','duo_gauntlet','grand_finals','awards','ended'];
+            if (!phase || !validPhases.includes(phase)) {
+                return msg.reply(`❌ Valid phases: ${validPhases.join(', ')}`);
+            }
+            await db.execute("UPDATE tournaments SET phase=?, phase_ends_at=DATE_ADD(NOW(), INTERVAL 2 DAY) WHERE id=?", [phase, t.id]);
+            const { handlePhaseStart } = require('../systems/tournamentSystem');
+            await handlePhaseStart(phase, t.id, client, RAID_GROUP);
+            return msg.reply(`✅ Forced phase: *${phase}*`);
+        }
+
+        // ── ADMIN: add test players ────────────────────────────────────────
+        if (sub === 'addtest') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            // Add all mentioned players or self
+            const targets = msg.mentionedIds?.length ? msg.mentionedIds : [userId];
+            for (const pid of targets) {
+                await db.execute(
+                    "INSERT IGNORE INTO tournament_players (tournament_id, player_id, phase_joined) VALUES (?,?,'battle_royale')",
+                    [t.id, pid]
+                );
+            }
+            return msg.reply(`✅ Added ${targets.length} player(s) to tournament.`);
+        }
+
+        // ── ADMIN: force wins ──────────────────────────────────────────────
+        if (sub === 'setwins') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            const targetId = msg.mentionedIds?.[0] || userId;
+            const wins = parseInt(args[1]) || 3;
+            await db.execute(
+                "UPDATE tournament_players SET wins=? WHERE tournament_id=? AND player_id=?",
+                [wins, t.id, targetId]
+            );
+            return msg.reply(`✅ Set wins to ${wins} for player.`);
+        }
+
+        // ── ADMIN: eliminate player ────────────────────────────────────────
+        if (sub === 'eliminate') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            const targetId = msg.mentionedIds?.[0];
+            if (!targetId) return msg.reply('❌ !tournament eliminate @player');
+            await db.execute(
+                "UPDATE tournament_players SET eliminated=1 WHERE tournament_id=? AND player_id=?",
+                [t.id, targetId]
+            );
+            const [p] = await db.execute('SELECT nickname FROM players WHERE id=?', [targetId]);
+            return msg.reply(`✅ *${p[0]?.nickname}* eliminated from tournament.`);
+        }
+
+        // ── ADMIN: reset tournament ────────────────────────────────────────
+        if (sub === 'reset') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            await db.execute("DELETE FROM tournament_players WHERE tournament_id=?", [t.id]);
+            await db.execute("DELETE FROM tournament_matches WHERE tournament_id=?", [t.id]);
+            await db.execute("UPDATE tournaments SET phase='registration', phase_ends_at=DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE id=?", [t.id]);
+            return msg.reply(`✅ Tournament reset to registration phase. All players removed.`);
+        }
+
+        // ── ADMIN: end tournament ──────────────────────────────────────────
+        if (sub === 'end') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            await db.execute("UPDATE tournaments SET is_active=0, ended_at=NOW() WHERE id=?", [t.id]);
+            return msg.reply(`✅ Tournament ended.`);
+        }
+
+        // ── ADMIN: force prizes now ────────────────────────────────────────
+        if (sub === 'testprizes') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament();
+            if (!t) return msg.reply('❌ No active tournament.');
+            const { distributePrizes } = require('../systems/tournamentSystem');
+            await distributePrizes(t.id, client, RAID_GROUP);
+            return msg.reply('✅ Prize distribution triggered.');
+        }
+
         // ── DEFAULT VIEW ───────────────────────────────────────────────────
         const t = await getActiveTournament();
         if (!t) return msg.reply(
