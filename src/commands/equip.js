@@ -1,7 +1,21 @@
 const db = require('../database/db');
 const { getInventoryItem } = require('../utils/inventoryHelper');
 
+const WEAPON_ROLES_EXPORT = WEAPON_ROLES;
 module.exports = {
+    WEAPON_ROLES: (() => {
+        const WEAPON_ROLES = {
+        // Berserker
+        'Void Crusher':'Berserker','Fracture Cleaver':'Berserker','Abyss Annihilator':'Berserker',"Malachar's Fist":'Berserker','Bonecrusher':'Berserker','Ember Greatsword':'Berserker','Soulreaper':'Berserker','Abyssal Reckoning':'Berserker','Void Ravager':'Berserker','Fracture Titan Blade':'Berserker','Malachars Replica':'Berserker',
+        // Assassin
+        'Void Fang':'Assassin','Fracture Edge':'Assassin','Abyss Phantom':'Assassin',"Malachar's Shadow":'Assassin','Thorn Dagger':'Assassin','Shadow Fang':'Assassin','Void Edge':'Assassin','Wraithblade':'Assassin','Void Phantom Blade':'Assassin','Fracture Reaper':'Assassin','Malachars Shadow Replica':'Assassin',
+        // Mage
+        'Void Codex':'Mage','Fracture Scepter':'Mage','Abyss Tome':'Mage',"Malachar's Gospel":'Mage','Bone Staff':'Mage','Venom Codex':'Mage','Blood Grimoire':'Mage','The Last Word':'Mage','Void Grimoire':'Mage','Fracture Codex Supreme':'Mage','Malachars Gospel Replica':'Mage',
+        // Tank
+        'Void Bulwark':'Tank','Fracture Rampart':'Tank','Abyss Fortress':'Tank',"Malachar's Seal":'Tank','Iron Ward':'Tank','Frost Barrier':'Tank','Stormwall':'Tank','Aegis of Eternity':'Tank','Void Earthbreaker':'Tank','Fracture Colossus':'Tank','Void Aegis':'Tank','Fracture Fortress Shield':'Tank','Void Colossus Gauntlet':'Tank',
+        // Healer
+        'Void Mend':'Healer','Fracture Chalice':'Healer','Abyss Lantern':'Healer',"Malachar's Grace":'Healer','Splint Mace':'Healer','Ember Chalice':'Healer','Soul Lantern':'Healer','Cradle of Life':'Healer','Void Sanctuary Staff':'Healer','Fracture Life Chalice':'Healer','Malachars Grace Replica':'Healer','Healing Staff':'Healer','Sacred Staff':'Healer','Divine Staff':'Healer'
+        }; return WEAPON_ROLES; })(),
     name: 'equip',
     async execute(msg, args, { userId }) {
         if (!args[0]) return msg.reply(
