@@ -531,7 +531,14 @@ async function startBot() {
                 return;
             }
 
-            const args = text.slice(1).trim().split(/\s+/);
+            let cmdText = text;
+
+            // In test group — accept both !command and !test command
+            if (jid === TEST_GROUP_JID && text.toLowerCase().startsWith('!test ')) {
+                cmdText = '!' + text.slice(6).trim(); // strip '!test ' prefix
+            }
+
+            const args = cmdText.slice(1).trim().split(/\s+/);
             const cmdName = args.shift().toLowerCase();
 
             // ── Community whitelist — only DMs and community groups ────────
@@ -583,24 +590,29 @@ async function startBot() {
             const isDM        = !jid.endsWith('@g.us');
             const isRaidGroup = jid === RAID_GROUP;
 
-            if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
-                if (isDM) await sock.sendMessage(jid, { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` }, { quoted: msg });
-                return;
-            }
+            // ── Test group bypasses all GC restrictions ──────────────────
+            const isTestGroup = jid === TEST_GROUP_JID;
 
-            if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
-                await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` }, { quoted: msg });
-                return;
-            }
+            if (!isTestGroup) {
+                if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
+                    if (isDM) await sock.sendMessage(jid, { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` }, { quoted: msg });
+                    return;
+                }
 
-            if (BLACKSMITH_GC_ONLY.has(cmdName) && jid !== BLACKSMITH_GC_JID) {
-                await sock.sendMessage(jid, { text: `══〘 ⚒️ BLACKSMITH 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Blacksmith group.\n╰═══════════════════════╯` }, { quoted: msg });
-                return;
-            }
+                if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
+                    await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` }, { quoted: msg });
+                    return;
+                }
 
-            if (DM_ONLY.has(cmdName) && !isDM) {
-                await sock.sendMessage(jid, { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` }, { quoted: msg });
-                return;
+                if (BLACKSMITH_GC_ONLY.has(cmdName) && jid !== BLACKSMITH_GC_JID) {
+                    await sock.sendMessage(jid, { text: `══〘 ⚒️ BLACKSMITH 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Blacksmith group.\n╰═══════════════════════╯` }, { quoted: msg });
+                    return;
+                }
+
+                if (DM_ONLY.has(cmdName) && !isDM) {
+                    await sock.sendMessage(jid, { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` }, { quoted: msg });
+                    return;
+                }
             }
 
             console.log(`[CMD] ${userId} → ${cmdName} (from: ${isRaidGroup ? 'RaidGC' : isDM ? 'DM' : 'OtherGC'})`);
