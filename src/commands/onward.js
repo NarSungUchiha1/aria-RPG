@@ -17,7 +17,6 @@ const { rollMaterialDrop } = require('../systems/materialSystem');
 const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
-const { initMalacharPhase, clearMalacharPhase } = require('../systems/malacharPhase');
 const { tickShields } = require('../systems/activeBuffs');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
 const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
@@ -127,6 +126,7 @@ module.exports = {
                 const rewardXp   = d.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
                 const { applyGoldBonus, applyXpBonus } = require('../systems/territoryBonusSystem');
+                const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [rewardXp,   p.player_id]);
@@ -151,7 +151,6 @@ module.exports = {
 
                 // Void resonance + PS clear tracking — awaited so it doesn't get dropped
                 try {
-                    const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
                     const isPS = d.dungeon_rank === 'PS';
                     const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
                     const isMalacharEcho = d.boss_name === "Malachar's Echo";
@@ -246,7 +245,6 @@ module.exports = {
                     await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
                     await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
                     clearDungeonTimers(dungeon.id);
-                    clearMalacharPhase(dungeon.id);
 
                     // FIX: Territory dungeon timeout — clean up war record and notify group
                     if (isTerritory && territoryId) {
@@ -277,10 +275,19 @@ module.exports = {
             await resetStageTimer(dungeon.id, client, targetChat, failCallback, d.dungeon_rank);
 
             // ── MALACHAR GRAND ENTRY + PHASE INIT ────────────────────────────
+            const next = d.stage + 1;
+            // FIX: Wrap advanceStage in try/catch and ALWAYS reset stage_cleared on failure
+            try {
+                await advanceStage(dungeon.id, next);
+            } catch(advErr) {
+                console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
+                await db.execute('UPDATE dungeon SET stage_cleared=0 WHERE id=?', [dungeon.id]);
+                return msg.reply('══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Try again.\n╰═══════════════════════╯');
+            }
+
             const isMalacharFinal = d.dungeon_rank === 'MALACHAR' && next === maxStage;
 
             if (isMalacharFinal) {
-                await initMalacharPhase(dungeon.id);
 
                 await client.sendMessage(RAID_GROUP, {
                     text:
