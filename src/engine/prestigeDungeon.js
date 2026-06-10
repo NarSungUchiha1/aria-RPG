@@ -25,7 +25,7 @@ const PRESTIGE_BOSSES = {
     PS: 'Malachar'
 };
 
-const MAX_STAGES = { PF: 3, PE: 3, PD: 4, PC: 4, PB: 5, PA: 5, PS: 6 };
+const MAX_STAGES = { PF: 3, PE: 4, PD: 5, PC: 6, PB: 7, PA: 8, PS: 10 };
 
 // FIX: Updated player limits per spec
 const MAX_RAIDERS = { PF: 3, PE: 4, PD: 4, PC: 4, PB: 5, PA: 5, PS: 7 };
@@ -130,8 +130,8 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
         toSpawn = [{ ...data.boss }];
     } else {
         const RANK_ENEMY_COUNT = {
-            PF: [2, 4], PE: [3, 5], PD: [3, 6],
-            PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [7, 10]
+            PF: [2, 4], PE: [3, 5], PD: [4, 6],
+            PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [8, 12]
         };
         const [minE, maxE] = RANK_ENEMY_COUNT[prestigeRank] || [1, 3];
         const count = Math.floor(Math.random() * (maxE - minE + 1)) + minE;
