@@ -31,11 +31,10 @@ module.exports = {
             const existing = await getActiveTournament();
             if (existing) return msg.reply('❌ A tournament is already active. Use !tournament next to advance phases.');
 
-            const daysReg = 1;
-            const regEnds = new Date(Date.now() + daysReg * 24 * 60 * 60 * 1000);
+            // Registration stays open until admin manually advances with !tournament next
             const [result] = await db.execute(
-                "INSERT INTO tournaments (name, phase, phase_ends_at) VALUES ('The Void Tournament', 'registration', ?)",
-                [regEnds]
+                "INSERT INTO tournaments (name, phase, phase_ends_at) VALUES ('The Void Tournament', 'registration', NULL)",
+                []
             );
             const tourId = result.insertId;
 
@@ -326,6 +325,59 @@ module.exports = {
             const { distributePrizes } = require('../systems/tournamentSystem');
             await distributePrizes(t.id, client, RAID_GROUP);
             return msg.reply('✅ Prize distribution triggered.');
+        }
+
+        // ── PLAYERS LIST ──────────────────────────────────────────────────
+        if (sub === 'players') {
+            const t = await getActiveTournament();
+            if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮
+┃★ No active tournament.
+╰═══════════════════════╯`);
+
+            const [all] = await db.execute(
+                `SELECT tp.player_id, tp.wins, tp.losses, tp.eliminated, tp.duo_partner,
+                        p.nickname, p.rank, p.role
+                 FROM tournament_players tp
+                 JOIN players p ON p.id = tp.player_id
+                 WHERE tp.tournament_id=?
+                 ORDER BY tp.eliminated ASC, tp.wins DESC, p.nickname ASC`,
+                [t.id]
+            );
+
+            if (!all.length) return msg.reply(
+                `══〘 🏆 TOURNAMENT 〙══╮
+┃★ No players registered yet.
+╰═══════════════════════╯`
+            );
+
+            const active = all.filter(p => !p.eliminated);
+            const eliminated = all.filter(p => p.eliminated);
+
+            let text = `╔══〘 🏆 REGISTERED PLAYERS 〙══╗
+┃★ Phase: ${t.phase.replace(/_/g,' ').toUpperCase()}
+┃★ Total: ${all.length} | Active: ${active.length}
+┃★
+`;
+
+            active.forEach((p, i) => {
+                text += `┃★ ${i+1}. *${p.nickname}* [${p.rank}] ${p.role}
+`;
+                text += `┃★    ${p.wins}W ${p.losses}L${p.duo_partner ? ' 🤝' : ''}
+`;
+            });
+
+            if (eliminated.length) {
+                text += `┃★
+┃★ ❌ ELIMINATED (${eliminated.length}):
+`;
+                eliminated.forEach(p => {
+                    text += `┃★ • ${p.nickname}
+`;
+                });
+            }
+
+            text += `╚═══════════════════════════╝`;
+            return msg.reply(text);
         }
 
         // ── DEFAULT VIEW ───────────────────────────────────────────────────

@@ -101,7 +101,7 @@ async function spawnDungeon(rank, client = null) {
         }
 
         const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
-        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, MALACHAR:6 }[rank] || 3;
+        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10 }[rank] || 3;
 
         const [result] = await db.execute(
             `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked)
