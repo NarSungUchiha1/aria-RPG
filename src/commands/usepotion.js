@@ -86,7 +86,10 @@ module.exports = {
             }
             if (!dungeon) dungeon = await getActiveDungeon(true);
             const inDungeon = dungeon ? await isPlayerInDungeon(userId, dungeon.id) : false;
-            const dungeonId = dungeon?.id || null;
+            // Use 'pvp' as dungeonId key when player is in a territory war or duel
+            const { isPlayerInDuel } = require('../systems/pvpsystem');
+            const inDuel = isPlayerInDuel(userId);
+            const dungeonId = inDungeon ? dungeon.id : (inDuel ? 'pvp' : null);
 
             // Dungeon requirement check
             const canUseOutside = OUT_OF_DUNGEON_OK.has(potionName);

@@ -142,7 +142,8 @@ function clearDuelActiveByKey(duelKey) {
     [...data.teamA, ...data.teamB].forEach(id => clearDuelBlessingState(id));
 }
 
-const TURN_LIMIT_MS = 45000; // 45 seconds per turn
+const TURN_LIMIT_MS       = 45000;  // 45 seconds — normal duels
+const TERRITORY_TURN_MS   = 120000; // 2 minutes  — territory wars
 
 function getDuelKey(p1, p2) {
     if (Array.isArray(p1) || Array.isArray(p2)) {
@@ -161,8 +162,12 @@ function clearTurnTimer(duelKey) {
 async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
     clearTurnTimer(duelKey);
 
+    // Territory wars get 2 minutes, normal duels get 45 seconds
+    const isTerritory = territoryWars.has(duelKey);
+    const timerMs = isTerritory ? TERRITORY_TURN_MS : TURN_LIMIT_MS;
+    const timerLabel = isTerritory ? '2 minutes' : '45 seconds';
+
     const timer = setTimeout(async () => {
-        // Check duel still active and it's still the same player's turn
         const duel = activeDuels.get(currentTurnId);
         if (!duel || duel.turn !== currentTurnId) return;
 
@@ -170,32 +175,58 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
         if (!data) return;
 
         try {
-            const [pRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [currentTurnId]);
+            const [pRows] = await db.execute("SELECT nickname, clan_id FROM players WHERE id=?", [currentTurnId]);
             const [oRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [opponentId]);
             const pNick = pRows[0]?.nickname || currentTurnId;
             const oNick = oRows[0]?.nickname || opponentId;
 
-            // Time out = forfeit, opponent wins
             clearDuelActiveByKey(duelKey);
 
-            // Return bets if any
             if (data.bet > 0) {
                 await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [data.bet, currentTurnId]);
                 await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [data.bet, opponentId]);
             }
 
-            await chat.sendMessage(
-                `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
-                `┃◆ \n` +
-                `┃◆ *${pNick}* ran out of time!\n` +
-                `┃◆ They had 45 seconds to act.\n` +
-                `┃◆ \n` +
-                `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
-                `┃◆ 🏆 *${oNick}* wins by default!\n` +
-                `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.\n' : ''}` +
-                `┃◆ \n` +
-                `╰═══════════════════════╯`
-            );
+            // Territory war forfeit — winning clan claims the territory
+            if (isTerritory) {
+                const warData = territoryWars.get(duelKey);
+                if (warData) {
+                    const { claimTerritory } = require('../systems/voidTerritories');
+                    const forfeitingClan = data.teamA?.includes(String(currentTurnId)) ? data.clanB : data.clanA;
+                    const winningClan   = data.teamA?.includes(String(currentTurnId)) ? data.clanA : data.clanB;
+                    if (winningClan) await claimTerritory(warData.territoryId, winningClan).catch(() => {});
+                    await db.execute(
+                        "UPDATE territory_wars SET status='completed' WHERE territory_id=? AND status='active'",
+                        [warData.territoryId]
+                    ).catch(() => {});
+                    territoryWars.delete(duelKey);
+                }
+
+                await chat.sendMessage(
+                    `╔══〘 ⏰ TERRITORY FORFEIT 〙══╗\n` +
+                    `┃★\n` +
+                    `┃★ *${pNick}* failed to act in time.\n` +
+                    `┃★ Their clan forfeits the war.\n` +
+                    `┃★\n` +
+                    `┃★ 🏆 *${oNick}*'s clan wins!\n` +
+                    `┃★ Territory claimed by default.\n` +
+                    `┃★\n` +
+                    `╚═══════════════════════════╝`
+                );
+            } else {
+                await chat.sendMessage(
+                    `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
+                    `┃◆ \n` +
+                    `┃◆ *${pNick}* ran out of time!\n` +
+                    `┃◆ They had ${timerLabel} to act.\n` +
+                    `┃◆ \n` +
+                    `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
+                    `┃◆ 🏆 *${oNick}* wins by default!\n` +
+                    `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.\n' : ''}` +
+                    `┃◆ \n` +
+                    `╰═══════════════════════╯`
+                );
+            }
 
             await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [currentTurnId]);
             await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [opponentId]);
@@ -203,7 +234,7 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
         } catch (e) {
             console.error("Turn timer error:", e.message);
         }
-    }, TURN_LIMIT_MS);
+    }, timerMs);
 
     turnTimers.set(duelKey, timer);
 }
@@ -667,7 +698,7 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
         `┃◆ ━━━━━━━━━━━━\n` +
         `${betLine}` +
         `┃◆ ⚡ ${firstPlayer.nickname} goes first!\n` +
-        `┃◆ ⏰ 45s per turn — miss it and you forfeit.\n` +
+        `┃◆ ⏰ ${isTerritory ? '2 min' : '45s'} per turn — miss it and you forfeit.\n` +
         `┃◆ Use !attack <move> to fight.\n` +
         `╰═══════════════════════════╯`
     );
