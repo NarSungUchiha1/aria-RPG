@@ -149,22 +149,22 @@ module.exports = {
                     })();
                 }
 
-                // Void resonance gains for Ascendant progression
-                (async () => {
-                    try {
-                        const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
-                        const isPS = d.dungeon_rank === 'PS';
-                        const isTerritory = d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_');
-                        const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
-                        const isMalacharEcho = d.boss_name === "Malachar's Echo";
-                        for (const p of participants) {
-                            if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client);
-                            if (isPS) await recordPsDungeonClear(p.player_id);
-                            if (isRemnants) await addVoidResonance(p.player_id, 'remnant_sanctum_clear', client);
-                            if (isMalacharEcho) await addVoidResonance(p.player_id, 'malachar_echo_kill', client);
+                // Void resonance + PS clear tracking — awaited so it doesn't get dropped
+                try {
+                    const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+                    const isPS = d.dungeon_rank === 'PS';
+                    const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
+                    const isMalacharEcho = d.boss_name === "Malachar's Echo";
+                    for (const p of participants) {
+                        if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client).catch(() => {});
+                        if (isPS) {
+                            await recordPsDungeonClear(p.player_id).catch(e => console.error('PS clear record error:', e.message));
+                            await updateQuestProgress(p.player_id, 'prestige_clear', 1, client).catch(() => {});
                         }
-                    } catch(e) { console.error('Resonance gain error:', e.message); }
-                })();
+                        if (isRemnants) await addVoidResonance(p.player_id, 'remnant_sanctum_clear', client).catch(() => {});
+                        if (isMalacharEcho) await addVoidResonance(p.player_id, 'malachar_echo_kill', client).catch(() => {});
+                    }
+                } catch(e) { console.error('Resonance gain error:', e.message); }
 
                 // MVP
                 try {
@@ -197,147 +197,7 @@ module.exports = {
                     } catch(e) { console.error('War damage error:', e.message); }
                 })();
 
-                // Void Shard drops
-                try { await handleShardDrop(dungeon.id, client); } catch (e) {}
-
-                // Healer payment
-                (async () => {
-                    try {
-                        const [hire] = await db.execute(
-                            "SELECT * FROM dungeon_healer WHERE dungeon_id=? AND paid=0", [dungeon.id]
-                        );
-                        if (!hire.length) return;
-                        const h = hire[0];
-                        const partySize = participants.length;
-                        if (partySize === 0) return;
-                        const perPlayer = Math.ceil(h.fee_gold / partySize);
-                        let totalPaid = 0;
-                        for (const p of participants) {
-                            const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [p.player_id]);
-                            const canPay = Math.min(perPlayer, gold[0]?.gold || 0);
-                            if (canPay > 0) {
-                                await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [canPay, p.player_id]);
-                                totalPaid += canPay;
-                            }
-                        }
-                        await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [totalPaid, h.healer_id]);
-                        await db.execute("UPDATE dungeon_healer SET paid=1 WHERE id=?", [h.id]);
-                        await client.sendMessage(RAID_GROUP, {
-                            text: `══〘 💚 HEALER PAID 〙══╮\n┃◆ *${h.healer_nick}* earned ${totalPaid} Gold\n┃◆ (${perPlayer}/player × ${partySize} raiders)\n╰═══════════════════════╯`
-                        });
-                        await client.sendMessage(`${h.healer_id}@s.whatsapp.net`, {
-                            text: `══〘 💚 PAYMENT RECEIVED 〙══╮\n┃◆ 💰 +${totalPaid} Gold received.\n╰═══════════════════════╯`
-                        });
-                    } catch(e) { console.error('Healer payment error:', e.message); }
-                })();
-
-                // Material drops
-                (async () => {
-                    try {
-                        for (const p of participants) {
-                            const drop = await rollMaterialDrop(d.dungeon_rank, p.player_id, client, RAID_GROUP);
-                            if (drop) {
-                                const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
-                                await client.sendMessage(RAID_GROUP, {
-                                    text:
-                                        `══〘 💎 MATERIAL DROP 〙══╮\n` +
-                                        `┃◆ @${p.player_id} found something!\n` +
-                                        `┃◆ \n` +
-                                        `┃◆ ${emoji} *${drop.material}*\n` +
-                                        `┃◆ [${drop.rarity.toUpperCase()}]\n` +
-                                        `┃◆ Total held: ×${drop.quantity}\n` +
-                                        `┃◆ \n` +
-                                        `┃◆ Visit the Blacksmith to forge.\n` +
-                                        `╰═══════════════════════╯`,
-                                    mentions: [`${p.player_id}@s.whatsapp.net`]
-                                });
-                            }
-                        }
-                    } catch (e) { console.error('Material drop error:', e.message); }
-                })();
-
-                // Clear Malachar phase state
-                clearMalacharPhase(dungeon.id);
-
-                // Territory claim on conquest clear
-                (async () => {
-                    try {
-                        const [flagRow] = await db.execute('SELECT territory_id, conquering_clan FROM dungeon_flags WHERE dungeon_id=?', [dungeon.id]);
-                        if (flagRow.length && flagRow[0].territory_id && flagRow[0].conquering_clan) {
-                            const { claimTerritory, TERRITORIES } = require('../systems/voidTerritories');
-                            await claimTerritory(flagRow[0].territory_id, flagRow[0].conquering_clan);
-                            await db.execute('UPDATE territory_wars SET status=\'completed\', winner_clan=? WHERE territory_id=? AND attacker_clan=? AND status=\'active\'', [flagRow[0].conquering_clan, flagRow[0].territory_id, flagRow[0].conquering_clan]);
-                            const terr = TERRITORIES[flagRow[0].territory_id];
-                            const [clanRow] = await db.execute('SELECT name FROM clans WHERE id=?', [flagRow[0].conquering_clan]);
-                            // Resonance gains for territory war win
-                            for (const p of participants) {
-                                // Only attackers get war win resonance, not defenders
-                                const [isDefender] = await db.execute('SELECT is_defender FROM dungeon_players WHERE player_id=? AND dungeon_id=?', [p.player_id, dungeon.id]).catch(() => [[{}]]);
-                                if (!isDefender[0]?.is_defender) {
-                                    addVoidResonance(p.player_id, 'territory_war_win', client).catch(() => {});
-                                }
-                            }
-                            await client.sendMessage(RAID_GROUP, { text:
-                                '╔══〘 🌑 TERRITORY CLAIMED 〙══╗\n' +
-                                '┃★\n' +
-                                '┃★ ' + (terr ? terr.emoji : '') + ' *' + (terr ? terr.name : flagRow[0].territory_id) + '*\n' +
-                                '┃★ now belongs to *' + (clanRow[0]?.name || 'Unknown') + '*.\n' +
-                                '┃★\n' +
-                                '┃★ Bonus active for all members:\n' +
-                                '┃★ ' + (terr ? terr.bonus.description : '') + '\n' +
-                                '┃★\n' +
-                                '╚═══════════════════════════╝'
-                            }).catch(() => {});
-                        }
-                    } catch(e) { console.error('Territory claim error:', e.message); }
-                })();
-
-                // Close dungeon
-                await demoteAllRaiders(client, dungeon.id);
-                await db.execute("DELETE FROM dungeon_players WHERE dungeon_id=?", [dungeon.id]);
-                await db.execute("UPDATE dungeon SET is_active=0, locked=0 WHERE id=?", [dungeon.id]);
-                clearDungeonTimers(dungeon.id);
-
-                if (!d.dungeon_rank || !d.dungeon_rank.startsWith('P')) {
-                    trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (onward):', e.message));
-                }
-
-                return msg.reply(
-                    `══〘 👑 DUNGEON CLEARED 〙══╮\n` +
-                    `┃◆ The chamber falls silent. ${d.boss_name} lies vanquished.\n` +
-                    `┃◆ Each survivor feels the dungeon's gratitude:\n` +
-                    `┃◆ 💰 +${rewardGold.toLocaleString()} Gold   ⭐ +${rewardXp.toLocaleString()} XP\n` +
-                    `┃◆ As the exit shimmers into view, you step out into the light.\n` +
-                    `╰═══════════════════════╯`
-                );
-            }
-
-            // ── ADVANCE STAGE ─────────────────────────────────────────────────
-            // FIX: Use atomic CAS on stage_cleared=1 (not 2) to prevent double-advance.
-            // If it fails, another !onward is already in progress.
-            const [lockResult] = await db.execute(
-                "UPDATE dungeon SET stage_cleared=2 WHERE id=? AND stage_cleared=1",
-                [dungeon.id]
-            );
-            if (lockResult.affectedRows === 0) {
-                return msg.reply(
-                    `══〘 🧭 ONWARD 〙══╮\n┃◆ Stage is already advancing — hold on!\n╰═══════════════════════╯`
-                );
-            }
-
-            const next = d.stage + 1;
-
-            // FIX: Wrap advanceStage in try/catch and ALWAYS reset stage_cleared on failure
-            // so the dungeon doesn't get permanently bricked at stage_cleared=2
-            try {
-                await advanceStage(dungeon.id, next);
-            } catch (advErr) {
-                console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
-                await db.execute("UPDATE dungeon SET stage_cleared=1 WHERE id=?", [dungeon.id]);
-                return msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Please try again.\n╰═══════════════════════╯`);
-            }
-
-            try { initStage(dungeon.id); } catch(e) {}
+            } // end dungeon clear rewards block
 
             try {
                 await db.execute(
