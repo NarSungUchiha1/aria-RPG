@@ -83,7 +83,7 @@ module.exports = {
             const demoId = await ensureDemoAccount(userId);
             activeTesterSessions.set(userId, demoId);
 
-            const [demo] = await db.execute('SELECT nickname, role, rank FROM players WHERE id=?', [demoId]);
+            const [demo] = await db.execute('SELECT nickname, role, `rank` FROM players WHERE id=?', [demoId]);
 
             return msg.reply(
                 `╔══〘 🧪 TESTER LOGIN 〙══╗\n` +
@@ -125,10 +125,10 @@ module.exports = {
             let demoInfo = '';
             if (isDemo) {
                 const [d] = await db.execute(
-                    'SELECT p.nickname, p.rank, c.gold FROM players p LEFT JOIN currency c ON c.player_id=p.id WHERE p.id=?',
+                    'SELECT p.nickname, p.`rank`, c.gold FROM players p LEFT JOIN currency c ON c.player_id=p.id WHERE p.id=?',
                     [demoId]
                 );
-                demoInfo = d[0] ? `\n┃◆ Demo: ${d[0].nickname} [${d[0].rank}] | ${Number(d[0].gold||0).toLocaleString()}G` : '';
+                demoInfo = d[0] ? `\n┃◆ Demo: ${d[0].nickname} [${d[0]['rank']}] | ${Number(d[0].gold||0).toLocaleString()}G` : '';
             }
             return msg.reply(
                 `══〘 🧪 TESTER STATUS 〙══╮\n` +
