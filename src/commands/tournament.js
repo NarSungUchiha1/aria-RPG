@@ -16,7 +16,7 @@ const {
     getActivePlayers, advancePhase, recordMatchResult
 } = require('../systems/tournamentSystem');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 module.exports = {
     name: 'tournament',
@@ -38,7 +38,7 @@ module.exports = {
             );
             const tourId = result.insertId;
 
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `╔══〘 🏆 VOID TOURNAMENT 〙══╗\n` +
                     `┃★\n` +
@@ -71,7 +71,7 @@ module.exports = {
             if (!isAdmin) return msg.reply('❌ Admin only.');
             const t = await getActiveTournament();
             if (!t) return msg.reply('❌ No active tournament.');
-            const next = await advancePhase(t, client, RAID_GROUP);
+            const next = await advancePhase(t, client, getRaidGroup());
             return msg.reply(`✅ Advanced to phase: *${next}*`);
         }
 
@@ -89,7 +89,7 @@ module.exports = {
             const p1 = shuffled[0];
             const p2 = shuffled[1];
 
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `╔══〘 ⚔️ BATTLE ROYALE MATCHUP 〙══╗\n` +
                     `┃★\n` +
@@ -136,7 +136,7 @@ module.exports = {
             const existing = await getParticipant(t.id, userId);
             if (existing) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ ✅ Already registered.\n╰═══════════════════════╯`);
 
-            const [player] = await db.execute('SELECT nickname, rank FROM players WHERE id=?', [userId]);
+            const [player] = await db.execute('SELECT nickname, `rank` FROM players WHERE id=?', [userId]);
             if (!player.length) return msg.reply('❌ Not registered.');
 
             await db.execute(
@@ -248,7 +248,7 @@ module.exports = {
             }
             await db.execute("UPDATE tournaments SET phase=?, phase_ends_at=DATE_ADD(NOW(), INTERVAL 2 DAY) WHERE id=?", [phase, t.id]);
             const { handlePhaseStart } = require('../systems/tournamentSystem');
-            await handlePhaseStart(phase, t.id, client, RAID_GROUP);
+            await handlePhaseStart(phase, t.id, client, getRaidGroup());
             return msg.reply(`✅ Forced phase: *${phase}*`);
         }
 
@@ -323,7 +323,7 @@ module.exports = {
             const t = await getActiveTournament();
             if (!t) return msg.reply('❌ No active tournament.');
             const { distributePrizes } = require('../systems/tournamentSystem');
-            await distributePrizes(t.id, client, RAID_GROUP);
+            await distributePrizes(t.id, client, getRaidGroup());
             return msg.reply('✅ Prize distribution triggered.');
         }
 
@@ -336,7 +336,7 @@ module.exports = {
 
             const [all] = await db.execute(
                 `SELECT tp.player_id, tp.wins, tp.losses, tp.eliminated, tp.duo_partner,
-                        p.nickname, p.rank, p.role
+                        p.nickname, p.rank as playerRank, p.role
                  FROM tournament_players tp
                  JOIN players p ON p.id = tp.player_id
                  WHERE tp.tournament_id=?
@@ -360,7 +360,7 @@ module.exports = {
 `;
 
             active.forEach((p, i) => {
-                text += `┃★ ${i+1}. *${p.nickname}* [${p.rank}] ${p.role}
+                text += `┃★ ${i+1}. *${p.nickname}* [${p.playerRank}] ${p.role}
 `;
                 text += `┃★    ${p.wins}W ${p.losses}L${p.duo_partner ? ' 🤝' : ''}
 `;
