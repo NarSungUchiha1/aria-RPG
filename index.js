@@ -660,13 +660,13 @@ async function startBot() {
             };
 
             try {
-                if (!['respawn', 'awaken', 'register'].includes(cmdName)) {
+                if (!['respawn', 'awaken', 'register', 'tester'].includes(cmdName)) {
                     let hp = null;
-                    const cached = getCachedPlayer(userId);
+                    const cached = getCachedPlayer(effectiveUserId);
                     if (cached !== null) {
                         hp = cached.hp;
                     } else {
-                        const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [userId]);
+                        const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [effectiveUserId]);
                         if (rows.length) {
                             hp = rows[0].hp;
                             setCachedPlayer(userId, rows[0]);
@@ -691,6 +691,17 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
+                    // In test group — swap userId to demo account if tester session active
+                    let effectiveUserId = userId;
+                    if (isTestGroup && cmdName !== 'tester') {
+                        try {
+                            const { activeTesterSessions } = require('./src/commands/tester');
+                            if (activeTesterSessions?.has(userId)) {
+                                effectiveUserId = activeTesterSessions.get(userId);
+                            }
+                        } catch(e) {}
+                    }
+
                     // In test group — redirect ALL announcements back to test group
                     const _origRaidGroup        = process.env.RAID_GROUP_JID;
                     const _origAnnouncement     = process.env.ANNOUNCEMENT_GROUP;
@@ -703,7 +714,7 @@ async function startBot() {
                         process.env.EXPLORATION_GC_JID = TEST_GROUP_JID;
                     }
                     try {
-                        await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
+                        await command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock });
                     } catch (execErr) {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
