@@ -694,13 +694,27 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
-                    // In test group — swap userId to demo account if tester session active
+                    // In test group — swap userId AND mentioned IDs to demo accounts
                     if (isTestGroup && cmdName !== 'tester') {
                         try {
                             const { activeTesterSessions } = require('./src/commands/tester');
+                            // Swap sender
                             if (activeTesterSessions?.has(userId)) {
                                 effectiveUserId = activeTesterSessions.get(userId);
                             }
+                            // Swap all mentioned players to their demo IDs too
+                            // So !duel @opponent targets opponent_test not opponent
+                            const origMentionedIds = fakeMsg.mentionedIds;
+                            Object.defineProperty(fakeMsg, 'mentionedIds', {
+                                get() {
+                                    return origMentionedIds.map(mid => {
+                                        const demoId = mid + '_test';
+                                        // Only swap if that demo account exists in sessions or has been created
+                                        return activeTesterSessions?.has(mid) ? activeTesterSessions.get(mid) : demoId;
+                                    });
+                                },
+                                configurable: true
+                            });
                         } catch(e) {}
                     }
 
