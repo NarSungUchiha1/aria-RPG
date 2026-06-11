@@ -198,6 +198,48 @@ module.exports = {
 
             } // end dungeon clear rewards block
 
+            // ── If dungeon is fully cleared — close it and stop ──────────
+            if (d.stage >= maxStage) {
+                // Reset clan blessings
+                await db.execute(
+                    `UPDATE clan_blessing_state SET skill_count=0, blessing_used=0, damage_boost=0
+                     WHERE dungeon_id=?`,
+                    [dungeon.id]
+                ).catch(() => {});
+
+                // Close dungeon
+                await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
+                await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [dungeon.id]);
+
+                // Demote all raiders
+                const { demoteAllRaiders } = require('../engine/dungeon');
+                await demoteAllRaiders(client, dungeon.id).catch(() => {});
+
+                const { clearDungeonTimers } = require('../engine/dungeonTimer');
+                clearDungeonTimers(dungeon.id);
+
+                // Spawn prestige dungeon if eligible
+                const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
+                const isP = d.dungeon_rank?.startsWith('P');
+                if (!isP) {
+                    trySpawnPrestigeDungeon(client, process.env.RAID_GROUP_JID || '120363213735662100@g.us').catch(() => {});
+                }
+
+                return msg.reply(
+                    d.dungeon_rank?.startsWith('P')
+                        ? `╔══〘 ✦ DUNGEON CLEARED 〙══╗
+┃★
+┃★ All stages complete.
+┃★ The void yields.
+┃★
+╚═══════════════════════════╝`
+                        : `══〘 ✅ DUNGEON CLEARED 〙══╮
+┃◆ All stages complete!
+┃◆ The dungeon crumbles.
+╰═══════════════════════╯`
+                );
+            }
+
             try {
                 await db.execute(
                     `UPDATE clan_blessing_state SET skill_count=0, blessing_used=0
