@@ -175,7 +175,7 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
         if (!data) return;
 
         try {
-            const [pRows] = await db.execute("SELECT nickname, clan_id FROM players WHERE id=?", [currentTurnId]);
+            const [pRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [currentTurnId]);
             const [oRows] = await db.execute("SELECT nickname FROM players WHERE id=?", [opponentId]);
             const pNick = pRows[0]?.nickname || currentTurnId;
             const oNick = oRows[0]?.nickname || opponentId;
@@ -698,7 +698,7 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
         `┃◆ ━━━━━━━━━━━━\n` +
         `${betLine}` +
         `┃◆ ⚡ ${firstPlayer.nickname} goes first!\n` +
-        `┃◆ ⏰ ${isTerritory ? '2 min' : '45s'} per turn — miss it and you forfeit.\n` +
+        `┃◆ ⏰ ${territoryWars.has(getDuelKey(teamAPlayers[0], teamBPlayers[0])) ? '2 min' : '45s'} per turn — miss it and you forfeit.\n` +
         `┃◆ Use !attack <move> to fight.\n` +
         `╰═══════════════════════════╯`
     );
@@ -755,7 +755,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                 territoryWars.delete(duelKey);
                 const { claimTerritory, TERRITORIES } = require('./voidTerritories');
                 const { addVoidResonance } = require('./ascendantSystem');
-                const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
                 const terr = TERRITORIES[warCtx.tid];
                 const attackersWon = winners.some(id => warCtx.attackers.includes(String(id)));
 
