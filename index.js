@@ -691,12 +691,30 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
+                    // In test group — redirect ALL announcements back to test group
+                    const _origRaidGroup        = process.env.RAID_GROUP_JID;
+                    const _origAnnouncement     = process.env.ANNOUNCEMENT_GROUP;
+                    const _origCasino           = process.env.CASINO_GC_JID;
+                    const _origExploration      = process.env.EXPLORATION_GC_JID;
+                    if (isTestGroup) {
+                        process.env.RAID_GROUP_JID    = TEST_GROUP_JID;
+                        process.env.ANNOUNCEMENT_GROUP = TEST_GROUP_JID;
+                        process.env.CASINO_GC_JID     = TEST_GROUP_JID;
+                        process.env.EXPLORATION_GC_JID = TEST_GROUP_JID;
+                    }
                     try {
                         await command.execute(fakeMsg, args, { userId, isAdmin, client: sock });
                     } catch (execErr) {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
                     } finally {
+                        // Always restore real values after command runs
+                        if (isTestGroup) {
+                            process.env.RAID_GROUP_JID     = _origRaidGroup;
+                            process.env.ANNOUNCEMENT_GROUP  = _origAnnouncement;
+                            process.env.CASINO_GC_JID      = _origCasino;
+                            process.env.EXPLORATION_GC_JID = _origExploration;
+                        }
                         playerCache.delete(userId);
                     }
                 });
