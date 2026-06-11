@@ -31,6 +31,15 @@ function setMoveCooldown(userId, moveName, baseCooldownSeconds, playerRank) {
     return actualCooldown;
 }
 
+// Clear all cooldowns for a player — called when entering a new dungeon
+function clearPlayerCooldowns(userId) {
+    for (const key of cooldowns.keys()) {
+        if (key.startsWith(userId + '_')) {
+            cooldowns.delete(key);
+        }
+    }
+}
+
 function getAllMoves(player, equippedItems) {
     const moves = [];
     const isPrestige = (player.prestige_level || 0) > 0;
@@ -79,11 +88,6 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
     const buffValue = typeof buffMods[statUsed] === 'number' ? buffMods[statUsed] : 0;
 
     let statValue = baseStat + buffValue;
-
-    // Apply fatigue multiplier — uses player.fatigue passed in
-    // Callers must pass fresh player object with updated fatigue
-    const { getFatigueMultiplier } = require('./fatigueSystem');
-    const fatigueMultiplier = getFatigueMultiplier(player);
 
     let totalBonus = 0;
 
@@ -142,11 +146,7 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
 
     try {
         const turnFx = getTurnEffect(player.id);
-        // FIX: getEffect(id, null) only matches effects with dungeonId=null.
-        // Permanent potion effects are stored with a dungeonId, so we need to
-        // check the activeEffects map directly for ANY effect for this player.
-        const { activeEffects } = require('./potionEffects');
-        const permFx = activeEffects.get(player.id) || null;
+        const permFx = getEffect(player.id, null);
 
         // Berserk
         if (turnFx?.effect === 'berserk') {
@@ -186,7 +186,7 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
         console.log('Potion damage calc error:', e.message);
     }
 
-    return Math.max(1, Math.floor(damage * fatigueMultiplier));
+    return Math.max(1, damage);
 }
 
 function calculateHeal(player, move) {
@@ -214,5 +214,6 @@ module.exports = {
     calculateMoveDamage,
     calculateHeal,
     getMoveCooldown,
-    setMoveCooldown
+    setMoveCooldown,
+    clearPlayerCooldowns
 };

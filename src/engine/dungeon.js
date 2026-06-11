@@ -9,7 +9,18 @@ const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
 const { initMvpTracking, recordDamage: mvpRecordDmg, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
 
-const getRaidGroup = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup  = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+
+// Per-dungeon announcement group — allows real dungeon + test dungeon simultaneously
+// When a dungeon spawns, it captures the current getRaidGroup() value and stores it here
+// All timers/callbacks use getDungeonGroup(id) so they always route to the right GC
+const dungeonGroupMap = new Map();
+function getDungeonGroup(dungeonId) {
+    return dungeonGroupMap.get(dungeonId) || getRaidGroup();
+}
+function setDungeonGroup(dungeonId, groupJid) {
+    dungeonGroupMap.set(dungeonId, groupJid);
+}
 
 const dungeonLocks    = new Map();
 const autoStartTimers = new Map();
@@ -135,8 +146,12 @@ async function spawnDungeon(rank, client = null) {
         const dungeonId = result.insertId;
         console.log(`🏰 Dungeon ${rank} spawned (id: ${dungeonId}).`);
 
+        // Capture current group at spawn time (real group OR test group)
+        const spawnGroup = getRaidGroup();
+        dungeonGroupMap.set(dungeonId, spawnGroup);
+
         if (client) {
-            await sendDungeonAnnouncement(client, rank, boss, maxStage);
+            await sendDungeonAnnouncement(client, rank, boss, maxStage, spawnGroup);
             startLobbyTimer(dungeonId, client);
         }
 
@@ -151,7 +166,7 @@ function startLobbyTimer(dungeonId, client) {
 
     const warning = setTimeout(async () => {
         try {
-            await client.sendMessage(getRaidGroup(), {
+            await client.sendMessage(getDungeonGroup(dungeonId), {
                 text:
                     `══〘 ⚠️ DUNGEON CLOSING SOON 〙══╮\n` +
                     `┃◆ The dungeon portal is destabilizing!\n` +
@@ -192,7 +207,7 @@ function startLobbyTimer(dungeonId, client) {
                     lobbyTimers.delete(dungeonId);
                     return;
                 }
-                await client.sendMessage(getRaidGroup(), {
+                await client.sendMessage(getDungeonGroup(dungeonId), {
                     text:
                         `══〘 🚪 DUNGEON EXPIRED 〙══╮\n` +
                         `┃◆ The dungeon portal has collapsed.\n` +
@@ -203,7 +218,7 @@ function startLobbyTimer(dungeonId, client) {
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
                 const [expRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
                 if (!expRank[0]?.dungeon_rank?.startsWith('P')) {
-                    trySpawnPrestigeDungeon(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error:', e.message));
+                    trySpawnPrestigeDungeon(client, getDungeonGroup(dungeonId)).catch(e => console.error('★ Prestige spawn error:', e.message));
                 }
             }
         } catch (e) {
@@ -215,7 +230,8 @@ function startLobbyTimer(dungeonId, client) {
     lobbyTimers.set(dungeonId, { warning, timeout });
 }
 
-async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
+async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
+    groupJid = groupJid || getRaidGroup();
     let mentions = [];
     try {
         const { tagAll } = require('../utils/tagAll');
@@ -267,7 +283,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 
     try {
         const { sendWithRetry } = require('../utils/sendWithRetry');
-        await sendWithRetry(client, getRaidGroup(), { text: announceMsg, mentions });
+        await sendWithRetry(client, groupJid, { text: announceMsg, mentions });
         console.log(`📢 Dungeon announcement sent to group`);
     } catch (e) {
         console.error("Dungeon announcement failed:", e.message);
@@ -349,6 +365,11 @@ async function lockDungeon(dungeonId) {
 
     try {
         const [players] = await db.execute("SELECT player_id FROM dungeon_players WHERE dungeon_id=?", [dungeonId]);
+        // Clear weapon cooldowns for all entering players so previous dungeon cooldowns don't carry over
+        try {
+            const { clearPlayerCooldowns } = require('../systems/skillSystem');
+            for (const p of players) clearPlayerCooldowns(p.player_id);
+        } catch(e) {}
         const ids = players.map(p => p.player_id);
         initMvpTracking(`dungeon_${dungeonId}`, ids);
 
@@ -944,7 +965,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         const [dRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
         if (client && !dRank[0]?.dungeon_rank?.startsWith('P')) {
-            trySpawnPrestigeDungeon(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error:', e.message));
+            trySpawnPrestigeDungeon(client, getDungeonGroup(dungeonId)).catch(e => console.error('★ Prestige spawn error:', e.message));
         }
         return true;
     }
@@ -1056,6 +1077,9 @@ async function getDungeonStatusText(dungeonId) {
 
 module.exports = {
     getRaidGroup,
+    getDungeonGroup,
+    setDungeonGroup,
+    dungeonGroupMap,
     spawnDungeon,
     getWeightedDungeonRank,
     getActiveDungeon,

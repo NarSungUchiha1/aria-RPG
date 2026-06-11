@@ -753,20 +753,12 @@ async function startBot() {
                         } catch(e) {}
                     }
 
-                    // ── ADDED: persistent global override for async announcements ──
-                    // Set global.overrideRaidGroup via !testmode on command
-                    // All getRaidGroup() calls check this global first
-                    // Temp env swap kept as fallback for files not yet converted
-                    const _origRaidGroup       = process.env.RAID_GROUP_JID;
-                    const _origAnnouncement    = process.env.ANNOUNCEMENT_GROUP;
-                    const _origCasino          = process.env.CASINO_GC_JID;
-                    const _origExploration     = process.env.EXPLORATION_GC_JID;
+                    // ── Test group isolation ──────────────────────────────────────────
+                    // Set global.overrideRaidGroup so ALL getRaidGroup() calls
+                    // route to test GC. Dungeon spawns capture this at spawn time
+                    // via dungeonGroupMap so they stay isolated even when override clears.
                     if (isTestGroup) {
-                        process.env.RAID_GROUP_JID     = TEST_GROUP_JID;
-                        process.env.ANNOUNCEMENT_GROUP  = TEST_GROUP_JID;
-                        process.env.CASINO_GC_JID      = TEST_GROUP_JID;
-                        process.env.EXPLORATION_GC_JID  = TEST_GROUP_JID;
-                        global.overrideRaidGroup        = TEST_GROUP_JID;
+                        global.overrideRaidGroup = TEST_GROUP_JID;
                     }
                     try {
                         await command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock });
@@ -774,12 +766,10 @@ async function startBot() {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
                     } finally {
-                        // Restore env vars — global.overrideRaidGroup stays until !testmode off
+                        // Clear override after command so real groups aren't affected
+                        // (dungeons keep their group via dungeonGroupMap regardless)
                         if (isTestGroup) {
-                            process.env.RAID_GROUP_JID     = _origRaidGroup;
-                            process.env.ANNOUNCEMENT_GROUP  = _origAnnouncement;
-                            process.env.CASINO_GC_JID      = _origCasino;
-                            process.env.EXPLORATION_GC_JID  = _origExploration;
+                            global.overrideRaidGroup = null;
                         }
                         playerCache.delete(userId);
                     }
