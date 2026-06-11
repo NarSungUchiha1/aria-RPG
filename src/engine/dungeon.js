@@ -1,16 +1,15 @@
 const db = require('../database/db');
 const enemiesData = require('../data/enemies');
 const { calculateMoveDamage } = require('../systems/skillSystem');
-const { getFatigueMultiplier, increasePlayerFatigue, calculateFatigueGain } = require('../systems/fatigueSystem');
+const { getFatigueMultiplier, increasePlayerFatigue } = require('../systems/fatigueSystem');
 const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activeBuffs');
 const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
-const { initMvpTracking, recordDamage: mvpRecordDmg } = require('../systems/mvpSystem');
-const { updateClanQuestProgress } = require('../systems/clanQuestTracker');
+const { initMvpTracking, recordDamage: mvpRecordDmg, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 const dungeonLocks    = new Map();
 const autoStartTimers = new Map();
@@ -36,28 +35,52 @@ function clearLobbyTimer(dungeonId) {
     }
 }
 
-// MVP helpers removed — calculateMvp is called directly in onward.js at dungeon clear
+function getDungeonMvp(dungeonId) {
+    try { return getMvp(`dungeon_${dungeonId}`); } catch(e) { return null; }
+}
+
+function getDungeonMvpContributions(dungeonId) {
+    try { return getMvpContributions(`dungeon_${dungeonId}`); } catch(e) { return {}; }
+}
 
 async function getWeightedDungeonRank() {
-    // FIX: Completely random — no player-count dependency
-    // Mid-high ranks favoured slightly
     const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-    const weights   = { F: 8, E: 12, D: 16, C: 20, B: 18, A: 14, S: 12 };
+    const [rows] = await db.execute(
+        "SELECT `rank`, COUNT(*) as cnt FROM players GROUP BY `rank`"
+    );
+    if (!rows.length) return 'F';
+
+    const total = rows.reduce((sum, r) => sum + Number(r.cnt), 0);
+    const weights = {};
+    rankOrder.forEach(r => { weights[r] = 0; });
+
+    const floorWeights = { F: 0.05, E: 0.08, D: 0.15, C: 0.18, B: 0.20, A: 0.18, S: 0.16 };
+    rankOrder.forEach(r => { weights[r] = floorWeights[r] || 0.05; });
+
+    for (const row of rows) {
+        const idx  = rankOrder.indexOf(row.rank);
+        const base = (Number(row.cnt) / total) * 0.5;
+        weights[row.rank]                      += base * 0.6;
+        if (idx > 0)                    weights[rankOrder[idx - 1]] += base * 0.2;
+        if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
+    }
+
     const weightSum = rankOrder.reduce((s, r) => s + weights[r], 0);
-    let cumulative  = 0;
-    const roll      = Math.random() * weightSum;
+    rankOrder.forEach(r => { weights[r] /= weightSum; });
+
+    let cumulative = 0;
+    const roll = Math.random();
     for (const rank of rankOrder) {
-        cumulative += weights[rank];
+        cumulative += weights[rank] || 0;
         if (roll <= cumulative) return rank;
     }
-    return 'C';
+    return 'F';
 }
 
 async function spawnDungeon(rank, client = null) {
     try {
-        // FIX: Territory dungeons run independently — don't block normal spawns
         const [activePlayers] = await db.execute(
-            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1 AND d.dungeon_rank NOT LIKE 'TERRITORY_%'"
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
         );
         if (activePlayers[0].cnt > 0) {
             console.log('⏭️ Spawn skipped — players still active in a dungeon');
@@ -101,7 +124,7 @@ async function spawnDungeon(rank, client = null) {
         }
 
         const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
-        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10 }[rank] || 3;
+        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, MALACHAR:6 }[rank] || 3;
 
         const [result] = await db.execute(
             `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked)
@@ -128,7 +151,7 @@ function startLobbyTimer(dungeonId, client) {
 
     const warning = setTimeout(async () => {
         try {
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `══〘 ⚠️ DUNGEON CLOSING SOON 〙══╮\n` +
                     `┃◆ The dungeon portal is destabilizing!\n` +
@@ -169,7 +192,7 @@ function startLobbyTimer(dungeonId, client) {
                     lobbyTimers.delete(dungeonId);
                     return;
                 }
-                await client.sendMessage(RAID_GROUP, {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         `══〘 🚪 DUNGEON EXPIRED 〙══╮\n` +
                         `┃◆ The dungeon portal has collapsed.\n` +
@@ -180,7 +203,7 @@ function startLobbyTimer(dungeonId, client) {
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
                 const [expRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
                 if (!expRank[0]?.dungeon_rank?.startsWith('P')) {
-                    trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+                    trySpawnPrestigeDungeon(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error:', e.message));
                 }
             }
         } catch (e) {
@@ -227,7 +250,6 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         }
     } catch(e) {}
 
-    const MAX_RAIDERS_MAP = { F:3, E:3, D:4, C:4, B:5, A:5, S:5 };
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
         `┃◆ \n` +
@@ -236,7 +258,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +
-        `┃◆   Max Raiders: ${MAX_RAIDERS_MAP[rank] || 3}\n` +
+        `┃◆   Max Raiders: ${{ F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 }[rank] || 3}\n` +
         `┃◆ \n` +
         `┃◆   DM the bot: !enter to join!\n` +
         `┃◆   ⏳ Portal closes in 10 minutes.\n` +
@@ -245,7 +267,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 
     try {
         const { sendWithRetry } = require('../utils/sendWithRetry');
-        await sendWithRetry(client, RAID_GROUP, { text: announceMsg, mentions });
+        await sendWithRetry(client, getRaidGroup(), { text: announceMsg, mentions });
         console.log(`📢 Dungeon announcement sent to group`);
     } catch (e) {
         console.error("Dungeon announcement failed:", e.message);
@@ -254,13 +276,13 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage) {
 
 async function promoteRaider(client, userId) {
     try {
-        const metadata    = await client.groupMetadata(RAID_GROUP);
+        const metadata    = await client.groupMetadata(getRaidGroup());
         const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
         if (!participant) {
             console.error(`⚠️ Promote failed: ${userId} not found in dungeon group`);
             return;
         }
-        await client.groupParticipantsUpdate(RAID_GROUP, [participant.id], 'promote');
+        await client.groupParticipantsUpdate(getRaidGroup(), [participant.id], 'promote');
         console.log(`👑 Promoted ${userId} to admin`);
     } catch (e) {
         console.error(`Failed to promote ${userId}:`, e.message);
@@ -269,10 +291,10 @@ async function promoteRaider(client, userId) {
 
 async function demoteRaider(client, userId) {
     try {
-        const metadata    = await client.groupMetadata(RAID_GROUP);
+        const metadata    = await client.groupMetadata(getRaidGroup());
         const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
         if (!participant) return;
-        await client.groupParticipantsUpdate(RAID_GROUP, [participant.id], 'demote');
+        await client.groupParticipantsUpdate(getRaidGroup(), [participant.id], 'demote');
         console.log(`👇 Demoted ${userId} from admin`);
     } catch (e) {
         console.error(`Failed to demote ${userId}:`, e.message);
@@ -294,12 +316,8 @@ async function demoteAllRaiders(client, dungeonId) {
     }
 }
 
-async function getActiveDungeon(includeTerritory = false) {
-    const [rows] = await db.execute(
-        includeTerritory
-            ? "SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
-            : "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
-    );
+async function getActiveDungeon() {
+    const [rows] = await db.execute("SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1");
     return rows[0] || null;
 }
 
@@ -347,8 +365,6 @@ async function lockDungeon(dungeonId) {
 
 async function getMaxStageForDungeon(dungeonId) {
     const [rows] = await db.execute("SELECT max_stage FROM dungeon WHERE id=?", [dungeonId]);
-    // FIX: guard against missing row
-    if (!rows.length) throw new Error(`Dungeon ${dungeonId} not found in getMaxStageForDungeon`);
     return rows[0].max_stage;
 }
 
@@ -369,12 +385,7 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     } catch (e) { isVoidWar = false; }
 
     const isBoosted = isEvent || isVoidWar;
-
-    // FIX: get max_stage directly from DB, guarded
-    let maxStage = 3;
-    try { maxStage = await getMaxStageForDungeon(dungeonId); } catch(e) {}
-
-    const isBoss = (stage === maxStage);
+    const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];
 
     if (isBoss) {
@@ -447,92 +458,26 @@ function calculatePlayerDamage(player, enemy, weaponBonus = 0) {
     return Math.max(1, Math.floor(rawDamage * fatigueMultiplier));
 }
 
-async function applyClanBlessingDamageBoost(playerId, dungeonId, damage) {
-    try {
-        const { getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
-        const state = await getPlayerBlessingState(playerId, dungeonId);
-        if (!state) return damage;
-
-        const boost = Number(state.damage_boost || 0);
-        if (!boost) return damage;
-
-        // Eclipse (#9) — damage_boost is a percentage (0.3 = +30%)
-        // Only active during the final stage (boss fight)
-        // Stored as < 1, applied as multiplier: damage * (1 + 0.3) = 1.3x
-        if (boost > 0 && boost < 1) {
-            return Math.floor(damage * (1 + boost));
-            // Not consumed per hit — lasts the whole boss fight
-            // Cleared automatically when dungeon ends via blessing_state cleanup
-        }
-
-        // Titan's Roar (#4) or Malachar's Will (#10) — stored as multiplier > 1
-        // These are consumed per hit
-        if (boost >= 1) {
-            const boostedDmg = Math.floor(damage * boost);
-            if (state.skill_count > 0) {
-                const newCharges = state.skill_count - 1;
-                await updateBlessingState(playerId, dungeonId, {
-                    skill_count: newCharges,
-                    damage_boost: newCharges > 0 ? boost : 0
-                });
-            } else {
-                await updateBlessingState(playerId, dungeonId, { damage_boost: 0 });
-            }
-            return boostedDmg;
-        }
-    } catch(e) {}
-    return damage;
-}
-
-async function checkClanInvincible(playerId, dungeonId) {
-    try {
-        const { getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
-        const state = await getPlayerBlessingState(playerId, dungeonId);
-        if (!state || !state.invincible) return false;
-        // Reduce invincible turns
-        await updateBlessingState(playerId, dungeonId, { invincible: Math.max(0, state.invincible - 1) });
-        return true;
-    } catch(e) {}
-    return false;
-}
-
-function calculateEnemyRetaliation(enemy, player, playerId = null) {
-    // FIX: use playerId if provided (consistent with consumeShield),
-    // fall back to player.id from DB row
-    const buffKey = playerId || player?.id;
+function calculateEnemyRetaliation(enemy, player) {
     let buffMods = { defense: 0, shield: 0 };
     try {
-        if (buffKey) {
-            const mods = getBuffModifiers('player', buffKey);
+        if (player?.id) {
+            const mods = getBuffModifiers('player', player.id);
             if (mods) buffMods = mods;
         }
     } catch (e) {}
 
     const playerDef    = Number(buffMods.defense) || 0;
     const reduction    = Math.min(0.5, playerDef / 100);
-
-    // Apply enemy debuffs — e.g. Taunt reduces enemy ATK, Intimidate reduces defense
-    let rawDamage = Number(enemy.atk) || 0;
-    try {
-        const { getBuffModifiers: getEnemyMods } = require('../systems/activeBuffs');
-        const enemyDebuffs = getEnemyMods('enemy', String(enemy.id));
-        if (enemyDebuffs) {
-            const atkMod = Number(enemyDebuffs.attack) || 0;
-            const strMod = Number(enemyDebuffs.strength) || 0;
-            rawDamage = Math.max(1, rawDamage + atkMod + strMod);
-        }
-    } catch(e) {}
-
-    let damage = Math.floor(rawDamage * (1 - reduction));
+    const rawDamage    = Number(enemy.atk) || 0;
+    let damage         = Math.floor(rawDamage * (1 - reduction));
     const playerShield = Number(buffMods.shield) || 0;
     let shieldAbsorbed = 0;
 
     if (playerShield > 0 && damage > 0) {
-        // FIX: absorb up to the full shield value (was capped at 60% of damage)
-        // Stand Firm gives 8000 shield — it should absorb 8000 damage total, not 60%
-        const maxAbsorb = Math.min(playerShield, damage);
+        const maxAbsorb = Math.min(playerShield, Math.floor(damage * 0.60));
         shieldAbsorbed  = maxAbsorb;
-        damage          = Math.max(0, damage - shieldAbsorbed);
+        damage          = Math.max(1, damage - shieldAbsorbed);
     }
 
     return { damage, shieldAbsorbed, defenseBlocked: Math.floor(rawDamage * reduction) };
@@ -553,15 +498,9 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
 
     let evaded = false;
     let damage = calculatePlayerDamage(p, e, weaponBonus);
-    damage = await applyClanBlessingDamageBoost(playerId, dungeonId, damage);
     if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
-
-    // FIX: record damage contribution BEFORE distributing rewards so the attacker gets credit
-    await addDamageContribution(dungeonId, enemyId, playerId, damage);
-    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, null, damage, damage); } catch(e2) {}
-
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
 
@@ -576,42 +515,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     let retaliation = 0, playerHp = Number(p.hp), retaliationMessage = '';
     let shieldAbsorbed = 0, defenseBlocked = 0;
     if (!defeated) {
-        // Check Titan's Roar invincibility
-        const isInvincible = await checkClanInvincible(playerId, dungeonId);
-        if (isInvincible) {
-            retaliation = 0;
-            retaliationMessage = `🛡️ ${p.nickname} is invincible — the attack bounces off.`;
-        }
-        const ret = isInvincible ? { damage: 0, shieldAbsorbed: 0, defenseBlocked: 0 } : calculateEnemyRetaliation(e, p, playerId);
-
-        // Track consecutive hits taken for Titan's Roar (#4)
-        if (!isInvincible && ret.damage > 0) {
-            try {
-                const { getPlayerBlessingState, updateBlessingState, getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
-                const clan = await getPlayerClan(playerId);
-                if (clan && CLAN_BLESSINGS[clan.blessing_id]?.trigger === 'three_consecutive_hits') {
-                    const state = await getPlayerBlessingState(playerId, dungeonId);
-                    const newHits = (state?.hit_count || 0) + 1;
-                    if (newHits >= 3) {
-                        await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2, damage_boost: 4.0 });
-                        // Announce Titan's Roar
-                        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-                        if (sock) await sock.sendMessage(RAID_GROUP, {
-                            text:
-                                `╔══〘 ⚡ TITAN'S ROAR 〙══╗\n` +
-                                `┃◆ 3 hits taken.\n` +
-                                `┃◆ *${p.nickname}* erupts.\n` +
-                                `┃◆\n` +
-                                `┃◆ 🛡️ Invincible for 2 turns.\n` +
-                                `┃◆ ⚡ Next hit deals 400% damage.\n` +
-                                `╚═══════════════════════════╝`
-                        }).catch(() => {});
-                    } else {
-                        await updateBlessingState(playerId, dungeonId, { hit_count: newHits });
-                    }
-                }
-            } catch(e2) { console.error('Titan Roar track error:', e2.message); }
-        }
+        const ret = calculateEnemyRetaliation(e, p);
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
@@ -628,7 +532,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 );
                 if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
             }
-        } catch(e2) {}
+        } catch(e) {}
 
         try {
             const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -650,7 +554,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(potErr) {}
 
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
-        try { trackHpLost(playerId, dungeonId, retaliation); } catch(e2) {}
+        try { trackHpLost(playerId, dungeonId, retaliation); } catch(e) {}
 
         try {
             const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -692,7 +596,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
-                const fatigueGainA = calculateFatigueGain();
+                const fatigueGainA = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
                 await increasePlayerFatigue(playerId, fatigueGainA, p);
                 tickBuffs('player', playerId);
                 return {
@@ -717,25 +621,17 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             [playerId, dungeonId]
         );
         try {
-            // FIX: Check death_protect (Ichor of the Fallen) — if active, skip loss penalty
-            const deathProtect = getEffect(playerId, dungeonId);
-            const isProtected  = deathProtect?.effect === 'death_protect';
-            if (isProtected) {
-                clearEffect(playerId);
-                console.log(`[death_protect] ${playerId} protected — no gold/XP loss`);
-            } else {
-                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-                if (sess.length) {
-                    const lostGold = sess[0].session_gold || 0;
-                    const lostXp   = sess[0].session_xp   || 0;
-                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
-                }
+            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+            if (sess.length) {
+                const lostGold = sess[0].session_gold || 0;
+                const lostXp   = sess[0].session_xp   || 0;
+                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = calculateFatigueGain();
+    const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
     await increasePlayerFatigue(playerId, fatigueGain, p);
     tickBuffs('player', playerId);
 
@@ -755,11 +651,12 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 
     let evaded = false;
 
+    // ── DOUBLE STRIKE SUPPORT ─────────────────────────────────
     let hits = 1;
     try {
         const turnFx = getTurnEffect(playerId);
         if (turnFx?.effect === 'double_strike') hits = turnFx.data.hits || 2;
-    } catch (e2) {}
+    } catch (e) {}
 
     let totalDamage = 0;
     for (let i = 0; i < hits; i++) {
@@ -775,7 +672,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
 
-    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, null, damage, damage); } catch(e2) {}
+    try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e) {}
 
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
@@ -792,7 +689,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     let shieldAbsorbed = 0, defenseBlocked = 0;
 
     if (!defeated) {
-        const ret = calculateEnemyRetaliation(e, p, playerId);
+        const ret = calculateEnemyRetaliation(e, p);
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
@@ -809,7 +706,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 );
                 if (tankAlive.length) retaliationTargetId = activeTaunt.tankId;
             }
-        } catch(e2) {}
+        } catch(e) {}
 
         try {
             const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -873,7 +770,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
-                const fatigueGainA = calculateFatigueGain();
+                const fatigueGainA = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
                 await increasePlayerFatigue(playerId, fatigueGainA, player);
                 tickBuffs('player', playerId);
                 return {
@@ -897,25 +794,17 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             [playerId, dungeonId]
         );
         try {
-            // FIX: Check death_protect (Ichor of the Fallen) — if active, skip loss penalty
-            const deathProtect = getEffect(playerId, dungeonId);
-            const isProtected  = deathProtect?.effect === 'death_protect';
-            if (isProtected) {
-                clearEffect(playerId);
-                console.log(`[death_protect] ${playerId} protected — no gold/XP loss`);
-            } else {
-                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-                if (sess.length) {
-                    const lostGold = sess[0].session_gold || 0;
-                    const lostXp   = sess[0].session_xp   || 0;
-                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
-                }
+            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+            if (sess.length) {
+                const lostGold = sess[0].session_gold || 0;
+                const lostXp   = sess[0].session_xp   || 0;
+                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
 
-    const fatigueGain = calculateFatigueGain();
+    const fatigueGain = Math.min(4, Math.max(1, Math.ceil(damage / 120)));
     await increasePlayerFatigue(playerId, fatigueGain, player);
     tickBuffs('player', playerId);
 
@@ -980,7 +869,7 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
         const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [c.player_id]);
         rewards.push({
             playerId: c.player_id,
-            nickname: pl[0]?.nickname || c.player_id,
+            nickname: pl[0].nickname,
             damage:   Number(c.damage_dealt),
             exp:      expEarned,
             gold:     goldEarned
@@ -988,19 +877,6 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     }
 
     await db.execute("DELETE FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?", [dungeonId, enemyId]);
-
-    // Fire quest + clan quest progress for kill events
-    const isBossKill = Number(enemy[0].exp) >= 2000;
-    const { updateQuestProgress } = require('../systems/questSystem');
-    for (const r of rewards) {
-        updateClanQuestProgress(r.playerId, 'kill_enemies', 1, null).catch(() => {});
-        updateQuestProgress(r.playerId, 'kill_enemies', 1, null).catch(() => {});
-        if (isBossKill) {
-            updateClanQuestProgress(r.playerId, 'boss_kill', 1, null).catch(() => {});
-            updateQuestProgress(r.playerId, 'boss_kill', 1, null).catch(() => {});
-        }
-    }
-
     return { enemyName: enemy[0].name, contributors: rewards };
 }
 
@@ -1016,55 +892,11 @@ async function addDamageContribution(dungeonId, enemyId, playerId, damage) {
 async function advanceStage(dungeonId, nextStage) {
     await db.execute("UPDATE dungeon SET stage=?, stage_cleared=0 WHERE id=?", [nextStage, dungeonId]);
     await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=? AND current_hp <= 0", [dungeonId]);
-    // Reset per-stage blessings (Void Collapse #2, Soul Shatter #5) so they can fire again next stage
-    await db.execute(
-        "UPDATE clan_blessing_state SET blessing_used=0 WHERE dungeon_id=? AND blessing_used=1",
-        [dungeonId]
-    ).catch(() => {});
     const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
     const rank = dungeon[0]?.dungeon_rank;
-    if (rank && rank.startsWith('TERRITORY_')) {
-        // Territory dungeon — spawn territory enemies
-        const tid = rank.replace('TERRITORY_', '');
-        const territoryEnemies = require('../data/territoryEnemies');
-        const enemyData = territoryEnemies[tid];
-        if (enemyData) {
-            const [dungeonRow] = await db.execute("SELECT max_stage FROM dungeon WHERE id=?", [dungeonId]);
-            const maxStage = dungeonRow[0]?.max_stage || 4;
-            const isBoss = nextStage === maxStage;
-            if (isBoss) {
-                const boss = enemyData.boss;
-                await db.execute(
-                    'INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [dungeonId, boss.name, boss.hp, boss.hp, boss.atk, boss.def, boss.exp, boss.gold, boss.evasion || 0, JSON.stringify(boss.moves || [])]
-                );
-            } else {
-                const count = Math.floor(Math.random() * 3) + 3;
-                for (let i = 0; i < count; i++) {
-                    const mini = enemyData.miniBosses[Math.floor(Math.random() * enemyData.miniBosses.length)];
-                    await db.execute(
-                        'INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        [dungeonId, mini.name, mini.hp, mini.hp, mini.atk, mini.def, mini.exp, mini.gold, mini.evasion || 0, JSON.stringify(mini.moves || [])]
-                    );
-                }
-            }
-        }
-    } else if (rank && rank.startsWith('P')) {
+    if (rank && rank.startsWith('P')) {
         const { spawnPrestigeEnemies } = require('./prestigeDungeon');
         await spawnPrestigeEnemies(dungeonId, rank, nextStage);
-    } else if (rank && rank.startsWith('TERRITORY_')) {
-        // Territory dungeon — spawn territory-specific void guards
-        const territoryId = rank.replace('TERRITORY_', '');
-        const { getTerritoryEnemies } = require('../data/territoryEnemies');
-        const enemies = getTerritoryEnemies(territoryId, nextStage);
-        for (const e of enemies) {
-            await db.execute(
-                `INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [dungeonId, e.name, e.hp, e.hp, e.atk, e.def,
-                 e.exp, e.gold, e.evasion || 0, JSON.stringify(e.moves || [])]
-            );
-        }
     } else {
         await spawnStageEnemies(dungeonId, rank, nextStage);
     }
@@ -1112,7 +944,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         const [dRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
         if (client && !dRank[0]?.dungeon_rank?.startsWith('P')) {
-            trySpawnPrestigeDungeon(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error:', e.message));
+            trySpawnPrestigeDungeon(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error:', e.message));
         }
         return true;
     }
@@ -1199,14 +1031,7 @@ async function getDungeonStatusText(dungeonId) {
     const [dungeon] = await db.execute("SELECT * FROM dungeon WHERE id=?", [dungeonId]);
     if (!dungeon.length) return "Dungeon not found.";
     const d = dungeon[0];
-
-    // FIX: Re-fetch fresh enemy list directly from DB (don't rely on stale dungeon object)
     const enemies = await getCurrentEnemies(dungeonId);
-
-    // FIX: Re-read stage_cleared from DB in real time
-    const [fresh] = await db.execute("SELECT stage_cleared FROM dungeon WHERE id=?", [dungeonId]);
-    const stageCleared = fresh[0]?.stage_cleared === 1;
-
     const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
     const [box, bar, bul, close] = isPrestige
         ? ['╔══〘 ✦ PRESTIGE STATUS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
@@ -1216,9 +1041,6 @@ async function getDungeonStatusText(dungeonId) {
     text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
     text += `${bul} Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}\n`;
     text += `${bar}\n`;
-
-    // FIX: Show enemies if they exist, REGARDLESS of stage_cleared flag
-    // The cleared flag and enemy list can desync — trust the enemy list
     if (enemies.length === 0) {
         text += `${bul} ✅ All enemies defeated!\n`;
         text += `${bul} 🧭 Use !onward to advance\n`;
@@ -1227,17 +1049,13 @@ async function getDungeonStatusText(dungeonId) {
         enemies.forEach((e, i) => {
             text += `${bul}   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
         });
-        if (stageCleared) {
-            // Desync: flag says cleared but enemies still in DB — reset the flag
-            db.execute("UPDATE dungeon SET stage_cleared=0 WHERE id=?", [dungeonId]).catch(() => {});
-        }
     }
     text += `${bar}\n${bul} 🧭 !skill <move> [target]\n${close}`;
     return text;
 }
 
 module.exports = {
-    RAID_GROUP,
+    getRaidGroup,
     spawnDungeon,
     getWeightedDungeonRank,
     getActiveDungeon,
@@ -1269,4 +1087,6 @@ module.exports = {
     clearLobbyTimer,
     dungeonLocks,
     clearDungeonTimers,
+    getDungeonMvp,
+    getDungeonMvpContributions
 };
