@@ -171,7 +171,7 @@ const COMMUNITY_JID   = process.env.COMMUNITY_JID || '';
 const allowedGroupJids = new Set();
 global.allowedGroupJids = allowedGroupJids;
 
-// ── Test group — bypasses all GC restrictions ──────────────
+// ── Test group — bypasses all GC restrictions ──────────────── ADDED
 const TEST_GROUP_JID = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
 
 const commands = new Map();
@@ -405,6 +405,43 @@ async function startBot() {
                 `).catch(() => {});
                 await db.execute("ALTER TABLE players ADD COLUMN fatigue INT DEFAULT 0").catch(() => {});
                 await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
+
+                // ── Tournament tables ──────────────────────────────── ADDED
+                await db.execute(`CREATE TABLE IF NOT EXISTS tournaments (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    phase VARCHAR(30) DEFAULT 'registration',
+                    phase_ends_at DATETIME DEFAULT NULL,
+                    started_at DATETIME DEFAULT NOW(),
+                    ended_at DATETIME DEFAULT NULL,
+                    is_active TINYINT DEFAULT 1
+                )`).catch(() => {});
+                await db.execute(`CREATE TABLE IF NOT EXISTS tournament_players (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    tournament_id INT NOT NULL,
+                    player_id VARCHAR(60) NOT NULL,
+                    duo_partner VARCHAR(60) DEFAULT NULL,
+                    wins INT DEFAULT 0,
+                    losses INT DEFAULT 0,
+                    eliminated TINYINT DEFAULT 0,
+                    phase_joined VARCHAR(30) DEFAULT 'battle_royale',
+                    prize_claimed TINYINT DEFAULT 0,
+                    UNIQUE KEY unique_entry (tournament_id, player_id),
+                    INDEX (tournament_id)
+                )`).catch(() => {});
+                await db.execute(`CREATE TABLE IF NOT EXISTS tournament_matches (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    tournament_id INT NOT NULL,
+                    phase VARCHAR(30) NOT NULL,
+                    player1_id VARCHAR(60) NOT NULL,
+                    player2_id VARCHAR(60) NOT NULL,
+                    winner_id VARCHAR(60) DEFAULT NULL,
+                    status ENUM('pending','active','completed') DEFAULT 'pending',
+                    round INT DEFAULT 1,
+                    scheduled_at DATETIME DEFAULT NOW(),
+                    completed_at DATETIME DEFAULT NULL,
+                    INDEX (tournament_id, phase)
+                )`).catch(() => {});
 
                 try {
                     await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)").catch(() => {});
@@ -659,11 +696,11 @@ async function startBot() {
                 })
             };
 
-            // Declare effectiveUserId in outer scope so catch block can access it
+            // ── ADDED: effectiveUserId in outer scope for catch block access ──
             let effectiveUserId = userId;
 
             try {
-                if (!['respawn', 'awaken', 'register', 'tester'].includes(cmdName)) {
+                if (!['respawn', 'awaken', 'register', 'tester', 'testmode'].includes(cmdName)) {
                     let hp = null;
                     const cached = getCachedPlayer(effectiveUserId);
                     if (cached !== null) {
@@ -672,9 +709,9 @@ async function startBot() {
                         const [rows] = await db.execute("SELECT hp FROM players WHERE id=?", [effectiveUserId]);
                         if (rows.length) {
                             hp = rows[0].hp;
-                            setCachedPlayer(userId, rows[0]);
+                            setCachedPlayer(effectiveUserId, rows[0]);
                         } else {
-                            setCachedPlayer(userId, { hp: null });
+                            setCachedPlayer(effectiveUserId, { hp: null });
                         }
                     }
                     if (hp !== null && hp <= 0) {
@@ -694,40 +731,42 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
-                    // In test group — swap userId AND mentioned IDs to demo accounts
-                    if (isTestGroup && cmdName !== 'tester') {
+                    // ── ADDED: swap userId to demo account if tester session active ──
+                    if (isTestGroup && cmdName !== 'tester' && cmdName !== 'testmode') {
                         try {
                             const { activeTesterSessions } = require('./src/commands/tester');
-                            // Swap sender
                             if (activeTesterSessions?.has(userId)) {
                                 effectiveUserId = activeTesterSessions.get(userId);
                             }
-                            // Swap all mentioned players to their demo IDs too
-                            // So !duel @opponent targets opponent_test not opponent
+                            // Swap mentioned players to their demo IDs so !duel targets _test accounts
                             const origMentionedIds = fakeMsg.mentionedIds;
                             Object.defineProperty(fakeMsg, 'mentionedIds', {
                                 get() {
-                                    return origMentionedIds.map(mid => {
-                                        const demoId = mid + '_test';
-                                        // Only swap if that demo account exists in sessions or has been created
-                                        return activeTesterSessions?.has(mid) ? activeTesterSessions.get(mid) : demoId;
-                                    });
+                                    return origMentionedIds.map(mid =>
+                                        activeTesterSessions?.has(mid)
+                                            ? activeTesterSessions.get(mid)
+                                            : mid + '_test'
+                                    );
                                 },
                                 configurable: true
                             });
                         } catch(e) {}
                     }
 
-                    // In test group — redirect ALL announcements back to test group
-                    const _origRaidGroup        = process.env.RAID_GROUP_JID;
-                    const _origAnnouncement     = process.env.ANNOUNCEMENT_GROUP;
-                    const _origCasino           = process.env.CASINO_GC_JID;
-                    const _origExploration      = process.env.EXPLORATION_GC_JID;
+                    // ── ADDED: persistent global override for async announcements ──
+                    // Set global.overrideRaidGroup via !testmode on command
+                    // All getRaidGroup() calls check this global first
+                    // Temp env swap kept as fallback for files not yet converted
+                    const _origRaidGroup       = process.env.RAID_GROUP_JID;
+                    const _origAnnouncement    = process.env.ANNOUNCEMENT_GROUP;
+                    const _origCasino          = process.env.CASINO_GC_JID;
+                    const _origExploration     = process.env.EXPLORATION_GC_JID;
                     if (isTestGroup) {
-                        process.env.RAID_GROUP_JID    = TEST_GROUP_JID;
-                        process.env.ANNOUNCEMENT_GROUP = TEST_GROUP_JID;
-                        process.env.CASINO_GC_JID     = TEST_GROUP_JID;
-                        process.env.EXPLORATION_GC_JID = TEST_GROUP_JID;
+                        process.env.RAID_GROUP_JID     = TEST_GROUP_JID;
+                        process.env.ANNOUNCEMENT_GROUP  = TEST_GROUP_JID;
+                        process.env.CASINO_GC_JID      = TEST_GROUP_JID;
+                        process.env.EXPLORATION_GC_JID  = TEST_GROUP_JID;
+                        global.overrideRaidGroup        = TEST_GROUP_JID;
                     }
                     try {
                         await command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock });
@@ -735,12 +774,12 @@ async function startBot() {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
                     } finally {
-                        // Always restore real values after command runs
+                        // Restore env vars — global.overrideRaidGroup stays until !testmode off
                         if (isTestGroup) {
                             process.env.RAID_GROUP_JID     = _origRaidGroup;
                             process.env.ANNOUNCEMENT_GROUP  = _origAnnouncement;
                             process.env.CASINO_GC_JID      = _origCasino;
-                            process.env.EXPLORATION_GC_JID = _origExploration;
+                            process.env.EXPLORATION_GC_JID  = _origExploration;
                         }
                         playerCache.delete(userId);
                     }
