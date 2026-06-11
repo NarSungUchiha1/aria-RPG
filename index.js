@@ -659,6 +659,9 @@ async function startBot() {
                 })
             };
 
+            // Declare effectiveUserId in outer scope so catch block can access it
+            let effectiveUserId = userId;
+
             try {
                 if (!['respawn', 'awaken', 'register', 'tester'].includes(cmdName)) {
                     let hp = null;
@@ -692,7 +695,6 @@ async function startBot() {
 
                 await enqueueCommand(userId, async () => {
                     // In test group — swap userId to demo account if tester session active
-                    let effectiveUserId = userId;
                     if (isTestGroup && cmdName !== 'tester') {
                         try {
                             const { activeTesterSessions } = require('./src/commands/tester');
