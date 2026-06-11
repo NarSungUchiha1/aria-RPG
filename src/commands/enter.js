@@ -12,7 +12,7 @@ const {
     getDungeonEnemyRevealText,
     isDungeonLockedDB,
     autoStartTimers,
-    RAID_GROUP
+    getRaidGroup
 } = require('../engine/dungeon');
 
 const {
@@ -99,7 +99,7 @@ async function beginDungeon(dungeonId, client) {
         const targetChat = {
             sendMessage: async (content) => {
                 await client.sendMessage(
-                    RAID_GROUP,
+                    getRaidGroup(),
                     { text: content }
                 );
             }
@@ -199,7 +199,7 @@ async function beginDungeon(dungeonId, client) {
 ┃◆`;
         }
 
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
 `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮
 ┃◆
@@ -223,7 +223,7 @@ ${timerText}
         if (revealText) {
 
             await client.sendMessage(
-                RAID_GROUP,
+                getRaidGroup(),
                 { text: revealText }
             );
         }
@@ -263,7 +263,7 @@ module.exports = {
 
         try {
 
-            if (msg.from === RAID_GROUP) {
+            if (msg.from === getRaidGroup()) {
 
                 return msg.reply(
 `══〘 🏰 ENTER 〙══╮
@@ -634,7 +634,7 @@ count = count + 1`,
                 }
 
                 await client.sendMessage(
-                    RAID_GROUP,
+                    getRaidGroup(),
                     {
                         text:
 `╭══〘 ⚔️ RAIDER JOINED 〙══╮

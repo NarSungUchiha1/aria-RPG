@@ -755,7 +755,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                 territoryWars.delete(duelKey);
                 const { claimTerritory, TERRITORIES } = require('./voidTerritories');
                 const { addVoidResonance } = require('./ascendantSystem');
-                const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const getRaidGroup = () => (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
                 const terr = TERRITORIES[warCtx.tid];
                 const attackersWon = winners.some(id => warCtx.attackers.includes(String(id)));
 
@@ -1038,7 +1038,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         for (const { tid, def } of allDefeated) {
             // Demote defeated player from admin in raid GC
             try {
-                const RAID_GROUP_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const RAID_GROUP_JID = (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
                 if (chat.client) {
                     const metadata = await chat.client.groupMetadata(RAID_GROUP_JID).catch(() => null);
                     if (metadata) {

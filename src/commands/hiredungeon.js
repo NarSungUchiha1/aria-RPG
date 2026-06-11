@@ -88,13 +88,13 @@ module.exports = {
             );
 
             // Promote healer into raid group
-            const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
             try {
                 await promoteRaider(client, listing.healer_id);
             } catch (e) {}
 
             // Notify raid group
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `══〘 💚 HEALER HIRED 〙══╮\n` +
                     `┃◆ \n` +

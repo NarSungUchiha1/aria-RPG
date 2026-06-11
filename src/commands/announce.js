@@ -1,4 +1,4 @@
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 const { tagAll } = require('../utils/tagAll');
 
 module.exports = {
@@ -28,7 +28,7 @@ module.exports = {
                 `┃◆ \n` +
                 `╰═══════════════════════════╯`;
 
-            await client.sendMessage(RAID_GROUP, { text, mentions });
+            await client.sendMessage(getRaidGroup(), { text, mentions });
 
             return msg.reply(
                 `══〘 📢 ANNOUNCE 〙══╮\n┃◆ ✅ Announcement sent.\n╰═══════════════════════╯`

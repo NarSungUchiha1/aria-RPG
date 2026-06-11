@@ -21,7 +21,7 @@ const { tickShields } = require('../systems/activeBuffs');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
 const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -102,7 +102,7 @@ module.exports = {
 
                 // Malachar clear announcement
                 if (d.dungeon_rank === 'MALACHAR') {
-                    await client.sendMessage(RAID_GROUP, {
+                    await client.sendMessage(getRaidGroup(), {
                         text:
                             `╔══════════════════════════════════════╗\n` +
                             `┃★                                     \n` +
@@ -174,7 +174,7 @@ module.exports = {
                     );
                     const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, playerIds, 'dungeon');
                     if (mvpResult?.message) {
-                        await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                        await client.sendMessage(getRaidGroup(), { text: mvpResult.message }).catch(() => {});
                     } else {
                         console.log('[MVP] No result — stats may be empty for key dungeon_' + dungeon.id);
                     }
@@ -222,7 +222,7 @@ module.exports = {
                 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
                 const isP = d.dungeon_rank?.startsWith('P');
                 if (!isP) {
-                    trySpawnPrestigeDungeon(client, process.env.RAID_GROUP_JID || '120363213735662100@g.us').catch(() => {});
+                    trySpawnPrestigeDungeon(client, (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us')).catch(() => {});
                 }
 
                 return msg.reply(
@@ -253,7 +253,7 @@ module.exports = {
             // Check if story should auto-advance
             try {
                 const { checkStoryProgress } = require('../systems/loreSystem');
-                const RAID_G = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                const RAID_G = (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
                 checkStoryProgress(client, RAID_G).catch(() => {});
             } catch(e) {}
 
@@ -296,7 +296,7 @@ module.exports = {
                         ).catch(() => {});
                         const { TERRITORIES } = require('../systems/voidTerritories');
                         const terr = TERRITORIES[territoryId];
-                        await client.sendMessage(RAID_GROUP, {
+                        await client.sendMessage(getRaidGroup(), {
                             text:
                                 '╔══〘 🌑 ASSAULT FAILED 〙══╗\n' +
                                 '┃★\n' +
@@ -331,7 +331,7 @@ module.exports = {
 
             if (isMalacharFinal) {
 
-                await client.sendMessage(RAID_GROUP, {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         `╔══════════════════════════════════════╗\n` +
                         `┃★                                     \n` +
@@ -345,7 +345,7 @@ module.exports = {
 
                 await sleep(3000);
 
-                await client.sendMessage(RAID_GROUP, {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         `╔══════════════════════════════════════╗\n` +
                         `┃★                                     \n` +
@@ -359,7 +359,7 @@ module.exports = {
 
                 await sleep(3000);
 
-                await client.sendMessage(RAID_GROUP, {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         `╔══════════════════════════════════════╗\n` +
                         `┃★                                     \n` +

@@ -55,7 +55,7 @@ module.exports = {
             await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=?", [dungeonId]);
 
             // Auto-spawn prestige dungeon after admin close
-            const PRESTIGE_RG = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
             // Only spawn after NORMAL dungeons
             const [closedRankRow] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]);
             if (!closedRankRow[0]?.dungeon_rank?.startsWith('P')) {

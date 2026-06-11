@@ -130,8 +130,8 @@ async function spawnPrestigeEnemies(dungeonId, prestigeRank, stage) {
         toSpawn = [{ ...data.boss }];
     } else {
         const RANK_ENEMY_COUNT = {
-            PF: [2, 4], PE: [3, 5], PD: [4, 6],
-            PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [8, 12]
+            PF: [2, 4], PE: [3, 5], PD: [3, 6],
+            PC: [4, 7], PB: [5, 8], PA: [6, 9], PS: [7, 10]
         };
         const [minE, maxE] = RANK_ENEMY_COUNT[prestigeRank] || [1, 3];
         const count = Math.floor(Math.random() * (maxE - minE + 1)) + minE;
@@ -264,7 +264,7 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         // Short delay so normal dungeon closure messages settle first
         await new Promise(r => setTimeout(r, 3000));
 
-        if (!RAID_GROUP) { console.error('★ trySpawnPrestigeDungeon: RAID_GROUP is undefined — set RAID_GROUP_JID env var'); return; }
+        if (!RAID_GROUP) { console.error('★ trySpawnPrestigeDungeon: getRaidGroup() is undefined — set RAID_GROUP_JID env var'); return; }
 
         // Re-check after delay — another call may have spawned in the meantime
         const [doubleCheck] = await db.execute(
@@ -272,7 +272,7 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
         );
         if (doubleCheck.length) { console.log('★ Prestige dungeon spawned by another call during delay — skip'); return; }
 
-        console.log('★ RAID_GROUP for prestige spawn:', RAID_GROUP);
+        console.log('★ getRaidGroup() for prestige spawn:', RAID_GROUP);
         const prestigeRank = await getWeightedPrestigeRank();
         console.log(`★ Auto-spawning prestige dungeon rank ${prestigeRank}`);
         await spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP);

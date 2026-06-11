@@ -1,6 +1,6 @@
 const db = require('../database/db');
 
-const HEALER_GC = '120363427051780444@g.us';
+const HEALER_GC = (global.overrideRaidGroup || '120363427051780444@g.us');
 
 async function ensureTables() {
     await db.execute(`

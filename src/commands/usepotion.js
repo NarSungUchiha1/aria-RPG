@@ -5,7 +5,7 @@ const {
     setEffect, getEffect, clearEffect, setTurnEffect, getTurnEffect,
     getDeaths, getHpLost
 } = require('../systems/potionEffects');
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 
 // Potions that can be used outside of a dungeon
 const OUT_OF_DUNGEON_OK = new Set([
@@ -130,7 +130,7 @@ module.exports = {
             );
 
             let effectMsg = '';
-            let groupMsg  = ''; // sent to RAID_GROUP if needed
+            let groupMsg  = ''; // sent to getRaidGroup() if needed
 
             // ── APPLY EFFECTS ────────────────────────────────────────────────
             switch (potion.effect) {
@@ -378,8 +378,8 @@ module.exports = {
             }
 
             // ── Send group announcement for group-wide effects ─────────────────
-            if (groupMsg && client && RAID_GROUP) {
-                client.sendMessage(RAID_GROUP, { text: groupMsg }).catch(() => {});
+            if (groupMsg && client && getRaidGroup()) {
+                client.sendMessage(getRaidGroup(), { text: groupMsg }).catch(() => {});
             }
 
             return msg.reply(

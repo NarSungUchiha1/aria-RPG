@@ -232,7 +232,7 @@ async function triggerAscendant(playerId, client = null) {
         'UPDATE void_resonance SET ascendant_at=NOW() WHERE player_id=?', [playerId]
     );
 
-    const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+    const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
 
     if (client) {
         try {
@@ -260,7 +260,7 @@ async function triggerAscendant(playerId, client = null) {
         } catch(e) {}
 
         try {
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     '╔══════════════════════════════════════╗\n' +
                     '┃★\n' +

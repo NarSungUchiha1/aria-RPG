@@ -9,7 +9,7 @@ const db = require('../database/db');
 const { ARIA_MALACHAR_REACTION, CHAPTER5_FACTION_REVEAL } = require('../systems/chapter5lore');
 const { MALACHAR_WEAPONS } = require('../data/malacharWeapons');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -23,11 +23,11 @@ module.exports = {
 
             // ── ARIA speaks ───────────────────────────────────────────────────
             await sleep(3000);
-            await client.sendMessage(RAID_GROUP, { text: ARIA_MALACHAR_REACTION });
+            await client.sendMessage(getRaidGroup(), { text: ARIA_MALACHAR_REACTION });
 
             // ── Faction reveal ────────────────────────────────────────────────
             await sleep(12000);
-            await client.sendMessage(RAID_GROUP, { text: CHAPTER5_FACTION_REVEAL });
+            await client.sendMessage(getRaidGroup(), { text: CHAPTER5_FACTION_REVEAL });
 
             // ── Weapons distributed ───────────────────────────────────────────
             await sleep(6000);
@@ -121,7 +121,7 @@ module.exports = {
             await sleep(3000);
             const newWeapons = weaponResults.filter(r => !r.alreadyHad);
             if (newWeapons.length) {
-                await client.sendMessage(RAID_GROUP, {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         '╔══〘 ⚔️ THE THREE WEAPONS 〙══╗\n' +
                         '┃★\n' +

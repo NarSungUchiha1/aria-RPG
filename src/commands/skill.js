@@ -5,7 +5,7 @@ const { trackContribution } = require('../systems/contributionSystem');
 const { rollMaterialDrop } = require('../systems/materialSystem');
 const { addToBag, getPlayerBag, destroyBag, getBagContents } = require('../systems/bagSystem');
 const { assignDropsToContributors, clearStage, getStagePool, setStagePool, getRankedContributors } = require('../systems/contributionSystem');
-const { demoteRaider, RAID_GROUP } = require('../engine/dungeon');
+const { demoteRaider, getRaidGroup } = require('../engine/dungeon');
 const getUserId = require('../utils/getUserId');
 const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
@@ -549,7 +549,7 @@ module.exports = {
                                 const raiderIds = raiders.map(r => r.player_id);
                                 const mvpResult = await calculateMvp(`dungeon_${dungeon.id}`, raiderIds, 'dungeon');
                                 if (mvpResult?.message) {
-                                    await client.sendMessage(RAID_GROUP, { text: mvpResult.message }).catch(() => {});
+                                    await client.sendMessage(getRaidGroup(), { text: mvpResult.message }).catch(() => {});
                                 }
                             } catch(mvpErr) { console.error('[MVP] error:', mvpErr.message); }
                         }
@@ -562,7 +562,7 @@ module.exports = {
 
                         const drops = [];
                         for (const p of alivePlayers) {
-                            const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, RAID_GROUP);
+                            const drop = await rollMaterialDrop(dungeonCheck[0].dungeon_rank, p.player_id, client, getRaidGroup());
                             if (!drop) continue;
                             const emoji = drop.rarity === 'legendary' ? '🟣' : drop.rarity === 'rare' ? '🔵' : drop.rarity === 'uncommon' ? '🟢' : '⚪';
                             drops.push({ material: drop.material, rarity: drop.rarity, emoji });
@@ -585,7 +585,7 @@ module.exports = {
                             dropPool.forEach((d, i) => { text += `┃◆ ${i + 1}. ${d.emoji} *${d.material}* [${d.rarity.toUpperCase()}]\n`; });
                             text += `┃◆ \n┃◆ !pickup <number> to collect\n┃◆ All raiders can pick each item!\n╰═══════════════════════╯`;
                         }
-                        await client.sendMessage(RAID_GROUP, { text });
+                        await client.sendMessage(getRaidGroup(), { text });
                     } catch(e) { console.error('Stage drop error:', e.message); }
                 })();
 
@@ -661,7 +661,7 @@ module.exports = {
                     clearMalacharPhase(dungeon.id);
                     const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
                     if (!dungeon.dungeon_rank?.startsWith('P')) {
-                        spawnPrestige(client, RAID_GROUP).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
+                        spawnPrestige(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
                     }
                     reply += `┃◆────────────\n┃◆ 💀 All hunters have fallen.\n┃◆ The dungeon collapses.\n`;
                 }

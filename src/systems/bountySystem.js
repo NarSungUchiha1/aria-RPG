@@ -68,8 +68,8 @@ async function updateBountyProgress(playerId, objective, target = null, amount =
             const [p] = await db.execute("SELECT nickname FROM players WHERE id=?", [playerId]);
             const nick = p[0]?.nickname || playerId;
 
-            if (client && RAID_GROUP) {
-                await client.sendMessage(RAID_GROUP, {
+            if (client && getRaidGroup()) {
+                await client.sendMessage(getRaidGroup(), {
                     text:
                         `╔══〘 📋 BOUNTY CLAIMED 〙══╗\n` +
                         `┃◆\n` +

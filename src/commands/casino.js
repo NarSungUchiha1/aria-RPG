@@ -134,7 +134,7 @@ module.exports = {
     aliases: ['dice','slots','coinflip','blackjack','bj','hit','stand','roulette','war','highlow'],
     async execute(msg, args, { userId }) {
         await ensureTables();
-        const CASINO_GC = process.env.CASINO_GC_JID || '';
+        const CASINO_GC = (global.overrideRaidGroup || process.env.CASINO_GC_JID) || '';
         if (CASINO_GC && msg.from !== CASINO_GC && msg.from.endsWith('@g.us')) {
             return msg.reply('🎰 Casino commands only work in the Casino group.');
         }

@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 const { tagAll } = require('../utils/tagAll');
 
 const EVENT_NAME      = 'The Void Fracture';
@@ -62,7 +62,7 @@ async function endEvent(eventId, client) {
     );
 
     if (!leaderboard.length) {
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 `══〘 💠 VOID FRACTURE — ENDED 〙══╮\n` +
                 `┃◆ The rift has sealed.\n` +
@@ -109,7 +109,7 @@ async function endEvent(eventId, client) {
         `┃◆ \n` +
         `╰═══════════════════════════╯`;
 
-    await client.sendMessage(RAID_GROUP, { text, mentions });
+    await client.sendMessage(getRaidGroup(), { text, mentions });
 }
 
 // ── Shard Drop ────────────────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ async function handleShardDrop(dungeonId, client) {
                 "UPDATE event_progress SET completed=1, completed_at=NOW() WHERE event_id=? AND player_id=?",
                 [event.id, s.player_id]
             );
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `╭══〘 💠 VOID FRACTURE — COMPLETE 〙══╮\n` +
                     `┃◆ \n` +
@@ -175,7 +175,7 @@ async function handleShardDrop(dungeonId, client) {
     }
 
     // Team shard found announcement
-    await client.sendMessage(RAID_GROUP, {
+    await client.sendMessage(getRaidGroup(), {
         text:
             `══〘 💠 VOID SHARD FOUND 〙══╮\n` +
             `┃◆ \n` +
@@ -256,7 +256,7 @@ module.exports = {
 
         const { mentions } = await tagAll(client);
 
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 `╭══〘 ⚡ SYSTEM ALERT — ARIA 〙══╮\n` +
                 `┃◆ \n` +

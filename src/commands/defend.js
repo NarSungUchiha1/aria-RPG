@@ -16,7 +16,7 @@ const { getPlayerClan } = require('../systems/clanSystem');
 const { setDuelActive, setTurn, territoryWars, getDuelKey } = require('../systems/pvpsystem');
 const { promoteRaider } = require('../engine/dungeon');
 
-const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
 
 // Track which territory dungeons have had war triggered already
 const warStarted = new Map();
@@ -63,7 +63,7 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
         const allMentions = [...attackers, ...defenders].map(id => id + '@s.whatsapp.net');
 
         // Announce
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 '╔══〘 ⚔️ TERRITORY WAR 〙══╗\n' +
                 '┃★\n' +
@@ -105,7 +105,7 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
         const fakeChat = {
             sendMessage: (content) => {
                 const payload = typeof content === 'string' ? { text: content } : content;
-                return client.sendMessage(RAID_GROUP, payload).catch(() => {});
+                return client.sendMessage(getRaidGroup(), payload).catch(() => {});
             },
             client: client
         };
@@ -131,7 +131,7 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
         const fakeChat2 = {
             sendMessage: (content) => {
                 const payload = typeof content === 'string' ? { text: content } : content;
-                return client.sendMessage(RAID_GROUP, payload).catch(() => {});
+                return client.sendMessage(getRaidGroup(), payload).catch(() => {});
             },
             client: client
         };
@@ -156,7 +156,7 @@ async function tryStartTerritoryWar(dungeonId, tid, attackerClanId, defenderClan
             return r[0]?.nickname || id;
         }));
 
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 '╔══〘 ⚔️ TERRITORY WAR 〙══╗\n' +
                 '┃★\n' +
@@ -247,7 +247,7 @@ module.exports = {
             const [pRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]);
             const territory = TERRITORIES[tid];
 
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     '══〘 🛡️ DEFENDER JOINED 〙══╮\n' +
                     '┃★ *' + (pRow[0]?.nickname || userId) + '*\n' +

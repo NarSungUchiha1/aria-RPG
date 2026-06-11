@@ -1,6 +1,6 @@
 const db = require('../database/db');
 
-const BLACKSMITH_GC = '120363426728151625@g.us';
+const BLACKSMITH_GC = (global.overrideRaidGroup || '120363426728151625@g.us');
 
 // ── Material Rarity Tiers ─────────────────────────────────────────────────────
 const MATERIALS = {
@@ -295,7 +295,7 @@ async function ensureTables() {
     `).catch(() => {});
 }
 
-async function rollMaterialDrop(dungeonRank, playerId, client, RAID_GROUP) {
+async function rollMaterialDrop(dungeonRank, playerId, client, raidGroup) {
     await ensureTables();
 
     const HIGH_RANKS = ['C', 'B', 'A', 'S'];

@@ -2,7 +2,7 @@ const { spawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const db = require('../database/db');
 
 const VALID_RANKS = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
-const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
 
 module.exports = {
     name: 'spawnprestige',
@@ -29,7 +29,7 @@ module.exports = {
                 await msg.reply(`⚠️ Closed existing prestige dungeon. Spawning ${rank}...`);
             }
 
-            const dungeonId = await spawnPrestigeDungeon(rank, client, RAID_GROUP);
+            const dungeonId = await spawnPrestigeDungeon(rank, client, getRaidGroup());
             if (!dungeonId) return msg.reply(
                 `╔══〘 ✦ PRESTIGE SPAWN 〙══╗\n┃★ ❌ Spawn failed — check logs.\n╚═══════════════════════════╝`
             );
