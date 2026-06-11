@@ -12,7 +12,6 @@ const {
 const { handleShardDrop } = require('./event');
 const { getPlayerBag } = require('../systems/bagSystem');
 const { resetStageTimer, clearDungeonTimers } = require('../engine/dungeonTimer');
-const { getActiveWar, addWarDamage, endVoidWar } = require('../systems/voidwar');
 const { rollMaterialDrop } = require('../systems/materialSystem');
 const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
@@ -179,22 +178,6 @@ module.exports = {
                         console.log('[MVP] No result — stats may be empty for key dungeon_' + dungeon.id);
                     }
                 } catch (e) { console.error('[MVP dungeon]', e.message); }
-
-                // Void War contribution
-                (async () => {
-                    try {
-                        const war = await getActiveWar();
-                        if (!war) return;
-                        for (const p of participants) {
-                            const [pl] = await db.execute("SELECT nickname FROM players WHERE id=?", [p.player_id]);
-                            if (!pl.length) continue;
-                            const result = await addWarDamage(p.player_id, pl[0].nickname, d.dungeon_rank);
-                            if (result && result.totalDamage >= result.goal) {
-                                await endVoidWar(client);
-                            }
-                        }
-                    } catch(e) { console.error('War damage error:', e.message); }
-                })();
 
             } // end dungeon clear rewards block
 

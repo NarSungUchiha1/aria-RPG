@@ -268,7 +268,7 @@ module.exports = {
 ┃★ !spawnwanderer → Force spawn Wanderer [Exp GC]
 ┃★ !begin / !clear / !closedungeon
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
-┃★ !startvoidwar  |  !voidstorm  |  !leviathanphase
+┃★ !leviathanphase → Force Leviathan to final phase
 ┃★ !chapter5 → Launch Chapter 5 sequence
 ┃★ !givemalacharweapon → Give bound weapons
 ┃★ !give @user gold/xp/item <value>  |  !payxp @user <amount>
@@ -398,7 +398,6 @@ module.exports = {
 ┃★ !closedungeon → Force-close dungeon
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
 ┃★ !leviathanphase → Force Leviathan to final phase
-┃★ !startvoidwar  |  !voidstorm
 ┃★ !chapter5 → Launch Chapter 5 sequence
 ┃★ !givemalacharweapon → Give bound weapons
 ┃★ !give @user gold/xp/item <value>
@@ -544,8 +543,6 @@ module.exports = {
 ┃  ◆ !spawnleviathan → Spawn the Void Leviathan
 ┃  ◆ !spawnmalachar → Spawn Malachar raid
 ┃  ◆ !leviathanphase → Force Leviathan to final phase
-┃  ◆ !startvoidwar → Begin a Void War
-┃  ◆ !voidstorm → Trigger a void storm event
 ┃  ◆ !chapter5 → Launch Chapter 5 sequence
 ┃  ◆ !givemalacharweapon → Give bound weapons
 ┃  ◆ !give @user gold/xp/item <value> → Grant resources

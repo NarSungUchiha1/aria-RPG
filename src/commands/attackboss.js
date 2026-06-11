@@ -47,17 +47,6 @@ module.exports = {
 
                 await processTurn(userId, damage, client);
 
-                // War damage contribution
-                try {
-                    const { addWarDamage, getActiveWar, endVoidWar } = require('../systems/voidwar');
-                    const war = await getActiveWar();
-                    if (war) {
-                        const warResult = await addWarDamage(userId, p.nickname, 'S');
-                        if (warResult && warResult.totalDamage >= warResult.goal) {
-                            await endVoidWar(client);
-                        }
-                    }
-                } catch(e) {}
             }
 
             const filledBars = Math.max(0, Math.floor((result.newHp / boss.max_hp) * 10));

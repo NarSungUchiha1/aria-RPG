@@ -248,29 +248,11 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
         loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞\n┃◆ \n`;
     } catch (e) {}
 
-    let warText = '';
-    try {
-        const { getActiveWar } = require('../systems/voidwar');
-        const war = await getActiveWar();
-        if (war) {
-            const pct = Math.min(100, Math.floor((war.total_damage / war.goal) * 100));
-            const filled = Math.floor(pct / 10);
-            const bar = '🟥'.repeat(filled) + '⬛'.repeat(10 - filled);
-            warText =
-                `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ ⚡ VOID WAR ACTIVE\n` +
-                `┃◆ ${bar} ${pct}%\n` +
-                `┃◆ Clear this to wound the Leviathan!\n` +
-                `┃◆ ━━━━━━━━━━━━━━━━━━━━\n` +
-                `┃◆ \n`;
-        }
-    } catch(e) {}
 
     const announceMsg =
         `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
         `┃◆ \n` +
         `${loreText}` +
-        `${warText}` +
         `┃◆   Rank: ${rank}\n` +
         `┃◆   Max Stage: ${maxStage}\n` +
         `┃◆   Boss: ${boss}\n` +
@@ -394,50 +376,28 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     if (!data) return;
 
     let isEvent = false;
-    let isVoidWar = false;
-    try {
-        const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-        isEvent = eventRows.length > 0;
-    } catch (e) { isEvent = false; }
-
-    try {
-        const [warRows] = await db.execute("SELECT id FROM void_war WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-        isVoidWar = warRows.length > 0;
-    } catch (e) { isVoidWar = false; }
-
-    const isBoosted = isEvent || isVoidWar;
     const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];
 
     if (isBoss) {
         const boss = { ...data.boss };
         if (isBoosted) {
-            const hpMult  = isVoidWar ? 3.5 : 2.0;
-            const atkMult = isVoidWar ? 2.5 : 1.5;
-            boss.hp   = Math.floor(boss.hp  * hpMult);
-            boss.atk  = Math.floor(boss.atk * atkMult);
+            boss.hp   = Math.floor(boss.hp  * 2.0);
+            boss.atk  = Math.floor(boss.atk * 1.5);
             boss.def  = Math.floor((boss.def || 5) * 1.8);
             boss.exp  = Math.floor(boss.exp  * 2.0);
             boss.gold = Math.floor(boss.gold * 2.0);
-            boss.name = isVoidWar ? `Void-Corrupted ${boss.name}` : `Void-Touched ${boss.name}`;
+            boss.name = `Void-Touched ${boss.name}`;
         }
         enemiesToSpawn = [boss];
     } else {
         let count;
-        if (isVoidWar)      count = Math.floor(Math.random() * 5) + 6;
-        else if (isEvent)   count = Math.floor(Math.random() * 4) + 5;
-        else                count = Math.floor(Math.random() * 5) + 1;
+        if (isEvent)   count = Math.floor(Math.random() * 4) + 5;
+        else            count = Math.floor(Math.random() * 5) + 1;
 
         for (let i = 0; i < count; i++) {
             const template = { ...data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)] };
-            if (isVoidWar) {
-                template.hp   = Math.floor(template.hp  * 2.5);
-                template.atk  = Math.floor(template.atk * 2.0);
-                template.def  = Math.floor((template.def || 2) * 1.5);
-                template.exp  = Math.floor(template.exp * 1.8);
-                template.gold = Math.floor(template.gold * 1.8);
-                template.name = `Void-Corrupted ${template.name}`;
-            } else if (isEvent) {
+            if (isEvent) {
                 template.hp  = Math.floor(template.hp  * 1.3);
                 template.atk = Math.floor(template.atk * 1.2);
             }

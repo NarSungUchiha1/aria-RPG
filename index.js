@@ -1025,21 +1025,6 @@ cron.schedule('4-59/10 * * * *', async () => {
     } catch(e) { console.error('Fatigue recovery error:', e.message); }
 });
 
-// ==================== VOID WAR AUTO-END ====================
-cron.schedule('6-59/10 * * * *', async () => {
-    if (!isReady || !sock) return;
-    try {
-        const { getActiveWar, endVoidWar } = require('./src/systems/voidwar');
-        const war = await getActiveWar();
-        if (!war) return;
-        const expired = new Date(war.ends_at) <= new Date();
-        const goalReached = war.total_damage >= war.goal;
-        if (expired || goalReached) {
-            console.log(`⚡ Void War ending — expired: ${expired}, goal: ${goalReached}`);
-            await endVoidWar(sock);
-        }
-    } catch(e) { console.error('Void War auto-end error:', e.message); }
-});
 
 // ==================== WEEKLY INACTIVE CLEANUP ====================
 cron.schedule('0 3 * * 1', async () => {
