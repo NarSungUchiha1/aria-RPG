@@ -16,7 +16,7 @@ const {
 } = require('../systems/voidTerritories');
 const { getPlayerClan, getClanMemberRole, getClanMembers } = require('../systems/clanSystem');
 const { addVoidResonance } = require('../systems/ascendantSystem');
-const { TERRITORY_ENEMIES: territoryEnemies, getTerritoryEnemies } = require('../data/territoryEnemies');
+const territoryEnemies = require('../data/territoryEnemies');
 
 const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 const LOBBY_DURATION_MS = 60 * 60 * 1000; // 1 hour — defenders have 1 hour to respond
