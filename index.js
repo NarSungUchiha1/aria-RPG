@@ -584,7 +584,8 @@ async function startBot() {
             const cmdName = args.shift().toLowerCase();
 
             // ── Community whitelist — only DMs and community groups ────────
-            if (COMMUNITY_JID && jid.endsWith('@g.us')) {
+            // Test GC is always allowed regardless of community setting
+            if (COMMUNITY_JID && jid.endsWith('@g.us') && jid !== TEST_GROUP_JID) {
                 if (!allowedGroupJids.has(jid)) {
                     try {
                         const meta = await sock.groupMetadata(jid).catch(() => null);
@@ -698,8 +699,16 @@ async function startBot() {
                 })
             };
 
-            // ── ADDED: effectiveUserId in outer scope for catch block access ──
+            // Resolve effectiveUserId to demo account BEFORE dead check
             let effectiveUserId = userId;
+            if (isTestGroup && !['tester', 'testmode'].includes(cmdName)) {
+                try {
+                    const { activeTesterSessions } = require('./src/commands/tester');
+                    if (activeTesterSessions?.has(userId)) {
+                        effectiveUserId = activeTesterSessions.get(userId);
+                    }
+                } catch(e) {}
+            }
 
             try {
                 if (!['respawn', 'awaken', 'register', 'tester', 'testmode'].includes(cmdName)) {
@@ -1022,21 +1031,6 @@ cron.schedule('4-59/10 * * * *', async () => {
     } catch(e) { console.error('Fatigue recovery error:', e.message); }
 });
 
-// ==================== VOID WAR AUTO-END ====================
-cron.schedule('6-59/10 * * * *', async () => {
-    if (!isReady || !sock) return;
-    try {
-        const { getActiveWar, endVoidWar } = require('./src/systems/voidwar');
-        const war = await getActiveWar();
-        if (!war) return;
-        const expired = new Date(war.ends_at) <= new Date();
-        const goalReached = war.total_damage >= war.goal;
-        if (expired || goalReached) {
-            console.log(`⚡ Void War ending — expired: ${expired}, goal: ${goalReached}`);
-            await endVoidWar(sock);
-        }
-    } catch(e) { console.error('Void War auto-end error:', e.message); }
-});
 
 // ==================== WEEKLY INACTIVE CLEANUP ====================
 cron.schedule('0 3 * * 1', async () => {
