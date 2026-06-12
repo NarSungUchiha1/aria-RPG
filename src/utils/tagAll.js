@@ -1,12 +1,13 @@
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 
 /**
- * Gets all participant JIDs from the raid group for silent @mentions.
+ * Gets all participant JIDs from the given group (or raid group) for silent @mentions.
  * Everyone gets notified but no tag text appears in the message.
  */
-async function tagAll(client) {
+async function tagAll(client, groupJid) {
     try {
-        const metadata = await client.groupMetadata(RAID_GROUP);
+        const targetGroup = groupJid || getRaidGroup();
+        const metadata = await client.groupMetadata(targetGroup);
         const mentions = metadata.participants.map(p => p.id);
         return { mentions };
     } catch (e) {

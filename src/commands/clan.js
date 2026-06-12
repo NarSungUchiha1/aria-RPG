@@ -29,7 +29,7 @@ module.exports = {
                 );
 
                 const members  = await getClanMembers(myClan.id);
-                const blessing = CLAN_BLESSINGS[myClan.blessing_id];
+                const blessing = CLAN_BLESSINGS[myClan.blessing_id] || { emoji:'❓', name:'None', condition:'—', effect:'No blessing set. Use !clan setblessing' };
                 const myRole   = await getClanMemberRole(userId, myClan.id);
                 const isMaster = myClan.leader_id === userId;
                 const leader   = members.find(m => m.id === myClan.leader_id);

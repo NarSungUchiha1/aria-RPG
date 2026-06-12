@@ -1,3 +1,5 @@
+const db = require('../database/db');
+
 // ── PRESET CLAN BLESSINGS ─────────────────────────────────────────────────────
 const CLAN_BLESSINGS = {
     1:  { name: "Dragon's Breath",  emoji: '🐉', condition: 'HP drops below 30%',                           effect: 'Fire blast — 500% primary stat to ALL enemies. Ignores defense.',            trigger: 'hp_below_30',             multiplier: 5.0,  aoe: true, ignore_defense: true },
@@ -197,16 +199,7 @@ async function getPlayerBlessingState(playerId, dungeonId) {
         'SELECT * FROM clan_blessing_state WHERE player_id=? AND dungeon_id=?',
         [playerId, dungeonId]
     );
-    if (rows[0]) return rows[0];
-    // Player joined after lockDungeon — create a fresh state row on demand
-    await db.execute(
-        `INSERT IGNORE INTO clan_blessing_state
-         (player_id, dungeon_id, blessing_used, last_triggered, hit_count, skill_count, invincible, damage_boost)
-         VALUES (?, ?, 0, NULL, 0, 0, 0, 0)`,
-        [playerId, dungeonId]
-    ).catch(() => {});
-    return { player_id: playerId, dungeon_id: dungeonId, blessing_used: 0,
-             last_triggered: null, hit_count: 0, skill_count: 0, invincible: 0, damage_boost: 0 };
+    return rows[0] || null;
 }
 
 async function updateBlessingState(playerId, dungeonId, fields) {
@@ -219,6 +212,12 @@ async function updateBlessingState(playerId, dungeonId, fields) {
     );
 }
 
+// Returns true if player is an officer or master of their clan
+async function isOfficer(playerId, clanId) {
+    const role = await getClanMemberRole(playerId, clanId);
+    return role === 'officer' || role === 'master';
+}
+
 module.exports = {
     CLAN_BLESSINGS,
     CREATION_REQUIREMENTS,
@@ -227,6 +226,7 @@ module.exports = {
     getClanById,
     getClanMembers,
     getClanMemberRole,
+    isOfficer,
     checkCreationRequirements,
     getPlayerBlessingState,
     updateBlessingState,

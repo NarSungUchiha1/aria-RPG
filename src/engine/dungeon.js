@@ -7,7 +7,7 @@ const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
-const { initMvpTracking, recordDamage: mvpRecordDmg, recordDamageTaken: mvpRecordTaken, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
+const { initMvpTracking, recordDamage: mvpRecordDmg, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
 
 const getRaidGroup  = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
@@ -235,7 +235,7 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
     let mentions = [];
     try {
         const { tagAll } = require('../utils/tagAll');
-        const result = await tagAll(client);
+        const result = await tagAll(client, groupJid);
         mentions = result.mentions || [];
     } catch (e) {
         console.log('tagAll unavailable — sending announcement without mentions.');
@@ -305,21 +305,13 @@ async function promoteRaider(client, userId) {
     }
 }
 
-async function demoteRaider(client, userId, groupJid) {
+async function demoteRaider(client, userId) {
     try {
-        const targetGroup = groupJid || getRaidGroup();
-        const metadata    = await client.groupMetadata(targetGroup);
+        const metadata    = await client.groupMetadata(getRaidGroup());
         const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
-        if (!participant) {
-            console.log(`👇 Demote skip — ${userId} not in group`);
-            return;
-        }
-        if (participant.admin !== 'admin' && participant.admin !== 'superadmin') {
-            // Not an admin — nothing to demote
-            return;
-        }
-        await client.groupParticipantsUpdate(targetGroup, [participant.id], 'demote');
-        console.log(`👇 Demoted ${userId} from admin in ${targetGroup}`);
+        if (!participant) return;
+        await client.groupParticipantsUpdate(getRaidGroup(), [participant.id], 'demote');
+        console.log(`👇 Demoted ${userId} from admin`);
     } catch (e) {
         console.error(`Failed to demote ${userId}:`, e.message);
     }
@@ -327,19 +319,14 @@ async function demoteRaider(client, userId, groupJid) {
 
 async function demoteAllRaiders(client, dungeonId) {
     try {
-        const groupJid = getDungeonGroup(dungeonId);
         const [players] = await db.execute(
             "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
             [dungeonId]
         );
-        if (!players.length) {
-            console.log(`👇 No players to demote for dungeon ${dungeonId}`);
-            return;
-        }
         for (const p of players) {
-            await demoteRaider(client, p.player_id, groupJid);
+            await demoteRaider(client, p.player_id);
         }
-        console.log(`👇 All raiders demoted for dungeon ${dungeonId} in ${groupJid}`);
+        console.log(`👇 All raiders demoted for dungeon ${dungeonId}`);
     } catch (e) {
         console.error("Failed to demote all raiders:", e.message);
     }
@@ -407,30 +394,50 @@ async function spawnStageEnemies(dungeonId, rank, stage) {
     if (!data) return;
 
     let isEvent = false;
+    let isVoidWar = false;
+    try {
+        const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
+        isEvent = eventRows.length > 0;
+    } catch (e) { isEvent = false; }
 
-    const isBoosted = isEvent;
+    try {
+        const [warRows] = await db.execute("SELECT id FROM void_war WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
+        isVoidWar = warRows.length > 0;
+    } catch (e) { isVoidWar = false; }
+
+    const isBoosted = isEvent || isVoidWar;
     const isBoss = (stage === (await getMaxStageForDungeon(dungeonId)));
     let enemiesToSpawn = [];
 
     if (isBoss) {
         const boss = { ...data.boss };
         if (isBoosted) {
-            boss.hp   = Math.floor(boss.hp  * 2.0);
-            boss.atk  = Math.floor(boss.atk * 1.5);
+            const hpMult  = isVoidWar ? 3.5 : 2.0;
+            const atkMult = isVoidWar ? 2.5 : 1.5;
+            boss.hp   = Math.floor(boss.hp  * hpMult);
+            boss.atk  = Math.floor(boss.atk * atkMult);
             boss.def  = Math.floor((boss.def || 5) * 1.8);
             boss.exp  = Math.floor(boss.exp  * 2.0);
             boss.gold = Math.floor(boss.gold * 2.0);
-            boss.name = `Void-Touched ${boss.name}`;
+            boss.name = isVoidWar ? `Void-Corrupted ${boss.name}` : `Void-Touched ${boss.name}`;
         }
         enemiesToSpawn = [boss];
     } else {
         let count;
-        if (isEvent)   count = Math.floor(Math.random() * 4) + 5;
-        else            count = Math.floor(Math.random() * 5) + 1;
+        if (isVoidWar)      count = Math.floor(Math.random() * 5) + 6;
+        else if (isEvent)   count = Math.floor(Math.random() * 4) + 5;
+        else                count = Math.floor(Math.random() * 5) + 1;
 
         for (let i = 0; i < count; i++) {
             const template = { ...data.miniBosses[Math.floor(Math.random() * data.miniBosses.length)] };
-            if (isEvent) {
+            if (isVoidWar) {
+                template.hp   = Math.floor(template.hp  * 2.5);
+                template.atk  = Math.floor(template.atk * 2.0);
+                template.def  = Math.floor((template.def || 2) * 1.5);
+                template.exp  = Math.floor(template.exp * 1.8);
+                template.gold = Math.floor(template.gold * 1.8);
+                template.name = `Void-Corrupted ${template.name}`;
+            } else if (isEvent) {
                 template.hp  = Math.floor(template.hp  * 1.3);
                 template.atk = Math.floor(template.atk * 1.2);
             }
@@ -489,9 +496,9 @@ function calculateEnemyRetaliation(enemy, player) {
     let shieldAbsorbed = 0;
 
     if (playerShield > 0 && damage > 0) {
-        const maxAbsorb = Math.min(playerShield, damage);
+        const maxAbsorb = Math.min(playerShield, Math.floor(damage * 0.60));
         shieldAbsorbed  = maxAbsorb;
-        damage          = Math.max(0, damage - shieldAbsorbed);
+        damage          = Math.max(1, damage - shieldAbsorbed);
     }
 
     return { damage, shieldAbsorbed, defenseBlocked: Math.floor(rawDamage * reduction) };
@@ -533,6 +540,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
+        if (shieldAbsorbed > 0) consumeShield('player', playerId, shieldAbsorbed);
+
         let retaliationTargetId = playerId;
         try {
             const { tauntState } = require('../commands/skill');
@@ -565,13 +574,21 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             }
         } catch(potErr) {}
 
-        // Consume shield from the correct target (after taunt/redirect resolution)
-        if (shieldAbsorbed > 0) consumeShield('player', retaliationTargetId, shieldAbsorbed);
-
         await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
         try { trackHpLost(playerId, dungeonId, retaliation); } catch(e) {}
-        // Record damage taken for Tank MVP scoring
-        try { if (retaliation > 0) mvpRecordTaken(`dungeon_${dungeonId}`, retaliationTargetId, retaliation); } catch(e) {}
+        // Trigger Titan's Roar (three_consecutive_hits) and Phantom Shift (on_death)
+        if (retaliation > 0) {
+            try {
+                const { triggerBlessingIfReady } = require('../commands/skill');
+                const [hitTarget] = await db.execute('SELECT * FROM players WHERE id=?', [retaliationTargetId]);
+                if (hitTarget[0]) {
+                    await triggerBlessingIfReady('three_consecutive_hits', retaliationTargetId, dungeonId, hitTarget[0], { id: dungeonId }, null);
+                    if ((hitTarget[0].hp - retaliation) <= 0) {
+                        await triggerBlessingIfReady('on_death', retaliationTargetId, dungeonId, hitTarget[0], { id: dungeonId }, null);
+                    }
+                }
+            } catch(e) { console.error('[Blessing retaliation]', e.message); }
+        }
 
         try {
             const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -710,6 +727,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         retaliation    = ret.damage;
         shieldAbsorbed = ret.shieldAbsorbed;
         defenseBlocked = ret.defenseBlocked;
+        if (shieldAbsorbed > 0) consumeShield('player', playerId, shieldAbsorbed);
+
         let retaliationTargetId = playerId;
         try {
             const { tauntState } = require('../commands/skill');
@@ -742,12 +761,21 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             }
         } catch(potErr) { console.log('Retaliation potion error:', potErr.message); }
 
-
-        // Consume shield after target resolution
-        if (shieldAbsorbed > 0) consumeShield('player', retaliationTargetId, shieldAbsorbed);
-
-                await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
+        await db.execute("UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?", [retaliation, retaliationTargetId]);
         try { trackHpLost(playerId, dungeonId, retaliation); } catch(e2) {}
+        // Trigger Titan's Roar (three_consecutive_hits) and Phantom Shift (on_death)
+        if (retaliation > 0) {
+            try {
+                const { triggerBlessingIfReady } = require('../commands/skill');
+                const [hitTarget] = await db.execute('SELECT * FROM players WHERE id=?', [retaliationTargetId]);
+                if (hitTarget[0]) {
+                    await triggerBlessingIfReady('three_consecutive_hits', retaliationTargetId, dungeonId, hitTarget[0], { id: dungeonId }, null);
+                    if ((hitTarget[0].hp - retaliation) <= 0) {
+                        await triggerBlessingIfReady('on_death', retaliationTargetId, dungeonId, hitTarget[0], { id: dungeonId }, null);
+                    }
+                }
+            } catch(e) { console.error('[Blessing retaliation]', e.message); }
+        }
 
         try {
             const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
@@ -841,10 +869,7 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
 
     const totalExp  = Number(enemy[0].exp);
     const totalGold = Number(enemy[0].gold);
-    // Use boss_name stored at dungeon spawn time for reliable boss detection
-    const [dungeonRow] = await db.execute('SELECT boss_name FROM dungeon WHERE id=?', [dungeonId]);
-    const bossName = dungeonRow[0]?.boss_name || '';
-    const isBoss   = enemy[0].name === bossName || Number(enemy[0].exp) >= 2000;
+    const isBoss    = Number(enemy[0].exp) >= 2000;
 
     const [contributors] = await db.execute(
         "SELECT player_id, damage_dealt FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?",
