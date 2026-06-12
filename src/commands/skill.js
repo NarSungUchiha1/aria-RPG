@@ -59,42 +59,53 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         let blessingMsg = '';
 
-        if (trigger === 'hp_below_30' || trigger === 'on_kill' || trigger === 'final_stage') {
-            const enemies = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
+        // ── BLESSING 1: Dragon's Breath ─────────────────────────────────
+        if (trigger === 'hp_below_30') {
+            const [enemies] = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
             const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
-            const primaryStatKey = roleStatMap[player.role] || 'strength';
-            const primaryStat = Number(player[primaryStatKey]) || 100;
-            const dmg = Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)));
-            for (const e of enemies[0]) {
+            const primaryStat = Number(player[roleStatMap[player.role] || 'strength']) || 100;
+            const dmg = Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 5.0)));
+            // ignore_defense: true — hits for full damage regardless of enemy def
+            for (const e of enemies) {
                 await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
             }
-            const totalDmgDealt = enemies[0].length * dmg;
-            if (trigger === 'hp_below_30') {
-                blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
-┃◆ The bloodline awakens.
-┃◆ ${player.nickname} reaches the edge —
-┃◆ and the dragon inside ignites.
-┃◆ 🔥 Void fire erupts on ALL enemies.
-┃◆ DEF means nothing. It burns through.
-╚═══════════════════════════╝`;
-            } else if (trigger === 'on_kill') {
-                blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
-┃◆ The kill tears a hole in space.
-┃◆ The void rushes in — and takes
-┃◆ everything with it.
-┃◆ 💥 ALL remaining enemies hit.
-┃◆ DEF shattered by 50% this stage.
-╚═══════════════════════════╝`;
-            } else {
-                blessingMsg = `╔══〘 ✨ ${blessing.name} 〙══╗
-┃◆ ${blessing.emoji} The bloodline stirs.
-┃◆ ${blessing.effect}
-╚═══════════════════════════╝`;
-            }
-            if (['hp_below_30','final_stage','all_allies_below_50'].includes(trigger)) {
-                await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
-            }
+            await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
+            blessingMsg =
+                `╔══〘 🐉 DRAGON'S BREATH 〙══╗\n` +
+                `┃◆ The bloodline awakens.\n` +
+                `┃◆ ${player.nickname} reaches the edge —\n` +
+                `┃◆ and the dragon inside ignites.\n` +
+                `┃◆ 🔥 ${dmg.toLocaleString()} void fire on ALL ${enemies.length} enemies.\n` +
+                `┃◆ DEF means nothing. It burns through.\n` +
+                `╚═══════════════════════════╝`;
         }
+
+        // ── BLESSING 2: Void Collapse ────────────────────────────────────
+        if (trigger === 'on_kill') {
+            const [enemies] = await db.execute('SELECT id, current_hp, def FROM dungeon_enemies WHERE dungeon_id=? AND current_hp>0', [dungeonId]);
+            const roleStatMap = { Berserker: 'strength', Assassin: 'agility', Mage: 'intelligence', Healer: 'intelligence', Tank: 'stamina', Explorer: 'agility' };
+            const primaryStat = Number(player[roleStatMap[player.role] || 'strength']) || 100;
+            const dmg = Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)));
+            for (const e of enemies) {
+                await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
+            }
+            // Apply DEF reduction for remaining turns
+            if (blessing.def_reduction) {
+                await db.execute(
+                    'UPDATE dungeon_enemies SET def = GREATEST(0, FLOOR(def * ?)) WHERE dungeon_id=? AND current_hp>0',
+                    [1 - (blessing.def_reduction / 100), dungeonId]
+                );
+            }
+            blessingMsg =
+                `╔══〘 🌑 VOID COLLAPSE 〙══╗\n` +
+                `┃◆ The kill tears a hole in space.\n` +
+                `┃◆ The void rushes in — and takes\n` +
+                `┃◆ everything with it.\n` +
+                `┃◆ 💥 ${dmg.toLocaleString()} to ALL ${enemies.length} remaining enemies.\n` +
+                `┃◆ DEF shattered by ${blessing.def_reduction || 50}% this stage.\n` +
+                `╚═══════════════════════════╝`;
+        }
+
 
         if (trigger === 'every_5_skills') {
             const newCount = (state.skill_count || 0) + 1;
@@ -105,7 +116,15 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
                     const dmg = Math.floor(stat * blessing.multiplier);
                     await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [dmg, e.id]);
                 }
-                blessingMsg = `\n☄️ *Heaven's Fall* strikes all enemies for ${Math.floor((player.intelligence||100)*blessing.multiplier)} damage!`;
+                const totalDmg = Math.floor((player.intelligence||100)*(blessing.multiplier||4.5));
+                blessingMsg =
+                    `╔══〘 ☄️ HEAVEN'S FALL 〙══╗\n` +
+                    `┃◆ The celestial bloodline answers.\n` +
+                    `┃◆ The sky tears open.\n` +
+                    `┃◆ \n` +
+                    `┃◆ ☄️ ${totalDmg.toLocaleString()} to ALL enemies.\n` +
+                    `┃◆ Defense means nothing.\n` +
+                    `╚═══════════════════════════╝`;
             }
             await updateBlessingState(playerId, dungeonId, { skill_count: newCount });
         }
@@ -161,14 +180,24 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'on_death') {
             const healAmt = Math.floor(player.max_hp * (blessing.heal_percent || 0.6));
             await db.execute('UPDATE players SET hp = ? WHERE id=?', [Math.max(1, healAmt), playerId]);
+            // Stat boost — +600% to all stats for 3 turns
+            const boostPct = blessing.stat_boost_percent || 6.0;
+            const boostDur = blessing.stat_boost_duration || 3;
+            const { applyBuff } = require('../systems/activeBuffs');
+            for (const stat of ['strength','agility','intelligence','stamina']) {
+                const base = Number(player[stat]) || 100;
+                applyBuff('player', playerId, { type: 'buff', stat, value: Math.floor(base * boostPct), duration: boostDur });
+            }
             await updateBlessingState(playerId, dungeonId, { blessing_used: 1 });
-            blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
-┃◆ Death reached for ${player.nickname}.
-┃◆ The bloodline refused.
-┃◆ 
-┃◆ You survived with ${healAmt} HP.
-┃◆ The attacker feels the recoil.
-╚═══════════════════════════╝`;
+            blessingMsg =
+                `╔══〘 👻 PHANTOM SHIFT 〙══╗\n` +
+                `┃◆ Death reached for ${player.nickname}.\n` +
+                `┃◆ The bloodline refused.\n` +
+                `┃◆ \n` +
+                `┃◆ ❤️ Survived with ${healAmt.toLocaleString()} HP.\n` +
+                `┃◆ ⚡ ALL stats +${Math.floor(boostPct * 100)}% for ${boostDur} turns.\n` +
+                `┃◆ 💀 ${Math.floor(boostPct * 100)}% retaliation next strike.\n` +
+                `╚═══════════════════════════╝`;
         }
 
         if (trigger === 'stage_first_move') {
