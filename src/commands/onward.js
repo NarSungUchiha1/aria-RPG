@@ -219,13 +219,12 @@ module.exports = {
                     [dungeon.id]
                 ).catch(() => {});
 
+                // Demote all raiders BEFORE deleting dungeon_players rows
+                await demoteAllRaiders(client, dungeon.id).catch(() => {});
+
                 // Close dungeon
                 await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                 await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [dungeon.id]);
-
-                // Demote all raiders
-                const { demoteAllRaiders } = require('../engine/dungeon');
-                await demoteAllRaiders(client, dungeon.id).catch(() => {});
 
                 const { clearDungeonTimers } = require('../engine/dungeonTimer');
                 clearDungeonTimers(dungeon.id);

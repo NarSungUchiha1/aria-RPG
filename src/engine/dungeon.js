@@ -305,13 +305,21 @@ async function promoteRaider(client, userId) {
     }
 }
 
-async function demoteRaider(client, userId) {
+async function demoteRaider(client, userId, groupJid) {
     try {
-        const metadata    = await client.groupMetadata(getRaidGroup());
+        const targetGroup = groupJid || getRaidGroup();
+        const metadata    = await client.groupMetadata(targetGroup);
         const participant = metadata.participants.find(p => normalizeId(p.id) === userId);
-        if (!participant) return;
-        await client.groupParticipantsUpdate(getRaidGroup(), [participant.id], 'demote');
-        console.log(`👇 Demoted ${userId} from admin`);
+        if (!participant) {
+            console.log(`👇 Demote skip — ${userId} not in group`);
+            return;
+        }
+        if (participant.admin !== 'admin' && participant.admin !== 'superadmin') {
+            // Not an admin — nothing to demote
+            return;
+        }
+        await client.groupParticipantsUpdate(targetGroup, [participant.id], 'demote');
+        console.log(`👇 Demoted ${userId} from admin in ${targetGroup}`);
     } catch (e) {
         console.error(`Failed to demote ${userId}:`, e.message);
     }
@@ -319,14 +327,19 @@ async function demoteRaider(client, userId) {
 
 async function demoteAllRaiders(client, dungeonId) {
     try {
+        const groupJid = getDungeonGroup(dungeonId);
         const [players] = await db.execute(
             "SELECT player_id FROM dungeon_players WHERE dungeon_id=?",
             [dungeonId]
         );
-        for (const p of players) {
-            await demoteRaider(client, p.player_id);
+        if (!players.length) {
+            console.log(`👇 No players to demote for dungeon ${dungeonId}`);
+            return;
         }
-        console.log(`👇 All raiders demoted for dungeon ${dungeonId}`);
+        for (const p of players) {
+            await demoteRaider(client, p.player_id, groupJid);
+        }
+        console.log(`👇 All raiders demoted for dungeon ${dungeonId} in ${groupJid}`);
     } catch (e) {
         console.error("Failed to demote all raiders:", e.message);
     }
