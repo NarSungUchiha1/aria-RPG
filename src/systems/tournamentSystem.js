@@ -31,7 +31,7 @@ const PRIZE_POOL = {
     runner_up:     { gold: 750000,  xp: 750000,  materials: { 'Void Crystal': 30, 'Ancient Tome Fragment': 5  }, weapon: 'Fracture Sovereign' },
     semi_finalist: { gold: 350000,  xp: 350000,  materials: { 'Void Crystal': 15 }, weapon: null },
     top_8:         { gold: 150000,  xp: 150000,  materials: { 'Void Crystal': 5, 'Malachar Fragment': 3 }, weapon: null },
-    participant:   { gold: 25000,   xp: 25000,   materials: { 'Void Shard': 10   }, weapon: null },
+    participant:   { gold: 25000,   xp: 25000,   materials: { 'Void Dust': 5     }, weapon: null },
 };
 
 async function ensureTables() {
@@ -123,6 +123,37 @@ async function advancePhase(tournament, client, raidGroup) {
         [nextPhase, phaseEnds, tournament.id]
     );
 
+    // When leaving BATTLE_ROYALE: eliminate bottom half by wins
+    if (tournament.phase === PHASES.BATTLE_ROYALE) {
+        const active = await getActivePlayers(tournament.id);
+        if (active.length > 1) {
+            const cutLine = Math.ceil(active.length / 2);
+            const toEliminate = active.slice(cutLine); // sorted by wins DESC, so bottom half
+            for (const p of toEliminate) {
+                await db.execute(
+                    "UPDATE tournament_players SET eliminated=1 WHERE tournament_id=? AND player_id=?",
+                    [tournament.id, p.player_id]
+                );
+            }
+            console.log(`[TOURNAMENT] Cut ${toEliminate.length} players after Battle Royale.`);
+        }
+    }
+
+    // When leaving DUO_GAUNTLET: keep only top 4 duos (8 players)
+    if (tournament.phase === PHASES.DUO_GAUNTLET) {
+        const active = await getActivePlayers(tournament.id);
+        const cutLine = 8;
+        if (active.length > cutLine) {
+            const toEliminate = active.slice(cutLine);
+            for (const p of toEliminate) {
+                await db.execute(
+                    "UPDATE tournament_players SET eliminated=1 WHERE tournament_id=? AND player_id=?",
+                    [tournament.id, p.player_id]
+                );
+            }
+        }
+    }
+
     await handlePhaseStart(nextPhase, tournament.id, client, raidGroup);
     return nextPhase;
 }
@@ -171,9 +202,14 @@ async function handlePhaseStart(phase, tournamentId, client, raidGroup) {
             const p1 = top8[i];
             const p2 = top8[i + 1];
             if (p1 && p2) {
-                bracket += `┃★ ⚔️ ${p1.nickname} vs ${p2.nickname}\n`;
+                bracket += `┃★ ⚔️ *${p1.nickname}* [${p1.rank}] vs *${p2.nickname}* [${p2.rank}]\n`;
             } else if (p1) {
-                bracket += `┃★ ✅ ${p1.nickname} — bye (advances)\n`;
+                // Bye — auto-advance with a win
+                bracket += `┃★ ✅ *${p1.nickname}* — bye (auto-advances)\n`;
+                await db.execute(
+                    "UPDATE tournament_players SET wins=wins+1 WHERE tournament_id=? AND player_id=?",
+                    [tournamentId, p1.player_id]
+                );
             }
         }
         bracket += `┃★\n┃★ *!attack <move>* to fight!\n╚═══════════════════════════╝`;
@@ -209,8 +245,8 @@ async function distributePrizes(tournamentId, client, raidGroup) {
         // Give materials
         for (const [mat, qty] of Object.entries(prize.materials || {})) {
             await db.execute(
-                "INSERT INTO inventory (player_id, item_name, item_type, quantity) VALUES (?,?,1,?) ON DUPLICATE KEY UPDATE quantity=quantity+?",
-                [p.player_id, mat, 'material', qty, qty]
+                "INSERT INTO inventory (player_id, item_name, item_type, quantity) VALUES (?,?,'material',?) ON DUPLICATE KEY UPDATE quantity=quantity+?",
+                [p.player_id, mat, qty, qty]
             ).catch(() => {});
         }
 

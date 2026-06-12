@@ -7,7 +7,8 @@ const {
     getMaxStageForDungeon,
     getDungeonStatusText,
     getCurrentEnemies,
-    demoteAllRaiders
+    demoteAllRaiders,
+    getDungeonGroup
 } = require('../engine/dungeon');
 const { handleShardDrop } = require('./event');
 const { getPlayerBag } = require('../systems/bagSystem');
@@ -179,6 +180,34 @@ module.exports = {
                     }
                 } catch (e) { console.error('[MVP dungeon]', e.message); }
 
+                // ── MATERIAL DROPS ────────────────────────────────────────
+                (async () => {
+                    try {
+                        const { rollMaterialDrop } = require('../systems/materialSystem');
+                        const raidG = getDungeonGroup(dungeon.id);
+                        const matLines = [];
+                        for (const p of participants) {
+                            const drop = await rollMaterialDrop(d.dungeon_rank, p.player_id, client, raidG);
+                            if (drop) {
+                                const [pl] = await db.execute('SELECT nickname FROM players WHERE id=?', [p.player_id]);
+                                const rarityEmoji = { common: '⚪', uncommon: '🟢', rare: '🔵', legendary: '🟣' }[drop.rarity] || '⚪';
+                                matLines.push(`┃◆ ${rarityEmoji} *${pl[0]?.nickname}* → ${drop.material}`);
+                            }
+                        }
+                        if (matLines.length) {
+                            await client.sendMessage(raidG, {
+                                text:
+                                    `╔══〘 🎒 MATERIAL DROPS 〙══╗\n` +
+                                    `┃◆\n` +
+                                    matLines.join('\n') + '\n' +
+                                    `┃◆\n` +
+                                    `┃◆ Use !materials to see your stash.\n` +
+                                    `╚═══════════════════════════╝`
+                            }).catch(() => {});
+                        }
+                    } catch(e) { console.error('Material drop error:', e.message); }
+                })();
+
             } // end dungeon clear rewards block
 
             // ── If dungeon is fully cleared — close it and stop ──────────
@@ -190,13 +219,13 @@ module.exports = {
                     [dungeon.id]
                 ).catch(() => {});
 
-                // Demote all raiders BEFORE deleting dungeon_players rows
-                const { demoteAllRaiders } = require('../engine/dungeon');
-                await demoteAllRaiders(client, dungeon.id).catch(() => {});
-
                 // Close dungeon
                 await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                 await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [dungeon.id]);
+
+                // Demote all raiders
+                const { demoteAllRaiders } = require('../engine/dungeon');
+                await demoteAllRaiders(client, dungeon.id).catch(() => {});
 
                 const { clearDungeonTimers } = require('../engine/dungeonTimer');
                 clearDungeonTimers(dungeon.id);

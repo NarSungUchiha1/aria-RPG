@@ -727,6 +727,20 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         await db.execute(`UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id IN (${winners.map(() => '?').join(',')})`, winners);
         await db.execute(`UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id IN (${losers.map(() => '?').join(',')})`, losers);
 
+        // Record in active tournament (use team leaders — first member of each team)
+        try {
+            const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
+            const tourney = await getActiveTournament();
+            if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
+                const norm = id => String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+                for (const wId of winners) {
+                    for (const lId of losers) {
+                        await recordMatchResult(tourney.id, norm(wId), norm(lId), tourney.phase).catch(() => {});
+                    }
+                }
+            }
+        } catch(e) { console.error('[TOURNAMENT record party]', e.message); }
+
         const titleLines = [];
         await Promise.all(aliveWinners.map(async id => {
             const newTitle = await checkAndGrantTitle(id);
@@ -801,6 +815,17 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     await trackPvPWin(winnerId);
     const newTitle = await checkAndGrantTitle(winnerId);
     const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"\n` : '';
+
+    // Record result in active tournament if one is running
+    try {
+        const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
+        const tourney = await getActiveTournament();
+        if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
+            const normWin = String(winnerId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            const normLos = String(loserId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            await recordMatchResult(tourney.id, normWin, normLos, tourney.phase);
+        }
+    } catch(e) { console.error('[TOURNAMENT record]', e.message); }
 
     await chat.sendMessage(
         `╭══〘 🏆 DUEL OVER 〙══╮\n` +

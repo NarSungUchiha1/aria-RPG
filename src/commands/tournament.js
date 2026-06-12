@@ -16,7 +16,7 @@ const {
     getActivePlayers, advancePhase, recordMatchResult
 } = require('../systems/tournamentSystem');
 
-const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const getRaidGroup = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 module.exports = {
     name: 'tournament',
@@ -172,6 +172,19 @@ module.exports = {
             const [player] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]);
             const [partner] = await db.execute('SELECT nickname FROM players WHERE id=?', [partnerId]);
             if (!partner.length) return msg.reply('❌ Partner not found.');
+
+            // Both players must be active tournament participants
+            const selfEntry = await getParticipant(t.id, userId);
+            if (!selfEntry || selfEntry.eliminated) return msg.reply(
+                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ You are not in the tournament or have been eliminated.\n╰═══════════════════════╯`
+            );
+            const partnerEntry = await getParticipant(t.id, partnerId);
+            if (!partnerEntry || partnerEntry.eliminated) return msg.reply(
+                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* is not in the tournament or has been eliminated.\n╰═══════════════════════╯`
+            );
+            if (partnerEntry.duo_partner) return msg.reply(
+                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* already has a duo partner.\n╰═══════════════════════╯`
+            );
 
             await db.execute(
                 "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
