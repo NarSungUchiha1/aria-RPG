@@ -1,50 +1,32 @@
 /**
- * !testmode on  — activate test group isolation (all announcements → test GC)
- * !testmode off — deactivate, real groups resume normal routing
- * !testmode     — show current status
- * Admin only.
+ * !testmode — explains the current test GC isolation model.
+ * The old on/off global override is gone — test GC is now always
+ * a parallel universe automatically. No manual toggling needed.
  */
-const TEST_GROUP_JID = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
-
 module.exports = {
     name: 'testmode',
-    async execute(msg, args, { userId, isAdmin }) {
+    async execute(msg, args, { isAdmin }) {
         if (!isAdmin) return msg.reply('❌ Admin only.');
 
-        const sub = args[0]?.toLowerCase();
-
-        if (sub === 'on') {
-            global.overrideRaidGroup = TEST_GROUP_JID;
-            return msg.reply(
-                `╔══〘 🧪 TEST MODE ON 〙══╗\n` +
-                `┃◆\n` +
-                `┃◆ All announcements now route\n` +
-                `┃◆ to the test group only.\n` +
-                `┃◆\n` +
-                `┃◆ Real groups still work normally.\n` +
-                `┃◆ Run *!testmode off* when done.\n` +
-                `╚═══════════════════════════╝`
-            );
-        }
-
-        if (sub === 'off') {
-            global.overrideRaidGroup = null;
-            return msg.reply(
-                `╔══〘 ✅ TEST MODE OFF 〙══╗\n` +
-                `┃◆\n` +
-                `┃◆ Announcements restored to\n` +
-                `┃◆ real raid group.\n` +
-                `╚═══════════════════════════╝`
-            );
-        }
-
-        // Status
-        const active = !!global.overrideRaidGroup;
         return msg.reply(
-            `══〘 🧪 TEST MODE 〙══╮\n` +
-            `┃◆ Status: ${active ? '🟢 ON — routing to test GC' : '🔴 OFF — routing normally'}\n` +
-            `┃◆ !testmode on / off\n` +
-            `╰═══════════════════════╯`
+            `╔══〘 🧪 TEST MODE 〙══╗\n` +
+            `┃◆\n` +
+            `┃◆ Test GC is always isolated.\n` +
+            `┃◆ No toggle needed.\n` +
+            `┃◆\n` +
+            `┃◆ Any command run from the\n` +
+            `┃◆ test GC runs in its own\n` +
+            `┃◆ parallel universe:\n` +
+            `┃◆\n` +
+            `┃◆ ◆ Dungeons spawn here\n` +
+            `┃◆ ◆ Announcements stay here\n` +
+            `┃◆ ◆ Tournaments run here\n` +
+            `┃◆ ◆ Events run here\n` +
+            `┃◆ ◆ Live game unaffected\n` +
+            `┃◆\n` +
+            `┃◆ Just !tester login and play.\n` +
+            `┃◆\n` +
+            `╚═══════════════════════════╝`
         );
     }
 };

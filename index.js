@@ -15,6 +15,8 @@ const fs = require('fs');
 const path = require('path');
 const cron = require('node-cron');
 const db = require('./src/database/db');
+// Per-execution raid group context — replaces global.overrideRaidGroup race condition
+const { runWithGroup } = require('./src/utils/raidContext');
 const { restockPrestigeShop } = require('./src/systems/prestigeShop');
 
 const app = express();
@@ -753,24 +755,19 @@ async function startBot() {
                         } catch(e) {}
                     }
 
-                    // ── Test group isolation ──────────────────────────────────────────
-                    // Set global.overrideRaidGroup so ALL getRaidGroup() calls
-                    // route to test GC. Dungeon spawns capture this at spawn time
-                    // via dungeonGroupMap so they stay isolated even when override clears.
-                    if (isTestGroup) {
-                        global.overrideRaidGroup = TEST_GROUP_JID;
-                    }
+                    // ── Per-execution group context (replaces global.overrideRaidGroup) ──
+                    // runWithGroup sets the raid group for this entire async call chain.
+                    // Test GC and live GC commands run in parallel without interfering.
+                    // All getRaidGroup() calls anywhere in the chain read from AsyncLocalStorage.
+                    const executionGroupJid = isTestGroup ? TEST_GROUP_JID : (process.env.RAID_GROUP_JID || '120363213735662100@g.us');
                     try {
-                        await command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock });
+                        await runWithGroup(executionGroupJid, () =>
+                            command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock })
+                        );
                     } catch (execErr) {
                         console.error("Command Error:", execErr);
                         await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
                     } finally {
-                        // Clear override after command so real groups aren't affected
-                        // (dungeons keep their group via dungeonGroupMap regardless)
-                        if (isTestGroup) {
-                            global.overrideRaidGroup = null;
-                        }
                         playerCache.delete(userId);
                     }
                 });
@@ -1025,6 +1022,21 @@ cron.schedule('4-59/10 * * * *', async () => {
     } catch(e) { console.error('Fatigue recovery error:', e.message); }
 });
 
+// ==================== VOID WAR AUTO-END ====================
+cron.schedule('6-59/10 * * * *', async () => {
+    if (!isReady || !sock) return;
+    try {
+        const { getActiveWar, endVoidWar } = require('./src/systems/voidwar');
+        const war = await getActiveWar();
+        if (!war) return;
+        const expired = new Date(war.ends_at) <= new Date();
+        const goalReached = war.total_damage >= war.goal;
+        if (expired || goalReached) {
+            console.log(`⚡ Void War ending — expired: ${expired}, goal: ${goalReached}`);
+            await endVoidWar(sock);
+        }
+    } catch(e) { console.error('Void War auto-end error:', e.message); }
+});
 
 // ==================== WEEKLY INACTIVE CLEANUP ====================
 cron.schedule('0 3 * * 1', async () => {
