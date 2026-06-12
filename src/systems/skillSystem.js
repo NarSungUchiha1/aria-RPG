@@ -29,7 +29,8 @@ function setMoveCooldown(userId, moveName, baseCooldownSeconds, playerRank) {
     // For prestige players, treat as S-rank for normal move scaling (they've surpassed S).
     const effectiveRank = String(playerRank || '').startsWith('P') ? 'S' : playerRank;
     const multiplier = getCooldownMultiplier(effectiveRank);
-    const actualCooldown = Math.max(1, Math.floor(baseCooldownSeconds * multiplier));
+    // Floor at 3s to prevent spam at high ranks
+    const actualCooldown = Math.max(3, Math.floor(baseCooldownSeconds * multiplier));
     cooldowns.set(key, Date.now() + actualCooldown * 1000);
     return actualCooldown;
 }

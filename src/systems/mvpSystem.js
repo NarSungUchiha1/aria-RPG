@@ -128,9 +128,10 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     if (mvp.score === 0) return null;
 
     // Also pick top performer from each OTHER role group for consolation rewards
+    // Use slice() to avoid mutating the original arrays used for normalizedScore
     const roleRewards = [];
     for (const group of [damageGroup, healGroup, tankGroup]) {
-        const top = group.sort((a, b) => b.score - a.score)[0];
+        const top = [...group].sort((a, b) => b.score - a.score)[0];
         if (top && top.id !== mvp.id && top.score > 0) roleRewards.push(top);
     }
 
@@ -191,4 +192,12 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     return { mvp, isExceptional, rewards, message };
 }
 
-module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, calculateMvp, mvpStats };
+// Record damage taken by a player (enemy retaliation) for Tank MVP scoring
+function recordDamageTaken(key, playerRawId, amount) {
+    const playerId = String(playerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
+    _ensureKey(key, playerId);
+    const stats = mvpStats.get(key);
+    if (stats[playerId]) stats[playerId].damageTaken += (amount || 0);
+}
+
+module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, recordDamageTaken, calculateMvp, mvpStats };
