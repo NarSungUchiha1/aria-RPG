@@ -14,6 +14,7 @@ const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
 const { getTurnEffect, tickTurnEffect, getEffect } = require('./potionEffects');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
+const { getFatigueMultiplier } = require('./fatigueSystem');
 
 const cooldowns = new Map();
 
@@ -30,7 +31,7 @@ function setMoveCooldown(userId, moveName, baseCooldownSeconds, playerRank) {
     const effectiveRank = String(playerRank || '').startsWith('P') ? 'S' : playerRank;
     const multiplier = getCooldownMultiplier(effectiveRank);
     // Floor at 3s to prevent spam at high ranks
-    const actualCooldown = Math.max(3, Math.floor(baseCooldownSeconds * multiplier));
+    const actualCooldown = Math.max(10, Math.floor(baseCooldownSeconds * multiplier));
     cooldowns.set(key, Date.now() + actualCooldown * 1000);
     return actualCooldown;
 }
@@ -189,6 +190,12 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
     } catch (e) {
         console.log('Potion damage calc error:', e.message);
     }
+
+    // Apply fatigue multiplier — same penalty as basic attacks
+    try {
+        const fatigueMultiplier = getFatigueMultiplier(player);
+        damage = Math.floor(damage * fatigueMultiplier);
+    } catch(e) {}
 
     return Math.max(1, damage);
 }
