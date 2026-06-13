@@ -18,8 +18,18 @@ module.exports = {
         if (isNaN(choice)) return msg.reply("❌ Invalid number.");
 
         try {
-            const [player] = await db.execute("SELECT role, `rank` FROM players WHERE id=?", [userId]);
+            const [player] = await db.execute("SELECT role, `rank`, COALESCE(prestige_level,0) as prestige_level FROM players WHERE id=?", [userId]);
             if (!player.length) return msg.reply("❌ Not registered.");
+
+            // Block prestige players — they must use !prestigeshop
+            if ((player[0].prestige_level || 0) > 0) {
+                return msg.reply(
+                    `╔══〘 ✦ PRESTIGE SHOP 〙══╗\n` +
+                    `┃★ ❌ Normal items are void-dead at your level.\n` +
+                    `┃★ Use *!prestigeshop* and *!pbuy* instead.\n` +
+                    `╚═══════════════════════════╝`
+                );
+            }
 
             const [inDungeon] = await db.execute(
                 "SELECT * FROM dungeon_players WHERE player_id=? AND is_alive=1",
