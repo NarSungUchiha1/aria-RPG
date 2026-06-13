@@ -13,21 +13,21 @@ module.exports = {
                 `══〘 💀 RESPAWN 〙══╮\n┃◆ ⚡ You are already alive.\n╰═══════════════════════╯`
             );
 
-            // Gold penalty 20%
+            // Gold penalty 35% (min 500G)
             const [goldRow] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
-            const goldLoss = Math.floor((goldRow[0]?.gold || 0) * 0.2);
+            const goldLoss = Math.max(500, Math.floor((goldRow[0]?.gold || 0) * 0.35));
             await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [goldLoss, userId]);
 
-            // XP penalty 10%
+            // XP penalty 25% (min 200 XP)
             const [xpRow] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
-            const xpLoss = Math.floor((xpRow[0]?.xp || 0) * 0.1);
+            const xpLoss = Math.max(200, Math.floor((xpRow[0]?.xp || 0) * 0.25));
             await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [xpLoss, userId]);
 
-            // Durability loss on equipped items
+            // Durability loss on equipped items (-30 now, was -20)
             const [equipped] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
             const brokenItems = [];
             for (const item of equipped) {
-                const newDur = Math.max(0, (item.durability || 100) - 20);
+                const newDur = Math.max(0, (item.durability || 100) - 30);
                 if (newDur <= 0) {
                     await db.execute("DELETE FROM inventory WHERE id=?", [item.id]);
                     brokenItems.push(item.item_name);
@@ -49,15 +49,15 @@ module.exports = {
                 }
             } catch(e) {}
 
-            // Revive at 50% HP
-            await db.execute("UPDATE players SET hp = FLOOR(max_hp / 2) WHERE id=?", [userId]);
+            // Revive at 30% HP
+            await db.execute("UPDATE players SET hp = FLOOR(max_hp * 0.30) WHERE id=?", [userId]);
 
             let reply =
                 `══〘 💀 RESPAWN 〙══╮\n` +
-                `┃◆ ✅ Revived at 50% HP.\n` +
+                `┃◆ ✅ Revived at 30% HP.\n` +
                 `┃◆────────────\n` +
-                `┃◆ 💰 Gold lost: ${goldLoss}\n` +
-                `┃◆ ⭐ XP lost:   ${xpLoss}\n`;
+                `┃◆ 💰 Gold lost: ${goldLoss.toLocaleString()}\n` +
+                `┃◆ ⭐ XP lost:   ${xpLoss.toLocaleString()}\n`;
 
             if (brokenItems.length) reply += `┃◆ 💔 Broken: ${brokenItems.join(', ')}\n`;
             else if (equipped.length) reply += `┃◆ 🛠️ Equipped items: -20 durability\n`;

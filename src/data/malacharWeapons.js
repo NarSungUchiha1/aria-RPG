@@ -112,7 +112,7 @@ const MALACHAR_WEAPONS = {
         item_type:   'weapon',
         unique:      true,
         bound:       true,
-        lore:        'He used to have a lot to say. About the system. About his weapon. About his team. Malachar didn\'t care. Neither does this.',
+        lore:        ' He blamed everything. The system. The weapon doing 60 damage. His teammates.Then Malachar nearly killed him and something changed.The shield he carries now is the version of himself that stopped making excuses.',
         stat_bonus:  { stamina: 1500, strength: 500 },
         moves: [
             {
