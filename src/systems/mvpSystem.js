@@ -10,7 +10,7 @@ const db = require('../database/db');
 
 const MVP_REWARDS = {
     standard:    { gold: 1000, xp: 500  },
-    exceptional: { gold: 2500, xp: 1200, material: 'Void Shard' }
+    exceptional: { gold: 2500, xp: 1200, material: 'Void Crystal' }
 };
 const EXCEPTIONAL_THRESHOLD = 0.40;
 
@@ -37,18 +37,31 @@ function initMvpTracking(key, playerIds) {
     mvpStats.set(key, stats);
 }
 
-function recordDamage(key, attackerRawId, targetId, damage, actualDamage) {
+// Supports both call signatures:
+//   3-arg: recordDamage(key, playerId, damage)          — used by dungeon.js
+//   5-arg: recordDamage(key, attackerId, targetId, damage, actualDamage)
+function recordDamage(key, attackerRawId, targetIdOrDamage, damage, actualDamage) {
     const attackerId = String(attackerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, attackerId);
-    _ensureKey(key, typeof targetId === 'string' && !targetId.startsWith('enemy_') ? targetId : null);
     const stats = mvpStats.get(key);
-    const amt = actualDamage || damage || 0;
-    if (stats[attackerId]) stats[attackerId].damageDealt += amt;
-    // Record damage taken for Tank scoring — normalize targetId
-    if (targetId) {
-        const normTarget = String(targetId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
-        if (stats[normTarget]) stats[normTarget].damageTaken += amt;
+    // If 3-arg call: targetIdOrDamage IS the damage amount
+    let targetId = null;
+    let amt = 0;
+    if (damage === undefined && actualDamage === undefined) {
+        // 3-arg form: (key, playerId, damage)
+        amt = Number(targetIdOrDamage) || 0;
+    } else {
+        // 5-arg form: (key, attacker, target, damage, actualDamage)
+        targetId = targetIdOrDamage;
+        amt = actualDamage || damage || 0;
+        _ensureKey(key, typeof targetId === 'string' && !targetId.startsWith('enemy_') ? targetId : null);
+        // Record damage taken for Tank scoring
+        if (targetId) {
+            const normTarget = String(targetId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
+            if (stats && stats[normTarget]) stats[normTarget].damageTaken += amt;
+        }
     }
+    if (stats && stats[attackerId]) stats[attackerId].damageDealt += amt;
 }
 
 function recordHeal(key, healerRawId, targetId, amount, actualAmount) {
@@ -128,7 +141,6 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     if (mvp.score === 0) return null;
 
     // Also pick top performer from each OTHER role group for consolation rewards
-    // Use slice() to avoid mutating the original arrays used for normalizedScore
     const roleRewards = [];
     for (const group of [damageGroup, healGroup, tankGroup]) {
         const top = [...group].sort((a, b) => b.score - a.score)[0];
@@ -192,12 +204,16 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     return { mvp, isExceptional, rewards, message };
 }
 
+// Aliases for backward compatibility with dungeon.js imports
+const getMvp = calculateMvp;
+const getContributions = (key) => mvpStats.get(key) || {};
+
 // Record damage taken by a player (enemy retaliation) for Tank MVP scoring
 function recordDamageTaken(key, playerRawId, amount) {
     const playerId = String(playerRawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, '').split(':')[0];
     _ensureKey(key, playerId);
     const stats = mvpStats.get(key);
-    if (stats[playerId]) stats[playerId].damageTaken += (amount || 0);
+    if (stats && stats[playerId]) stats[playerId].damageTaken += (amount || 0);
 }
 
-module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, recordDamageTaken, calculateMvp, mvpStats };
+module.exports = { initMvpTracking, recordDamage, recordHeal, recordKill, recordDamageTaken, calculateMvp, getMvp, getContributions, mvpStats };
