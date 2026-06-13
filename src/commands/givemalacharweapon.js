@@ -64,7 +64,7 @@ module.exports = {
 
                 // Give weapon to player — bound, unique, quantity 1
                 await db.execute(
-                    'INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped, bound_to, is_unique) VALUES (?, ?, \'weapon\', 1, 0, ?, 1)',
+                    'INSERT INTO inventory (player_id, item_name, item_type, quantity, grade, equipped, durability, max_durability, bound_to, is_unique) VALUES (?, ?, \'weapon\', 1, \'P\', 0, 999, 999, ?, 1)',
                     [ownerId, weaponName, ownerId]
                 );
 
