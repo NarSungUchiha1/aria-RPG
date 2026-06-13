@@ -229,8 +229,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
     }
 }
 
+// Export for use by dungeon.js retaliation blessing triggers
 module.exports = {
     name: 'skill',
+    triggerBlessingIfReady,
     async execute(msg, args, { userId, client }) {
       try {
         if (isPlayerInDuel(userId)) {
@@ -684,8 +686,6 @@ module.exports = {
                     await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                     const { clearDungeonTimers } = require('../engine/dungeonTimer');
                     clearDungeonTimers(dungeon.id);
-                    const { clearMalacharPhase } = require('../systems/malacharPhase');
-                    clearMalacharPhase(dungeon.id);
                     const { trySpawnPrestigeDungeon: spawnPrestige } = require('../engine/prestigeDungeon');
                     if (!dungeon.dungeon_rank?.startsWith('P')) {
                         spawnPrestige(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error (skill):', e.message));
