@@ -99,11 +99,20 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
             const p = rows[0];
             const s = stats[id] || { damageDealt: 0, healingDone: 0, damageTaken: 0, kills: 0 };
 
+            // Score = best metric for this player.
+            // Healers/Tanks who out-damage the party still compete on damage.
             let score = 0;
             let metric = 'damage';
-            if (p.role === 'Healer') { score = s.healingDone; metric = 'healing'; }
-            else if (p.role === 'Tank') { score = s.damageTaken; metric = 'damage tanked'; }
-            else { score = s.damageDealt; metric = 'damage'; }
+            if (p.role === 'Healer') {
+                if (s.healingDone >= s.damageDealt) { score = s.healingDone; metric = 'healing'; }
+                else { score = s.damageDealt; metric = 'damage'; }
+            } else if (p.role === 'Tank') {
+                const best = Math.max(s.damageTaken, s.damageDealt);
+                if (s.damageTaken >= s.damageDealt) { score = s.damageTaken; metric = 'damage tanked'; }
+                else { score = s.damageDealt; metric = 'damage'; }
+            } else {
+                score = s.damageDealt; metric = 'damage';
+            }
 
             results.push({
                 id, nickname: p.nickname, role: p.role,
