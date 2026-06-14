@@ -90,25 +90,36 @@ async function getWeightedDungeonRank() {
 
 async function spawnDungeon(rank, client = null) {
     try {
+        const spawnGroupCheck = getRaidGroup();
         const [activePlayers] = await db.execute(
-            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1 AND (d.group_jid=? OR (d.group_jid IS NULL AND ?=?))",
+            [spawnGroupCheck, spawnGroupCheck, process.env.RAID_GROUP_JID || '120363213735662100@g.us']
         );
         if (activePlayers[0].cnt > 0) {
-            console.log('⏭️ Spawn skipped — players still active in a dungeon');
+            console.log('⏭️ Spawn skipped — players still active in a dungeon for this group');
             return null;
         }
     } catch(e) {}
 
+    const lockGroup = getRaidGroup();
     try {
-        await db.execute("INSERT INTO dungeon_spawn_lock (id, locked_at) VALUES (1, NOW())");
+        await db.execute("INSERT INTO dungeon_spawn_lock (id, locked_at, group_jid) VALUES (1, NOW(), ?) ON DUPLICATE KEY UPDATE locked_at=IF(group_jid=?, locked_at, NOW()), group_jid=IF(group_jid=?, group_jid, ?)", [lockGroup, lockGroup, lockGroup, lockGroup]);
+        // Check if we got the lock for our group
+        const [lockRow] = await db.execute("SELECT group_jid FROM dungeon_spawn_lock WHERE id=1");
+        if (lockRow[0]?.group_jid !== lockGroup) {
+            console.log('⚠️ Spawn blocked — spawn lock held by another group.');
+            return null;
+        }
     } catch (e) {
-        console.log('⚠️ Spawn blocked — spawn lock already held.');
+        console.log('⚠️ Spawn blocked — spawn lock error:', e.message);
         return null;
     }
 
     try {
+        const groupJidForSpawn = getRaidGroup();
         const [existing] = await db.execute(
-            "SELECT id FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
+            "SELECT id FROM dungeon WHERE is_active=1 AND (group_jid=? OR (group_jid IS NULL AND ?=?)) ORDER BY id DESC LIMIT 1",
+            [groupJidForSpawn, groupJidForSpawn, process.env.RAID_GROUP_JID || '120363213735662100@g.us']
         );
         if (existing.length) {
             const oldId = existing[0].id;
@@ -138,9 +149,9 @@ async function spawnDungeon(rank, client = null) {
         const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, MALACHAR:6 }[rank] || 3;
 
         const [result] = await db.execute(
-            `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked)
-             VALUES (?, 1, ?, ?, 1, 0, 0, 0)`,
-            [rank, maxStage, boss]
+            `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked, group_jid)
+             VALUES (?, 1, ?, ?, 1, 0, 0, 0, ?)`,
+            [rank, maxStage, boss, getRaidGroup()]
         );
 
         const dungeonId = result.insertId;
@@ -157,7 +168,7 @@ async function spawnDungeon(rank, client = null) {
 
         return { id: dungeonId, rank, maxStage, boss };
     } finally {
-        await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1").catch(() => {});
+        await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1 AND group_jid=?", [getRaidGroup()]).catch(() => {});
     }
 }
 
@@ -318,8 +329,13 @@ async function demoteAllRaiders(client, dungeonId) {
     }
 }
 
-async function getActiveDungeon() {
-    const [rows] = await db.execute("SELECT * FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1");
+async function getActiveDungeon(groupJid) {
+    const gid = groupJid || getRaidGroup();
+    const liveGroup = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+    const [rows] = await db.execute(
+        "SELECT * FROM dungeon WHERE is_active=1 AND (group_jid=? OR (group_jid IS NULL AND ?=?)) ORDER BY id DESC LIMIT 1",
+        [gid, gid, liveGroup]
+    );
     return rows[0] || null;
 }
 
@@ -341,6 +357,9 @@ async function isDungeonLockedDB(dungeonId) {
 async function ensureSessionColumns() {
     await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_gold INT DEFAULT 0').catch(() => {});
     await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_xp INT DEFAULT 0').catch(() => {});
+    // Per-group dungeon isolation
+    await db.execute('ALTER TABLE dungeon ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL').catch(() => {});
+    await db.execute('ALTER TABLE dungeon_spawn_lock ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL').catch(() => {});
 }
 
 async function lockDungeon(dungeonId) {

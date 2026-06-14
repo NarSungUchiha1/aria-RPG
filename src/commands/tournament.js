@@ -33,7 +33,7 @@ module.exports = {
         if (sub === 'start') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
 
-            const existing = await getActiveTournament();
+            const existing = await getActiveTournament(msg.from);
             if (existing) return msg.reply('❌ A tournament is already active. Use !tournament next to advance phases.');
 
             // Registration stays open until admin manually advances with !tournament next
@@ -75,7 +75,7 @@ module.exports = {
         // ── ADMIN: advance phase ───────────────────────────────────────────
         if (sub === 'next') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             const next = await advancePhase(t, client, getAnnouncementGroup(msg.from, t));
             return msg.reply(`✅ Advanced to phase: *${next}*`);
@@ -84,7 +84,7 @@ module.exports = {
         // ── ADMIN: call matchup ────────────────────────────────────────────
         if (sub === 'matchup') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t || t.phase !== PHASES.BATTLE_ROYALE) return msg.reply('❌ Only during Battle Royale phase.');
 
             const players = await getActivePlayers(t.id);
@@ -93,18 +93,20 @@ module.exports = {
             // Pick 2 players — avoid pairs who've already fought 3+ times
             const shuffled = [...players].sort(() => Math.random() - 0.5);
             let p1 = null, p2 = null;
-            for (let i = 0; i < shuffled.length && !p2; i++) {
-                for (let j = i + 1; j < shuffled.length && !p2; j++) {
+            outer: for (let i = 0; i < shuffled.length; i++) {
+                for (let j = i + 1; j < shuffled.length; j++) {
                     const [prev] = await db.execute(
                         `SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=? AND phase='battle_royale'
                          AND ((player1_id=? AND player2_id=?) OR (player1_id=? AND player2_id=?))`,
                         [t.id, shuffled[i].player_id, shuffled[j].player_id, shuffled[j].player_id, shuffled[i].player_id]
                     );
-                    if (prev[0].cnt < 3) { p1 = shuffled[i]; p2 = shuffled[j]; }
+                    if (prev[0].cnt < 3) { p1 = shuffled[i]; p2 = shuffled[j]; break outer; }
                 }
             }
-            // Fallback: just pick first two if all pairs exhausted
-            if (!p1) { p1 = shuffled[0]; p2 = shuffled[1]; }
+            if (!p1 || !p2) {
+                if (shuffled.length < 2) return msg.reply('❌ Not enough players for a matchup.');
+                p1 = shuffled[0]; p2 = shuffled[1];
+            }
 
             await client.sendMessage(getAnnouncementGroup(msg.from, t), {
                 text:
@@ -123,7 +125,6 @@ module.exports = {
                 mentions: [p1.player_id + '@s.whatsapp.net', p2.player_id + '@s.whatsapp.net']
             }).catch(() => {});
 
-            // Record this matchup to prevent repeat pairing
             if (p1 && p2) {
                 await db.execute(
                     "INSERT INTO tournament_matches (tournament_id, phase, player1_id, player2_id, status) VALUES (?,?,?,?,'active')",
@@ -136,7 +137,7 @@ module.exports = {
         // ── ADMIN: record win ──────────────────────────────────────────────
         if (sub === 'recordwin') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             const winnerId = msg.mentionedIds?.[0];
             const loserId  = msg.mentionedIds?.[1];
@@ -149,7 +150,7 @@ module.exports = {
 
         // ── JOIN ───────────────────────────────────────────────────────────
         if (sub === 'join') {
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ No active tournament.\n╰═══════════════════════╯`
             );
@@ -184,7 +185,7 @@ module.exports = {
 
         // ── DUO ───────────────────────────────────────────────────────────
         if (sub === 'duo') {
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t || t.phase !== PHASES.DUO_GAUNTLET) return msg.reply(
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ Duo registration not open yet.\n╰═══════════════════════╯`
             );
@@ -210,12 +211,10 @@ module.exports = {
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* already has a duo partner.\n╰═══════════════════════╯`
             );
 
-            // Set duo_partner for self
             await db.execute(
                 "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
                 [partnerId, t.id, userId]
             );
-            // Set duo_partner for partner (upsert handles existing or new entry)
             await db.execute(
                 "INSERT INTO tournament_players (tournament_id, player_id, duo_partner, phase_joined) VALUES (?,?,?,'duo_gauntlet') ON DUPLICATE KEY UPDATE duo_partner=?",
                 [t.id, partnerId, userId, userId]
@@ -234,14 +233,15 @@ module.exports = {
 
         // ── STATUS ─────────────────────────────────────────────────────────
         if (sub === 'status') {
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ No active tournament.\n╰═══════════════════════╯`);
 
             const me = await getParticipant(t.id, userId);
             if (!me) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ You are not registered.\n┃★ !tournament join\n╰═══════════════════════╯`);
 
             const players = await getActivePlayers(t.id);
-            const myRank = players.findIndex(p => p.player_id === userId) + 1;
+            const rankIdx = players.findIndex(p => p.player_id === userId);
+            const myRank = rankIdx >= 0 ? rankIdx + 1 : null;
 
             return msg.reply(
                 `╔══〘 🏆 YOUR STANDING 〙══╗\n` +
@@ -250,8 +250,9 @@ module.exports = {
                 `┃★\n` +
                 `┃★ Wins:   ${me.wins}\n` +
                 `┃★ Losses: ${me.losses}\n` +
-                `┃★ Rank:   #${myRank} of ${players.length} active\n` +
+                `┃★ Rank:   ${me.eliminated ? '❌ Eliminated' : myRank ? `#${myRank} of ${players.length} active` : 'Unranked'}\n` +
                 `┃★ Status: ${me.eliminated ? '❌ Eliminated' : '✅ Active'}\n` +
+                (me.duo_partner ? `┃★ Duo:    ✅ Paired\n` : '') +
                 `┃★\n` +
                 `╚═══════════════════════════╝`
             );
@@ -259,7 +260,7 @@ module.exports = {
 
         // ── BRACKET ───────────────────────────────────────────────────────
         if (sub === 'bracket') {
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ No active tournament.\n╰═══════════════════════╯`);
 
             const players = await getActivePlayers(t.id);
@@ -278,7 +279,7 @@ module.exports = {
         // ── ADMIN: force phase ────────────────────────────────────────────
         if (sub === 'forcephase') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament. Use !tournament start first.');
             const phase = args[1]?.toLowerCase();
             const validPhases = ['registration','battle_royale','duo_gauntlet','grand_finals','awards','ended'];
@@ -294,7 +295,7 @@ module.exports = {
         // ── ADMIN: add test players ────────────────────────────────────────
         if (sub === 'addtest') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             // Add all mentioned players or self
             const targets = msg.mentionedIds?.length ? msg.mentionedIds : [userId];
@@ -310,10 +311,10 @@ module.exports = {
         // ── ADMIN: force wins ──────────────────────────────────────────────
         if (sub === 'setwins') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             const targetId = msg.mentionedIds?.[0] || userId;
-            const wins = parseInt(args[1]) || 3;
+            const wins = parseInt(args.find(a => /^\d+$/.test(a))) || 3;
             await db.execute(
                 "UPDATE tournament_players SET wins=? WHERE tournament_id=? AND player_id=?",
                 [wins, t.id, targetId]
@@ -324,7 +325,7 @@ module.exports = {
         // ── ADMIN: eliminate player ────────────────────────────────────────
         if (sub === 'eliminate') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             const targetId = msg.mentionedIds?.[0];
             if (!targetId) return msg.reply('❌ !tournament eliminate @player');
@@ -339,7 +340,7 @@ module.exports = {
         // ── ADMIN: reset tournament ────────────────────────────────────────
         if (sub === 'reset') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             await db.execute("DELETE FROM tournament_players WHERE tournament_id=?", [t.id]);
             await db.execute("DELETE FROM tournament_matches WHERE tournament_id=?", [t.id]);
@@ -350,7 +351,7 @@ module.exports = {
         // ── ADMIN: end tournament ──────────────────────────────────────────
         if (sub === 'end') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             await db.execute("UPDATE tournaments SET is_active=0, ended_at=NOW() WHERE id=?", [t.id]);
             return msg.reply(`✅ Tournament ended.`);
@@ -359,7 +360,7 @@ module.exports = {
         // ── ADMIN: force prizes now ────────────────────────────────────────
         if (sub === 'testprizes') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
             const { distributePrizes } = require('../systems/tournamentSystem');
             await distributePrizes(t.id, client, getAnnouncementGroup(msg.from, t));
@@ -368,7 +369,7 @@ module.exports = {
 
         // ── PLAYERS LIST ──────────────────────────────────────────────────
         if (sub === 'players') {
-            const t = await getActiveTournament();
+            const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮
 ┃★ No active tournament.
 ╰═══════════════════════╯`);
@@ -420,7 +421,7 @@ module.exports = {
         }
 
         // ── DEFAULT VIEW ───────────────────────────────────────────────────
-        const t = await getActiveTournament();
+        const t = await getActiveTournament(msg.from);
         if (!t) return msg.reply(
             `══〘 🏆 TOURNAMENT 〙══╮\n` +
             `┃★ No active tournament.\n` +

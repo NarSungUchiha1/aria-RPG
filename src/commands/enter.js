@@ -263,7 +263,9 @@ module.exports = {
 
         try {
 
-            if (msg.from === getRaidGroup()) {
+            const TEST_GROUP = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
+            const LIVE_RAID  = process.env.RAID_GROUP_JID  || '120363213735662100@g.us';
+            if (msg.from === LIVE_RAID) {
 
                 return msg.reply(
 `══〘 🏰 ENTER 〙══╮

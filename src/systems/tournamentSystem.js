@@ -62,7 +62,6 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
-    // Migration: add group_jid if missing
     await db.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL").catch(() => {});
 
     await db.execute(`
@@ -82,10 +81,14 @@ async function ensureTables() {
     `).catch(() => {});
 }
 
-async function getActiveTournament() {
+async function getActiveTournament(groupJid) {
     await ensureTables();
+    // Always scope to group — use provided groupJid or fall back to execution context
+    const gid = groupJid || global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+    const liveGroup = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
     const [rows] = await db.execute(
-        "SELECT * FROM tournaments WHERE is_active=1 ORDER BY id DESC LIMIT 1"
+        "SELECT * FROM tournaments WHERE is_active=1 AND (group_jid=? OR (group_jid IS NULL AND ?=?)) ORDER BY id DESC LIMIT 1",
+        [gid, gid, liveGroup]
     );
     return rows[0] || null;
 }
@@ -125,9 +128,6 @@ async function advancePhase(tournament, client, raidGroup) {
         "UPDATE tournaments SET phase=?, phase_ends_at=? WHERE id=?",
         [nextPhase, phaseEnds, tournament.id]
     );
-
-    // Prevent match farming — log matchup to tournament_matches
-    // (matchup command handles this, but good to note here)
 
     // When leaving BATTLE_ROYALE: eliminate bottom half by wins
     if (tournament.phase === PHASES.BATTLE_ROYALE) {
@@ -242,6 +242,8 @@ async function distributePrizes(tournamentId, client, raidGroup) {
 
     for (let i = 0; i < ranked.length; i++) {
         const p = ranked[i];
+        // Skip already-claimed to prevent double distribution
+        if (p.prize_claimed) continue;
         let tier = i === 0 ? 'champion' : i === 1 ? 'runner_up' : i < 4 ? 'semi_finalist' : i < 8 ? 'top_8' : 'participant';
         const prize = PRIZE_POOL[tier];
 
@@ -255,6 +257,9 @@ async function distributePrizes(tournamentId, client, raidGroup) {
                 [p.player_id, mat, qty, qty]
             ).catch(() => {});
         }
+
+        // Mark prize as claimed
+        await db.execute('UPDATE tournament_players SET prize_claimed=1 WHERE tournament_id=? AND player_id=?', [tournamentId, p.player_id]).catch(() => {});
 
         // Give exclusive weapon to top 2
         if (prize.weapon) {
