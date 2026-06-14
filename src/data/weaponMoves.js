@@ -54,11 +54,7 @@ module.exports = {
         { name: 'Ground Slam',     type: 'damage', stat: 'strength', multiplier: 1.7, stun: true, cooldown: 3, cost: 8 },
         { name: 'Devastate',       type: 'damage', stat: 'strength', multiplier: 2.8, cooldown: 5, cost: 10 }
     ],
-    'Healing Staff': [
-        { name: 'Mend',            type: 'heal',   stat: 'intelligence', multiplier: 3.0, baseHeal: 25, cooldown: 2, cost: 8 },
-        { name: 'Restoration',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, baseHeal: 40, cooldown: 4, cost: 12 },
-        { name: 'Staff Smack',     type: 'damage', stat: 'intelligence', multiplier: 1.2,              cooldown: 1, cost: 0 }
-    ],
+    'Healing Staff': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── E RANK ────────────────────────────────────────────────
     'Shadow Dagger': [
@@ -173,26 +169,10 @@ module.exports = {
         { name: 'Fallen Titan',    type: 'damage', stat: 'stamina',  multiplier: 4.0, stun: true, cooldown: 5, cost: 20 }
     ],
     // Healer B rank crafted
-    'Splint Mace': [
-        { name: 'Mace Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
-        { name: 'Splint Mend',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, baseHeal: 50, cooldown: 60, cost: 14 },
-        { name: 'Bone Mend',       type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 120, cost: 20 }
-    ],
-    'Ember Chalice': [
-        { name: 'Chalice Strike',  type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
-        { name: 'Ember Heal',      type: 'heal',   stat: 'intelligence', multiplier: 6.0, baseHeal: 60, cooldown: 60, cost: 14 },
-        { name: 'Burning Mend',    type: 'heal',   stat: 'intelligence', multiplier: 9.0, aoe: true,   cooldown: 120, cost: 22 }
-    ],
-    'Soul Lantern': [
-        { name: 'Lantern Strike',  type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 0 },
-        { name: 'Soul Light',      type: 'heal',   stat: 'intelligence', multiplier: 7.0, baseHeal: 70, cooldown: 2, cost: 16 },
-        { name: 'Lantern Glow',    type: 'heal',   stat: 'intelligence', multiplier: 10.0, cleanse: true, cooldown: 5, cost: 24 }
-    ],
-    'Cradle of Life': [
-        { name: 'Life Strike',     type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 15, cost: 0 },
-        { name: 'Cradle Heal',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, baseHeal: 80, cooldown: 150, cost: 18 },
-        { name: 'Cradle Strike',   type: 'damage', stat: 'intelligence', multiplier: 2.5,              cooldown: 60, cost: 18 }
-    ],
+    'Splint Mace': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Ember Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Soul Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Cradle of Life': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── A RANK ────────────────────────────────────────────────
     "Titan's Wrath": [
@@ -358,11 +338,7 @@ module.exports = {
         { name: 'Void Ward',       type: 'buff',   effect: 'defense_up', value: 40, duration: 3, cooldown: 4, cost: 12 },
         { name: 'First Stand',     type: 'shield', value: 300, cooldown: 5, cost: 18 }
     ],
-    'Void Initiate Lantern': [
-        { name: 'Initiate Strike', type: 'damage', stat: 'intelligence', multiplier: 0.8, cooldown: 1, cost: 0 },
-        { name: 'Void Light',      type: 'heal',   stat: 'intelligence', multiplier: 1.5, baseHeal: 50, cooldown: 3, cost: 15 },
-        { name: 'First Mend',      type: 'heal',   stat: 'intelligence', multiplier: 2.5, baseHeal: 80, cooldown: 5, cost: 20 }
-    ],
+    'Void Initiate Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
     // ══════════════════════════════════════════════════════════
     //  PRESTIGE WEAPONS — PF TIER (stat ~650, mult 1.3/2.5/5.0)
     // ══════════════════════════════════════════════════════════
@@ -392,11 +368,7 @@ module.exports = {
         { name: 'Void Absorption',   type: 'shield', value: 500,                        cooldown: 120, cost: 20 }
     ],
     // Healer
-    'Void Mend': [
-        { name: 'Void Heal',         type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 15, cost: 20 },
-        { name: 'Mend Wound',        type: 'heal',   stat: 'intelligence', multiplier: 4.0, cleanse: true, cooldown: 60, cost: 22 },
-        { name: 'Void Pulse',        type: 'damage', stat: 'intelligence', multiplier: 2.5,               cooldown: 120, cost: 18 }
-    ],
+    'Void Mend': [] /* Healer weapon — stat bonuses only, no active moves */,
     // Tank damage
     'Void Earthbreaker': [
         { name: 'Seismic Slam',      type: 'damage', stat: 'stamina',   multiplier: 2.5, stun: true,    cooldown: 15, cost: 22 },
@@ -425,11 +397,7 @@ module.exports = {
         { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 100, duration: 3, cooldown: 60, cost: 25 },
         { name: 'Phase Block',       type: 'shield', value: 1000,                       cooldown: 120, cost: 30 }
     ],
-    'Fracture Chalice': [
-        { name: 'Burning Heal',      type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 45, cost: 25 },
-        { name: 'Chalice Burst',     type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 120, cost: 30 },
-        { name: 'Fracture Mend',     type: 'damage', stat: 'intelligence', multiplier: 2.7,             cooldown: 20, cost: 22 }
-    ],
+    'Fracture Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
     'Fracture Colossus': [
         { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',  multiplier: 4.0, cooldown: 30, cost: 30 },
         { name: 'Fracture Slam',     type: 'damage', stat: 'stamina',  multiplier: 7.0, stun: true, aoe: true, cooldown: 60, cost: 38 },
@@ -457,11 +425,7 @@ module.exports = {
         { name: 'Ancient Ward',      type: 'buff',   effect: 'defense_up', value: 200, duration: 4,       cooldown: 60, cost: 28 },
         { name: 'Impenetrable',      type: 'shield', value: 2500,                                         cooldown: 120, cost: 38 }
     ],
-    'Abyss Lantern': [
-        { name: 'Ancient Light',     type: 'heal',   stat: 'intelligence', multiplier: 5.0, cooldown: 15, cost: 30 },
-        { name: 'Lantern Glow',      type: 'heal',   stat: 'intelligence', multiplier: 9.0, cleanse: true, aoe: true, cooldown: 60, cost: 38 },
-        { name: 'Lost World Heal',   type: 'heal',   stat: 'intelligence', multiplier: 14.0,             cooldown: 120, cost: 40 }
-    ],
+    'Abyss Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── PS TIER (stat ~7200, mult 11.4/22.7/45.0) ────────────
     "Malachar's Fist": [
@@ -563,21 +527,9 @@ module.exports = {
     ],
 
     // ── HEALER PRESTIGE FORGED ──────────────────────────────────
-    'Void Sanctuary Staff': [
-        { name: 'Sanctuary Heal',    type: 'heal',   stat: 'intelligence', multiplier: 2.0, cooldown: 15, cost: 20 },
-        { name: 'Void Light',        type: 'heal',   stat: 'intelligence', multiplier: 3.5, cleanse: true, cooldown: 60, cost: 25 },
-        { name: 'Void Sanctuary',    type: 'heal',   stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 120, cost: 32 }
-    ],
-    'Fracture Life Chalice': [
-        { name: 'Life Sip',          type: 'heal',   stat: 'intelligence', multiplier: 3.5, cooldown: 15, cost: 28 },
-        { name: 'Fracture Mend',     type: 'heal',   stat: 'intelligence', multiplier: 6.5, cleanse: true, cooldown: 60, cost: 32 },
-        { name: 'Chalice Overflow',  type: 'heal',   stat: 'intelligence', multiplier: 12.0, aoe: true,   cooldown: 120, cost: 45 }
-    ],
-    'Malachars Grace Replica': [
-        { name: 'Replica Grace',     type: 'heal',   stat: 'intelligence', multiplier: 8.0, cooldown: 2, cost: 40 },
-        { name: 'Echo of Grace',     type: 'heal',   stat: 'intelligence', multiplier: 15.0, cleanse: true, aoe: true, cooldown: 4, cost: 48 },
-        { name: 'The Replica Grace', type: 'heal',   stat: 'intelligence', multiplier: 26.0, aoe: true,   cooldown: 6, cost: 55 }
-    ],
+    'Void Sanctuary Staff': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Fracture Life Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Malachars Grace Replica': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── THE THREE — MALACHAR BOUND WEAPONS ───────────────────────────────────
     'Ruin': [

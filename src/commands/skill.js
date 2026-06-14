@@ -25,15 +25,11 @@ const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-    // Intelligence damage skills use mana
-    if (move.type === 'damage' && move.stat === 'intelligence') {
-        return true;
-    }
-    // Healing skills — only weapon heals cost mana, role heals are free
-    if (move.type === 'heal') {
-        if (move.source === 'role')   return false;
-        if (move.source === 'weapon') return true;
-    }
+    // Intelligence damage skills cost mana
+    if (move.type === 'damage' && move.stat === 'intelligence') return true;
+    // Heal and buff moves cost mana (role-based heals included)
+    if (move.type === 'heal') return true;
+    if (move.type === 'buff' && move.cost > 0) return true;
     return false;
 }
 
@@ -230,8 +226,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 }
 
 // Export for use by dungeon.js retaliation blessing triggers
+// Export for use by dungeon.js retaliation blessing triggers
 module.exports = {
     name: 'skill',
+    triggerBlessingIfReady,
     triggerBlessingIfReady,
     async execute(msg, args, { userId, client }) {
       try {
@@ -309,14 +307,21 @@ module.exports = {
         }
 
         if (requiresMana(move)) {
-            const manaCost = move.cost || 5;
+            // Mana cost scales with rank — higher ranks burn more mana per cast
+            const RANK_MANA_MULT = {
+                F:1.0, E:1.1, D:1.2, C:1.4, B:1.6, A:2.0, S:2.5,
+                PF:3.0, PE:3.5, PD:4.0, PC:5.0, PB:6.0, PA:8.0, PS:10.0
+            };
+            const rankMult = RANK_MANA_MULT[player.rank] || 1.0;
+            const manaCost = Math.ceil((move.cost || 5) * rankMult);
             const currentMana = Number(player.mana) || 0;
-            const isCaster = ['Mage', 'Healer', 'Explorer'].includes(player.role);
             if (currentMana < manaCost) {
-                const tip = isCaster
-                    ? `❌ Not enough mana! Need ${manaCost}, have ${currentMana}.`
-                    : `❌ Not enough mana (${currentMana}/${player.max_mana || 20}).\n┃◆ Healing weapons need mana — only Mages, Healers & Explorers can sustain them.`;
-                return msg.reply(tip);
+                return msg.reply(
+                    `══〘 🔵 OUT OF MANA 〙══╮\n` +
+                    `┃◆ ❌ Need ${manaCost} mana, have ${currentMana}/${player.max_mana || 100}.\n` +
+                    `┃◆ Mana regenerates over time.\n` +
+                    `╰═══════════════════════╯`
+                );
             }
             await db.execute("UPDATE players SET mana = mana - ? WHERE id=?", [manaCost, userId]);
             player.mana = currentMana - manaCost;
