@@ -130,6 +130,11 @@ module.exports = {
                     "INSERT INTO tournament_matches (tournament_id, phase, player1_id, player2_id, status) VALUES (?,?,?,?,'active')",
                     [t.id, 'battle_royale', p1.player_id, p2.player_id]
                 ).catch(() => {});
+                // Register both players for a direct tournament duel (no party assembly needed)
+                try {
+                    const { setTournamentDuelPending } = require('../systems/pvpsystem');
+                    setTournamentDuelPending(p1.player_id, p2.player_id, t.id, t.phase);
+                } catch(e) {}
             }
             return msg.reply('✅ Matchup called.');
         }

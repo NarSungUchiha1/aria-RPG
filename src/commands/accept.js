@@ -18,6 +18,8 @@ async function ensureTable() {
     await db.execute(`ALTER TABLE pvp_challenges ADD COLUMN duel_type ENUM('solo','party') DEFAULT 'solo'`).catch(() => {});
 }
 
+const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
+
 module.exports = {
     name: 'accept',
     async execute(msg, args, { userId, client }) {

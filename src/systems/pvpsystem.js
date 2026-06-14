@@ -21,6 +21,8 @@ const territoryWars = new Map(); // duelKey -> { tid, attackerClan, defenderClan
 // assemblyKey (= pvp_challenges.team_key) → { teamA, teamB, teamALeader, teamBLeader,
 //   teamAReady, teamBReady, bet, chat, timer }
 const partyAssembly = new Map();
+// Tournament duel pending: playerId → { opponentId, tournamentId, phase }
+const tournamentDuelPending = new Map();
 const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
 const DUEL_HP = 10000; // normal players fixed duel HP
@@ -623,7 +625,24 @@ async function joinPartyAssembly(joinerId, leaderTag) {
 async function readyPartyDuel(leaderId, chat) {
     const lid = String(leaderId);
     const state = getAssemblyByLeader(lid);
-    if (!state) return { error: "You are not a party leader in any active assembly.\nOnly the challenger and the first enemy to accept can use !startduel." };
+    if (!state) {
+        // Check if there's a pending tournament duel for this player
+        const pendingTD = tournamentDuelPending.get(lid);
+        if (pendingTD) {
+            const opponentId = pendingTD.opponentId;
+            if (tournamentDuelPending.get(opponentId)?.opponentId === lid) {
+                // Both sides ready — start the duel
+                tournamentDuelPending.delete(lid);
+                tournamentDuelPending.delete(opponentId);
+                await startPvPDuel([lid], [opponentId], 0, null, null, chat);
+                return { success: true, started: true };
+            }
+            // First side ready — wait for opponent
+            const [oppRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [opponentId]);
+            return { success: true, waiting: oppRow[0]?.nickname || opponentId, rosterMsg: '' };
+        }
+        return { error: "You are not a party leader in any active assembly.\nOnly the challenger and the first enemy to accept can use !startduel." };
+    }
 
     if (state.teamALeader === lid) state.teamAReady = true;
     if (state.teamBLeader === lid) state.teamBReady = true;
@@ -1485,6 +1504,10 @@ module.exports = {
     startPartyAssembly,
     joinPartyAssembly,
     readyPartyDuel,
+    setTournamentDuelPending: (p1, p2, tournamentId, phase) => {
+        tournamentDuelPending.set(String(p1), { opponentId: String(p2), tournamentId, phase });
+        tournamentDuelPending.set(String(p2), { opponentId: String(p1), tournamentId, phase });
+    },
     getAssemblyByPlayer,
     startTurnTimer,
     duelPool
