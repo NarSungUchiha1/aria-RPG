@@ -23,6 +23,16 @@ module.exports = {
         const targetId = mentioned[0].replace(/@c\.us/g, "").split("@")[0];
         const amount   = parseInt(args[1]);
 
+        // Block while sender or recipient is in a locked dungeon
+        const [sPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1", [userId]);
+        if (sPayD.length) return msg.reply(
+            `══〘 💰 PAY 〙══╮\n┃◆ ❌ You cannot send gold\n┃◆ while inside a dungeon.\n╰═══════════════════════╯`
+        );
+        const [tPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1", [targetId]);
+        if (tPayD.length) return msg.reply(
+            `══〘 💰 PAY 〙══╮\n┃◆ ❌ Cannot pay a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
+        );
+
         if (isNaN(amount) || amount <= 0) {
             return msg.reply(
                 `══〘 💰 PAY 〙══╮\n` +

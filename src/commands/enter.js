@@ -417,6 +417,37 @@ module.exports = {
                 );
             }
 
+            // ── Entry wealth requirement (display only, no deduction) ──
+            if (!isMalachar && !isTerritoryDungeon && !noRankCheck) {
+                const ENTRY_REQS = {
+                    F:0, E:500, D:2000, C:8000, B:25000, A:75000, S:150000,
+                    PF:200000, PE:250000, PD:300000, PC:350000, PB:400000, PA:450000, PS:500000
+                };
+                const req = ENTRY_REQS[dungeon.dungeon_rank] || 0;
+                if (req > 0) {
+                    const [wealthRows] = await db.execute(
+                        `SELECT c.gold, COALESCE(x.xp,0) as xp
+                         FROM currency c LEFT JOIN xp x ON x.player_id=c.player_id
+                         WHERE c.player_id=?`,
+                        [userId]
+                    );
+                    const gold = wealthRows[0]?.gold || 0;
+                    const xp   = wealthRows[0]?.xp   || 0;
+                    if (gold < req || xp < req) {
+                        return msg.reply(
+                            `╔══〘 🏰 ENTRY REQUIREMENT 〙══╗\n` +
+                            `┃◆\n` +
+                            `┃◆ Rank *${dungeon.dungeon_rank}* dungeon requires:\n` +
+                            `┃◆ 💰 ${req.toLocaleString()} Gold  ${gold >= req ? '✅' : '❌ (you have ' + gold.toLocaleString() + ')'}\n` +
+                            `┃◆ ⭐ ${req.toLocaleString()} XP    ${xp  >= req ? '✅' : '❌ (you have ' + xp.toLocaleString() + ')'}\n` +
+                            `┃◆\n` +
+                            `┃◆ Keep grinding — you'll get there.\n` +
+                            `╚═══════════════════════════╝`
+                        );
+                    }
+                }
+            }
+
             if (
                 await isDungeonLockedDB(dungeon.id)
             ) {

@@ -36,6 +36,13 @@ module.exports = {
             const nickname = target[0].nickname;
 
             // ── GOLD ─────────────────────────────────────────────
+            // Block giving to players inside a dungeon
+            const [tGiveDungeon] = await db.execute(
+                "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1",
+                [targetId]
+            );
+            if (tGiveDungeon.length) return msg.reply('❌ Cannot give gold/xp to a player currently inside a dungeon.');
+
             if (type === 'gold') {
                 const amount = parseInt(args[2]);
                 if (isNaN(amount) || amount <= 0) return msg.reply("❌ Invalid amount.");

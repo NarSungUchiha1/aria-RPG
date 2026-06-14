@@ -49,6 +49,18 @@ module.exports = {
                 );
             }
 
+            // Block XP transfer while in dungeon
+            const [sXpDungeon] = await db.execute(
+                "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1",
+                [userId]
+            );
+            if (sXpDungeon.length) return msg.reply('❌ Cannot transfer XP while inside a dungeon.');
+            const [tXpDungeon] = await db.execute(
+                "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1",
+                [targetId]
+            );
+            if (tXpDungeon.length) return msg.reply('❌ Cannot transfer XP to a player inside a dungeon.');
+
             const [sender] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
             const senderXp = sender[0]?.xp || 0;
 
