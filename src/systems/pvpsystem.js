@@ -994,8 +994,6 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             damage_boost: newCharges > 0 ? pvpBoost : 0
         });
     }
-            dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
-
             // Apply attacker potion buffs
             try {
                 const { getTurnEffect } = require('./potionEffects');
@@ -1017,6 +1015,9 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                     }
                 }
             } catch(e) {}
+
+            // 95% PvP cap — applied LAST so no multiplier can bypass it
+            dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
 
             const newHp = Math.max(0, defHp - dmg);
             data.hp[tid] = newHp;
