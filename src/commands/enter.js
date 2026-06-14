@@ -96,10 +96,12 @@ async function beginDungeon(dungeonId, client) {
             `⚔️ Dungeon ${dungeonId} auto-started with ${players.length} players.`
         );
 
+        const { getDungeonGroup } = require('../engine/dungeon');
+        const dungeonGroupJid = getDungeonGroup(dungeonId);
         const targetChat = {
             sendMessage: async (content) => {
                 await client.sendMessage(
-                    getRaidGroup(),
+                    dungeonGroupJid,
                     { text: content }
                 );
             }
@@ -199,7 +201,7 @@ async function beginDungeon(dungeonId, client) {
 ┃◆`;
         }
 
-        await client.sendMessage(getRaidGroup(), {
+        await client.sendMessage(dungeonGroupJid, {
             text:
 `╭══〘 ⚔️ DUNGEON BEGINS 〙══╮
 ┃◆
@@ -223,7 +225,7 @@ ${timerText}
         if (revealText) {
 
             await client.sendMessage(
-                getRaidGroup(),
+                dungeonGroupJid,
                 { text: revealText }
             );
         }
@@ -306,7 +308,8 @@ module.exports = {
             let dungeon = null;
 
             const [terrActive] = await db.execute(
-                "SELECT d.* FROM dungeon d LEFT JOIN dungeon_flags df ON df.dungeon_id=d.id WHERE d.is_active=1 AND d.dungeon_rank LIKE 'TERRITORY_%' ORDER BY d.id DESC LIMIT 1"
+                "SELECT d.* FROM dungeon d LEFT JOIN dungeon_flags df ON df.dungeon_id=d.id WHERE d.is_active=1 AND d.dungeon_rank LIKE 'TERRITORY_%' AND (d.group_jid=? OR d.group_jid IS NULL) ORDER BY d.id DESC LIMIT 1",
+                    [getRaidGroup()]
             );
 
             if (terrActive.length) {
@@ -338,8 +341,11 @@ module.exports = {
 
             // Fall back to normal dungeon if not part of territory assault
             if (!dungeon) {
+                const enterGroup = getRaidGroup();
+                const enterLive = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
                 const [normRows] = await db.execute(
-                    "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' ORDER BY id DESC LIMIT 1"
+                    "SELECT * FROM dungeon WHERE is_active=1 AND dungeon_rank NOT LIKE 'TERRITORY_%' AND (group_jid=? OR (group_jid IS NULL AND ?=?)) ORDER BY id DESC LIMIT 1",
+                    [enterGroup, enterGroup, enterLive]
                 );
                 dungeon = normRows[0] || null;
             }
@@ -635,8 +641,9 @@ count = count + 1`,
                     );
                 }
 
+                const { getDungeonGroup: getDG } = require('../engine/dungeon');
                 await client.sendMessage(
-                    getRaidGroup(),
+                    getDG(dungeon.id),
                     {
                         text:
 `╭══〘 ⚔️ RAIDER JOINED 〙══╮

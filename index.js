@@ -446,8 +446,9 @@ async function startBot() {
                 )`).catch(() => {});
 
                 try {
-                    await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)").catch(() => {});
-                    const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1");
+                    const LIVE_G = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+                    await db.execute("UPDATE dungeon d SET d.is_active=0 WHERE d.is_active=1 AND d.locked=0 AND (d.group_jid=? OR d.group_jid IS NULL) AND d.created_at < DATE_SUB(NOW(), INTERVAL 2 HOUR) AND d.id NOT IN (SELECT dungeon_id FROM dungeon_players WHERE is_alive=1)", [LIVE_G]).catch(() => {});
+                    const [activeDungeons] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND (group_jid=? OR group_jid IS NULL)", [LIVE_G]);
                     if (!activeDungeons.length) {
                         await db.execute("DELETE FROM dungeon_players WHERE player_id IS NOT NULL");
                         await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id IS NOT NULL");
@@ -906,7 +907,8 @@ cron.schedule('0 */1 * * *', async () => {
         } catch (e) { isEventRunning = false; }
         if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
 
-        const [terrActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
+        const LRJID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+        const [terrActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LRJID]);
         if (terrActive.length) { console.log('⏭️ Spawn skipped — territory assault active.'); return; }
 
         const active = await getActiveDungeon();
@@ -933,7 +935,8 @@ cron.schedule('*/20 * * * *', async () => {
         } catch (e) { hasActiveEvent = false; }
         if (!hasActiveEvent) return;
 
-        const [terrActiveE] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' LIMIT 1");
+        const LRJID2 = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+        const [terrActiveE] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LRJID2]);
         if (terrActiveE.length) { console.log('⏭️ Event spawn skipped — territory assault active.'); return; }
 
         const active = await getActiveDungeon();
@@ -1050,7 +1053,8 @@ cron.schedule('30 */1 * * *', async () => {
         );
         if (!prestigePlayers.length) return;
 
-        const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
+        const LIVE_GP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+        const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LIVE_GP]);
         if (anyActive.length) { console.log('⏭️ Prestige cron skipped — dungeon active'); return; }
 
         const [recentP] = await db.execute(

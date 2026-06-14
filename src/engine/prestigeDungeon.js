@@ -168,7 +168,7 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
     // Skip if any dungeon has active players inside
     try {
         const [activePlayers] = await db.execute(
-            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1"
+            "SELECT COUNT(*) as cnt FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE d.is_active=1 AND dp.is_alive=1 AND (d.group_jid=? OR d.group_jid IS NULL)", [RAID_GROUP]
         );
         if (activePlayers[0].cnt > 0) {
             console.log('⏭️ Prestige spawn skipped — players still active in a dungeon');
@@ -182,16 +182,17 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
 
     // Check no active prestige dungeon
     const [active] = await db.execute(
-        "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' LIMIT 1"
+        "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [RAID_GROUP]
     );
     if (active.length) return null;
 
     const [result] = await db.execute(
-        `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked)
-         VALUES (?, 1, ?, ?, 1, 0, 0, 0)`,
-        [prestigeRank, maxStage, bossName]
+        `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked, group_jid)
+         VALUES (?, 1, ?, ?, 1, 0, 0, 0, ?)`,
+        [prestigeRank, maxStage, bossName, RAID_GROUP]
     );
     const dungeonId = result.insertId;
+    try { const { dungeonGroupMap } = require('./dungeon'); dungeonGroupMap.set(dungeonId, RAID_GROUP); } catch(e) {}
 
     const lorelines = {
         PF: 'The void left something behind when the Leviathan fell.',
@@ -251,7 +252,7 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
 
         // Check no prestige dungeon already active
         const [alreadyActive] = await db.execute(
-            "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' LIMIT 1"
+            "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [RAID_GROUP]
         );
         if (alreadyActive.length) { console.log('★ Prestige dungeon already active — skip spawn'); return; }
 
@@ -268,7 +269,7 @@ async function trySpawnPrestigeDungeon(client, RAID_GROUP) {
 
         // Re-check after delay — another call may have spawned in the meantime
         const [doubleCheck] = await db.execute(
-            "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' LIMIT 1"
+            "SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'P%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [RAID_GROUP]
         );
         if (doubleCheck.length) { console.log('★ Prestige dungeon spawned by another call during delay — skip'); return; }
 

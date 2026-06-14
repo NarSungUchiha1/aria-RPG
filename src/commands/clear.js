@@ -9,7 +9,7 @@ module.exports = {
         try {
             // Get any active dungeon — territory first, then normal
             const [rows] = await db.execute(
-                "SELECT id, dungeon_rank, stage, max_stage FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 1"
+                "SELECT id, dungeon_rank, stage, max_stage FROM dungeon WHERE is_active=1 AND (group_jid=? OR group_jid IS NULL) ORDER BY id DESC LIMIT 1", [getRaidGroup()]
             );
 
             if (!rows.length) return msg.reply(

@@ -36,7 +36,7 @@ module.exports = {
                 const [dRows] = await db.execute('SELECT * FROM dungeon WHERE id=? AND is_active=1', [playerDungeonId]);
                 dungeon = dRows[0] || null;
             }
-            if (!dungeon) dungeon = await getActiveDungeon(true); // fallback including territory
+            if (!dungeon) dungeon = await getActiveDungeon(); // fallback — scoped to group via AsyncLocalStorage
 
             if (!dungeon) return msg.reply(
                 `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ No active dungeon.\n╰═══════════════════════╯`
