@@ -62,6 +62,9 @@ async function ensureTables() {
         )
     `).catch(() => {});
 
+    // Migration: add group_jid if missing
+    await db.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL").catch(() => {});
+
     await db.execute(`
         CREATE TABLE IF NOT EXISTS tournament_matches (
             id            INT AUTO_INCREMENT PRIMARY KEY,
@@ -97,7 +100,7 @@ async function getParticipant(tournamentId, playerId) {
 
 async function getActivePlayers(tournamentId) {
     const [rows] = await db.execute(
-        "SELECT tp.*, p.nickname, p.rank, p.role, p.prestige_level FROM tournament_players tp JOIN players p ON p.id=tp.player_id WHERE tp.tournament_id=? AND tp.eliminated=0 ORDER BY tp.wins DESC",
+        "SELECT tp.*, p.nickname, p.rank, p.role, p.prestige_level FROM tournament_players tp JOIN players p ON p.id=tp.player_id WHERE tp.tournament_id=? AND tp.eliminated=0 ORDER BY tp.wins DESC, tp.losses ASC, tp.player_id ASC",
         [tournamentId]
     );
     return rows;
@@ -122,6 +125,9 @@ async function advancePhase(tournament, client, raidGroup) {
         "UPDATE tournaments SET phase=?, phase_ends_at=? WHERE id=?",
         [nextPhase, phaseEnds, tournament.id]
     );
+
+    // Prevent match farming — log matchup to tournament_matches
+    // (matchup command handles this, but good to note here)
 
     // When leaving BATTLE_ROYALE: eliminate bottom half by wins
     if (tournament.phase === PHASES.BATTLE_ROYALE) {
@@ -253,7 +259,7 @@ async function distributePrizes(tournamentId, client, raidGroup) {
         // Give exclusive weapon to top 2
         if (prize.weapon) {
             await db.execute(
-                "INSERT INTO inventory (player_id, item_name, item_type, quantity, grade) VALUES (?,?,'weapon',1,'P')",
+                "INSERT INTO inventory (player_id, item_name, item_type, quantity, grade, durability, max_durability) VALUES (?,?,'weapon',1,'P',999,999)",
                 [p.player_id, prize.weapon]
             ).catch(() => {});
         }
@@ -277,6 +283,26 @@ async function recordMatchResult(tournamentId, winnerId, loserId, phase) {
         "UPDATE tournament_players SET losses=losses+1 WHERE tournament_id=? AND player_id=?",
         [tournamentId, loserId]
     );
+
+    // In Duo Gauntlet — also give win/loss to duo partners
+    if (phase === PHASES.DUO_GAUNTLET) {
+        const [wPartner] = await db.execute(
+            "SELECT duo_partner FROM tournament_players WHERE tournament_id=? AND player_id=?",
+            [tournamentId, winnerId]
+        );
+        const [lPartner] = await db.execute(
+            "SELECT duo_partner FROM tournament_players WHERE tournament_id=? AND player_id=?",
+            [tournamentId, loserId]
+        );
+        if (wPartner[0]?.duo_partner) await db.execute(
+            "UPDATE tournament_players SET wins=wins+1 WHERE tournament_id=? AND player_id=?",
+            [tournamentId, wPartner[0].duo_partner]
+        );
+        if (lPartner[0]?.duo_partner) await db.execute(
+            "UPDATE tournament_players SET losses=losses+1 WHERE tournament_id=? AND player_id=?",
+            [tournamentId, lPartner[0].duo_partner]
+        );
+    }
 
     // In Grand Finals — loser is eliminated
     if (phase === PHASES.GRAND_FINALS) {

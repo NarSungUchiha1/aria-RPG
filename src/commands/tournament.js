@@ -16,7 +16,12 @@ const {
     getActivePlayers, advancePhase, recordMatchResult
 } = require('../systems/tournamentSystem');
 
-const getRaidGroup = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+const LIVE_RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+function getAnnouncementGroup(msgFrom, tournament) {
+    if (msgFrom && msgFrom.endsWith('@g.us')) return msgFrom;
+    if (tournament?.group_jid) return tournament.group_jid;
+    return LIVE_RAID_GROUP;
+}
 
 module.exports = {
     name: 'tournament',
@@ -32,13 +37,14 @@ module.exports = {
             if (existing) return msg.reply('❌ A tournament is already active. Use !tournament next to advance phases.');
 
             // Registration stays open until admin manually advances with !tournament next
+            const groupJid = msg.from && msg.from.endsWith('@g.us') ? msg.from : LIVE_RAID_GROUP;
             const [result] = await db.execute(
-                "INSERT INTO tournaments (name, phase, phase_ends_at) VALUES ('The Void Tournament', 'registration', NULL)",
-                []
+                "INSERT INTO tournaments (name, phase, phase_ends_at, group_jid) VALUES ('The Void Tournament', 'registration', NULL, ?)",
+                [groupJid]
             );
             const tourId = result.insertId;
 
-            await client.sendMessage(getRaidGroup(), {
+            await client.sendMessage(groupJid, {
                 text:
                     `╔══〘 🏆 VOID TOURNAMENT 〙══╗\n` +
                     `┃★\n` +
@@ -51,11 +57,11 @@ module.exports = {
                     `┃★ Day 7:   Awards\n` +
                     `┃★\n` +
                     `┃★ 💰 PRIZE POOL:\n` +
-                    `┃★ 🥇 200,000G + Void Crown\n` +
-                    `┃★ 🥈 100,000G + Fracture Sovereign\n` +
-                    `┃★ 🥉 50,000G (×2)\n` +
-                    `┃★ ⚔️ 25,000G (Top 8)\n` +
-                    `┃★ 🎖️ 5,000G (All participants)\n` +
+                    `┃★ 🥇 1,500,000G + Void Crown\n` +
+                    `┃★ 🥈 750,000G + Fracture Sovereign\n` +
+                    `┃★ 🥉 350,000G (×2)\n` +
+                    `┃★ ⚔️ 150,000G (Top 8)\n` +
+                    `┃★ 🎖️ 25,000G (All participants)\n` +
                     `┃★ + XP and Void Crystals\n` +
                     `┃★\n` +
                     `┃★ Register: *!tournament join*\n` +
@@ -71,7 +77,7 @@ module.exports = {
             if (!isAdmin) return msg.reply('❌ Admin only.');
             const t = await getActiveTournament();
             if (!t) return msg.reply('❌ No active tournament.');
-            const next = await advancePhase(t, client, getRaidGroup());
+            const next = await advancePhase(t, client, getAnnouncementGroup(msg.from, t));
             return msg.reply(`✅ Advanced to phase: *${next}*`);
         }
 
@@ -84,12 +90,23 @@ module.exports = {
             const players = await getActivePlayers(t.id);
             if (players.length < 2) return msg.reply('❌ Not enough active players.');
 
-            // Pick 2 random players who haven't fought recently
-            const shuffled = players.sort(() => Math.random() - 0.5);
-            const p1 = shuffled[0];
-            const p2 = shuffled[1];
+            // Pick 2 players — avoid pairs who've already fought 3+ times
+            const shuffled = [...players].sort(() => Math.random() - 0.5);
+            let p1 = null, p2 = null;
+            for (let i = 0; i < shuffled.length && !p2; i++) {
+                for (let j = i + 1; j < shuffled.length && !p2; j++) {
+                    const [prev] = await db.execute(
+                        `SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=? AND phase='battle_royale'
+                         AND ((player1_id=? AND player2_id=?) OR (player1_id=? AND player2_id=?))`,
+                        [t.id, shuffled[i].player_id, shuffled[j].player_id, shuffled[j].player_id, shuffled[i].player_id]
+                    );
+                    if (prev[0].cnt < 3) { p1 = shuffled[i]; p2 = shuffled[j]; }
+                }
+            }
+            // Fallback: just pick first two if all pairs exhausted
+            if (!p1) { p1 = shuffled[0]; p2 = shuffled[1]; }
 
-            await client.sendMessage(getRaidGroup(), {
+            await client.sendMessage(getAnnouncementGroup(msg.from, t), {
                 text:
                     `╔══〘 ⚔️ BATTLE ROYALE MATCHUP 〙══╗\n` +
                     `┃★\n` +
@@ -106,6 +123,13 @@ module.exports = {
                 mentions: [p1.player_id + '@s.whatsapp.net', p2.player_id + '@s.whatsapp.net']
             }).catch(() => {});
 
+            // Record this matchup to prevent repeat pairing
+            if (p1 && p2) {
+                await db.execute(
+                    "INSERT INTO tournament_matches (tournament_id, phase, player1_id, player2_id, status) VALUES (?,?,?,?,'active')",
+                    [t.id, 'battle_royale', p1.player_id, p2.player_id]
+                ).catch(() => {});
+            }
             return msg.reply('✅ Matchup called.');
         }
 
@@ -175,7 +199,7 @@ module.exports = {
 
             // Both players must be active tournament participants
             const selfEntry = await getParticipant(t.id, userId);
-            if (!selfEntry || selfEntry.eliminated) return msg.reply(
+            if (!selfEntry || selfEntry.eliminated || selfEntry.duo_partner) return msg.reply(
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ You are not in the tournament or have been eliminated.\n╰═══════════════════════╯`
             );
             const partnerEntry = await getParticipant(t.id, partnerId);
@@ -186,13 +210,15 @@ module.exports = {
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* already has a duo partner.\n╰═══════════════════════╯`
             );
 
+            // Set duo_partner for self
             await db.execute(
                 "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
                 [partnerId, t.id, userId]
             );
+            // Set duo_partner for partner (upsert handles existing or new entry)
             await db.execute(
-                "INSERT IGNORE INTO tournament_players (tournament_id, player_id, duo_partner, phase_joined) VALUES (?,?,?,'duo_gauntlet')",
-                [t.id, partnerId, userId]
+                "INSERT INTO tournament_players (tournament_id, player_id, duo_partner, phase_joined) VALUES (?,?,?,'duo_gauntlet') ON DUPLICATE KEY UPDATE duo_partner=?",
+                [t.id, partnerId, userId, userId]
             );
 
             return msg.reply(
@@ -261,7 +287,7 @@ module.exports = {
             }
             await db.execute("UPDATE tournaments SET phase=?, phase_ends_at=DATE_ADD(NOW(), INTERVAL 2 DAY) WHERE id=?", [phase, t.id]);
             const { handlePhaseStart } = require('../systems/tournamentSystem');
-            await handlePhaseStart(phase, t.id, client, getRaidGroup());
+            await handlePhaseStart(phase, t.id, client, getAnnouncementGroup(msg.from, t));
             return msg.reply(`✅ Forced phase: *${phase}*`);
         }
 
@@ -336,7 +362,7 @@ module.exports = {
             const t = await getActiveTournament();
             if (!t) return msg.reply('❌ No active tournament.');
             const { distributePrizes } = require('../systems/tournamentSystem');
-            await distributePrizes(t.id, client, getRaidGroup());
+            await distributePrizes(t.id, client, getAnnouncementGroup(msg.from, t));
             return msg.reply('✅ Prize distribution triggered.');
         }
 
