@@ -25,11 +25,21 @@ const { narrate } = require('../utils/narrator');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
-    // Intelligence damage skills cost mana
+    const manaRoles = ['Mage', 'Healer'];
+    const isManaRole = manaRoles.includes(player?.role);
+
+    // Intelligence damage — Mage only
     if (move.type === 'damage' && move.stat === 'intelligence') return true;
-    // Heal and buff moves cost mana (role-based heals included)
+
+    // Heals always cost mana (Healer role + any weapon heal)
     if (move.type === 'heal') return true;
-    if (move.type === 'buff' && move.cost > 0) return true;
+
+    // Buffs/shields/debuffs/cleanse — only cost mana for Mage and Healer
+    // Other roles (Tank, Berserker, Assassin, Explorer) use stamina, not mana
+    if (['buff','shield','debuff','cleanse'].includes(move.type) && move.cost > 0) {
+        return isManaRole;
+    }
+
     return false;
 }
 
@@ -306,7 +316,7 @@ module.exports = {
             }
         }
 
-        if (requiresMana(move)) {
+        if (requiresMana(move, player)) {
             // Mana cost scales with rank — higher ranks burn more mana per cast
             const RANK_MANA_MULT = {
                 F:1.0, E:1.1, D:1.2, C:1.4, B:1.6, A:2.0, S:2.5,
