@@ -277,6 +277,23 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
             await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [currentTurnId]);
             await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [opponentId]);
             await trackPvPWin(opponentId);
+            // Record tournament result if a tournament is active
+            try {
+                const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
+                const tourney = await getActiveTournament();
+                if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
+                    const norm = id => String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+                    await recordMatchResult(tourney.id, norm(opponentId), norm(currentTurnId), tourney.phase);
+                    await chat.sendMessage(
+                        `┃★ 📋 Tournament result recorded: *${oNick}* +1 win\n` +
+                        `┃★ Use *!tournament bracket* to see standings.`
+                    ).catch(() => {});
+                }
+            } catch(te) { console.error('[Tournament timeout record]', te.message); }
+            // Demote both players from PvP group after timeout
+            try {
+                await demoteAfterDuel(chat?.client, [currentTurnId, opponentId]);
+            } catch(e) {}
         } catch (e) {
             console.error("Turn timer error:", e.message);
         }
@@ -1594,12 +1611,47 @@ module.exports = {
     readyPartyDuel,
     promoteForDuel,
     demoteAfterDuel,
-    setTournamentDuelPending: (p1, p2, tournamentId, phase) => {
+    setTournamentDuelPending: (p1, p2, tournamentId, phase, client, pvpGroupJid) => {
         const n1 = normalizeId(String(p1));
         const n2 = normalizeId(String(p2));
         tournamentDuelPending.set(n1, { opponentId: n2, tournamentId, phase });
         tournamentDuelPending.set(n2, { opponentId: n1, tournamentId, phase });
         console.log(`[Tournament] Duel pending: ${n1} vs ${n2}`);
+
+        // 3-minute no-show timeout — if neither starts the duel, auto-forfeit both
+        // and give the win to whoever typed !startduel first (or random if neither)
+        const noShowTimer = setTimeout(async () => {
+            const p1Pending = tournamentDuelPending.get(n1);
+            const p2Pending = tournamentDuelPending.get(n2);
+            // If still pending after 3 min — neither started it
+            if (p1Pending || p2Pending) {
+                tournamentDuelPending.delete(n1);
+                tournamentDuelPending.delete(n2);
+                console.log(`[Tournament] No-show: ${n1} vs ${n2} — auto-recording forfeit`);
+                try {
+                    const { recordMatchResult } = require('../systems/tournamentSystem');
+                    // Random winner if neither showed — give win to p2 (challenger advantage)
+                    await recordMatchResult(tournamentId, n2, n1, phase);
+                } catch(e) {}
+                // Announce no-show in PvP group
+                if (client && pvpGroupJid) {
+                    const [r1] = await db.execute('SELECT nickname FROM players WHERE id=?', [n1]).catch(() => [[]]);
+                    const [r2] = await db.execute('SELECT nickname FROM players WHERE id=?', [n2]).catch(() => [[]]);
+                    await client.sendMessage(pvpGroupJid, {
+                        text:
+                            `╔══〘 ⏰ NO-SHOW — MATCH VOIDED 〙══╗\n` +
+                            `┃★\n` +
+                            `┃★ *${r1[0]?.nickname || n1}* vs *${r2[0]?.nickname || n2}*\n` +
+                            `┃★ Neither player started the duel.\n` +
+                            `┃★ Match skipped. Admin can re-call.\n` +
+                            `┃★\n` +
+                            `╚═══════════════════════════╝`
+                    }).catch(() => {});
+                    await demoteAfterDuel(client, [n1, n2]);
+                }
+            }
+        }, 3 * 60 * 1000); // 3 minutes
+        noShowTimer.unref?.(); // Don't block process exit
     },
     getAssemblyByPlayer,
     startTurnTimer,

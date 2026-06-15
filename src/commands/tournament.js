@@ -157,7 +157,7 @@ module.exports = {
                 // Register both players for a direct tournament duel (no party assembly needed)
                 try {
                     const { setTournamentDuelPending } = require('../systems/pvpsystem');
-                    setTournamentDuelPending(p1.player_id, p2.player_id, t.id, t.phase);
+                    setTournamentDuelPending(p1.player_id, p2.player_id, t.id, t.phase, client, pvpGrpJid);
                 } catch(e) {}
             }
             return msg.reply('✅ Matchup called.');
