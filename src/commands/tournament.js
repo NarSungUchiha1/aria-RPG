@@ -266,52 +266,183 @@ if (!p1 || !p2) {
             );
         }
 
-        // ── DUO ───────────────────────────────────────────────────────────
+        // ── DUO REQUEST / CONFIRM ─────────────────────────────────────────
+        // Both players type !tournament duo @otherplayer
+        // First = sends request. Second (pointing back) = confirms & locks pair.
         if (sub === 'duo') {
             const t = await getActiveTournament(msg.from);
             if (!t || t.phase !== PHASES.DUO_GAUNTLET) return msg.reply(
                 `══〘 🏆 TOURNAMENT 〙══╮\n┃★ Duo registration not open yet.\n╰═══════════════════════╯`
             );
-
-            const partnerId = msg.mentionedIds?.[0];
-            if (!partnerId) return msg.reply('❌ !tournament duo @partner');
+            const rawPid = msg.mentionedIds?.[0];
+            if (!rawPid) return msg.reply('❌ !tournament duo @partner');
+            const partnerId = String(rawPid).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
             if (partnerId === userId) return msg.reply('❌ You cannot duo with yourself.');
 
             const [player] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]);
             const [partner] = await db.execute('SELECT nickname FROM players WHERE id=?', [partnerId]);
             if (!partner.length) return msg.reply('❌ Partner not found.');
+            const myNick = player[0]?.nickname;
+            const partnerNick = partner[0]?.nickname;
 
-            // Both players must be active tournament participants
             const selfEntry = await getParticipant(t.id, userId);
-            if (!selfEntry || selfEntry.eliminated || selfEntry.duo_partner) return msg.reply(
-                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ You are not in the tournament or have been eliminated.\n╰═══════════════════════╯`
-            );
+            if (!selfEntry || selfEntry.eliminated)
+                return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ You are not active in the tournament.\n╰═══════════════════════╯`);
+            if (selfEntry.duo_partner)
+                return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ You already have a duo partner.\n╰═══════════════════════╯`);
             const partnerEntry = await getParticipant(t.id, partnerId);
-            if (!partnerEntry || partnerEntry.eliminated) return msg.reply(
-                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* is not in the tournament or has been eliminated.\n╰═══════════════════════╯`
-            );
-            if (partnerEntry.duo_partner) return msg.reply(
-                `══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partner[0].nickname}* already has a duo partner.\n╰═══════════════════════╯`
-            );
+            if (!partnerEntry || partnerEntry.eliminated)
+                return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partnerNick}* is not active in the tournament.\n╰═══════════════════════╯`);
+            if (partnerEntry.duo_partner)
+                return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ ❌ *${partnerNick}* already has a duo partner.\n╰═══════════════════════╯`);
 
-            await db.execute(
-                "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
-                [partnerId, t.id, userId]
-            );
-            await db.execute(
-                "INSERT INTO tournament_players (tournament_id, player_id, duo_partner, phase_joined) VALUES (?,?,?,'duo_gauntlet') ON DUPLICATE KEY UPDATE duo_partner=?",
-                [t.id, partnerId, userId, userId]
-            );
+            if (!global.duoRequests) global.duoRequests = new Map();
+
+            // Check if the target already sent a request to me — if so, confirm
+            const incoming = global.duoRequests.get(`${partnerId}→${userId}_${t.id}`);
+            if (incoming) {
+                if (Date.now() > incoming.expires) {
+                    global.duoRequests.delete(`${partnerId}→${userId}_${t.id}`);
+                    return msg.reply('❌ Their duo request expired. Ask them to send it again.');
+                }
+                // Both pointed at each other — CONFIRM
+                global.duoRequests.delete(`${partnerId}→${userId}_${t.id}`);
+
+                await db.execute(
+                    "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
+                    [partnerId, t.id, userId]
+                );
+                await db.execute(
+                    "UPDATE tournament_players SET duo_partner=? WHERE tournament_id=? AND player_id=?",
+                    [userId, t.id, partnerId]
+                );
+
+                const announceTo = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+                await client.sendMessage(announceTo, {
+                    text:
+                        `╔══〘 🤝 DUO CONFIRMED 〙══╗\n` +
+                        `┃★\n` +
+                        `┃★ *${partnerNick}* + *${myNick}*\n` +
+                        `┃★ are now a duo.\n` +
+                        `┃★\n` +
+                        `┃★ Fight together. Fall together.\n` +
+                        `┃★\n` +
+                        `╚═══════════════════════════╝`
+                }).catch(() => {});
+                return msg.reply(`✅ Duo locked in! You and *${partnerNick}* are partners.`);
+            }
+
+            // No incoming request — send a request
+            global.duoRequests.set(`${userId}→${partnerId}_${t.id}`, {
+                requesterNick: myNick,
+                expires: Date.now() + 10 * 60 * 1000 // 10 min window
+            });
 
             return msg.reply(
-                `╔══〘 🤝 DUO REGISTERED 〙══╗\n` +
+                `╔══〘 🤝 DUO REQUEST SENT 〙══╗\n` +
                 `┃★\n` +
-                `┃★ *${player[0]?.nickname}* + *${partner[0].nickname}*\n` +
-                `┃★ entered as a duo.\n` +
+                `┃★ You sent a duo request to *${partnerNick}*.\n` +
                 `┃★\n` +
-                `┃★ Fight together. Fall together.\n` +
+                `┃★ They must type:\n` +
+                `┃★ *!tournament duo @${myNick}*\n` +
+                `┃★ to confirm. Expires in 10 mins.\n` +
+                `┃★\n` +
                 `╚═══════════════════════════╝`
             );
+        }
+
+        // ── DUO MATCHUP ───────────────────────────────────────────────────
+        if (sub === 'duomatchup') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament(msg.from);
+            if (!t || t.phase !== PHASES.DUO_GAUNTLET) return msg.reply('❌ Only during Duo Gauntlet phase.');
+
+            // Get all registered duos (players with duo_partner set)
+            const [duoRows] = await db.execute(
+                `SELECT tp.player_id, tp.duo_partner, tp.wins, tp.losses, p.nickname, p.rank
+                 FROM tournament_players tp JOIN players p ON p.id=tp.player_id
+                 WHERE tp.tournament_id=? AND tp.eliminated=0 AND tp.duo_partner IS NOT NULL
+                 ORDER BY RAND()`,
+                [t.id]
+            );
+
+            // Build unique duo pairs (avoid duplicates since each duo has 2 rows)
+            const seen = new Set();
+            const duos = [];
+            for (const row of duoRows) {
+                const pairKey = [row.player_id, row.duo_partner].sort().join('_');
+                if (!seen.has(pairKey)) {
+                    seen.add(pairKey);
+                    // Get partner info
+                    const partner = duoRows.find(r => r.player_id === row.duo_partner);
+                    if (partner) duos.push([row, partner]);
+                }
+            }
+
+            if (duos.length < 2) return msg.reply('❌ Need at least 2 registered duos to call a matchup.');
+
+            // Pick 2 duos that haven't fought yet
+            let teamA = null, teamB = null;
+            outer2: for (let i = 0; i < duos.length; i++) {
+                for (let j = i + 1; j < duos.length; j++) {
+                    const [a1, a2] = duos[i];
+                    const [b1, b2] = duos[j];
+                    const [prev] = await db.execute(
+                        `SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=? AND phase='duo_gauntlet'
+                         AND ((player1_id IN (?,?) AND player2_id IN (?,?)))`,
+                        [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id]
+                    );
+                    if (prev[0].cnt < 2) { teamA = duos[i]; teamB = duos[j]; break outer2; }
+                }
+            }
+            if (!teamA || !teamB) return msg.reply('❌ All duo pairs have already fought each other.');
+
+            const [a1, a2] = teamA;
+            const [b1, b2] = teamB;
+
+            // Route to PvP group
+            const TEST_GC_D = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
+            const pvpGrpD = msg.from === TEST_GC_D ? TEST_GC_D : (process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t));
+
+            // Get mentions for all 4 players
+            let mentions = [a1.player_id, a2.player_id, b1.player_id, b2.player_id].map(id => id + '@s.whatsapp.net');
+            try {
+                const pvpMeta = await client.groupMetadata(pvpGrpD);
+                const pids = new Set([a1.player_id, a2.player_id, b1.player_id, b2.player_id]);
+                const found = pvpMeta.participants
+                    .filter(p => pids.has(String(p.id).replace(/@[^@]+$/,'').split(':')[0]))
+                    .map(p => p.id);
+                if (found.length) mentions = found;
+            } catch(e) {}
+
+            await client.sendMessage(pvpGrpD, {
+                text:
+                    `╔══〘 🤝 DUO GAUNTLET MATCHUP 〙══╗\n` +
+                    `┃★\n` +
+                    `┃★ 🔵 *${a1.nickname}* + *${a2.nickname}*\n` +
+                    `┃★       VS\n` +
+                    `┃★ 🔴 *${b1.nickname}* + *${b2.nickname}*\n` +
+                    `┃★\n` +
+                    `┃★ Team leaders type *!startduel* to begin.\n` +
+                    `┃★ Partners type *!joinparty @leader* to join.\n` +
+                    `┃★\n` +
+                    `╚═══════════════════════════╝`,
+                mentions
+            }).catch(() => {});
+
+            // Promote all 4 in PvP group
+            try {
+                const { promoteForDuel } = require('../systems/pvpsystem');
+                setTimeout(() => promoteForDuel(client, [a1.player_id, a2.player_id, b1.player_id, b2.player_id]).catch(() => {}), 800);
+            } catch(e) {}
+
+            // Log matchup
+            await db.execute(
+                "INSERT INTO tournament_matches (tournament_id, phase, player1_id, player2_id, status) VALUES (?,?,?,?,'active')",
+                [t.id, 'duo_gauntlet', a1.player_id, b1.player_id]
+            ).catch(() => {});
+
+            return msg.reply(`✅ Duo matchup called: *${a1.nickname}* + *${a2.nickname}* vs *${b1.nickname}* + *${b2.nickname}*`);
         }
 
         // ── STATUS ─────────────────────────────────────────────────────────
