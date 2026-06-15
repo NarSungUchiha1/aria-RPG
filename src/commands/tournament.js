@@ -108,7 +108,9 @@ module.exports = {
                 p1 = shuffled[0]; p2 = shuffled[1];
             }
 
-            await client.sendMessage(getAnnouncementGroup(msg.from, t), {
+            // Send matchup to PvP arena group and promote both fighters
+            const pvpGroupJid = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+            await client.sendMessage(pvpGroupJid, {
                 text:
                     `╔══〘 ⚔️ BATTLE ROYALE MATCHUP 〙══╗\n` +
                     `┃★\n` +
@@ -118,12 +120,18 @@ module.exports = {
                     `┃★       VS\n` +
                     `┃★ ⚔️ *${p2.nickname}* [${p2.rank}]\n` +
                     `┃★\n` +
-                    `┃★ Use *!startduel @opponent*\n` +
-                    `┃★ to begin. Winner gets +1 win.\n` +
+                    `┃★ Both players type *!startduel* here\n` +
+                    `┃★ to begin the duel.\n` +
+                    `┃★ Winner gets +1 win recorded.\n` +
                     `┃★\n` +
                     `╚═══════════════════════════╝`,
                 mentions: [p1.player_id + '@s.whatsapp.net', p2.player_id + '@s.whatsapp.net']
             }).catch(() => {});
+            // Promote both players in PvP group
+            try {
+                const { promoteForDuel } = require('../systems/pvpsystem');
+                setTimeout(() => promoteForDuel(client, [p1.player_id, p2.player_id]).catch(() => {}), 800);
+            } catch(e) {}
 
             if (p1 && p2) {
                 await db.execute(

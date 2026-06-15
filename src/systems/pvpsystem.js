@@ -30,6 +30,45 @@ const DUEL_HP = 10000; // normal players fixed duel HP
 // ── PvP damage is 95% of the move's base output ───────────────────────────────
 const PVP_DAMAGE_SCALE = 0.95;
 
+// PvP Arena group — tournament duels are announced and conducted here
+const getPvpGroup = () => global.overrideRaidGroup
+    ? (process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us')
+    : (process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us');
+
+async function promoteForDuel(client, playerIds) {
+    const group = getPvpGroup();
+    if (!client || !group) return;
+    try {
+        const meta = await client.groupMetadata(group);
+        for (const pid of playerIds) {
+            const norm = String(pid).replace(/@[^@]+$/,'').split(':')[0];
+            const participant = meta.participants.find(p =>
+                String(p.id).replace(/@[^@]+$/,'').split(':')[0] === norm
+            );
+            if (participant && participant.admin !== 'admin') {
+                await client.groupParticipantsUpdate(group, [participant.id], 'promote').catch(() => {});
+            }
+        }
+    } catch(e) { console.error('[PvP promote]', e.message); }
+}
+
+async function demoteAfterDuel(client, playerIds) {
+    const group = getPvpGroup();
+    if (!client || !group) return;
+    try {
+        const meta = await client.groupMetadata(group);
+        for (const pid of playerIds) {
+            const norm = String(pid).replace(/@[^@]+$/,'').split(':')[0];
+            const participant = meta.participants.find(p =>
+                String(p.id).replace(/@[^@]+$/,'').split(':')[0] === norm
+            );
+            if (participant && (participant.admin === 'admin' || participant.admin === 'superadmin')) {
+                await client.groupParticipantsUpdate(group, [participant.id], 'demote').catch(() => {});
+            }
+        }
+    } catch(e) { console.error('[PvP demote]', e.message); }
+}
+
 // getDuelHp — 10k for normal players, 70k for prestige
 async function getDuelHp(playerId) {
     try {
@@ -630,11 +669,27 @@ async function readyPartyDuel(leaderId, chat) {
         const pendingTD = tournamentDuelPending.get(lid);
         if (pendingTD) {
             const opponentId = pendingTD.opponentId;
+            const pvpGroup = getPvpGroup();
+            // Build a chat object that sends to the PvP group
+            const pvpClient = chat?.client || (chat?.sendMessage ? null : null);
+            const pvpChat = {
+                sendMessage: async (text) => {
+                    const client = chat?.client;
+                    if (client && pvpGroup) {
+                        await client.sendMessage(pvpGroup, typeof text === 'string' ? { text } : text).catch(() => {});
+                    } else if (chat?.reply) {
+                        await chat.reply(typeof text === 'string' ? text : text.text).catch(() => {});
+                    }
+                }
+            };
             if (tournamentDuelPending.get(opponentId)?.opponentId === lid) {
-                // Both sides ready — start the duel
+                // Both sides ready — start the duel in PvP group
                 tournamentDuelPending.delete(lid);
                 tournamentDuelPending.delete(opponentId);
-                await startPvPDuel([lid], [opponentId], 0, null, null, chat);
+                // Promote both players in PvP group
+                const client = chat?.client;
+                if (client) await promoteForDuel(client, [lid, opponentId]);
+                await startPvPDuel([lid], [opponentId], 0, client, null, pvpChat);
                 return { success: true, started: true };
             }
             // First side ready — wait for opponent
@@ -729,6 +784,12 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
 async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, loserNick, winnerHp) {
     const duelKey = duelData?.duelKey || getDuelKey(winnerId, loserId);
     clearTurnTimer(duelKey);
+    // Demote both players from PvP group after duel
+    try {
+        const allPlayers = [...(duelData.teamA || [winnerId]), ...(duelData.teamB || [loserId])];
+        const client = chat?.client;
+        if (client) await demoteAfterDuel(client, allPlayers);
+    } catch(e) {}
     clearDuelActiveByKey(duelKey);
 
     // ── PARTY VICTORY ─────────────────────────────────────────────────────────
@@ -846,6 +907,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         }
     } catch(e) { console.error('[TOURNAMENT record]', e.message); }
 
+    // Announce in PvP group AND notify players directly
     await chat.sendMessage(
         `╭══〘 🏆 DUEL OVER 〙══╮\n` +
         `┃◆ ${await narrateAI('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
@@ -1369,14 +1431,13 @@ async function handlePvPAttack(attackerId) {
     const baseDmg  = Number(attacker.strength) + Math.floor(weaponBonus * 0.5);
     const defence  = Number(defender.stamina) || 0;
     const fatigueMultiplier = getFatigueMultiplier(attacker);
-    // PvP caps at 80%
-    const damage   = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier * PVP_DAMAGE_SCALE));
+    const baseDamage = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier));
     const round    = data.round;
 
     const attackerHp = data.hp[attackerId];
 
     // Apply attacker potion buffs in solo duel
-    let finalDamage = damage;
+    let finalDamage = baseDamage;
     try {
         const { getTurnEffect } = require('./potionEffects');
         const turnFx = getTurnEffect(String(attackerId));
@@ -1397,6 +1458,9 @@ async function handlePvPAttack(attackerId) {
             }
         }
     } catch(e) {}
+
+    // 95% PvP cap — applied LAST after all multipliers and shield
+    finalDamage = Math.max(1, Math.floor(finalDamage * PVP_DAMAGE_SCALE));
 
     const newDefHp = Math.max(0, data.hp[targetId] - finalDamage);
     data.hp[targetId] = newDefHp;
@@ -1504,6 +1568,8 @@ module.exports = {
     startPartyAssembly,
     joinPartyAssembly,
     readyPartyDuel,
+    promoteForDuel,
+    demoteAfterDuel,
     setTournamentDuelPending: (p1, p2, tournamentId, phase) => {
         tournamentDuelPending.set(String(p1), { opponentId: String(p2), tournamentId, phase });
         tournamentDuelPending.set(String(p2), { opponentId: String(p1), tournamentId, phase });

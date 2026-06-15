@@ -2,8 +2,17 @@ const { readyPartyDuel } = require('../systems/pvpsystem');
 
 module.exports = {
     name: 'startduel',
-    async execute(msg, args, { userId }) {
-        const result = await readyPartyDuel(userId, msg);
+    async execute(msg, args, { userId, client }) {
+        // Build a proper chat object so pvpsystem can sendMessage to PvP group
+        const chatObj = {
+            client,
+            sendMessage: async (text) => {
+                const pvpGroup = process.env.PVP_GROUP_JID || msg.from;
+                await client.sendMessage(pvpGroup, typeof text === 'string' ? { text } : text).catch(() => {});
+            },
+            reply: async (text) => msg.reply(text)
+        };
+        const result = await readyPartyDuel(userId, chatObj);
 
         if (result.error) return msg.reply(
             `╭══〘 ⚔️  START DUEL 〙══╮\n` +
