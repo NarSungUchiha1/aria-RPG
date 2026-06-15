@@ -420,14 +420,10 @@ module.exports = {
             // ── Entry wealth requirement (display only, no deduction) ──
             if (!isMalachar && !isTerritoryDungeon && !noRankCheck) {
                 const ENTRY_REQS = {
-                    // Normal ranks
-                    F:0, E:500, D:2000, C:8000, B:25000, A:75000, S:150000,
-                    // Prestige ranks: PF=15k gold/5k xp → PS=400k gold/400k xp
-                    PF:{ gold:15000,  xp:5000   },
-                    PE:{ gold:80000,  xp:70000  },
-                    PD:{ gold:145000, xp:135000 },
-                    PC:{ gold:210000, xp:200000 },
-                    PB:{ gold:270000, xp:270000 },
+                    // Normal ranks — only PA and PS require wealth
+                    F:0, E:0, D:0, C:0, B:0, A:0, S:0,
+                    // Prestige ranks — only PA and PS require wealth
+                    PF:0, PE:0, PD:0, PC:0, PB:0,
                     PA:{ gold:335000, xp:335000 },
                     PS:{ gold:400000, xp:400000 },
                 };
