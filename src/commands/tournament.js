@@ -198,7 +198,7 @@ if (!p1 || !p2) {
             // Promote both players in PvP group
             try {
                 const { promoteForDuel } = require('../systems/pvpsystem');
-                setTimeout(() => promoteForDuel(client, [p1.player_id, p2.player_id]).catch(() => {}), 800);
+                setTimeout(() => promoteForDuel(client, [p1.player_id, p2.player_id], pvpGrpJid).catch(() => {}), 800);
             } catch(e) {}
 
             if (p1 && p2) {
@@ -433,7 +433,7 @@ if (!p1 || !p2) {
             // Promote all 4 in PvP group
             try {
                 const { promoteForDuel } = require('../systems/pvpsystem');
-                setTimeout(() => promoteForDuel(client, [a1.player_id, a2.player_id, b1.player_id, b2.player_id]).catch(() => {}), 800);
+                setTimeout(() => promoteForDuel(client, [a1.player_id, a2.player_id, b1.player_id, b2.player_id], pvpGrpD).catch(() => {}), 800);
             } catch(e) {}
 
             // Log matchup
@@ -442,7 +442,40 @@ if (!p1 || !p2) {
                 [t.id, 'duo_gauntlet', a1.player_id, b1.player_id]
             ).catch(() => {});
 
-            return msg.reply(`✅ Duo matchup called: *${a1.nickname}* + *${a2.nickname}* vs *${b1.nickname}* + *${b2.nickname}*`);
+            // Pre-create party assembly so leaders just type !startduel
+            // Team A leader = a1, Team B leader = b1
+            // Partners (a2, b2) join via !joinparty @leader
+            try {
+                const { startPartyAssembly } = require('../systems/pvpsystem');
+                const assemblyKey = `duo_${a1.player_id}_${b1.player_id}_${t.id}`;
+                const pvpChat = {
+                    client,
+                    sendMessage: async (text) => {
+                        await client.sendMessage(pvpGrpD,
+                            typeof text === 'string' ? { text } : text
+                        ).catch(() => {});
+                    }
+                };
+                await startPartyAssembly(
+                    a1.player_id,   // Team A leader
+                    [b1.player_id], // Team B leader
+                    0,              // no bet
+                    pvpChat,
+                    assemblyKey
+                );
+                // Also pre-add the partners to their respective teams
+                const { getAssemblyByPlayer } = require('../systems/pvpsystem');
+                // Small delay to let assembly register
+                setTimeout(async () => {
+                    try {
+                        const { joinPartyAssembly } = require('../systems/pvpsystem');
+                        await joinPartyAssembly(a2.player_id, a1.player_id); // partner joins team A
+                        await joinPartyAssembly(b2.player_id, b1.player_id); // partner joins team B
+                    } catch(e) { console.error('[duo auto-join]', e.message); }
+                }, 500);
+            } catch(e) { console.error('[duomatchup assembly]', e.message); }
+
+            return msg.reply(`✅ Duo matchup called: *${a1.nickname}* + *${a2.nickname}* vs *${b1.nickname}* + *${b2.nickname}*\nBoth leaders type *!startduel* to begin.`);
         }
 
         // ── STATUS ─────────────────────────────────────────────────────────
