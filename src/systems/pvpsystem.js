@@ -27,8 +27,8 @@ const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
 const DUEL_HP = 10000; // normal players fixed duel HP
 
-// ── PvP damage is 95% of the move's base output ───────────────────────────────
-const PVP_DAMAGE_SCALE = 0.95;
+// ── PvP damage is 98% of the move's base output ───────────────────────────────
+const PVP_DAMAGE_SCALE = 0.98;
 
 // PvP Arena group — tournament duels are announced and conducted here
 const getPvpGroup = () => {
@@ -937,7 +937,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     const newTitle = await checkAndGrantTitle(winnerId);
     const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"\n` : '';
 
-    // Record result in active tournament if one is running
+    // Record result in active tournament + send grand announcement
     try {
         const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
         const tourney = await getActiveTournament();
@@ -945,6 +945,25 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
             const normWin = String(winnerId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
             const normLos = String(loserId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
             await recordMatchResult(tourney.id, normWin, normLos, tourney.phase);
+
+            // Grand announcement to the tournament GC (separate from duel chat)
+            const tourneyGroup = tourney.group_jid || process.env.RAID_GROUP_JID;
+            const pvpGrp = getPvpGroup();
+            const announceTarget = (tourneyGroup && tourneyGroup !== pvpGrp) ? tourneyGroup : null;
+            if (announceTarget && chat?.client) {
+                await chat.client.sendMessage(announceTarget, {
+                    text:
+                        `╔══〘 🏆 BATTLE ROYALE RESULT 〙══╗\n` +
+                        `┃★\n` +
+                        `┃★ ⚔️ Match complete!\n` +
+                        `┃★\n` +
+                        `┃★ 🥇 *${winnerNick}* [${wRank}] — WINNER\n` +
+                        `┃★ 💀 *${loserNick}* [${lRank}] — eliminated\n` +
+                        `┃★\n` +
+                        `┃★ Use *!tournament bracket* for standings\n` +
+                        `╚═══════════════════════════╝`
+                }).catch(() => {});
+            }
         }
     } catch(e) { console.error('[TOURNAMENT record]', e.message); }
 
@@ -1221,6 +1240,9 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const bl25 = await triggerBlessingIfReadyInDuel('enemy_below_25', attacker, data, { targetId: enemyTargets[0], targetName: results[0]?.nick }).catch(() => null);
         if (bl25?.message) pendingBlMsgs.push(bl25.message);
         await trackBlessings();
+
+        // ── Re-filter allDefeated AFTER blessings — Phantom Shift may have revived someone
+        allDefeated = allDefeated.filter(d => (data.hp[d.tid] || 0) <= 0);
 
         // ── Check surviving opponents AFTER all blessings ─────────────────
         const oppSide = data.teamA.includes(String(attackerId)) ? data.teamB : data.teamA;

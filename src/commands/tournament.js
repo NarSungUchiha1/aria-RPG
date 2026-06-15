@@ -292,16 +292,18 @@ module.exports = {
             const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ No active tournament.\n╰═══════════════════════╯`);
 
+            // All active players sorted: wins DESC, losses ASC, nickname ASC
             const players = await getActivePlayers(t.id);
-            const top = players.slice(0, 15);
+            const sorted = [...players].sort((a, b) =>
+                b.wins - a.wins || a.losses - b.losses || a.nickname.localeCompare(b.nickname)
+            );
 
             let text = `╔══〘 🏆 STANDINGS 〙══╗\n┃★ Phase: ${t.phase.replace(/_/g,' ').toUpperCase()}\n┃★\n`;
-            top.forEach((p, i) => {
+            sorted.forEach((p, i) => {
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
                 text += `┃★ ${medal} *${p.nickname}* — ${p.wins}W ${p.losses}L\n`;
             });
-            const totalActive = players.length;
-            text += `┃★\n┃★ ${totalActive} hunters still standing\n╚═══════════════════════════╝`;
+            text += `┃★\n┃★ ${sorted.length} hunters still standing\n╚═══════════════════════════╝`;
             return msg.reply(text);
         }
 
@@ -351,19 +353,83 @@ module.exports = {
             return msg.reply(`✅ Set wins to ${wins} for player.`);
         }
 
-        // ── ADMIN: eliminate player ────────────────────────────────────────
-        if (sub === 'eliminate') {
+        // ── ADMIN: eliminate player (mark as out, keep record) ───────────
+        if (sub === 'eliminate' || sub === 'disqualify' || sub === 'dq') {
             if (!isAdmin) return msg.reply('❌ Admin only.');
             const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
-            const targetId = msg.mentionedIds?.[0];
-            if (!targetId) return msg.reply('❌ !tournament eliminate @player');
+            const rawId = msg.mentionedIds?.[0];
+            if (!rawId) return msg.reply('❌ Usage: !tournament eliminate @player');
+            const targetId = String(rawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            const [pRows] = await db.execute('SELECT nickname FROM players WHERE id=?', [targetId]);
+            if (!pRows.length) return msg.reply('❌ Player not found.');
+            const nick = pRows[0].nickname;
             await db.execute(
                 "UPDATE tournament_players SET eliminated=1 WHERE tournament_id=? AND player_id=?",
                 [t.id, targetId]
             );
-            const [p] = await db.execute('SELECT nickname FROM players WHERE id=?', [targetId]);
-            return msg.reply(`✅ *${p[0]?.nickname}* eliminated from tournament.`);
+            // Demote from PvP group if promoted
+            try {
+                const { demoteAfterDuel } = require('../systems/pvpsystem');
+                await demoteAfterDuel(client, [targetId]);
+            } catch(e) {}
+            // Cancel any pending duel they're in
+            try {
+                const { setTournamentDuelPending } = require('../systems/pvpsystem');
+                // Clear from pending map by looking up their opponent
+            } catch(e) {}
+            const pvpGrp = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+            await client.sendMessage(pvpGrp, {
+                text:
+                    `╔══〘 ❌ PLAYER ELIMINATED 〙══╗\n` +
+                    `┃★\n` +
+                    `┃★ *${nick}* has been eliminated\n` +
+                    `┃★ from the tournament by admin.\n` +
+                    `┃★\n` +
+                    `┃★ Use *!tournament bracket* for\n` +
+                    `┃★ updated standings.\n` +
+                    `╚═══════════════════════════╝`
+            }).catch(() => {});
+            return msg.reply(`✅ *${nick}* eliminated from tournament.`);
+        }
+
+        // ── ADMIN: remove player (fully delete from tournament) ──────────
+        if (sub === 'remove') {
+            if (!isAdmin) return msg.reply('❌ Admin only.');
+            const t = await getActiveTournament(msg.from);
+            if (!t) return msg.reply('❌ No active tournament.');
+            const rawId = msg.mentionedIds?.[0];
+            if (!rawId) return msg.reply('❌ Usage: !tournament remove @player');
+            const targetId = String(rawId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            const [pRows] = await db.execute('SELECT nickname FROM players WHERE id=?', [targetId]);
+            if (!pRows.length) return msg.reply('❌ Player not found.');
+            const nick = pRows[0].nickname;
+            // Fully delete — wins/losses wiped, as if they never joined
+            await db.execute(
+                "DELETE FROM tournament_players WHERE tournament_id=? AND player_id=?",
+                [t.id, targetId]
+            );
+            await db.execute(
+                "DELETE FROM tournament_matches WHERE tournament_id=? AND (player1_id=? OR player2_id=?)",
+                [t.id, targetId, targetId]
+            );
+            // Demote from PvP group
+            try {
+                const { demoteAfterDuel } = require('../systems/pvpsystem');
+                await demoteAfterDuel(client, [targetId]);
+            } catch(e) {}
+            const pvpGrp = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+            await client.sendMessage(pvpGrp, {
+                text:
+                    `╔══〘 🚫 PLAYER REMOVED 〙══╗\n` +
+                    `┃★\n` +
+                    `┃★ *${nick}* has been removed\n` +
+                    `┃★ from the tournament entirely.\n` +
+                    `┃★ All match records wiped.\n` +
+                    `┃★\n` +
+                    `╚═══════════════════════════╝`
+            }).catch(() => {});
+            return msg.reply(`✅ *${nick}* fully removed from tournament.`);
         }
 
         // ── ADMIN: reset tournament ────────────────────────────────────────
