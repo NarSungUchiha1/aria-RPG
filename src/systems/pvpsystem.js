@@ -27,7 +27,7 @@ const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 
 const DUEL_HP = 10000; // normal players fixed duel HP
 
-// ── PvP damage is 98% of the move's base output ───────────────────────────────
+// ── PvP damage is 95% of the move's base output ───────────────────────────────
 const PVP_DAMAGE_SCALE = 0.98;
 
 // PvP Arena group — tournament duels are announced and conducted here
@@ -937,7 +937,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     const newTitle = await checkAndGrantTitle(winnerId);
     const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"\n` : '';
 
-    // Record result in active tournament + send grand announcement
+    // Record result in active tournament + grand announcement to tournament GC
     try {
         const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
         const tourney = await getActiveTournament();
@@ -946,10 +946,10 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
             const normLos = String(loserId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
             await recordMatchResult(tourney.id, normWin, normLos, tourney.phase);
 
-            // Grand announcement to the tournament GC (separate from duel chat)
+            // Grand announcement to tournament GC (different from pvp duel chat)
             const tourneyGroup = tourney.group_jid || process.env.RAID_GROUP_JID;
             const pvpGrp = getPvpGroup();
-            const announceTarget = (tourneyGroup && tourneyGroup !== pvpGrp) ? tourneyGroup : null;
+            const announceTarget = (tourneyGroup && tourneyGroup !== pvpGrp) ? tourneyGroup : pvpGrp;
             if (announceTarget && chat?.client) {
                 await chat.client.sendMessage(announceTarget, {
                     text:
@@ -958,16 +958,16 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                         `┃★ ⚔️ Match complete!\n` +
                         `┃★\n` +
                         `┃★ 🥇 *${winnerNick}* [${wRank}] — WINNER\n` +
-                        `┃★ 💀 *${loserNick}* [${lRank}] — eliminated\n` +
+                        `┃★ 💀 *${loserNick}* [${lRank}] — defeated\n` +
                         `┃★\n` +
-                        `┃★ Use *!tournament bracket* for standings\n` +
+                        `┃★ *!tournament bracket* for standings\n` +
                         `╚═══════════════════════════╝`
                 }).catch(() => {});
             }
         }
     } catch(e) { console.error('[TOURNAMENT record]', e.message); }
 
-    // Announce in PvP group AND notify players directly
+    // Announce duel result in PvP group
     await chat.sendMessage(
         `╭══〘 🏆 DUEL OVER 〙══╮\n` +
         `┃◆ ${await narrateAI('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
@@ -1105,7 +1105,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         }
 
         const numTargets = enemyTargets.length;
-        // PvP caps at 80% — no rank multiplier, gap from raw stats only
+        // PvP caps at 98% — applied last after all multipliers
         const results = [];
         let allDefeated = [];
 
@@ -1157,7 +1157,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                 }
             } catch(e) {}
 
-            // 95% PvP cap — applied LAST so no multiplier can bypass it
+            // 98% PvP cap — applied LAST so no multiplier can bypass it
             dmg = Math.max(1, Math.floor(dmg * PVP_DAMAGE_SCALE));
 
             const newHp = Math.max(0, defHp - dmg);
@@ -1241,7 +1241,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         if (bl25?.message) pendingBlMsgs.push(bl25.message);
         await trackBlessings();
 
-        // ── Re-filter allDefeated AFTER blessings — Phantom Shift may have revived someone
+        // Re-filter allDefeated — Phantom Shift may have revived someone
         allDefeated = allDefeated.filter(d => (data.hp[d.tid] || 0) <= 0);
 
         // ── Check surviving opponents AFTER all blessings ─────────────────
@@ -1522,7 +1522,7 @@ async function handlePvPAttack(attackerId) {
         }
     } catch(e) {}
 
-    // 95% PvP cap — applied LAST after all multipliers and shield
+    // 98% PvP cap — applied LAST after all multipliers and shield
     finalDamage = Math.max(1, Math.floor(finalDamage * PVP_DAMAGE_SCALE));
 
     const newDefHp = Math.max(0, data.hp[targetId] - finalDamage);
