@@ -84,12 +84,19 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃◆ DEF means nothing. It burns through.
 ╚═══════════════════════════╝`;
             } else if (trigger === 'on_kill') {
+                // Apply actual DEF reduction to all surviving enemies
+                const defReduction = blessing.def_reduction || 50;
+                const surviving = enemies[0].filter(e => e.current_hp > 0);
+                for (const e of surviving) {
+                    const newDef = Math.max(0, Math.floor(e.def * (1 - defReduction / 100)));
+                    await db.execute('UPDATE dungeon_enemies SET def=? WHERE id=?', [newDef, e.id]);
+                }
                 blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
 ┃◆ The kill tears a hole in space.
 ┃◆ The void rushes in — and takes
 ┃◆ everything with it.
 ┃◆ 💥 ALL remaining enemies hit.
-┃◆ DEF shattered by 50% this stage.
+┃◆ 🛡️ DEF shattered by ${defReduction}% this stage.
 ╚═══════════════════════════╝`;
             } else {
                 blessingMsg = `╔══〘 ✨ ${blessing.name} 〙══╗
