@@ -88,10 +88,18 @@ module.exports = {
             if (!t || t.phase !== PHASES.BATTLE_ROYALE) return msg.reply('❌ Only during Battle Royale phase.');
 
             const players = await getActivePlayers(t.id);
-            if (players.length < 2) return msg.reply('❌ Not enough active players.');
 
-            // Pick 2 players — avoid pairs who've already fought 3+ times
-            const shuffled = [...players].sort(() => Math.random() - 0.5);
+// Exclude anyone who has already played 7 or more matches
+const eligiblePlayers = players.filter(
+    p => (Number(p.wins) + Number(p.losses)) < 7 && !p.eliminated
+);
+
+if (eligiblePlayers.length < 2) {
+    return msg.reply('❌ No eligible players remaining for Battle Royale.');
+}
+
+// Randomize remaining eligible players
+const shuffled = [...eligiblePlayers].sort(() => Math.random() - 0.5);
             let p1 = null, p2 = null;
             outer: for (let i = 0; i < shuffled.length; i++) {
                 for (let j = i + 1; j < shuffled.length; j++) {
@@ -103,9 +111,10 @@ module.exports = {
                     if (prev[0].cnt < 3) { p1 = shuffled[i]; p2 = shuffled[j]; break outer; }
                 }
             }
-            if (!p1 || !p2) {
-                if (shuffled.length < 2) return msg.reply('❌ Not enough players for a matchup.');
-                p1 = shuffled[0]; p2 = shuffled[1];
+if (!p1 || !p2) {
+    return msg.reply(
+        '✅ No valid matchups remain. All eligible players have either completed 7 matches or already fought each other the maximum number of times.'
+    );
             }
 
             // Route matchup to PvP group for live, or stay in current GC for testers
