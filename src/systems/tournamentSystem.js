@@ -165,42 +165,66 @@ async function advancePhase(tournament, client, raidGroup) {
 }
 
 async function handlePhaseStart(phase, tournamentId, client, raidGroup) {
+    // Always announce phase starts in the PvP arena group
+    const pvpGroup = process.env.PVP_GROUP_JID || raidGroup;
+
+    // Helper: get participant JIDs for all active players in a group
+    async function getMentions(players, group) {
+        try {
+            const meta = await client.groupMetadata(group);
+            const pids = new Set(players.map(p => String(p.player_id)));
+            return meta.participants
+                .filter(p => pids.has(String(p.id).replace(/@[^@]+$/, '').split(':')[0]))
+                .map(p => p.id);
+        } catch(e) { return []; }
+    }
+
     if (phase === PHASES.BATTLE_ROYALE) {
         const players = await getActivePlayers(tournamentId);
-        await client.sendMessage(raidGroup, {
+        const mentions = await getMentions(players, pvpGroup);
+        const roster = players.map((p, i) => `┃★ ${i+1}. *${p.nickname}* [${p.rank}]`).join('\n');
+        await client.sendMessage(pvpGroup, {
             text:
                 `╔══〘 ⚔️ BATTLE ROYALE BEGINS 〙══╗\n` +
                 `┃★\n` +
-                `┃★ ${players.length} hunters enter.\n` +
-                `┃★ Only the strong advance.\n` +
+                `┃★ ${players.length} hunters enter. Only the strong advance.\n` +
+                `┃★\n` +
+                `┃★ PARTICIPANTS:\n` +
+                `${roster}\n` +
                 `┃★\n` +
                 `┃★ ARIA will call matchups.\n` +
                 `┃★ Win your fights. Survive.\n` +
-                `┃★ Bottom half will be cut.\n` +
+                `┃★ Bottom half will be cut each round.\n` +
                 `┃★\n` +
-                `┃★ Use *!tournament status* to\n` +
-                `┃★ see your standing.\n` +
-                `╚═══════════════════════════╝`
+                `┃★ *!tournament status* — see your standing\n` +
+                `╚═══════════════════════════╝`,
+            mentions
         }).catch(() => {});
 
     } else if (phase === PHASES.DUO_GAUNTLET) {
-        await client.sendMessage(raidGroup, {
+        const players = await getActivePlayers(tournamentId);
+        const mentions = await getMentions(players, pvpGroup);
+        const roster = players.map((p, i) => `┃★ ${i+1}. *${p.nickname}* [${p.rank}]`).join('\n');
+        await client.sendMessage(pvpGroup, {
             text:
                 `╔══〘 🤝 DUO GAUNTLET BEGINS 〙══╗\n` +
                 `┃★\n` +
-                `┃★ The lone wolves fall.\n` +
-                `┃★ Now you need a partner.\n` +
+                `┃★ The lone wolves fall. Now you need a partner.\n` +
+                `┃★\n` +
+                `┃★ SURVIVORS:\n` +
+                `${roster}\n` +
                 `┃★\n` +
                 `┃★ Register your duo:\n` +
                 `┃★ *!tournament duo @partner*\n` +
                 `┃★\n` +
-                `┃★ Last 4 duos standing\n` +
-                `┃★ enter the Grand Finals.\n` +
-                `╚═══════════════════════════╝`
+                `┃★ Last 4 duos standing enter the Grand Finals.\n` +
+                `╚═══════════════════════════╝`,
+            mentions
         }).catch(() => {});
 
     } else if (phase === PHASES.GRAND_FINALS) {
         const survivors = await getActivePlayers(tournamentId);
+        const mentions = await getMentions(survivors, pvpGroup);
         const top8 = survivors.slice(0, 8);
 
         let bracket = `╔══〘 🏆 GRAND FINALS BRACKET 〙══╗\n┃★\n`;
@@ -210,7 +234,6 @@ async function handlePhaseStart(phase, tournamentId, client, raidGroup) {
             if (p1 && p2) {
                 bracket += `┃★ ⚔️ *${p1.nickname}* [${p1.rank}] vs *${p2.nickname}* [${p2.rank}]\n`;
             } else if (p1) {
-                // Bye — auto-advance with a win
                 bracket += `┃★ ✅ *${p1.nickname}* — bye (auto-advances)\n`;
                 await db.execute(
                     "UPDATE tournament_players SET wins=wins+1 WHERE tournament_id=? AND player_id=?",
@@ -218,9 +241,9 @@ async function handlePhaseStart(phase, tournamentId, client, raidGroup) {
                 );
             }
         }
-        bracket += `┃★\n┃★ *!attack <move>* to fight!\n╚═══════════════════════════╝`;
+        bracket += `┃★\n┃★ Both players type *!startduel* to begin!\n╚═══════════════════════════╝`;
 
-        await client.sendMessage(raidGroup, { text: bracket }).catch(() => {});
+        await client.sendMessage(pvpGroup, { text: bracket, mentions }).catch(() => {});
 
     } else if (phase === PHASES.AWARDS) {
         await distributePrizes(tournamentId, client, raidGroup);

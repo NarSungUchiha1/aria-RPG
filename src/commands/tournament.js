@@ -108,25 +108,37 @@ module.exports = {
                 p1 = shuffled[0]; p2 = shuffled[1];
             }
 
-            // Send matchup to PvP arena group and promote both fighters
-            const pvpGroupJid = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
-            await client.sendMessage(pvpGroupJid, {
-                text:
-                    `╔══〘 ⚔️ BATTLE ROYALE MATCHUP 〙══╗\n` +
-                    `┃★\n` +
-                    `┃★ ARIA calls the next fight:\n` +
-                    `┃★\n` +
-                    `┃★ ⚔️ *${p1.nickname}* [${p1.rank}]\n` +
-                    `┃★       VS\n` +
-                    `┃★ ⚔️ *${p2.nickname}* [${p2.rank}]\n` +
-                    `┃★\n` +
-                    `┃★ Both players type *!startduel* here\n` +
-                    `┃★ to begin the duel.\n` +
-                    `┃★ Winner gets +1 win recorded.\n` +
-                    `┃★\n` +
-                    `╚═══════════════════════════╝`,
-                mentions: [p1.player_id + '@s.whatsapp.net', p2.player_id + '@s.whatsapp.net']
-            }).catch(() => {});
+            // Send matchup to PvP arena group, tag + promote both fighters
+            const pvpGrpJid = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+            try {
+                const pvpMeta = await client.groupMetadata(pvpGrpJid);
+                const pvpMentions = pvpMeta.participants
+                    .filter(p => {
+                        const n = String(p.id).replace(/@[^@]+$/,'').split(':')[0];
+                        return n === p1.player_id || n === p2.player_id;
+                    }).map(p => p.id);
+                await client.sendMessage(pvpGrpJid, {
+                    text:
+                        `╔══〘 ⚔️ BATTLE ROYALE MATCHUP 〙══╗\n` +
+                        `┃★\n` +
+                        `┃★ ARIA calls the next fight:\n` +
+                        `┃★\n` +
+                        `┃★ ⚔️ *${p1.nickname}* [${p1.rank}]\n` +
+                        `┃★       VS\n` +
+                        `┃★ ⚔️ *${p2.nickname}* [${p2.rank}]\n` +
+                        `┃★\n` +
+                        `┃★ Both players type *!startduel* to begin.\n` +
+                        `┃★ Winner gets +1 win recorded.\n` +
+                        `┃★\n` +
+                        `╚═══════════════════════════╝`,
+                    mentions: pvpMentions.length ? pvpMentions : [p1.player_id + '@s.whatsapp.net', p2.player_id + '@s.whatsapp.net']
+                });
+            } catch(muErr) {
+                console.error('[matchup send]', muErr.message);
+                await client.sendMessage(pvpGrpJid, {
+                    text: `⚔️ Next fight: *${p1.nickname}* vs *${p2.nickname}* — both type !startduel`
+                }).catch(() => {});
+            }
             // Promote both players in PvP group
             try {
                 const { promoteForDuel } = require('../systems/pvpsystem');

@@ -399,9 +399,20 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         const damage = Math.max(1, Math.floor(primaryStat * (blessing.multiplier || 3.0)));
         aliveEnemies.forEach(id => {
             data.hp[id] = Math.max(0, data.hp[id] - damage);
+            // DEF -50% debuff on surviving enemies for 3 turns
+            if (data.hp[id] > 0) {
+                applyBuff('player', id, {
+                    type: 'debuff', stat: 'stamina',
+                    value: -(Math.floor((blessing.def_reduction || 50) / 100 * 100)),
+                    percent: true, duration: 3, source: 'void_collapse'
+                });
+            }
         });
-        blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗\n┃◆ ${player.nickname} collapses the arena!\n┃◆ ${damage} damage to all remaining enemies!\n╚═══════════════════════════╝`;
-        updateDuelBlessingState(player.id, { blessing_used: 1 });
+        const defLine = aliveEnemies.filter(id => data.hp[id] > 0).length > 0
+            ? `\n┃◆ 🛡️ Surviving enemies: DEF -${blessing.def_reduction || 50}% for 3 turns!` : '';
+        blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗\n┃◆ ${player.nickname} collapses the arena!\n┃◆ 💥 ${damage} damage to ALL remaining enemies!${defLine}\n╚═══════════════════════════╝`;
+        // on_kill is a REPEAT trigger — do NOT set blessing_used
+        // Instead use last_triggered cooldown (30s) from state
     }
 
     if (trigger === 'enemy_below_25' && extraData.targetId) {
@@ -662,11 +673,14 @@ async function joinPartyAssembly(joinerId, leaderTag) {
 }
 
 async function readyPartyDuel(leaderId, chat) {
-    const lid = String(leaderId);
+    // Normalize ID to strip :0 suffix and @s.whatsapp.net that Baileys adds
+    const lid = normalizeId(String(leaderId));
     const state = getAssemblyByLeader(lid);
     if (!state) {
         // Check if there's a pending tournament duel for this player
-        const pendingTD = tournamentDuelPending.get(lid);
+        // Try both normalized and raw form in case of key format mismatch
+        const pendingTD = tournamentDuelPending.get(lid) ||
+            [...tournamentDuelPending.entries()].find(([k]) => normalizeId(k) === lid)?.[1];
         if (pendingTD) {
             const opponentId = pendingTD.opponentId;
             const pvpGroup = getPvpGroup();
@@ -682,10 +696,15 @@ async function readyPartyDuel(leaderId, chat) {
                     }
                 }
             };
-            if (tournamentDuelPending.get(opponentId)?.opponentId === lid) {
+            const oppEntry = tournamentDuelPending.get(opponentId) ||
+                [...tournamentDuelPending.entries()].find(([k]) => normalizeId(k) === normalizeId(opponentId))?.[1];
+            if (oppEntry?.opponentId && normalizeId(oppEntry.opponentId) === lid) {
                 // Both sides ready — start the duel in PvP group
-                tournamentDuelPending.delete(lid);
-                tournamentDuelPending.delete(opponentId);
+                // Delete by actual map key (may differ from normalized form)
+                for (const [k] of tournamentDuelPending) {
+                    if (normalizeId(k) === lid || normalizeId(k) === normalizeId(opponentId))
+                        tournamentDuelPending.delete(k);
+                }
                 // Promote both players in PvP group
                 const client = chat?.client;
                 if (client) await promoteForDuel(client, [lid, opponentId]);
@@ -1571,8 +1590,11 @@ module.exports = {
     promoteForDuel,
     demoteAfterDuel,
     setTournamentDuelPending: (p1, p2, tournamentId, phase) => {
-        tournamentDuelPending.set(String(p1), { opponentId: String(p2), tournamentId, phase });
-        tournamentDuelPending.set(String(p2), { opponentId: String(p1), tournamentId, phase });
+        const n1 = normalizeId(String(p1));
+        const n2 = normalizeId(String(p2));
+        tournamentDuelPending.set(n1, { opponentId: n2, tournamentId, phase });
+        tournamentDuelPending.set(n2, { opponentId: n1, tournamentId, phase });
+        console.log(`[Tournament] Duel pending: ${n1} vs ${n2}`);
     },
     getAssemblyByPlayer,
     startTurnTimer,
