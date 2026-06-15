@@ -77,7 +77,50 @@ module.exports = {
             if (!isAdmin) return msg.reply('❌ Admin only.');
             const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply('❌ No active tournament.');
+
+            // Snapshot before advancing to show who got cut
+            const beforePlayers = await getActivePlayers(t.id);
+
             const next = await advancePhase(t, client, getAnnouncementGroup(msg.from, t));
+
+            // Duo phase — announce survivors and who got cut
+            if (next === 'duo_gauntlet') {
+                const afterPlayers = await getActivePlayers(t.id);
+                const survivorIds = new Set(afterPlayers.map(p => p.player_id));
+                const cut = beforePlayers.filter(p => !survivorIds.has(p.player_id));
+                const survivors = [...afterPlayers].sort((a, b) => {
+                    const aF = Number(a.wins)+Number(a.losses), bF = Number(b.wins)+Number(b.losses);
+                    const aR = aF > 0 ? Number(a.wins)/aF : 0, bR = bF > 0 ? Number(b.wins)/bF : 0;
+                    return bR - aR || Number(b.wins)-Number(a.wins);
+                });
+                const survivorLines = survivors.map((p, i) => {
+                    const fights = Number(p.wins)+Number(p.losses);
+                    const ratio = fights > 0 ? Math.round((Number(p.wins)/fights)*100) : 0;
+                    return `┃★ ${i+1}. *${p.nickname}* — ${p.wins}W ${p.losses}L · ${ratio}%`;
+                }).join('\n');
+                const cutLines = cut.length
+                    ? cut.map(p => `┃★ ❌ *${p.nickname}* — ${p.wins}W ${p.losses}L`).join('\n')
+                    : '┃★ None';
+                const announceTo = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+                await client.sendMessage(announceTo, {
+                    text:
+                        `╔══〘 🤝 DUO GAUNTLET BEGINS 〙══╗\n` +
+                        `┃★\n` +
+                        `┃★ The Battle Royale is over.\n` +
+                        `┃★\n` +
+                        `┃★ ✅ SURVIVORS (${survivors.length}):\n` +
+                        `${survivorLines}\n` +
+                        `┃★\n` +
+                        `┃★ ❌ ELIMINATED:\n` +
+                        `${cutLines}\n` +
+                        `┃★\n` +
+                        `┃★ Register your duo:\n` +
+                        `┃★ *!tournament duo @partner*\n` +
+                        `┃★\n` +
+                        `╚═══════════════════════════╝`
+                }).catch(() => {});
+            }
+
             return msg.reply(`✅ Advanced to phase: *${next}*`);
         }
 
@@ -180,9 +223,11 @@ if (!p1 || !p2) {
             const winnerId = msg.mentionedIds?.[0];
             const loserId  = msg.mentionedIds?.[1];
             if (!winnerId || !loserId) return msg.reply('❌ !tournament recordwin @winner @loser');
-            await recordMatchResult(t.id, winnerId, loserId, t.phase);
-            const [wRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [winnerId]);
-            const [lRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [loserId]);
+            const normW = String(winnerId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            const normL = String(loserId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
+            await recordMatchResult(t.id, normW, normL, t.phase);
+            const [wRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [normW]);
+            const [lRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [normL]);
             return msg.reply(`✅ Recorded: *${wRow[0]?.nickname}* beat *${lRow[0]?.nickname}*`);
         }
 
@@ -288,6 +333,7 @@ if (!p1 || !p2) {
                 `┃★\n` +
                 `┃★ Wins:   ${me.wins}\n` +
                 `┃★ Losses: ${me.losses}\n` +
+                `┃★ Fights: ${Number(me.wins) + Number(me.losses)}/7\n` +
                 `┃★ Rank:   ${me.eliminated ? '❌ Eliminated' : myRank ? `#${myRank} of ${players.length} active` : 'Unranked'}\n` +
                 `┃★ Status: ${me.eliminated ? '❌ Eliminated' : '✅ Active'}\n` +
                 (me.duo_partner ? `┃★ Duo:    ✅ Paired\n` : '') +
@@ -303,14 +349,23 @@ if (!p1 || !p2) {
 
             // All active players sorted: wins DESC, losses ASC, nickname ASC
             const players = await getActivePlayers(t.id);
-            const sorted = [...players].sort((a, b) =>
-                b.wins - a.wins || a.losses - b.losses || a.nickname.localeCompare(b.nickname)
-            );
+            const sorted = [...players].sort((a, b) => {
+                const aF = Number(a.wins) + Number(a.losses);
+                const bF = Number(b.wins) + Number(b.losses);
+                const aR = aF > 0 ? Number(a.wins) / aF : 0;
+                const bR = bF > 0 ? Number(b.wins) / bF : 0;
+                if (bR !== aR) return bR - aR;
+                if (Number(b.wins) !== Number(a.wins)) return Number(b.wins) - Number(a.wins);
+                if (Number(a.losses) !== Number(b.losses)) return Number(a.losses) - Number(b.losses);
+                return a.nickname.localeCompare(b.nickname);
+            });
 
             let text = `╔══〘 🏆 STANDINGS 〙══╗\n┃★ Phase: ${t.phase.replace(/_/g,' ').toUpperCase()}\n┃★\n`;
             sorted.forEach((p, i) => {
                 const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
-                text += `┃★ ${medal} *${p.nickname}* — ${p.wins}W ${p.losses}L\n`;
+                const fights = Number(p.wins) + Number(p.losses);
+                const ratio = fights > 0 ? Math.round((Number(p.wins) / fights) * 100) : 0;
+                text += `┃★ ${medal} *${p.nickname}* — ${p.wins}W ${p.losses}L · ${ratio}%\n`;
             });
             text += `┃★\n┃★ ${sorted.length} hunters still standing\n╚═══════════════════════════╝`;
             return msg.reply(text);
