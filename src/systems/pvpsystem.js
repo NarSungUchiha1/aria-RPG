@@ -40,8 +40,8 @@ const getPvpGroup = () => {
     return process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 };
 
-async function promoteForDuel(client, playerIds) {
-    const group = getPvpGroup();
+async function promoteForDuel(client, playerIds, groupOverride) {
+    const group = groupOverride || getPvpGroup();
     if (!client || !group) return;
     try {
         const meta = await client.groupMetadata(group);
@@ -57,8 +57,8 @@ async function promoteForDuel(client, playerIds) {
     } catch(e) { console.error('[PvP promote]', e.message); }
 }
 
-async function demoteAfterDuel(client, playerIds) {
-    const group = getPvpGroup();
+async function demoteAfterDuel(client, playerIds, groupOverride) {
+    const group = groupOverride || getPvpGroup();
     if (!client || !group) return;
     try {
         const meta = await client.groupMetadata(group);
