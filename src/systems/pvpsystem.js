@@ -323,7 +323,8 @@ async function setDuelActive(teamAIds, teamBIds, chat, betAmount, turnOrder) {
         teamB: normalizedB,
         turnOrder,
         duelKey: key,
-        type: (normalizedA.length > 1 || normalizedB.length > 1) ? 'party' : 'solo'
+        type: (normalizedA.length > 1 || normalizedB.length > 1) ? 'party' : 'solo',
+        groupJid: getPvpGroup() // store which group this duel belongs to
     });
 
     // Init MVP tracking for party duels only
@@ -851,7 +852,8 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         // Record in active tournament (use team leaders — first member of each team)
         try {
             const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
-            const tourney = await getActiveTournament();
+            const duelGroupJidP = duelData?.groupJid || getPvpGroup();
+            const tourney = await getActiveTournament(duelGroupJidP);
             if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
                 const norm = id => String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
                 for (const wId of winners) {
@@ -940,7 +942,9 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     // Record result in active tournament + grand announcement to tournament GC
     try {
         const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
-        const tourney = await getActiveTournament();
+        // Use the group the duel was started in to scope tournament lookup
+        const duelGroupJid = duelData?.groupJid || getPvpGroup();
+        const tourney = await getActiveTournament(duelGroupJid);
         if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
             const normWin = String(winnerId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
             const normLos = String(loserId).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
