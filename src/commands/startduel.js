@@ -3,7 +3,10 @@ const { readyPartyDuel } = require('../systems/pvpsystem');
 module.exports = {
     name: 'startduel',
     async execute(msg, args, { userId, client }) {
-        const pvpGroup = process.env.PVP_GROUP_JID || msg.from;
+        // Route to PvP group for live, or stay in test GC for testers
+        const TEST_GC = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
+        const isTestGC = msg.from === TEST_GC;
+        const pvpGroup = isTestGC ? TEST_GC : (process.env.PVP_GROUP_JID || msg.from);
         const chatObj = {
             client,
             sendMessage: async (text) => {

@@ -31,9 +31,14 @@ const DUEL_HP = 10000; // normal players fixed duel HP
 const PVP_DAMAGE_SCALE = 0.95;
 
 // PvP Arena group — tournament duels are announced and conducted here
-const getPvpGroup = () => global.overrideRaidGroup
-    ? (process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us')
-    : (process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us');
+const getPvpGroup = () => {
+    const TEST_GC  = process.env.TEST_GROUP_JID  || '120363408323584748@g.us';
+    const raidCtx  = global.overrideRaidGroup;
+    // In test GC context — duels stay inside the test GC (no separate PvP group)
+    if (raidCtx && raidCtx === TEST_GC) return TEST_GC;
+    // Live context — use dedicated PvP arena group
+    return process.env.PVP_GROUP_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+};
 
 async function promoteForDuel(client, playerIds) {
     const group = getPvpGroup();

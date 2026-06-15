@@ -108,8 +108,12 @@ module.exports = {
                 p1 = shuffled[0]; p2 = shuffled[1];
             }
 
-            // Send matchup to PvP arena group, tag + promote both fighters
-            const pvpGrpJid = process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t);
+            // Route matchup to PvP group for live, or stay in current GC for testers
+            const TEST_GC_T = process.env.TEST_GROUP_JID || '120363408323584748@g.us';
+            const isTestCtx = msg.from === TEST_GC_T;
+            const pvpGrpJid = isTestCtx
+                ? TEST_GC_T
+                : (process.env.PVP_GROUP_JID || getAnnouncementGroup(msg.from, t));
             try {
                 const pvpMeta = await client.groupMetadata(pvpGrpJid);
                 const pvpMentions = pvpMeta.participants
