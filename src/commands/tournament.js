@@ -511,6 +511,54 @@ if (!p1 || !p2) {
             const t = await getActiveTournament(msg.from);
             if (!t) return msg.reply(`══〘 🏆 TOURNAMENT 〙══╮\n┃★ No active tournament.\n╰═══════════════════════╯`);
 
+            // During Duo Gauntlet — show paired duos with combined records
+            if (t.phase === PHASES.DUO_GAUNTLET) {
+                const [duoRows] = await db.execute(
+                    `SELECT tp.player_id, tp.duo_partner, tp.wins, tp.losses, p.nickname
+                     FROM tournament_players tp JOIN players p ON p.id=tp.player_id
+                     WHERE tp.tournament_id=? AND tp.eliminated=0
+                     ORDER BY tp.wins DESC`,
+                    [t.id]
+                );
+                const seen = new Set();
+                const pairs = [];
+                const solo = [];
+                for (const row of duoRows) {
+                    if (!row.duo_partner) { solo.push(row); continue; }
+                    const pairKey = [row.player_id, row.duo_partner].sort().join('_');
+                    if (seen.has(pairKey)) continue;
+                    seen.add(pairKey);
+                    const partner = duoRows.find(r => r.player_id === row.duo_partner);
+                    if (partner) pairs.push([row, partner]);
+                }
+                // Sort pairs by combined win ratio
+                pairs.sort((a, b) => {
+                    const aW = Number(a[0].wins) + Number(a[1].wins);
+                    const aL = Number(a[0].losses) + Number(a[1].losses);
+                    const bW = Number(b[0].wins) + Number(b[1].wins);
+                    const bL = Number(b[0].losses) + Number(b[1].losses);
+                    const aR = (aW+aL) > 0 ? aW/(aW+aL) : 0;
+                    const bR = (bW+bL) > 0 ? bW/(bW+bL) : 0;
+                    return bR - aR || bW - aW;
+                });
+
+                let dText = `╔══〘 🤝 DUO STANDINGS 〙══╗\n┃★\n`;
+                pairs.forEach(([p1, p2], i) => {
+                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
+                    const w = Number(p1.wins) + Number(p2.wins);
+                    const l = Number(p1.losses) + Number(p2.losses);
+                    const ratio = (w+l) > 0 ? Math.round((w/(w+l))*100) : 0;
+                    dText += `┃★ ${medal} *${p1.nickname}* + *${p2.nickname}*\n`;
+                    dText += `┃★    ${w}W ${l}L · ${ratio}%\n`;
+                });
+                if (solo.length) {
+                    dText += `┃★\n┃★ ⏳ UNPAIRED (${solo.length}):\n`;
+                    solo.forEach(p => { dText += `┃★ • ${p.nickname}\n`; });
+                }
+                dText += `┃★\n┃★ ${pairs.length} duos standing\n╚═══════════════════════════╝`;
+                return msg.reply(dText);
+            }
+
             // All active players sorted: wins DESC, losses ASC, nickname ASC
             const players = await getActivePlayers(t.id);
             const sorted = [...players].sort((a, b) => {

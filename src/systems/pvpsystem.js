@@ -861,6 +861,33 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                         await recordMatchResult(tourney.id, norm(wId), norm(lId), tourney.phase).catch(() => {});
                     }
                 }
+
+                // Grand announcement to tournament GC for duo/party results
+                const tourneyGroup = tourney.group_jid || process.env.RAID_GROUP_JID;
+                const pvpGrpP = getPvpGroup();
+                const announceTargetP = (tourneyGroup && tourneyGroup !== pvpGrpP) ? tourneyGroup : pvpGrpP;
+                if (announceTargetP && chat?.client) {
+                    const winnerNames = winners.map(id => nicknameMap[String(id)]?.nickname || id).join(' + ');
+                    const [loserRows] = await db.execute(
+                        `SELECT id, nickname FROM players WHERE id IN (${losers.map(() => '?').join(',')})`,
+                        losers
+                    ).catch(() => [[]]);
+                    const loserNickMap = Object.fromEntries(loserRows.map(r => [String(r.id), r.nickname]));
+                    const loserNames = losers.map(id => loserNickMap[String(id)] || id).join(' + ');
+                    const isDuo = tourney.phase === PHASES.DUO_GAUNTLET;
+                    await chat.client.sendMessage(announceTargetP, {
+                        text:
+                            `╔══〘 🏆 ${isDuo ? 'DUO GAUNTLET' : 'GRAND FINALS'} RESULT 〙══╗\n` +
+                            `┃★\n` +
+                            `┃★ ⚔️ Match complete!\n` +
+                            `┃★\n` +
+                            `┃★ 🥇 *${winnerNames}* — WINNER${isDuo ? 'S' : ''}\n` +
+                            `┃★ 💀 *${loserNames}* — defeated\n` +
+                            `┃★\n` +
+                            `┃★ *!tournament bracket* for standings\n` +
+                            `╚═══════════════════════════╝`
+                    }).catch(() => {});
+                }
             }
         } catch(e) { console.error('[TOURNAMENT record party]', e.message); }
 
