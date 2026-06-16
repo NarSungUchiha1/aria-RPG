@@ -25,11 +25,11 @@ module.exports = {
         );
 
         // Block trades while either player is inside a dungeon
-        const [sTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1", [userId]);
+        const [sTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [userId]);
         if (sTradeD.length) return msg.reply(
             `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You cannot trade\n┃◆ while inside a dungeon.\n╰═══════════════════════╯`
         );
-        const [tTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1", [targetId]);
+        const [tTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [targetId]);
         if (tTradeD.length) return msg.reply(
             `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ Cannot trade with a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
         );
