@@ -49,17 +49,24 @@ module.exports = {
                 );
             }
 
-            // Block XP transfer while in dungeon
+            // XP transfers between players in the SAME active dungeon are allowed.
             const [sXpDungeon] = await db.execute(
                 "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1",
                 [userId]
             );
-            if (sXpDungeon.length) return msg.reply('❌ Cannot transfer XP while inside a dungeon.');
             const [tXpDungeon] = await db.execute(
                 "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1",
                 [targetId]
             );
-            if (tXpDungeon.length) return msg.reply('❌ Cannot transfer XP to a player inside a dungeon.');
+            const sXpIn = sXpDungeon.length > 0;
+            const tXpIn = tXpDungeon.length > 0;
+            const sameXpDungeon = sXpIn && tXpIn && sXpDungeon[0].dungeon_id === tXpDungeon[0].dungeon_id;
+
+            if ((sXpIn || tXpIn) && !sameXpDungeon) {
+                if (sXpIn && !tXpIn) return msg.reply('❌ Cannot transfer XP to someone outside the dungeon.');
+                if (tXpIn && !sXpIn) return msg.reply('❌ Cannot transfer XP to a player inside a dungeon.');
+                return msg.reply('❌ You are both in dungeons, but not the same one.');
+            }
 
             const [sender] = await db.execute("SELECT xp FROM xp WHERE player_id=?", [userId]);
             const senderXp = sender[0]?.xp || 0;

@@ -23,15 +23,25 @@ module.exports = {
         const targetId = mentioned[0].replace(/@c\.us/g, "").split("@")[0];
         const amount   = parseInt(args[1]);
 
-        // Block while sender or recipient is in a locked dungeon
+        // Gold transfers between players in the SAME active dungeon are allowed.
+        // Paying someone outside the dungeon, or in a different dungeon, is blocked.
         const [sPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [userId]);
-        if (sPayD.length) return msg.reply(
-            `══〘 💰 PAY 〙══╮\n┃◆ ❌ You cannot send gold\n┃◆ while inside a dungeon.\n╰═══════════════════════╯`
-        );
         const [tPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [targetId]);
-        if (tPayD.length) return msg.reply(
-            `══〘 💰 PAY 〙══╮\n┃◆ ❌ Cannot pay a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
-        );
+        const sInDungeon = sPayD.length > 0;
+        const tInDungeon = tPayD.length > 0;
+        const samePayDungeon = sInDungeon && tInDungeon && sPayD[0].dungeon_id === tPayD[0].dungeon_id;
+
+        if ((sInDungeon || tInDungeon) && !samePayDungeon) {
+            if (sInDungeon && !tInDungeon) return msg.reply(
+                `══〘 💰 PAY 〙══╮\n┃◆ ❌ You cannot send gold to\n┃◆ someone outside the dungeon.\n╰═══════════════════════╯`
+            );
+            if (tInDungeon && !sInDungeon) return msg.reply(
+                `══〘 💰 PAY 〙══╮\n┃◆ ❌ Cannot pay a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
+            );
+            return msg.reply(
+                `══〘 💰 PAY 〙══╮\n┃◆ ❌ You are both in dungeons,\n┃◆ but not the same one.\n╰═══════════════════════╯`
+            );
+        }
 
         if (isNaN(amount) || amount <= 0) {
             return msg.reply(
