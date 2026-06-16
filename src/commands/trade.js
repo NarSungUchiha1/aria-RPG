@@ -24,15 +24,26 @@ module.exports = {
             `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You cannot trade with yourself.\n╰═══════════════════════╯`
         );
 
-        // Block trades while either player is inside a dungeon
+        // Trades between two players in the SAME active dungeon are allowed (raider to raider).
+        // Trading with someone outside the dungeon, or in a different dungeon, is blocked.
         const [sTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [userId]);
-        if (sTradeD.length) return msg.reply(
-            `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You cannot trade\n┃◆ while inside a dungeon.\n╰═══════════════════════╯`
-        );
         const [tTradeD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [targetId]);
-        if (tTradeD.length) return msg.reply(
-            `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ Cannot trade with a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
-        );
+        const senderInDungeon = sTradeD.length > 0;
+        const targetInDungeon = tTradeD.length > 0;
+        const sameDungeon = senderInDungeon && targetInDungeon && sTradeD[0].dungeon_id === tTradeD[0].dungeon_id;
+
+        if ((senderInDungeon || targetInDungeon) && !sameDungeon) {
+            if (senderInDungeon && !targetInDungeon) return msg.reply(
+                `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You cannot trade with someone\n┃◆ outside the dungeon.\n╰═══════════════════════╯`
+            );
+            if (targetInDungeon && !senderInDungeon) return msg.reply(
+                `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ Cannot trade with a player\n┃◆ currently inside a dungeon.\n╰═══════════════════════╯`
+            );
+            // Both in dungeons but different ones
+            return msg.reply(
+                `══〘 🎁 TRADE 〙══╮\n┃◆ ❌ You are both in dungeons,\n┃◆ but not the same one.\n╰═══════════════════════╯`
+            );
+        }
 
         try {
             const [senderRows] = await db.execute(
