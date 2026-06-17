@@ -117,11 +117,8 @@ module.exports = {
                 );
             }
 
-            // FIX: Check if player already has an active effect of this type
-            const existingEffect = getEffect(userId, dungeonId);
-            const existingTurn  = getTurnEffect(userId);
-            const wouldOverwrite = existingEffect || existingTurn;
-            // Allow stacking only for specific combos — for most warn but still apply
+            // Multiple potions can now be active simultaneously (stored by effect name).
+            // Drinking the SAME potion/effect again refreshes its duration/charges.
 
             // Consume potion
             await db.execute(

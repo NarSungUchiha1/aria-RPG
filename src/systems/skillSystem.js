@@ -12,7 +12,7 @@ function resolvePrestigeCooldown(cooldown, rank, type) {
 const prestigeRoleMoves = require('../data/prestigeRoleMoves');
 const weaponMoves = require('../data/weaponMoves');
 const { getBuffModifiers } = require('./activeBuffs');
-const { getTurnEffect, tickTurnEffect, getEffect } = require('./potionEffects');
+const { getTurnEffect, getTurnEffectByName, tickTurnEffect, getEffect, getEffectByName } = require('./potionEffects');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
 const { getFatigueMultiplier } = require('./fatigueSystem');
 
@@ -150,37 +150,34 @@ function calculateMoveDamage(player, move, enemy, equippedItems, { noTick = fals
     // ── POTION EFFECTS ──────────────────────────────────────────
 
     try {
-        const turnFx = getTurnEffect(player.id);
-        const permFx = getEffect(player.id, null);
-
-        // Berserk
-        if (turnFx?.effect === 'berserk') {
-            damage = Math.floor(damage * (turnFx.data.mult || 3.0));
+        const berserkFx = getTurnEffectByName(player.id, 'berserk');
+        if (berserkFx) {
+            damage = Math.floor(damage * (berserkFx.data.mult || 3.0));
         }
 
-        // True Damage
-        if (turnFx?.effect === 'true_damage') {
+        const trueDmgFx = getTurnEffectByName(player.id, 'true_damage');
+        if (trueDmgFx) {
             damage = Math.floor(Math.max(1, totalAttack) * multiplier);
         }
 
-        // Void Resonance
-        if (turnFx?.effect === 'stat_boost') {
-            damage = Math.floor(damage * (turnFx.data.mult || 1.25));
+        const statBoostFx = getTurnEffectByName(player.id, 'stat_boost');
+        if (statBoostFx) {
+            damage = Math.floor(damage * (statBoostFx.data.mult || 1.25));
         }
 
-        // Chaos Mode
-        if (turnFx?.effect === 'chaos_mode') {
-            damage = Math.floor(damage * (1 + (turnFx.data.amp || 0.5)));
+        const chaosFx3 = getTurnEffectByName(player.id, 'chaos_mode');
+        if (chaosFx3) {
+            damage = Math.floor(damage * (1 + (chaosFx3.data.amp || 0.5)));
         }
 
-        // Permanent potion boosts
-        if (permFx?.effect === 'damage_boost') {
+        const permFx = getEffectByName(player.id, 'damage_boost', null);
+        if (permFx) {
             damage = Math.floor(damage * (permFx.data.mult || 1.2));
         }
 
-        // Critical potion effect
-        if (turnFx?.effect === 'guaranteed_crit') {
-            damage = Math.floor(damage * (turnFx.data.mult || 2));
+        const critFx = getTurnEffectByName(player.id, 'guaranteed_crit');
+        if (critFx) {
+            damage = Math.floor(damage * (critFx.data.mult || 2));
         }
 
         if (!noTick) {

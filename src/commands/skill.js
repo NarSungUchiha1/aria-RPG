@@ -11,7 +11,7 @@ const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMov
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
-const { getEffect, getTurnEffect, clearEffect, consumeCharge, getHpLost } = require('../systems/potionEffects');
+const { getEffect, getEffectByName, getTurnEffect, getTurnEffectByName, clearEffect, consumeCharge, getHpLost } = require('../systems/potionEffects');
 
 // In-memory taunt state: dungeonId -> { tankId, expires }
 const tauntState = new Map();
@@ -280,8 +280,8 @@ module.exports = {
         const targetArg = remainingArgs;
 
         const cd = getMoveCooldown(userId, move.name);
-        const noCdFx = getTurnEffect ? getTurnEffect(userId) : null;
-        if (cd > 0 && noCdFx?.effect !== 'no_cooldown') return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
+        const noCdFx = getTurnEffectByName ? getTurnEffectByName(userId, 'no_cooldown') : null;
+        if (cd > 0 && !noCdFx) return msg.reply(`⏳ ${move.name} on cooldown (${Math.ceil(cd/1000)}s)`);
 
         // ── SPAM DETECTION ──────────────────────────────────────────────────
         if (move.type === 'damage') {
@@ -464,8 +464,8 @@ module.exports = {
 
             // Blood Price bonus
             try {
-                const bpFx = getEffect(userId, dungeon?.id);
-                if (bpFx?.effect === 'hp_to_damage') {
+                const bpFx = getEffectByName(userId, 'hp_to_damage', dungeon?.id);
+                if (bpFx) {
                     const bonus = bpFx.data.bonus || 0;
                     await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [bonus, targetEnemy?.id]);
                     consumeCharge(userId);
@@ -476,8 +476,8 @@ module.exports = {
 
             // Malachar's Hunger — steal HP on first hit per stage
             try {
-                const hungerFx2 = getEffect ? getEffect(userId, dungeon?.id) : null;
-                if (hungerFx2?.effect === 'hp_steal_first' && targetEnemy?.id && result.enemyHp > 0) {
+                const hungerFx2 = getEffectByName ? getEffectByName(userId, 'hp_steal_first', dungeon?.id) : null;
+                if (hungerFx2 && targetEnemy?.id && result.enemyHp > 0) {
                     const stealAmt = Math.floor(result.enemyHp * (hungerFx2.data.percent || 0.3));
                     if (stealAmt > 0) {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [stealAmt, targetEnemy.id]);
@@ -495,10 +495,9 @@ module.exports = {
 
             // Turn effects
             try {
-                const activeTurnEffect = getTurnEffect ? getTurnEffect(userId) : null;
-
-                if (activeTurnEffect?.effect === 'double_strike') {
-                    const hit = Math.random() < (activeTurnEffect.data.chance || 0.4);
+                const dsFx = getTurnEffectByName ? getTurnEffectByName(userId, 'double_strike') : null;
+                if (dsFx) {
+                    const hit = Math.random() < (dsFx.data.chance || 0.4);
                     if (hit && targetEnemy?.id) {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [result.damage, targetEnemy.id]);
                         reply += `┃◆ 👻 DOUBLE STRIKE — hit twice! +${result.damage} bonus damage!\n`;
@@ -509,28 +508,31 @@ module.exports = {
                     }
                 }
 
-                if (activeTurnEffect?.effect === 'lifesteal' && result.damage > 0) {
-                    const healAmt = Math.floor(result.damage * (activeTurnEffect.data.percent || 0.25));
+                const lsFx = getTurnEffectByName ? getTurnEffectByName(userId, 'lifesteal') : null;
+                if (lsFx && result.damage > 0) {
+                    const healAmt = Math.floor(result.damage * (lsFx.data.percent || 0.25));
                     await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [healAmt, userId]);
                     await db.execute('UPDATE players SET fatigue = LEAST(100, fatigue + 5) WHERE id=?', [userId]);
                     reply += `┃◆ 🩸 Crimson Tide: +${healAmt} HP (fatigue +5%)\n`;
                 }
 
-                if (activeTurnEffect?.effect === 'chaos_mode' && Math.random() < 0.20) {
+                const chaosFx2 = getTurnEffectByName ? getTurnEffectByName(userId, 'chaos_mode') : null;
+                if (chaosFx2 && Math.random() < 0.20) {
                     const selfDmg = Math.floor(result.damage * 0.30);
                     await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [selfDmg, userId]);
                     reply += `┃◆ ☠️ Chaos backfires — ${selfDmg} damage to yourself!\n`;
                 }
 
-                if (activeTurnEffect?.effect === 'berserk') {
+                const berserkFx = getTurnEffectByName ? getTurnEffectByName(userId, 'berserk') : null;
+                if (berserkFx) {
                     reply = reply.replace(/HP: \d+\/\d+/, 'HP: ???/???');
                 }
             } catch(e) {}
 
             // Echo brew
             try {
-                const echoFx = getEffect(userId, dungeon?.id);
-                if (echoFx?.effect === 'echo_skill') {
+                const echoFx = getEffectByName(userId, 'echo_skill', dungeon?.id);
+                if (echoFx) {
                     consumeCharge(userId);
                     const echoDmg = Math.floor(result.damage * (echoFx.data.power || 0.8));
                     await db.execute('UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?', [echoDmg, targetEnemy?.id]);
@@ -656,8 +658,8 @@ module.exports = {
 
             if (result.retaliationMessage) {
                 try {
-                    const immuneFx2 = getTurnEffect ? getTurnEffect(userId) : null;
-                    if (['immunity','invisibility','time_freeze'].includes(immuneFx2?.effect)) {
+                    const immuneFx2 = getTurnEffectByName ? (getTurnEffectByName(userId, 'immunity') || getTurnEffectByName(userId, 'invisibility') || getTurnEffectByName(userId, 'time_freeze')) : null;
+                    if (immuneFx2) {
                         reply += `┃◆────────────\n┃◆ 🛡️ Protected — no retaliation this turn.\n`;
                     } else {
                         reply += `┃◆────────────\n┃◆ ${result.retaliationMessage}\n`;
@@ -671,8 +673,8 @@ module.exports = {
 
             if (result.playerDied) {
                 try {
-                    const mirrorFx2 = getEffect ? getEffect(userId, dungeon?.id) : null;
-                    if (mirrorFx2?.effect === 'death_reflect' && targetEnemy?.id) {
+                    const mirrorFx2 = getEffectByName ? getEffectByName(userId, 'death_reflect', dungeon?.id) : null;
+                    if (mirrorFx2 && targetEnemy?.id) {
                         await db.execute('UPDATE dungeon_enemies SET current_hp = 0 WHERE id=?', [targetEnemy.id]);
                         consumeCharge(userId);
                         reply += `┃◆ 🪞 Mirror Toxin — the killing blow rebounds! ${targetEnemy.name} is destroyed!\n`;

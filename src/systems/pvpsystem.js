@@ -28,7 +28,7 @@ const ASSEMBLY_TIMEOUT_MS = 120000; // 2 minutes
 const DUEL_HP = 10000; // normal players fixed duel HP
 
 // ── PvP damage is 95% of the move's base output ───────────────────────────────
-const PVP_DAMAGE_SCALE = 0.98;
+const PVP_DAMAGE_SCALE = 0.99;
 
 // PvP Arena group — tournament duels are announced and conducted here
 const getPvpGroup = () => {

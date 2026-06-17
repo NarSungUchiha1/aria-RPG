@@ -6,7 +6,7 @@ const { tickBuffs, getBuffModifiers, consumeShield } = require('../systems/activ
 const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
-const { getEffect, clearEffect, trackDeath, trackHpLost, getTurnEffect } = require('../systems/potionEffects');
+const { getEffect, getEffectByName, clearEffect, trackDeath, trackHpLost, getTurnEffect, getTurnEffectByName } = require('../systems/potionEffects');
 const { initMvpTracking, recordDamage: mvpRecordDmg, recordDamageTaken: mvpRecordTaken, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
 
 const getRaidGroup  = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -538,20 +538,20 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e) {}
 
         try {
-            const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
-            if (puppetFx?.effect === 'redirect_aggro') {
+            const puppetFx = getEffectByName ? getEffectByName(playerId, 'redirect_aggro', dungeonId) : null;
+            if (puppetFx) {
                 const [allies] = await db.execute(
                     'SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND player_id!=? AND is_alive=1 LIMIT 1',
                     [dungeonId, playerId]
                 );
                 if (allies.length) retaliationTargetId = allies[0].player_id;
             }
-            const invisFx = getTurnEffect ? getTurnEffect(playerId) : null;
-            if (['invisibility','time_freeze'].includes(invisFx?.effect)) {
+            const invisFx = getTurnEffectByName ? (getTurnEffectByName(playerId, 'invisibility') || getTurnEffectByName(playerId, 'time_freeze')) : null;
+            if (invisFx) {
                 retaliation = 0; retaliationMessage = '';
             }
-            const chaosFx = getTurnEffect ? getTurnEffect(playerId) : null;
-            if (chaosFx?.effect === 'chaos_mode') {
+            const chaosFx = getTurnEffectByName ? getTurnEffectByName(playerId, 'chaos_mode') : null;
+            if (chaosFx) {
                 retaliation = Math.floor(retaliation * (1 + (chaosFx.data.amp || 0.5)));
             }
         } catch(potErr) {}
@@ -573,8 +573,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         }
 
         try {
-            const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
-            if (bloodpactFx?.effect === 'damage_link' && bloodpactFx.data.linkTarget && retaliation > 0) {
+            const bloodpactFx = getEffectByName ? getEffectByName(playerId, 'damage_link', dungeonId) : null;
+            if (bloodpactFx && bloodpactFx.data.linkTarget && retaliation > 0) {
                 const sharedDmg = Math.floor(retaliation * 0.5);
                 await db.execute('UPDATE players SET hp = GREATEST(0, hp + ?) WHERE id=?', [sharedDmg, retaliationTargetId]);
                 await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [sharedDmg, bloodpactFx.data.linkTarget]);
@@ -607,8 +607,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     const playerDied = playerHp <= 0;
     if (playerDied) {
         try {
-            const anchor = getEffect(playerId, dungeonId);
-            if (anchor?.effect === 'auto_revive') {
+            const anchor = getEffectByName(playerId, 'auto_revive', dungeonId);
+            if (anchor) {
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
@@ -627,8 +627,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         } catch(e2) {}
         try { trackDeath(playerId, dungeonId); } catch(e2) {}
         try {
-            const reck = getEffect(playerId, dungeonId);
-            if (reck?.effect === 'death_stack' && reck.data?.maxHpPenalty) {
+            const reck = getEffectByName(playerId, 'death_stack', dungeonId);
+            if (reck && reck.data?.maxHpPenalty) {
                 await db.execute('UPDATE players SET max_hp = GREATEST(1, FLOOR(max_hp * 0.95)) WHERE id=?', [playerId]);
             }
         } catch(e3) {}
@@ -637,12 +637,18 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             [playerId, dungeonId]
         );
         try {
-            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-            if (sess.length) {
-                const lostGold = sess[0].session_gold || 0;
-                const lostXp   = sess[0].session_xp   || 0;
-                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            // Death Protect (Ichor of the Fallen) — keep all gold and XP on death
+            const deathProtectFx = getEffectByName(playerId, 'death_protect', dungeonId);
+            if (deathProtectFx) {
+                clearEffect(playerId, 'death_protect'); // one-time use, consumed on death
+            } else {
+                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+                if (sess.length) {
+                    const lostGold = sess[0].session_gold || 0;
+                    const lostXp   = sess[0].session_xp   || 0;
+                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+                }
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
@@ -670,8 +676,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     // ── DOUBLE STRIKE SUPPORT ─────────────────────────────────
     let hits = 1;
     try {
-        const turnFx = getTurnEffect(playerId);
-        if (turnFx?.effect === 'double_strike') hits = turnFx.data.hits || 2;
+        const turnFx = getTurnEffectByName(playerId, 'double_strike');
+        if (turnFx) hits = turnFx.data.hits || 2;
     } catch (e) {}
 
     let totalDamage = 0;
@@ -723,20 +729,20 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(e) {}
 
         try {
-            const puppetFx = getEffect ? getEffect(playerId, dungeonId) : null;
-            if (puppetFx?.effect === 'redirect_aggro') {
+            const puppetFx = getEffectByName ? getEffectByName(playerId, 'redirect_aggro', dungeonId) : null;
+            if (puppetFx) {
                 const [allies] = await db.execute(
                     'SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND player_id!=? AND is_alive=1 LIMIT 1',
                     [dungeonId, playerId]
                 );
                 if (allies.length) retaliationTargetId = allies[0].player_id;
             }
-            const invisFx = getTurnEffect ? getTurnEffect(playerId) : null;
-            if (['invisibility', 'time_freeze'].includes(invisFx?.effect)) {
+            const invisFx = getTurnEffectByName ? (getTurnEffectByName(playerId, 'invisibility') || getTurnEffectByName(playerId, 'time_freeze')) : null;
+            if (invisFx) {
                 retaliation = 0; retaliationMessage = '';
             }
-            const chaosFx = getTurnEffect ? getTurnEffect(playerId) : null;
-            if (chaosFx?.effect === 'chaos_mode') {
+            const chaosFx = getTurnEffectByName ? getTurnEffectByName(playerId, 'chaos_mode') : null;
+            if (chaosFx) {
                 retaliation = Math.floor(retaliation * (1 + (chaosFx.data.amp || 0.5)));
             }
         } catch(potErr) { console.log('Retaliation potion error:', potErr.message); }
@@ -758,8 +764,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         }
 
         try {
-            const bloodpactFx = getEffect ? getEffect(playerId, dungeonId) : null;
-            if (bloodpactFx?.effect === 'damage_link' && bloodpactFx.data.linkTarget && retaliation > 0) {
+            const bloodpactFx = getEffectByName ? getEffectByName(playerId, 'damage_link', dungeonId) : null;
+            if (bloodpactFx && bloodpactFx.data.linkTarget && retaliation > 0) {
                 const sharedDmg = Math.floor(retaliation * 0.5);
                 await db.execute('UPDATE players SET hp = GREATEST(0, hp + ?) WHERE id=?', [sharedDmg, retaliationTargetId]);
                 await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [sharedDmg, bloodpactFx.data.linkTarget]);
@@ -792,8 +798,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     const playerDied = playerHp <= 0;
     if (playerDied) {
         try {
-            const anchor = getEffect(playerId, dungeonId);
-            if (anchor?.effect === 'auto_revive') {
+            const anchor = getEffectByName(playerId, 'auto_revive', dungeonId);
+            if (anchor) {
                 const healAmt = Math.floor(p.max_hp * (anchor.data.heal || 0.5));
                 await db.execute('UPDATE players SET hp=? WHERE id=?', [healAmt, playerId]);
                 clearEffect(playerId);
@@ -811,8 +817,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         } catch(e2) {}
         try { trackDeath(playerId, dungeonId); } catch(e2) {}
         try {
-            const reck = getEffect(playerId, dungeonId);
-            if (reck?.effect === 'death_stack' && reck.data?.maxHpPenalty) {
+            const reck = getEffectByName(playerId, 'death_stack', dungeonId);
+            if (reck && reck.data?.maxHpPenalty) {
                 await db.execute('UPDATE players SET max_hp = GREATEST(1, FLOOR(max_hp * 0.95)) WHERE id=?', [playerId]);
             }
         } catch(e3) {}
@@ -821,12 +827,18 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             [playerId, dungeonId]
         );
         try {
-            const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
-            if (sess.length) {
-                const lostGold = sess[0].session_gold || 0;
-                const lostXp   = sess[0].session_xp   || 0;
-                if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
-                if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+            // Death Protect (Ichor of the Fallen) — keep all gold and XP on death
+            const deathProtectFx = getEffectByName(playerId, 'death_protect', dungeonId);
+            if (deathProtectFx) {
+                clearEffect(playerId, 'death_protect'); // one-time use, consumed on death
+            } else {
+                const [sess] = await db.execute("SELECT session_gold, session_xp FROM dungeon_players WHERE player_id=? AND dungeon_id=?", [playerId, dungeonId]);
+                if (sess.length) {
+                    const lostGold = sess[0].session_gold || 0;
+                    const lostXp   = sess[0].session_xp   || 0;
+                    if (lostGold > 0) await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [lostGold, playerId]);
+                    if (lostXp   > 0) await db.execute("UPDATE xp SET xp = GREATEST(0, xp - ?) WHERE player_id=?", [lostXp, playerId]);
+                }
             }
         } catch(e) { console.error('Death penalty error:', e.message); }
     }
@@ -896,8 +908,8 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
         }
 
         try {
-            const harvest = getEffect(c.player_id, dungeonId);
-            if (harvest?.effect === 'kill_hp_gain') {
+            const harvest = getEffectByName(c.player_id, 'kill_hp_gain', dungeonId);
+            if (harvest) {
                 const gainAmt = Math.floor(Number(enemy[0].max_hp) * (harvest.data.percent || 0.1));
                 await db.execute('UPDATE players SET hp = LEAST(max_hp, hp + ?) WHERE id=?', [gainAmt, c.player_id]);
             }

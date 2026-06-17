@@ -2,52 +2,128 @@
  * ACTIVE POTION EFFECTS
  * In-memory store of active potion effects per player per dungeon.
  * Effects are checked during skill use and combat resolution.
+ *
+ * FIX: previously each player could only hold ONE active effect at a time —
+ * drinking a second potion silently overwrote the first. Now each player
+ * can hold multiple simultaneous effects, keyed by effect name, so drinking
+ * Berserk then Immunity keeps BOTH active instead of losing Berserk.
  */
 
 const db = require('../database/db');
 
-// activeEffects: Map<playerId, { potionName, effect, data, dungeonId, expiresAt, charges }>
+// activeEffects: Map<playerId, Map<effectName, { potionName, effect, data, dungeonId, charges }>>
 const activeEffects = new Map();
 
 function setEffect(playerId, dungeonId, potionName, effect, data = {}, charges = null) {
-    activeEffects.set(playerId, { potionName, effect, data, dungeonId, charges });
+    if (!activeEffects.has(playerId)) activeEffects.set(playerId, new Map());
+    activeEffects.get(playerId).set(effect, { potionName, effect, data, dungeonId, charges });
 }
 
+// getEffect — backward compatible single-effect getter.
+// Returns the most recently set effect matching dungeonId (or any if dungeonId is null/undefined).
+// For checking a SPECIFIC effect type while others may also be active, use getEffectByName.
 function getEffect(playerId, dungeonId) {
-    const e = activeEffects.get(playerId);
+    const playerMap = activeEffects.get(playerId);
+    if (!playerMap || playerMap.size === 0) return null;
+    let fallback = null;
+    for (const e of playerMap.values()) {
+        if (dungeonId == null || e.dungeonId === dungeonId) fallback = e;
+    }
+    return fallback;
+}
+
+// getEffectByName — look up one specific effect type regardless of what else is active
+function getEffectByName(playerId, effectName, dungeonId) {
+    const playerMap = activeEffects.get(playerId);
+    if (!playerMap) return null;
+    const e = playerMap.get(effectName);
     if (!e) return null;
-    if (e.dungeonId !== dungeonId) return null;
+    if (dungeonId != null && e.dungeonId !== dungeonId) return null;
     return e;
 }
 
-function clearEffect(playerId) {
-    activeEffects.delete(playerId);
+// getAllEffects — every active effect for a player (optionally filtered by dungeon)
+function getAllEffects(playerId, dungeonId) {
+    const playerMap = activeEffects.get(playerId);
+    if (!playerMap) return [];
+    const all = [...playerMap.values()];
+    return dungeonId == null ? all : all.filter(e => e.dungeonId === dungeonId);
 }
 
-function consumeCharge(playerId) {
-    const e = activeEffects.get(playerId);
-    if (!e || e.charges === null) return;
-    e.charges--;
-    if (e.charges <= 0) activeEffects.delete(playerId);
+function clearEffect(playerId, effectName) {
+    if (effectName) {
+        const playerMap = activeEffects.get(playerId);
+        if (playerMap) playerMap.delete(effectName);
+    } else {
+        activeEffects.delete(playerId); // clear everything (legacy behavior)
+    }
 }
 
-// Turn-based effects: decremented each skill use
-const turnEffects = new Map(); // playerId -> { effect, turnsLeft, data }
+function consumeCharge(playerId, effectName) {
+    const playerMap = activeEffects.get(playerId);
+    if (!playerMap) return;
+    if (effectName) {
+        const e = playerMap.get(effectName);
+        if (!e || e.charges === null) return;
+        e.charges--;
+        if (e.charges <= 0) playerMap.delete(effectName);
+        return;
+    }
+    for (const [name, e] of playerMap.entries()) {
+        if (e.charges !== null) {
+            e.charges--;
+            if (e.charges <= 0) playerMap.delete(name);
+            return;
+        }
+    }
+}
+
+// ── Turn-based effects ────────────────────────────────────────────────────────
+// turnEffects: Map<playerId, Map<effectName, { effect, turnsLeft, data }>>
+const turnEffects = new Map();
 
 function setTurnEffect(playerId, effect, turns, data = {}) {
-    turnEffects.set(playerId, { effect, turnsLeft: turns, data });
+    if (!turnEffects.has(playerId)) turnEffects.set(playerId, new Map());
+    turnEffects.get(playerId).set(effect, { effect, turnsLeft: turns, data });
 }
 
 function getTurnEffect(playerId) {
-    return turnEffects.get(playerId) || null;
+    const playerMap = turnEffects.get(playerId);
+    if (!playerMap || playerMap.size === 0) return null;
+    let last = null;
+    for (const e of playerMap.values()) last = e;
+    return last;
 }
 
-function tickTurnEffect(playerId) {
-    const e = turnEffects.get(playerId);
-    if (!e) return null;
-    e.turnsLeft--;
-    if (e.turnsLeft <= 0) turnEffects.delete(playerId);
-    return e;
+function getTurnEffectByName(playerId, effectName) {
+    const playerMap = turnEffects.get(playerId);
+    if (!playerMap) return null;
+    return playerMap.get(effectName) || null;
+}
+
+function getAllTurnEffects(playerId) {
+    const playerMap = turnEffects.get(playerId);
+    if (!playerMap) return [];
+    return [...playerMap.values()];
+}
+
+function tickTurnEffect(playerId, effectName) {
+    const playerMap = turnEffects.get(playerId);
+    if (!playerMap) return null;
+    if (effectName) {
+        const e = playerMap.get(effectName);
+        if (!e) return null;
+        e.turnsLeft--;
+        if (e.turnsLeft <= 0) playerMap.delete(effectName);
+        return e;
+    }
+    let lastTicked = null;
+    for (const [name, e] of [...playerMap.entries()]) {
+        e.turnsLeft--;
+        lastTicked = e;
+        if (e.turnsLeft <= 0) playerMap.delete(name);
+    }
+    return lastTicked;
 }
 
 // Death tracker per dungeon: playerId -> { dungeonId, deaths }
@@ -77,8 +153,8 @@ function getHpLost(playerId, dungeonId) {
 }
 
 module.exports = {
-    setEffect, getEffect, clearEffect, consumeCharge,
-    setTurnEffect, getTurnEffect, tickTurnEffect,
+    setEffect, getEffect, getEffectByName, getAllEffects, clearEffect, consumeCharge,
+    setTurnEffect, getTurnEffect, getTurnEffectByName, getAllTurnEffects, tickTurnEffect,
     trackDeath, getDeaths, trackHpLost, getHpLost,
     activeEffects, turnEffects
 };
