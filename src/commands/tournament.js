@@ -381,21 +381,34 @@ if (!p1 || !p2) {
 
             if (duos.length < 2) return msg.reply('❌ Need at least 2 registered duos to call a matchup.');
 
-            // Pick 2 duos that haven't fought yet
+            // Per-duo fight cap — total matches fought by either partner (combined)
+            const MAX_DUO_FIGHTS = 3;
+            const duoFights = (duo) => {
+                const [p1, p2] = duo;
+                return Number(p1.wins) + Number(p1.losses) + Number(p2.wins) + Number(p2.losses);
+            };
+            const eligibleDuos = duos.filter(d => duoFights(d) < (MAX_DUO_FIGHTS * 2)); // each fight counts for both partners
+
+            if (eligibleDuos.length < 2) {
+                return msg.reply(`✅ Duo Gauntlet matchups complete — every duo has reached the ${MAX_DUO_FIGHTS}-fight limit. Use !tournament next to advance.`);
+            }
+
+            // Pick 2 eligible duos that haven't fought 2+ times against each other
             let teamA = null, teamB = null;
-            outer2: for (let i = 0; i < duos.length; i++) {
-                for (let j = i + 1; j < duos.length; j++) {
-                    const [a1, a2] = duos[i];
-                    const [b1, b2] = duos[j];
+            const shuffledDuos = [...eligibleDuos].sort(() => Math.random() - 0.5);
+            outer2: for (let i = 0; i < shuffledDuos.length; i++) {
+                for (let j = i + 1; j < shuffledDuos.length; j++) {
+                    const [a1, a2] = shuffledDuos[i];
+                    const [b1, b2] = shuffledDuos[j];
                     const [prev] = await db.execute(
                         `SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=? AND phase='duo_gauntlet'
                          AND ((player1_id IN (?,?) AND player2_id IN (?,?)))`,
                         [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id]
                     );
-                    if (prev[0].cnt < 2) { teamA = duos[i]; teamB = duos[j]; break outer2; }
+                    if (prev[0].cnt < 2) { teamA = shuffledDuos[i]; teamB = shuffledDuos[j]; break outer2; }
                 }
             }
-            if (!teamA || !teamB) return msg.reply('❌ All duo pairs have already fought each other.');
+            if (!teamA || !teamB) return msg.reply('✅ No valid duo matchups remain — all eligible pairs have fought each other twice. Use !tournament next to advance.');
 
             const [a1, a2] = teamA;
             const [b1, b2] = teamB;
@@ -549,7 +562,7 @@ if (!p1 || !p2) {
                     const l = Number(p1.losses) + Number(p2.losses);
                     const ratio = (w+l) > 0 ? Math.round((w/(w+l))*100) : 0;
                     dText += `┃★ ${medal} *${p1.nickname}* + *${p2.nickname}*\n`;
-                    dText += `┃★    ${w}W ${l}L · ${ratio}%\n`;
+                    dText += `┃★    ${w}W ${l}L · ${ratio}% (${w+l}/6 fights)\n`;
                 });
                 if (solo.length) {
                     dText += `┃★\n┃★ ⏳ UNPAIRED (${solo.length}):\n`;
