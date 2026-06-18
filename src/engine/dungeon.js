@@ -7,6 +7,7 @@ const { clearDungeonTimers } = require('./dungeonTimer');
 const { clearPrestigeLobbyTimer } = require('./prestigeDungeon');
 const { trySpawnPrestigeDungeon } = require('./prestigeDungeon');
 const { getEffect, getEffectByName, clearEffect, trackDeath, trackHpLost, getTurnEffect, getTurnEffectByName } = require('../systems/potionEffects');
+const { getPlayerBlessingState, updateBlessingState } = require('../systems/clanSystem');
 const { initMvpTracking, recordDamage: mvpRecordDmg, recordDamageTaken: mvpRecordTaken, getMvp, getContributions: getMvpContributions } = require('../systems/mvpSystem');
 
 const getRaidGroup  = () => global.overrideRaidGroup || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -505,6 +506,24 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     let damage = calculatePlayerDamage(p, e, weaponBonus);
     if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
+    // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
+    // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    try {
+        const bState = await getPlayerBlessingState(playerId, dungeonId);
+        if (bState.damage_boost > 0) {
+            damage = Math.floor(damage * (1 + Number(bState.damage_boost)));
+        }
+        if (Number(bState.next_hit_mult) > 0) {
+            damage = Math.floor(damage * Number(bState.next_hit_mult));
+            evaded = false; // these hits cannot be evaded
+            const remainingCharges = Math.max(0, Number(bState.charges || 0) - 1);
+            await updateBlessingState(playerId, dungeonId, {
+                charges: remainingCharges,
+                next_hit_mult: remainingCharges > 0 ? Number(bState.next_hit_mult) : 0
+            });
+        }
+    } catch(eclipseErr) {}
+
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
@@ -550,6 +569,16 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             if (invisFx) {
                 retaliation = 0; retaliationMessage = '';
             }
+
+            // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            try {
+                const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
+                if (Number(bStateInv.invincible) > 0) {
+                    retaliation = 0;
+                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
+                    await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
+                }
+            } catch(invErr) {}
             const chaosFx = getTurnEffectByName ? getTurnEffectByName(playerId, 'chaos_mode') : null;
             if (chaosFx) {
                 retaliation = Math.floor(retaliation * (1 + (chaosFx.data.amp || 0.5)));
@@ -689,7 +718,25 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         }
         totalDamage += hitDamage;
     }
-    const damage = totalDamage;
+    let damage = totalDamage;
+
+    // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
+    // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    try {
+        const bState2 = await getPlayerBlessingState(playerId, dungeonId);
+        if (bState2.damage_boost > 0) {
+            damage = Math.floor(damage * (1 + Number(bState2.damage_boost)));
+        }
+        if (Number(bState2.next_hit_mult) > 0) {
+            damage = Math.floor(damage * Number(bState2.next_hit_mult));
+            evaded = false;
+            const remainingCharges2 = Math.max(0, Number(bState2.charges || 0) - 1);
+            await updateBlessingState(playerId, dungeonId, {
+                charges: remainingCharges2,
+                next_hit_mult: remainingCharges2 > 0 ? Number(bState2.next_hit_mult) : 0
+            });
+        }
+    } catch(eclipseErr2) {}
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
@@ -741,6 +788,16 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             if (invisFx) {
                 retaliation = 0; retaliationMessage = '';
             }
+
+            // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            try {
+                const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
+                if (Number(bStateInv.invincible) > 0) {
+                    retaliation = 0;
+                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
+                    await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
+                }
+            } catch(invErr) {}
             const chaosFx = getTurnEffectByName ? getTurnEffectByName(playerId, 'chaos_mode') : null;
             if (chaosFx) {
                 retaliation = Math.floor(retaliation * (1 + (chaosFx.data.amp || 0.5)));

@@ -74,6 +74,25 @@ async function ensureClanTables() {
         )
     `).catch(() => {});
 
+    // FIX: this table never existed — every clan blessing trigger was crashing
+    // silently because getPlayerBlessingState returned null and code tried to
+    // read .blessing_used / .skill_count / .hit_count off of null.
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS clan_blessing_state (
+            player_id      VARCHAR(60) NOT NULL,
+            dungeon_id     INT NOT NULL,
+            blessing_used  TINYINT NOT NULL DEFAULT 0,
+            skill_count    INT NOT NULL DEFAULT 0,
+            hit_count      INT NOT NULL DEFAULT 0,
+            invincible     INT NOT NULL DEFAULT 0,
+            damage_boost   DECIMAL(5,3) NOT NULL DEFAULT 0,
+            next_hit_mult  DECIMAL(6,3) NOT NULL DEFAULT 0,
+            charges        INT NOT NULL DEFAULT 0,
+            last_triggered DATETIME DEFAULT NULL,
+            PRIMARY KEY (player_id, dungeon_id)
+        )
+    `).catch(() => {});
+
     await db.execute('ALTER TABLE clan_members ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT "member"').catch(() => {});
     await db.execute('ALTER TABLE clans ADD COLUMN IF NOT EXISTS member_count INT NOT NULL DEFAULT 1').catch(() => {});
 }
@@ -194,21 +213,37 @@ async function checkCreationRequirements(playerId) {
 }
 
 // ── BLESSING STATE ────────────────────────────────────────────────────────────
+// FIX: returns safe zeroed defaults instead of null when no row exists yet —
+// every player's FIRST blessing check in a fresh dungeon had no row, so the
+// caller's state.blessing_used / state.skill_count crashed on null and the
+// whole trigger silently died inside the try/catch.
 async function getPlayerBlessingState(playerId, dungeonId) {
     const [rows] = await db.execute(
         'SELECT * FROM clan_blessing_state WHERE player_id=? AND dungeon_id=?',
         [playerId, dungeonId]
     );
-    return rows[0] || null;
+    if (rows[0]) return rows[0];
+    return {
+        player_id: playerId, dungeon_id: dungeonId,
+        blessing_used: 0, skill_count: 0, hit_count: 0,
+        invincible: 0, damage_boost: 0, charges: 0, last_triggered: null
+    };
 }
 
+// FIX: was a plain UPDATE which silently affected 0 rows when no state row
+// existed yet (true for every player's first trigger in a dungeon). Now
+// upserts — inserts the row on first write, updates it on every write after.
 async function updateBlessingState(playerId, dungeonId, fields) {
     if (!fields || !Object.keys(fields).length) return;
-    const setClauses = Object.keys(fields).map(k => k + '=?').join(', ');
-    const values     = [...Object.values(fields), playerId, dungeonId];
+    const cols = Object.keys(fields);
+    const vals = Object.values(fields);
+    const insertCols = ['player_id', 'dungeon_id', ...cols].join(', ');
+    const insertPlaceholders = ['?', '?', ...cols.map(() => '?')].join(', ');
+    const updateClause = cols.map(k => `${k}=?`).join(', ');
     await db.execute(
-        'UPDATE clan_blessing_state SET ' + setClauses + ' WHERE player_id=? AND dungeon_id=?',
-        values
+        `INSERT INTO clan_blessing_state (${insertCols}) VALUES (${insertPlaceholders})
+         ON DUPLICATE KEY UPDATE ${updateClause}`,
+        [playerId, dungeonId, ...vals, ...vals]
     );
 }
 

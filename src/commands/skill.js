@@ -126,7 +126,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         if (trigger === 'three_consecutive_hits') {
             const newHits = (state.hit_count || 0) + 1;
             if (newHits >= 3) {
-                await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2 });
+                await updateBlessingState(playerId, dungeonId, { hit_count: 0, invincible: 2, next_hit_mult: blessing.multiplier || 4.0 });
                 blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗
 ┃◆ Three hits. Enough.
 ┃◆ ${player.nickname} lets out a roar
@@ -217,7 +217,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
         }
 
         if (trigger === 'all_allies_below_50') {
-            await updateBlessingState(playerId, dungeonId, { invincible: blessing.charges || 3, blessing_used: 1 });
+            await updateBlessingState(playerId, dungeonId, { charges: blessing.charges || 3, next_hit_mult: blessing.multiplier || 10.0, blessing_used: 1 });
             blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
 ┃★ The bloodline does not ask.
 ┃★ It takes.
@@ -230,8 +230,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         if (blessingMsg) {
             await msg.reply(blessingMsg).catch(() => {});
+            // Upsert so this works even if no state row exists yet (repeat-trigger cooldowns)
             await db.execute(
-                'UPDATE clan_blessing_state SET last_triggered=NOW() WHERE player_id=? AND dungeon_id=?',
+                `INSERT INTO clan_blessing_state (player_id, dungeon_id, last_triggered) VALUES (?, ?, NOW())
+                 ON DUPLICATE KEY UPDATE last_triggered=NOW()`,
                 [playerId, dungeonId]
             ).catch(() => {});
         }
