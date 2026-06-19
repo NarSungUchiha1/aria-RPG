@@ -383,13 +383,14 @@ if (!p1 || !p2) {
 
             // Per-duo fight cap — total matches fought by either partner (combined)
             const MAX_DUO_FIGHTS = 3;
-            // Count only duo_gauntlet phase matches — not BR wins/losses which carry over
+            // Count matches per duo from the dedicated table
             const getDuoMatchCount = async (p1Id, p2Id) => {
                 const [rows] = await db.execute(
-                    `SELECT COUNT(*) as cnt FROM tournament_matches
-                     WHERE tournament_id=? AND phase='duo_gauntlet'
-                     AND (player1_id IN (?,?) OR player2_id IN (?,?))`,
-                    [t.id, p1Id, p2Id, p1Id, p2Id]
+                    `SELECT COUNT(*) as cnt FROM duo_gauntlet_matches
+                     WHERE tournament_id=?
+                     AND ((team_a1=? AND team_a2=?) OR (team_a1=? AND team_a2=?)
+                       OR (team_b1=? AND team_b2=?) OR (team_b1=? AND team_b2=?))`,
+                    [t.id, p1Id, p2Id, p2Id, p1Id, p1Id, p2Id, p2Id, p1Id]
                 );
                 return rows[0].cnt;
             };
@@ -412,9 +413,11 @@ if (!p1 || !p2) {
                     const [a1, a2] = shuffledDuos[i];
                     const [b1, b2] = shuffledDuos[j];
                     const [prev] = await db.execute(
-                        `SELECT COUNT(*) as cnt FROM tournament_matches WHERE tournament_id=? AND phase='duo_gauntlet'
-                         AND ((player1_id IN (?,?) AND player2_id IN (?,?)))`,
-                        [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id]
+                        `SELECT COUNT(*) as cnt FROM duo_gauntlet_matches WHERE tournament_id=?
+                         AND ((team_a1 IN (?,?) AND team_b1 IN (?,?))
+                           OR (team_a1 IN (?,?) AND team_b1 IN (?,?)))`,
+                        [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id,
+                              b1.player_id, b2.player_id, a1.player_id, a2.player_id]
                     );
                     if (prev[0].cnt < 2) { teamA = shuffledDuos[i]; teamB = shuffledDuos[j]; break outer2; }
                 }
@@ -460,10 +463,10 @@ if (!p1 || !p2) {
                 setTimeout(() => promoteForDuel(client, [a1.player_id, a2.player_id, b1.player_id, b2.player_id], pvpGrpD).catch(() => {}), 800);
             } catch(e) {}
 
-            // Log matchup
+            // Log matchup to dedicated duo table
             await db.execute(
-                "INSERT INTO tournament_matches (tournament_id, phase, player1_id, player2_id, status) VALUES (?,?,?,?,'active')",
-                [t.id, 'duo_gauntlet', a1.player_id, b1.player_id]
+                "INSERT INTO duo_gauntlet_matches (tournament_id, team_a1, team_a2, team_b1, team_b2) VALUES (?,?,?,?,?)",
+                [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id]
             ).catch(() => {});
 
             // Pre-create party assembly so leaders just type !startduel
@@ -555,25 +558,48 @@ if (!p1 || !p2) {
                     const partner = duoRows.find(r => r.player_id === row.duo_partner);
                     if (partner) pairs.push([row, partner]);
                 }
-                // Sort pairs by combined win ratio
+                // Fetch from dedicated duo_gauntlet_matches table
+                const duoStats = {};
+                for (const [p1, p2] of pairs) {
+                    const [matchRows] = await db.execute(
+                        `SELECT winner_team, team_a1, team_a2, team_b1, team_b2
+                         FROM duo_gauntlet_matches WHERE tournament_id=?
+                         AND ((team_a1 IN (?,?) AND team_a2 IN (?,?))
+                           OR (team_b1 IN (?,?) AND team_b2 IN (?,?)))`,
+                        [t.id, p1.player_id, p2.player_id, p1.player_id, p2.player_id,
+                              p1.player_id, p2.player_id, p1.player_id, p2.player_id]
+                    );
+                    let dW = 0, dL = 0;
+                    for (const m of matchRows) {
+                        if (!m.winner_team) continue;
+                        const onTeamA = m.team_a1 === p1.player_id || m.team_a1 === p2.player_id
+                                     || m.team_a2 === p1.player_id || m.team_a2 === p2.player_id;
+                        const weWon = (onTeamA && m.winner_team === 'a') || (!onTeamA && m.winner_team === 'b');
+                        if (weWon) dW++; else dL++;
+                    }
+                    const key = [p1.player_id, p2.player_id].sort().join('_');
+                    duoStats[key] = { w: dW, l: dL, total: matchRows.length };
+                }
+
+                // Sort pairs by duo-phase win ratio
                 pairs.sort((a, b) => {
-                    const aW = Number(a[0].wins) + Number(a[1].wins);
-                    const aL = Number(a[0].losses) + Number(a[1].losses);
-                    const bW = Number(b[0].wins) + Number(b[1].wins);
-                    const bL = Number(b[0].losses) + Number(b[1].losses);
-                    const aR = (aW+aL) > 0 ? aW/(aW+aL) : 0;
-                    const bR = (bW+bL) > 0 ? bW/(bW+bL) : 0;
-                    return bR - aR || bW - aW;
+                    const aKey = [a[0].player_id, a[1].player_id].sort().join('_');
+                    const bKey = [b[0].player_id, b[1].player_id].sort().join('_');
+                    const aS = duoStats[aKey] || { w:0, l:0, total:0 };
+                    const bS = duoStats[bKey] || { w:0, l:0, total:0 };
+                    const aR = aS.total > 0 ? aS.w/aS.total : 0;
+                    const bR = bS.total > 0 ? bS.w/bS.total : 0;
+                    return bR - aR || bS.w - aS.w;
                 });
 
                 let dText = `╔══〘 🤝 DUO STANDINGS 〙══╗\n┃★\n`;
                 pairs.forEach(([p1, p2], i) => {
                     const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`;
-                    const w = Number(p1.wins) + Number(p2.wins);
-                    const l = Number(p1.losses) + Number(p2.losses);
-                    const ratio = (w+l) > 0 ? Math.round((w/(w+l))*100) : 0;
+                    const key = [p1.player_id, p2.player_id].sort().join('_');
+                    const s = duoStats[key] || { w:0, l:0, total:0 };
+                    const ratio = s.total > 0 ? Math.round((s.w/s.total)*100) : 0;
                     dText += `┃★ ${medal} *${p1.nickname}* + *${p2.nickname}*\n`;
-                    dText += `┃★    ${w}W ${l}L · ${ratio}% (${w+l}/6 fights)\n`;
+                    dText += `┃★    ${s.w}W ${s.l}L · ${ratio}% (${s.total}/3 matches)\n`;
                 });
                 if (solo.length) {
                     dText += `┃★\n┃★ ⏳ UNPAIRED (${solo.length}):\n`;

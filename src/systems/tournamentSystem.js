@@ -65,6 +65,22 @@ async function ensureTables() {
     await db.execute("ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL").catch(() => {});
 
     await db.execute(`
+        CREATE TABLE IF NOT EXISTS duo_gauntlet_matches (
+            id            INT AUTO_INCREMENT PRIMARY KEY,
+            tournament_id INT NOT NULL,
+            team_a1       VARCHAR(60) NOT NULL,
+            team_a2       VARCHAR(60) NOT NULL DEFAULT '',
+            team_b1       VARCHAR(60) NOT NULL,
+            team_b2       VARCHAR(60) NOT NULL DEFAULT '',
+            winner_team   ENUM('a','b') DEFAULT NULL,
+            status        ENUM('active','completed') DEFAULT 'active',
+            created_at    DATETIME DEFAULT NOW(),
+            completed_at  DATETIME DEFAULT NULL,
+            INDEX (tournament_id)
+        )
+    `).catch(() => {});
+
+    await db.execute(`
         CREATE TABLE IF NOT EXISTS tournament_matches (
             id            INT AUTO_INCREMENT PRIMARY KEY,
             tournament_id INT NOT NULL,
@@ -312,24 +328,37 @@ async function recordMatchResult(tournamentId, winnerId, loserId, phase) {
         [tournamentId, loserId]
     );
 
-    // In Duo Gauntlet — also give win/loss to duo partners
+    // In Duo Gauntlet — record in separate duo_gauntlet_matches table
+    // Also credit win/loss to both partners
     if (phase === PHASES.DUO_GAUNTLET) {
-        const [wPartner] = await db.execute(
+        const [wPartnerRow] = await db.execute(
             "SELECT duo_partner FROM tournament_players WHERE tournament_id=? AND player_id=?",
             [tournamentId, winnerId]
         );
-        const [lPartner] = await db.execute(
+        const [lPartnerRow] = await db.execute(
             "SELECT duo_partner FROM tournament_players WHERE tournament_id=? AND player_id=?",
             [tournamentId, loserId]
         );
-        if (wPartner[0]?.duo_partner) await db.execute(
+        const wPartner = wPartnerRow[0]?.duo_partner || null;
+        const lPartner = lPartnerRow[0]?.duo_partner || null;
+
+        // Credit partners
+        if (wPartner) await db.execute(
             "UPDATE tournament_players SET wins=wins+1 WHERE tournament_id=? AND player_id=?",
-            [tournamentId, wPartner[0].duo_partner]
+            [tournamentId, wPartner]
         );
-        if (lPartner[0]?.duo_partner) await db.execute(
+        if (lPartner) await db.execute(
             "UPDATE tournament_players SET losses=losses+1 WHERE tournament_id=? AND player_id=?",
-            [tournamentId, lPartner[0].duo_partner]
+            [tournamentId, lPartner]
         );
+
+        // Record in dedicated duo match table
+        await db.execute(
+            `INSERT INTO duo_gauntlet_matches (tournament_id, team_a1, team_a2, team_b1, team_b2, winner_team, status, completed_at)
+             VALUES (?, ?, ?, ?, ?, 'a', 'completed', NOW())
+             ON DUPLICATE KEY UPDATE winner_team='a', status='completed', completed_at=NOW()`,
+            [tournamentId, winnerId, wPartner || '', loserId, lPartner || '']
+        ).catch(() => {});
     }
 
     // In Grand Finals — loser is eliminated
