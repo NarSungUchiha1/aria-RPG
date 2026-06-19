@@ -1116,11 +1116,20 @@ function fatigueWarning(fatigue) {
 async function handlePvPSkill(attackerId, move, targetIds) {
     const duel = activeDuels.get(attackerId);
     if (!duel) return { error: "You are not in a duel." };
-    if (duel.turn !== attackerId) return { error: "It's not your turn!" };
 
     const chat = duel.chat;
     const data = duelPool.get(duel.duelKey);
     if (!data) return { error: "Duel data missing." };
+
+    // Party duels — any member of the current team can act
+    const isPartyDuel = data.teamA.length > 1 || data.teamB.length > 1;
+    if (!isPartyDuel) {
+        if (duel.turn !== attackerId) return { error: "It's not your turn!" };
+    } else {
+        const myTeam = data.teamA.map(String).includes(String(attackerId)) ? 'A' : 'B';
+        const currentTeam = data.teamA.map(String).includes(String(duel.turn)) ? 'A' : 'B';
+        if (myTeam !== currentTeam) return { error: "It's not your team's turn!" };
+    }
 
     const [aRows] = await db.execute("SELECT * FROM players WHERE id=?", [attackerId]);
     if (!aRows.length) return { error: "Player not found." };
@@ -1533,11 +1542,20 @@ async function handlePvPSkill(attackerId, move, targetIds) {
 async function handlePvPAttack(attackerId) {
     const duel = activeDuels.get(attackerId);
     if (!duel) return { error: "You are not in a duel." };
-    if (duel.turn !== attackerId) return { error: "It's not your turn!" };
 
     const chat = duel.chat;
     const data = duelPool.get(duel.duelKey);
     if (!data) return { error: "Duel data missing." };
+
+    // Party duels — any member of the current team can act
+    const isPartyDuel2 = data.teamA.length > 1 || data.teamB.length > 1;
+    if (!isPartyDuel2) {
+        if (duel.turn !== attackerId) return { error: "It's not your turn!" };
+    } else {
+        const myTeam2 = data.teamA.map(String).includes(String(attackerId)) ? 'A' : 'B';
+        const currentTeam2 = data.teamA.map(String).includes(String(duel.turn)) ? 'A' : 'B';
+        if (myTeam2 !== currentTeam2) return { error: "It's not your team's turn!" };
+    }
 
     const targetId = getCurrentOpponentId(duel.duelKey, attackerId);
     if (!targetId) return { error: "No living opponent found." };

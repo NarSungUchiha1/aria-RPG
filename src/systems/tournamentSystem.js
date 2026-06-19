@@ -352,12 +352,14 @@ async function recordMatchResult(tournamentId, winnerId, loserId, phase) {
             [tournamentId, lPartner]
         );
 
-        // Record in dedicated duo match table
+        // Update the existing duo_gauntlet_matches row with the winner
+        // (row was inserted by !tournament duomatchup — we just update winner_team here)
         await db.execute(
-            `INSERT INTO duo_gauntlet_matches (tournament_id, team_a1, team_a2, team_b1, team_b2, winner_team, status, completed_at)
-             VALUES (?, ?, ?, ?, ?, 'a', 'completed', NOW())
-             ON DUPLICATE KEY UPDATE winner_team='a', status='completed', completed_at=NOW()`,
-            [tournamentId, winnerId, wPartner || '', loserId, lPartner || '']
+            `UPDATE duo_gauntlet_matches SET winner_team='a', status='completed', completed_at=NOW()
+             WHERE tournament_id=? AND status='active'
+             AND ((team_a1=? AND team_a2=?) OR (team_a1=? AND team_a2=?))
+             ORDER BY created_at DESC LIMIT 1`,
+            [tournamentId, winnerId, wPartner || '', wPartner || '', winnerId]
         ).catch(() => {});
     }
 
