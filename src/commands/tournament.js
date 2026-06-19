@@ -385,12 +385,16 @@ if (!p1 || !p2) {
             const MAX_DUO_FIGHTS = 3;
             // Count matches per duo from the dedicated table
             const getDuoMatchCount = async (p1Id, p2Id) => {
+                // Count rows where this duo appears on EITHER team (not both conditions)
                 const [rows] = await db.execute(
                     `SELECT COUNT(*) as cnt FROM duo_gauntlet_matches
                      WHERE tournament_id=?
-                     AND ((team_a1=? AND team_a2=?) OR (team_a1=? AND team_a2=?)
-                       OR (team_b1=? AND team_b2=?) OR (team_b1=? AND team_b2=?))`,
-                    [t.id, p1Id, p2Id, p2Id, p1Id, p1Id, p2Id, p2Id, p1Id]
+                     AND (
+                         (team_a1 IN (?,?) AND team_a2 IN (?,?))
+                         OR
+                         (team_b1 IN (?,?) AND team_b2 IN (?,?))
+                     )`,
+                    [t.id, p1Id, p2Id, p1Id, p2Id, p1Id, p2Id, p1Id, p2Id]
                 );
                 return rows[0].cnt;
             };
@@ -412,12 +416,19 @@ if (!p1 || !p2) {
                 for (let j = i + 1; j < shuffledDuos.length; j++) {
                     const [a1, a2] = shuffledDuos[i];
                     const [b1, b2] = shuffledDuos[j];
+                    // Count matches between these two specific duos
                     const [prev] = await db.execute(
                         `SELECT COUNT(*) as cnt FROM duo_gauntlet_matches WHERE tournament_id=?
-                         AND ((team_a1 IN (?,?) AND team_b1 IN (?,?))
-                           OR (team_a1 IN (?,?) AND team_b1 IN (?,?)))`,
-                        [t.id, a1.player_id, a2.player_id, b1.player_id, b2.player_id,
-                              b1.player_id, b2.player_id, a1.player_id, a2.player_id]
+                         AND (
+                             (team_a1 IN (?,?) AND team_a2 IN (?,?) AND team_b1 IN (?,?) AND team_b2 IN (?,?))
+                             OR
+                             (team_a1 IN (?,?) AND team_a2 IN (?,?) AND team_b1 IN (?,?) AND team_b2 IN (?,?))
+                         )`,
+                        [t.id,
+                         a1.player_id, a2.player_id, a1.player_id, a2.player_id,
+                         b1.player_id, b2.player_id, b1.player_id, b2.player_id,
+                         b1.player_id, b2.player_id, b1.player_id, b2.player_id,
+                         a1.player_id, a2.player_id, a1.player_id, a2.player_id]
                     );
                     if (prev[0].cnt < 2) { teamA = shuffledDuos[i]; teamB = shuffledDuos[j]; break outer2; }
                 }
