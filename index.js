@@ -61,12 +61,11 @@ function enqueueCommand(userId, fn) {
 
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
-const RENDER_URL = process.env.RENDER_EXTERNAL_URL || '';
-if (RENDER_URL) {
-    setInterval(async () => {
-        try { await fetch(`${RENDER_URL}/ping`); } catch {}
-    }, 10 * 60 * 1000);
-}
+// Self-ping every 4 min as backup — real fix is UptimeRobot hitting /ping externally
+const RENDER_URL = process.env.RENDER_EXTERNAL_URL || 'https://aria-rpg.onrender.com';
+setInterval(async () => {
+    try { await fetch(`${RENDER_URL}/ping`); } catch {}
+}, 4 * 60 * 1000);
 
 app.get('/', async (req, res) => {
     let dbStatus = 'Checking...';
