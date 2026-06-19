@@ -280,14 +280,44 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
             // Record tournament result if a tournament is active
             try {
                 const { getActiveTournament, recordMatchResult, PHASES } = require('../systems/tournamentSystem');
-                const tourney = await getActiveTournament();
+                // Use stored groupJid from duel data so timeout fires in correct tournament context
+                const duelData = duelPool.get(getDuelKey([currentTurnId], [opponentId]))
+                    || duelPool.get(getDuelKey([opponentId], [currentTurnId]))
+                    || [...duelPool.values()].find(d =>
+                        d.teamA?.includes(String(currentTurnId)) || d.teamB?.includes(String(currentTurnId))
+                    );
+                const duelGrpJid = duelData?.groupJid || getPvpGroup();
+                const tourney = await getActiveTournament(duelGrpJid);
                 if (tourney && [PHASES.BATTLE_ROYALE, PHASES.DUO_GAUNTLET, PHASES.GRAND_FINALS].includes(tourney.phase)) {
                     const norm = id => String(id).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g,'').split(':')[0];
-                    await recordMatchResult(tourney.id, norm(opponentId), norm(currentTurnId), tourney.phase);
-                    await chat.sendMessage(
-                        `┃★ 📋 Tournament result recorded: *${oNick}* +1 win\n` +
-                        `┃★ Use *!tournament bracket* to see standings.`
-                    ).catch(() => {});
+                    // For party/duo duels — record for all team members
+                    const winTeam = duelData?.teamB?.includes(String(currentTurnId))
+                        ? (duelData?.teamA || [opponentId])
+                        : (duelData?.teamB || [opponentId]);
+                    const loseTeam = duelData?.teamA?.includes(String(currentTurnId))
+                        ? (duelData?.teamA || [currentTurnId])
+                        : (duelData?.teamB || [currentTurnId]);
+                    for (const wId of winTeam) {
+                        for (const lId of loseTeam) {
+                            await recordMatchResult(tourney.id, norm(wId), norm(lId), tourney.phase).catch(() => {});
+                        }
+                    }
+                    // Grand announcement to tournament group
+                    const wNames = winTeam.map(id => nicknameMap?.[String(id)]?.nickname || id).join(' + ');
+                    const lNames = loseTeam.map(id => nicknameMap?.[String(id)]?.nickname || id).join(' + ');
+                    const tourneyGroup = tourney.group_jid || duelGrpJid;
+                    await chat.client?.sendMessage(tourneyGroup, {
+                        text:
+                            `╔══〘 🏆 ${tourney.phase === PHASES.DUO_GAUNTLET ? 'DUO GAUNTLET' : 'TOURNAMENT'} RESULT 〙══╗\n` +
+                            `┃★\n` +
+                            `┃★ 🏳️ *${pNick}* forfeited (timeout)\n` +
+                            `┃★\n` +
+                            `┃★ 🥇 *${wNames}* — WINNER\n` +
+                            `┃★ 💀 *${lNames}* — forfeited\n` +
+                            `┃★\n` +
+                            `┃★ *!tournament bracket* for standings\n` +
+                            `╚═══════════════════════════╝`
+                    }).catch(() => {});
                 }
             } catch(te) { console.error('[Tournament timeout record]', te.message); }
             // Demote both players from PvP group after timeout
@@ -1661,6 +1691,7 @@ module.exports = {
     DUEL_HP,
     startPartyAssembly,
     joinPartyAssembly,
+    buildRosterMessage,
     readyPartyDuel,
     promoteForDuel,
     demoteAfterDuel,

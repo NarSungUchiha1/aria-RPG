@@ -16,11 +16,27 @@ module.exports = {
             `╰════════════════════════════════╯`
         );
 
-        if (getAssemblyByPlayer(userId)) return msg.reply(
-            `╭══〘 ⚔️  JOIN PARTY 〙══╮\n` +
-            `┃◆ ❌ You are already in a party assembly.\n` +
-            `╰════════════════════════════════╯`
-        );
+        const existingAssembly = getAssemblyByPlayer(userId);
+        if (existingAssembly) {
+            // Already in assembly — show current roster so they know they're in
+            const { buildRosterMessage } = require('../systems/pvpsystem');
+            const rosterMsg = await buildRosterMessage(existingAssembly);
+            return msg.reply(
+                `╭══〘 ⚔️  PARTY ASSEMBLY 〙══╮\n` +
+                `┃◆ \n` +
+                `┃◆ ✅ You are already in this party!\n` +
+                `┃◆ \n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ 📋  CURRENT ROSTERS\n` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ \n` +
+                `${rosterMsg}` +
+                `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                `┃◆ Leaders — lock in when ready:\n` +
+                `┃◆    !startduel\n` +
+                `╰════════════════════════════════╯`
+            );
+        }
 
         const leaderTag = msg.mentionedIds?.[0]
             ? msg.mentionedIds[0].replace(/@c\.us$/i, '').split('@')[0]
