@@ -572,21 +572,27 @@ if (!p1 || !p2) {
                 // Fetch from dedicated duo_gauntlet_matches table
                 const duoStats = {};
                 for (const [p1, p2] of pairs) {
+                    const ids = new Set([p1.player_id, p2.player_id]);
                     const [matchRows] = await db.execute(
                         `SELECT winner_team, team_a1, team_a2, team_b1, team_b2
                          FROM duo_gauntlet_matches WHERE tournament_id=?
-                         AND ((team_a1 IN (?,?) AND team_a2 IN (?,?))
-                           OR (team_b1 IN (?,?) AND team_b2 IN (?,?)))`,
+                         AND (
+                             (team_a1 IN (?,?) AND team_a2 IN (?,?))
+                             OR (team_b1 IN (?,?) AND team_b2 IN (?,?))
+                         )`,
                         [t.id, p1.player_id, p2.player_id, p1.player_id, p2.player_id,
                               p1.player_id, p2.player_id, p1.player_id, p2.player_id]
                     );
                     let dW = 0, dL = 0;
                     for (const m of matchRows) {
-                        if (!m.winner_team) continue;
-                        const onTeamA = m.team_a1 === p1.player_id || m.team_a1 === p2.player_id
-                                     || m.team_a2 === p1.player_id || m.team_a2 === p2.player_id;
-                        const weWon = (onTeamA && m.winner_team === 'a') || (!onTeamA && m.winner_team === 'b');
-                        if (weWon) dW++; else dL++;
+                        if (!m.winner_team) { dL++; continue; } // no winner = forfeit loss
+                        // Check which team this duo is on by exact match of BOTH players
+                        const onA = ids.has(m.team_a1) && ids.has(m.team_a2);
+                        const onB = ids.has(m.team_b1) && ids.has(m.team_b2);
+                        if (onA && m.winner_team === 'a') dW++;
+                        else if (onA && m.winner_team === 'b') dL++;
+                        else if (onB && m.winner_team === 'b') dW++;
+                        else if (onB && m.winner_team === 'a') dL++;
                     }
                     const key = [p1.player_id, p2.player_id].sort().join('_');
                     duoStats[key] = { w: dW, l: dL, total: matchRows.length };
@@ -598,9 +604,11 @@ if (!p1 || !p2) {
                     const bKey = [b[0].player_id, b[1].player_id].sort().join('_');
                     const aS = duoStats[aKey] || { w:0, l:0, total:0 };
                     const bS = duoStats[bKey] || { w:0, l:0, total:0 };
-                    const aR = aS.total > 0 ? aS.w/aS.total : 0;
-                    const bR = bS.total > 0 ? bS.w/bS.total : 0;
-                    return bR - aR || bS.w - aS.w;
+                    const aR = aS.total > 0 ? aS.w / aS.total : 0;
+                    const bR = bS.total > 0 ? bS.w / bS.total : 0;
+                    if (bR !== aR) return bR - aR;
+                    if (bS.w !== aS.w) return bS.w - aS.w;
+                    return aS.l - bS.l;
                 });
 
                 let dText = `╔══〘 🤝 DUO STANDINGS 〙══╗\n┃★\n`;
