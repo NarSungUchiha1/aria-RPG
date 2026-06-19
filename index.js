@@ -896,15 +896,25 @@ process.on('uncaughtException', (err) => {
     }
     console.error('💥 UNCAUGHT EXCEPTION:', err.message);
     console.error(err.stack);
+    // Don't exit — try to keep the process alive
 });
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', (reason, promise) => {
     const msg = reason?.message || String(reason);
     if (msg.includes('Connection Closed') || reason?.output?.statusCode === 428) {
         console.log('⚠️ Send failed (connection was closed) — ignoring, will reconnect.');
         return;
     }
-    console.error('💥 UNHANDLED REJECTION:', reason);
+    console.error('💥 UNHANDLED REJECTION:', msg);
+    console.error(reason?.stack || reason);
+});
+
+process.on('SIGTERM', () => {
+    console.log('⚠️ SIGTERM received — Render is restarting the service.');
+});
+
+process.on('exit', (code) => {
+    console.log(`💀 Process exiting with code ${code}`);
 });
 
 // ==================== CRON JOBS ====================
