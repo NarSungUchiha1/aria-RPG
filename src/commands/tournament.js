@@ -383,11 +383,22 @@ if (!p1 || !p2) {
 
             // Per-duo fight cap — total matches fought by either partner (combined)
             const MAX_DUO_FIGHTS = 3;
-            const duoFights = (duo) => {
-                const [p1, p2] = duo;
-                return Number(p1.wins) + Number(p1.losses) + Number(p2.wins) + Number(p2.losses);
+            // Count only duo_gauntlet phase matches — not BR wins/losses which carry over
+            const getDuoMatchCount = async (p1Id, p2Id) => {
+                const [rows] = await db.execute(
+                    `SELECT COUNT(*) as cnt FROM tournament_matches
+                     WHERE tournament_id=? AND phase='duo_gauntlet'
+                     AND (player1_id IN (?,?) OR player2_id IN (?,?))`,
+                    [t.id, p1Id, p2Id, p1Id, p2Id]
+                );
+                return rows[0].cnt;
             };
-            const eligibleDuos = duos.filter(d => duoFights(d) < (MAX_DUO_FIGHTS * 2)); // each fight counts for both partners
+            const eligibleDuos = [];
+            for (const duo of duos) {
+                const [p1, p2] = duo;
+                const fightCount = await getDuoMatchCount(p1.player_id, p2.player_id);
+                if (fightCount < MAX_DUO_FIGHTS) eligibleDuos.push(duo);
+            }
 
             if (eligibleDuos.length < 2) {
                 return msg.reply(`✅ Duo Gauntlet matchups complete — every duo has reached the ${MAX_DUO_FIGHTS}-fight limit. Use !tournament next to advance.`);
