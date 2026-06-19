@@ -299,9 +299,12 @@ async function startBot() {
             markOnlineOnConnect: false,
         });
 
+        const thisSock = sock;
         sock.ev.on('creds.update', async () => {
+            if (sock !== thisSock) return; // stale socket — ignore
             await saveCreds();
-            if (state.creds?.registrationId) {
+            // Only log once per connection, not on every minor creds update
+            if (state.creds?.registrationId && !isReady) {
                 console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
             }
         });
@@ -336,10 +339,19 @@ async function startBot() {
                 const statusCode = lastDisconnect?.error?.output?.statusCode;
                 console.log(`⚠️ Connection closed (code: ${statusCode}).`);
 
+                // Clean up old socket so it stops emitting creds.update events
+                try { sock?.ev?.removeAllListeners(); } catch(e) {}
+                try { sock?.ws?.close(); } catch(e) {}
+                sock = null;
+
                 if (statusCode === DisconnectReason.loggedOut) {
                     console.log('🔄 Logged out. Clearing session for fresh pair...');
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
                     setTimeout(() => startBot(), 5000);
+                } else if (statusCode === 515) {
+                    // 515 = restart required — WhatsApp asking for clean reconnect
+                    console.log('🔄 Restart required (515) — reconnecting in 3s...');
+                    setTimeout(() => startBot(), 3000);
                 } else {
                     const delay = statusCode === 440
                         ? 15000 + Math.floor(Math.random() * 10000)
@@ -623,7 +635,7 @@ async function startBot() {
                         `┃◆ 🔒 ARIA is currently under maintenance.\n` +
                         `┃◆ We'll be back shortly.\n` +
                         `╰═══════════════════════╯`
-                }, { quoted: msg });
+                }, isDM ? {} : { quoted: msg });
                 return;
             }
 
@@ -636,7 +648,7 @@ async function startBot() {
 
             if (!isTestGroup) {
                 if (DUNGEON_GC_ONLY.has(cmdName) && !isRaidGroup) {
-                    if (isDM) await sock.sendMessage(jid, { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` }, { quoted: msg });
+                    if (isDM) await sock.sendMessage(jid, { text: `⚔️ Dungeon commands only work inside the Dungeon GC.` });
                     return;
                 }
 
@@ -682,7 +694,10 @@ async function startBot() {
                     const messageContent = typeof content === 'string'
                         ? { text: content, mentions: finalMentions }
                         : content;
-                    return await sock.sendMessage(jid, messageContent, { quoted: msg });
+                    // DMs don't support quoted messages the same way groups do —
+                    // quoting in a DM with no participant key causes silent send failures
+                    const sendOpts = isDM ? {} : { quoted: msg };
+                    return await sock.sendMessage(jid, messageContent, sendOpts);
                 },
 
                 get mentionedIds() {
@@ -775,7 +790,7 @@ async function startBot() {
                         );
                     } catch (execErr) {
                         console.error("Command Error:", execErr);
-                        await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
+                        await sock.sendMessage(jid, { text: "❌ An error occurred." }, isDM ? {} : { quoted: msg });
                     } finally {
                         playerCache.delete(userId);
                     }
@@ -783,7 +798,7 @@ async function startBot() {
             } catch (err) {
                 console.error("Outer Command Error:", err);
                 playerCache.delete(userId);
-                await sock.sendMessage(jid, { text: "❌ An error occurred." }, { quoted: msg });
+                await sock.sendMessage(jid, { text: "❌ An error occurred." }, isDM ? {} : { quoted: msg });
             }
         });
 
