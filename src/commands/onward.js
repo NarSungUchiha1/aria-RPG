@@ -21,7 +21,7 @@ const { tickShields } = require('../systems/activeBuffs');
 const { recordMalacharKill } = require('../systems/clanQuestTracker');
 const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
 
-const getRaidGroup = () => global.overrideRaidGroup || (global.overrideRaidGroup || process.env.RAID_GROUP_JID) || (global.overrideRaidGroup || '120363213735662100@g.us');
+const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -39,15 +39,22 @@ module.exports = {
             if (!dungeon) dungeon = await getActiveDungeon(); // fallback — scoped to group via AsyncLocalStorage
 
             if (!dungeon) return msg.reply(
-                `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ No active dungeon.\n╰═══════════════════════╯`
+                `══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ No active dungeon.
+╰═══════════════════════╯`
             );
             if (!dungeon.locked) return msg.reply(
-                `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Dungeon hasn't started yet.\n┃◆ Wait for auto-start or ask an admin.\n╰═══════════════════════╯`
+                `══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ Dungeon hasn't started yet.
+┃◆ Wait for auto-start or ask an admin.
+╰═══════════════════════╯`
             );
 
             if (!(await isPlayerInDungeon(userId, dungeon.id))) {
                 return msg.reply(
-                    `══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ You are not inside the dungeon.\n╰═══════════════════════╯`
+                    `══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ You are not inside the dungeon.
+╰═══════════════════════╯`
                 );
             }
 
@@ -57,7 +64,9 @@ module.exports = {
                 [dungeon.id]
             );
             if (!freshDungeon.length || !freshDungeon[0].is_active) {
-                return msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Dungeon no longer active.\n╰═══════════════════════╯`);
+                return msg.reply(`══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ Dungeon no longer active.
+╰═══════════════════════╯`);
             }
             const d = freshDungeon[0];
 
@@ -71,10 +80,14 @@ module.exports = {
                     await db.execute("UPDATE dungeon SET stage_cleared=0 WHERE id=?", [dungeon.id]);
                 }
                 return msg.reply(
-                    `══〘 ⚠️ BLOCKED 〙══╮\n` +
-                    `┃◆ There are still ${liveEnemies.length} enemy/enemies alive!\n` +
-                    `┃◆ Defeat them first before advancing.\n` +
-                    `┃◆ Use !dungeon to check status.\n` +
+                    `══〘 ⚠️ BLOCKED 〙══╮
+` +
+                    `┃◆ There are still ${liveEnemies.length} enemy/enemies alive!
+` +
+                    `┃◆ Defeat them first before advancing.
+` +
+                    `┃◆ Use !dungeon to check status.
+` +
                     `╰═══════════════════════╯`
                 );
             }
@@ -104,20 +117,34 @@ module.exports = {
                 if (d.dungeon_rank === 'MALACHAR') {
                     await client.sendMessage(getRaidGroup(), {
                         text:
-                            `╔══════════════════════════════════════╗\n` +
-                            `┃★                                     \n` +
-                            `┃★   He is gone.                       \n` +
-                            `┃★                                     \n` +
-                            `┃★   The void retreats.                \n` +
-                            `┃★   The fractures begin to seal.      \n` +
-                            `┃★                                     \n` +
-                            `┃★   MALACHAR HAS FALLEN.              \n` +
-                            `┃★                                     \n` +
-                            `┃★   The hunters who stood here today  \n` +
-                            `┃★   will be remembered.               \n` +
-                            `┃★                                     \n` +
-                            `┃★   The world breathes again.         \n` +
-                            `┃★                                     \n` +
+                            `╔══════════════════════════════════════╗
+` +
+                            `┃★                                     
+` +
+                            `┃★   He is gone.                       
+` +
+                            `┃★                                     
+` +
+                            `┃★   The void retreats.                
+` +
+                            `┃★   The fractures begin to seal.      
+` +
+                            `┃★                                     
+` +
+                            `┃★   MALACHAR HAS FALLEN.              
+` +
+                            `┃★                                     
+` +
+                            `┃★   The hunters who stood here today  
+` +
+                            `┃★   will be remembered.               
+` +
+                            `┃★                                     
+` +
+                            `┃★   The world breathes again.         
+` +
+                            `┃★                                     
+` +
                             `╚══════════════════════════════════════╝`
                     });
                 }
@@ -197,11 +224,17 @@ module.exports = {
                         if (matLines.length) {
                             await client.sendMessage(raidG, {
                                 text:
-                                    `╔══〘 🎒 MATERIAL DROPS 〙══╗\n` +
-                                    `┃◆\n` +
-                                    matLines.join('\n') + '\n' +
-                                    `┃◆\n` +
-                                    `┃◆ Use !materials to see your stash.\n` +
+                                    `╔══〘 🎒 MATERIAL DROPS 〙══╗
+` +
+                                    `┃◆
+` +
+                                    matLines.join('
+') + '
+' +
+                                    `┃◆
+` +
+                                    `┃◆ Use !materials to see your stash.
+` +
                                     `╚═══════════════════════════╝`
                             }).catch(() => {});
                         }
@@ -309,17 +342,26 @@ module.exports = {
                         const terr = TERRITORIES[territoryId];
                         await client.sendMessage(getRaidGroup(), {
                             text:
-                                '╔══〘 🌑 ASSAULT FAILED 〙══╗\n' +
-                                '┃★\n' +
-                                '┃★ ' + (terr ? terr.emoji + ' *' + terr.name + '*' : territoryId) + '\n' +
-                                '┃★ The assault party was overwhelmed.\n' +
-                                '┃★ The territory holds.\n' +
-                                '┃★\n' +
+                                '╔══〘 🌑 ASSAULT FAILED 〙══╗
+' +
+                                '┃★
+' +
+                                '┃★ ' + (terr ? terr.emoji + ' *' + terr.name + '*' : territoryId) + '
+' +
+                                '┃★ The assault party was overwhelmed.
+' +
+                                '┃★ The territory holds.
+' +
+                                '┃★
+' +
                                 '╚═══════════════════════════╝'
                         }).catch(() => {});
                     } else {
                         await targetChat.sendMessage(
-                            '══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯'
+                            '══〘 💀 STAGE FAILED 〙══╮
+┃◆ Reinforcements have arrived!
+┃◆ The dungeon overwhelms you. You have died.
+╰═══════════════════════╯'
                         );
                     }
                 } catch (err) { console.error("Onward failCallback error:", err); }
@@ -335,7 +377,9 @@ module.exports = {
             } catch(advErr) {
                 console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
                 await db.execute('UPDATE dungeon SET stage_cleared=0 WHERE id=?', [dungeon.id]);
-                return msg.reply('══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Try again.\n╰═══════════════════════╯');
+                return msg.reply('══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ Failed to advance stage. Try again.
+╰═══════════════════════╯');
             }
 
             const isMalacharFinal = d.dungeon_rank === 'MALACHAR' && next === maxStage;
@@ -344,13 +388,20 @@ module.exports = {
 
                 await client.sendMessage(getRaidGroup(), {
                     text:
-                        `╔══════════════════════════════════════╗\n` +
-                        `┃★                                     \n` +
-                        `┃★   The generals are gone.            \n` +
-                        `┃★   The silence is total.             \n` +
-                        `┃★                                     \n` +
-                        `┃★   Something watches from the dark.  \n` +
-                        `┃★                                     \n` +
+                        `╔══════════════════════════════════════╗
+` +
+                        `┃★                                     
+` +
+                        `┃★   The generals are gone.            
+` +
+                        `┃★   The silence is total.             
+` +
+                        `┃★                                     
+` +
+                        `┃★   Something watches from the dark.  
+` +
+                        `┃★                                     
+` +
                         `╚══════════════════════════════════════╝`
                 });
 
@@ -358,13 +409,20 @@ module.exports = {
 
                 await client.sendMessage(getRaidGroup(), {
                     text:
-                        `╔══════════════════════════════════════╗\n` +
-                        `┃★                                     \n` +
-                        `┃★   The walls begin to crack.         \n` +
-                        `┃★   The void bleeds through.          \n` +
-                        `┃★                                     \n` +
-                        `┃★   You feel him before you see him.  \n` +
-                        `┃★                                     \n` +
+                        `╔══════════════════════════════════════╗
+` +
+                        `┃★                                     
+` +
+                        `┃★   The walls begin to crack.         
+` +
+                        `┃★   The void bleeds through.          
+` +
+                        `┃★                                     
+` +
+                        `┃★   You feel him before you see him.  
+` +
+                        `┃★                                     
+` +
                         `╚══════════════════════════════════════╝`
                 });
 
@@ -372,34 +430,54 @@ module.exports = {
 
                 await client.sendMessage(getRaidGroup(), {
                     text:
-                        `╔══════════════════════════════════════╗\n` +
-                        `┃★                                     \n` +
-                        `┃★   👁️  H E   I S   H E R E.         \n` +
-                        `┃★                                     \n` +
-                        `┃★        M A L A C H A R             \n` +
-                        `┃★                                     \n` +
-                        `┃★   ❤️  HP: 1,000,000,000             \n` +
-                        `┃★   ⚔️  This is what you came for.    \n` +
-                        `┃★                                     \n` +
-                        `┃★   Phase 1 — The Void Awakens        \n` +
-                        `┃★   He is not yet at full power.      \n` +
-                        `┃★   Do not be fooled.                 \n` +
-                        `┃★                                     \n` +
+                        `╔══════════════════════════════════════╗
+` +
+                        `┃★                                     
+` +
+                        `┃★   👁️  H E   I S   H E R E.         
+` +
+                        `┃★                                     
+` +
+                        `┃★        M A L A C H A R             
+` +
+                        `┃★                                     
+` +
+                        `┃★   ❤️  HP: 1,000,000,000             
+` +
+                        `┃★   ⚔️  This is what you came for.    
+` +
+                        `┃★                                     
+` +
+                        `┃★   Phase 1 — The Void Awakens        
+` +
+                        `┃★   He is not yet at full power.      
+` +
+                        `┃★   Do not be fooled.                 
+` +
+                        `┃★                                     
+` +
                         `╚══════════════════════════════════════╝`
                 });
 
                 await msg.reply(
-                    `╔══〘 ★ FINAL STAGE 〙══╗\n` +
-                    `┃★ Stage ${next}/${maxStage} — The End.\n` +
-                    `┃★ He stands before you.\n` +
-                    `┃★ Use !dungeon to see his stats.\n` +
+                    `╔══〘 ★ FINAL STAGE 〙══╗
+` +
+                    `┃★ Stage ${next}/${maxStage} — The End.
+` +
+                    `┃★ He stands before you.
+` +
+                    `┃★ Use !dungeon to see his stats.
+` +
                     `╚═══════════════════════╝`
                 );
             } else {
                 await msg.reply(
-                    `══〘 🧭 STAGE ${next}/${maxStage} 〙══╮\n` +
-                    `┃◆ The stone door grinds open, revealing a deeper darkness.\n` +
-                    `┃◆ The air grows colder, and new threats stir in the shadows.\n` +
+                    `══〘 🧭 STAGE ${next}/${maxStage} 〙══╮
+` +
+                    `┃◆ The stone door grinds open, revealing a deeper darkness.
+` +
+                    `┃◆ The air grows colder, and new threats stir in the shadows.
+` +
                     `╰═══════════════════════╯`
                 );
             }
@@ -409,7 +487,9 @@ module.exports = {
 
         } catch (err) {
             console.error(err);
-            msg.reply(`══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Onward failed.\n╰═══════════════════════╯`);
+            msg.reply(`══〘 🧭 ONWARD 〙══╮
+┃◆ ❌ Onward failed.
+╰═══════════════════════╯`);
         }
     }
 };

@@ -15,9 +15,12 @@ module.exports = {
 
         if (args.length < 2) {
             return msg.reply(
-                "❌ Usage:\n" +
-                "  !give @user gold <amount>\n" +
-                "  !give @user xp <amount>\n" +
+                "❌ Usage:
+" +
+                "  !give @user gold <amount>
+" +
+                "  !give @user xp <amount>
+" +
                 "  !give @user item <item name> [x<qty>]"
             );
         }
@@ -38,7 +41,7 @@ module.exports = {
             // ── GOLD ─────────────────────────────────────────────
             // Block giving to players inside a dungeon
             const [tGiveDungeon] = await db.execute(
-                "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1 AND d.locked=1",
+                "SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1",
                 [targetId]
             );
             if (tGiveDungeon.length) return msg.reply('❌ Cannot give gold/xp to a player currently inside a dungeon.');
@@ -116,11 +119,16 @@ module.exports = {
 
                 const qtyText = qty > 1 ? ` x${qty}` : '';
                 return msg.reply(
-                    `╭══〘 🎁 ITEM GIFTED 〙══╮\n` +
-                    `┃◆ Item: ${itemName}${qtyText}\n` +
-                    `┃◆ To:   ${nickname}\n` +
-                    `┃◆ Type: ${itemType.toUpperCase()}\n` +
-                    (!data ? `┃◆ ⚠️ Unknown item — no stat bonuses.\n` : '') +
+                    `╭══〘 🎁 ITEM GIFTED 〙══╮
+` +
+                    `┃◆ Item: ${itemName}${qtyText}
+` +
+                    `┃◆ To:   ${nickname}
+` +
+                    `┃◆ Type: ${itemType.toUpperCase()}
+` +
+                    (!data ? `┃◆ ⚠️ Unknown item — no stat bonuses.
+` : '') +
                     `╰═══════════════════════╯`
                 );
             }

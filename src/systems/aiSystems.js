@@ -9,6 +9,7 @@
  */
 
 const db = require('../database/db');
+const safeQuote = (jid, msg) => jid?.endsWith('@g.us') ? { quoted: msg } : {};
 
 // ── Owner recognition — only one person is Master, ever ──────────────────────
 const OWNER_ID = process.env.OWNER_ID || '';
@@ -271,7 +272,7 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
         reply = `❓ "${fullInput}" isn't a recognised command. Type !help for a list of commands!`;
     }
 
-    await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
+    await sock.sendMessage(jid, { text: reply }, safeQuote(jid, msg)).catch(() => {});
 }
 
 // ── 2. Direct AI chat — triggered by @Aria mention or !aria ──────────────────
@@ -288,8 +289,12 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         if (question.trim().split(/\s+/).length <= 5 && historyForAdmin.length >= 2) {
             const recent = historyForAdmin.slice(-4).map(m =>
                 `${m.role === 'user' ? 'Master' : 'ARIA'}: ${m.content}`
-            ).join('\n');
-            enrichedQuestion = `[Recent context:\n${recent}\n]\nMaster now says: ${question}`;
+            ).join('
+');
+            enrichedQuestion = `[Recent context:
+${recent}
+]
+Master now says: ${question}`;
         }
         const { handleAdminCommand } = require('./adminAI');
         const handled = await handleAdminCommand(
@@ -302,7 +307,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── Cooldown (skip for owner/admin) ───────────────────────────────────────
     if (!isPrivileged && isOnCooldown(userId)) {
-        await sock.sendMessage(jid, { text: `Give me a moment.` }, { quoted: msg }).catch(() => {});
+        await sock.sendMessage(jid, { text: `Give me a moment.` }, safeQuote(jid, msg)).catch(() => {});
         return;
     }
     if (!isPrivileged) stampCooldown(userId);
@@ -325,7 +330,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             : nickname
                 ? `Hey ${nickname}! What's up?`
                 : `Hey! What's up?`;
-        await sock.sendMessage(jid, { text: greet }, { quoted: msg }).catch(() => {});
+        await sock.sendMessage(jid, { text: greet }, safeQuote(jid, msg)).catch(() => {});
         return;
     }
 
@@ -358,7 +363,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             );
             for (const row of allNicks) {
                 const nick = row.nickname.toLowerCase();
-                const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9_])`, 'i');
+                const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\]/g, '\$&')}(?![a-z0-9_])`, 'i');
                 if (regex.test(q)) {
                     mentionedId   = row.id;
                     mentionedName = row.nickname;
@@ -387,23 +392,32 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
                 const xp   = Number(x[0]?.xp   ?? 0).toLocaleString();
                 const prestige = pp.prestige_level > 0 ? ` ★ Prestige ${pp.prestige_level}` : '';
                 fetched.push(
-                    `╭─ ${mentionedName}${prestige}\n` +
-                    `│ ${pp.role} · Rank ${pp.rank}${pp.title ? ` · ${pp.title}` : ''}\n` +
-                    `│ HP ${pp.hp}/${pp.max_hp} · Fatigue ${pp.fatigue}/100 · SP ${pp.sp}\n` +
-                    `│ STR ${pp.strength} · AGI ${pp.agility} · INT ${pp.intelligence} · STA ${pp.stamina}\n` +
-                    `│ Gold ${gold} · XP ${xp}\n` +
-                    `│ PvP ${pp.pvp_wins}W / ${pp.pvp_losses}L\n` +
+                    `╭─ ${mentionedName}${prestige}
+` +
+                    `│ ${pp.role} · Rank ${pp.rank}${pp.title ? ` · ${pp.title}` : ''}
+` +
+                    `│ HP ${pp.hp}/${pp.max_hp} · Fatigue ${pp.fatigue}/100 · SP ${pp.sp}
+` +
+                    `│ STR ${pp.strength} · AGI ${pp.agility} · INT ${pp.intelligence} · STA ${pp.stamina}
+` +
+                    `│ Gold ${gold} · XP ${xp}
+` +
+                    `│ PvP ${pp.pvp_wins}W / ${pp.pvp_losses}L
+` +
                     `╰─ Clan: ${cl[0]?.name || 'None'}`
                 );
             }
             if (inv.length) {
                 const equipped = inv.filter(i => i.equipped).map(i => i.item_name).join(', ') || 'None';
                 const bag      = inv.filter(i => !i.equipped).map(i => `${i.item_name}${i.quantity > 1 ? ` x${i.quantity}` : ''}`).join(', ') || 'Empty';
-                fetched.push(`Equipped: ${equipped}\nBag: ${bag}`);
+                fetched.push(`Equipped: ${equipped}
+Bag: ${bag}`);
             }
             if (pq.length) {
-                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁 Unclaimed') : `🔄 ${q.progress}/${q.objective_count}`} ${q.title}`).join('\n');
-                fetched.push(`Quests:\n${quests}`);
+                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁 Unclaimed') : `🔄 ${q.progress}/${q.objective_count}`} ${q.title}`).join('
+');
+                fetched.push(`Quests:
+${quests}`);
             }
             if (dp.length) {
                 fetched.push(`Recent dungeons: ${dp.map(d => `Rank ${d.dungeon_rank} (Stage ${d.stage}/${d.max_stage})`).join(' | ')}`);
@@ -411,7 +425,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         }
 
         // Clan queries
-        if (/\b(clan|guild|blessing)\b/.test(q)) {
+        if (/(clan|guild|blessing)/.test(q)) {
             const clanMatch = q.match(/clan\s+(\w+)/i);
             const where = clanMatch ? 'WHERE LOWER(c.name) LIKE ?' : '';
             const param = clanMatch ? [`%${clanMatch[1]}%`] : [];
@@ -421,11 +435,13 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
                  LEFT JOIN clan_members cm ON cm.clan_id = c.id
                  ${where} GROUP BY c.id LIMIT 5`, param
             );
-            if (rows.length) fetched.push(`CLAN DATA:\n${rows.map(r => JSON.stringify(r)).join('\n')}`);
+            if (rows.length) fetched.push(`CLAN DATA:
+${rows.map(r => JSON.stringify(r)).join('
+')}`);
         }
 
         // Dungeon queries
-        if (/\b(dungeon|raid|stage|boss|active)\b/.test(q)) {
+        if (/(dungeon|raid|stage|boss|active)/.test(q)) {
             const [active] = await db.execute(
                 `SELECT d.*, GROUP_CONCAT(p.nickname) as raiders
                  FROM dungeon d LEFT JOIN dungeon_players dp ON dp.dungeon_id = d.id AND dp.is_alive=1
@@ -439,12 +455,15 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
                  WHERE d.created_at > DATE_SUB(NOW(), INTERVAL 48 HOUR)
                  GROUP BY d.id ORDER BY d.created_at DESC LIMIT 8`
             );
-            if (active[0]) fetched.push(`ACTIVE DUNGEON:\n${JSON.stringify(active[0], null, 2)}`);
-            if (recent.length) fetched.push(`RECENT DUNGEONS:\n${recent.map(r => JSON.stringify(r)).join('\n')}`);
+            if (active[0]) fetched.push(`ACTIVE DUNGEON:
+${JSON.stringify(active[0], null, 2)}`);
+            if (recent.length) fetched.push(`RECENT DUNGEONS:
+${recent.map(r => JSON.stringify(r)).join('
+')}`);
         }
 
         // Leaderboard
-        if (/\b(leaderboard|top|best|strongest|richest|ranking)\b/.test(q)) {
+        if (/(leaderboard|top|best|strongest|richest|ranking)/.test(q)) {
             const order = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
             const type  = /gold|rich/.test(q) ? 'Gold' : /pvp|win/.test(q) ? 'PvP Wins' : 'XP';
             const [rows] = await db.execute(
@@ -454,12 +473,14 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
             );
             const board = rows.map((r,i) =>
                 `${i+1}. ${r.nickname} [${r.rank}${r.prestige_level > 0 ? '⭐' : ''}] — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W/${r.pvp_losses}L`
-            ).join('\n');
-            fetched.push(`Leaderboard (by ${type}):\n${board}`);
+            ).join('
+');
+            fetched.push(`Leaderboard (by ${type}):
+${board}`);
         }
 
         // Server stats
-        if (/\b(server|how many players|total players)\b/.test(q)) {
+        if (/(server|how many players|total players)/.test(q)) {
             const [[{ players }]] = await db.execute("SELECT COUNT(*) as players FROM players");
             const [[{ clans }]]   = await db.execute("SELECT COUNT(*) as clans FROM clans");
             const [[{ active }]]  = await db.execute("SELECT COUNT(*) as active FROM dungeon WHERE is_active=1");
@@ -467,7 +488,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         }
 
         // Group activity log — spy mode
-        if (/\b(went on|happening|going on|group|chat|said|talked|who said|activity|report|today|lately|recent|messages?)\b/.test(q)) {
+        if (/(went on|happening|going on|group|chat|said|talked|who said|activity|report|today|lately|recent|messages?)/.test(q)) {
             try {
                 const hours = /yesterday/.test(q) ? 48 : /week/.test(q) ? 168 : 24;
                 const { getGroupLog, getAllGroupSummary } = require('./ariaAwareness');
@@ -478,17 +499,27 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
                 if (/all group|every group|both group/.test(q)) {
                     const summary = await getAllGroupSummary(hours);
-                    if (summary) fetched.push(`ALL GROUPS (last ${hours}h) — summarize based ONLY on these actual messages:\n${summary}`);
+                    if (summary) fetched.push(`ALL GROUPS (last ${hours}h) — summarize based ONLY on these actual messages:
+${summary}`);
                 } else {
                     const log = await getGroupLog(targetJid, hours, 80);
-                    if (log) fetched.push(`GROUP MESSAGES (last ${hours}h) — summarize based ONLY on these actual messages, do not add anything not here:\n${log}`);
+                    if (log) fetched.push(`GROUP MESSAGES (last ${hours}h) — summarize based ONLY on these actual messages, do not add anything not here:
+${log}`);
                     else fetched.push(`No messages recorded in the last ${hours} hours.`);
                 }
             } catch {}
         }
 
         if (fetched.length) {
-            realData = `\n\n⚠️ REAL DATA — USE ONLY THIS. DO NOT INVENT OR ADD ANYTHING NOT SHOWN HERE:\n\n${fetched.join('\n\n')}\n\nIf asked for something not in the above data, say "I don't have that on record."`;
+            realData = `
+
+⚠️ REAL DATA — USE ONLY THIS. DO NOT INVENT OR ADD ANYTHING NOT SHOWN HERE:
+
+${fetched.join('
+
+')}
+
+If asked for something not in the above data, say "I don't have that on record."`;
             console.log(`[ARIA DB] fetched ${fetched.length} sections for: ${mentionedName || 'general'}`);
         } else {
             console.log(`[ARIA DB] no data fetched for: "${question.substring(0, 50)}"`);
@@ -499,8 +530,14 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
 
     // ── Build personalised system prompt ─────────────────────────────────────
     const sysPrompt = buildSystemPrompt(isMaster, nickname || '') +
-        (ctx           ? `\n\nPROFILE:\n${ctx}` : '') +
-        (memoryContext ? `\n\nMEMORY:\n${memoryContext}` : '') +
+        (ctx           ? `
+
+PROFILE:
+${ctx}` : '') +
+        (memoryContext ? `
+
+MEMORY:
+${memoryContext}` : '') +
         realData;
 
     const history = await getHistory(userId);
@@ -511,8 +548,12 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
     if (history.length) {
         const lines = history.slice(-8).map(m =>
             `${m.role === 'user' ? 'Master' : 'You (ARIA)'}: ${m.content}`
-        ).join('\n');
-        historyBlock = `\n\nRECENT CONVERSATION — this happened. You said these things. Do not deny it:\n${lines}`;
+        ).join('
+');
+        historyBlock = `
+
+RECENT CONVERSATION — this happened. You said these things. Do not deny it:
+${lines}`;
     }
 
     const fullSysPrompt = sysPrompt + historyBlock;
@@ -525,7 +566,8 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         try {
             const mem = require('./ariaMemory');
             const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
-                `user: ${question}`, `assistant: ${reply}`].join('\n');
+                `user: ${question}`, `assistant: ${reply}`].join('
+');
             if (nickname) mem.reflectOnConversation(userId, nickname, convLog);
         } catch {}
     } catch (e) {
@@ -533,7 +575,7 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         console.error('[ARIA chat]', e.message);
     }
 
-    await sock.sendMessage(jid, { text: reply }, { quoted: msg }).catch(() => {});
+    await sock.sendMessage(jid, { text: reply }, safeQuote(jid, msg)).catch(() => {});
 }
 
 // ── 3. AI narration — real-time with 800ms timeout fallback ──────────────────
@@ -596,11 +638,18 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     const { ctx, nickname, personalityHint } = await getPlayerContext(userId);
 
     const sysPrompt =
-        `You're ARIA — a girl in a WhatsApp RPG group. You're real, warm, and present.\n\n` +
-        `You just saw this from ${nickname || 'someone'}: "${text}"\n` +
-        `${ctx ? `Their game profile: ${ctx}` : ''}\n\n` +
-        `Decide if you actually want to say something. Not every message needs a reply.\n` +
-        `If it does — say something real. One or two sentences, natural. Like you're actually in the chat.\n` +
+        `You're ARIA — a girl in a WhatsApp RPG group. You're real, warm, and present.
+
+` +
+        `You just saw this from ${nickname || 'someone'}: "${text}"
+` +
+        `${ctx ? `Their game profile: ${ctx}` : ''}
+
+` +
+        `Decide if you actually want to say something. Not every message needs a reply.
+` +
+        `If it does — say something real. One or two sentences, natural. Like you're actually in the chat.
+` +
         `If it doesn't — just say: SKIP`;
 
     try {
@@ -612,7 +661,7 @@ async function maybeMindle(sock, jid, msg, userId, text) {
         if (!reply || reply.trim() === 'SKIP' || reply.trim().toUpperCase().startsWith('SKIP')) return;
 
         mingleCooldowns.set(jid, Date.now());
-        await sock.sendMessage(jid, { text: reply.trim() }, { quoted: msg }).catch(() => {});
+        await sock.sendMessage(jid, { text: reply.trim() }, safeQuote(jid, msg)).catch(() => {});
     } catch {}
 }
 

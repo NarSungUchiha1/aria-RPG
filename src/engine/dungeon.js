@@ -180,11 +180,16 @@ function startLobbyTimer(dungeonId, client) {
         try {
             await client.sendMessage(getDungeonGroup(dungeonId), {
                 text:
-                    `══〘 ⚠️ DUNGEON CLOSING SOON 〙══╮\n` +
-                    `┃◆ The dungeon portal is destabilizing!\n` +
-                    `┃◆ ⏳ 2 minutes left to enter.\n` +
-                    `┃◆ DM the bot !enter now or miss out!\n` +
-                    `┃◆ No entry = no rewards.\n` +
+                    `══〘 ⚠️ DUNGEON CLOSING SOON 〙══╮
+` +
+                    `┃◆ The dungeon portal is destabilizing!
+` +
+                    `┃◆ ⏳ 2 minutes left to enter.
+` +
+                    `┃◆ DM the bot !enter now or miss out!
+` +
+                    `┃◆ No entry = no rewards.
+` +
                     `╰═══════════════════════╯`
             });
         } catch (e) {}
@@ -221,10 +226,14 @@ function startLobbyTimer(dungeonId, client) {
                 }
                 await client.sendMessage(getDungeonGroup(dungeonId), {
                     text:
-                        `══〘 🚪 DUNGEON EXPIRED 〙══╮\n` +
-                        `┃◆ The dungeon portal has collapsed.\n` +
-                        `┃◆ No raid was formed in time.\n` +
-                        `┃◆ Watch for the next announcement!\n` +
+                        `══〘 🚪 DUNGEON EXPIRED 〙══╮
+` +
+                        `┃◆ The dungeon portal has collapsed.
+` +
+                        `┃◆ No raid was formed in time.
+` +
+                        `┃◆ Watch for the next announcement!
+` +
                         `╰═══════════════════════╯`
                 });
                 console.log(`🚪 Dungeon ${dungeonId} expired — no one started in time.`);
@@ -257,22 +266,34 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
     try {
         const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loreSystem');
         const chapter = await getCurrentChapter();
-        loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞\n┃◆ \n`;
+        loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞
+┃◆ 
+`;
     } catch (e) {}
 
 
     const announceMsg =
-        `╭══〘 📢 DUNGEON OPENED 〙══╮\n` +
-        `┃◆ \n` +
+        `╭══〘 📢 DUNGEON OPENED 〙══╮
+` +
+        `┃◆ 
+` +
         `${loreText}` +
-            `┃◆   Rank: ${rank}\n` +
-        `┃◆   Max Stage: ${maxStage}\n` +
-        `┃◆   Boss: ${boss}\n` +
-        `┃◆   Max Raiders: ${{ F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 }[rank] || 3}\n` +
-        `┃◆ \n` +
-        `┃◆   DM the bot: !enter to join!\n` +
-        `┃◆   ⏳ Portal closes in 10 minutes.\n` +
-        `┃◆ \n` +
+            `┃◆   Rank: ${rank}
+` +
+        `┃◆   Max Stage: ${maxStage}
+` +
+        `┃◆   Boss: ${boss}
+` +
+        `┃◆   Max Raiders: ${{ F:3, E:3, D:4, C:4, B:5, A:5, S:5, PF:3, PE:3, PD:4, PC:4, PB:10, PA:10, PS:10 }[rank] || 3}
+` +
+        `┃◆ 
+` +
+        `┃◆   DM the bot: !enter to join!
+` +
+        `┃◆   ⏳ Portal closes in 10 minutes.
+` +
+        `┃◆ 
+` +
         `╰═══════════════════════════╯`;
 
     try {
@@ -575,7 +596,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
-                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
+                    retaliationMessage = (retaliationMessage || '') + '
+🛡️ Blessing invincibility absorbed the hit!';
                     await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
                 }
             } catch(invErr) {}
@@ -794,7 +816,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
-                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
+                    retaliationMessage = (retaliationMessage || '') + '
+🛡️ Blessing invincibility absorbed the hit!';
                     await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
                 }
             } catch(invErr) {}
@@ -1111,9 +1134,12 @@ async function getDungeonEnemyRevealText(dungeonId) {
         ? ['╔══〘 ✦ VOID THREATS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
         : ['══〘 👾 ENEMIES REVEALED 〙══╮', '┃◆────────────', '┃◆', '╰═══════════════════════╯'];
 
-    let text = `${box}\n`;
-    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
-    text += `${bar}\n`;
+    let text = `${box}
+`;
+    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}
+`;
+    text += `${bar}
+`;
 
     enemies.forEach((e, i) => {
         let moveNames = '—';
@@ -1121,15 +1147,23 @@ async function getDungeonEnemyRevealText(dungeonId) {
             const parsed = typeof e.moves === 'string' ? JSON.parse(e.moves) : e.moves;
             if (Array.isArray(parsed) && parsed.length) moveNames = parsed.map(m => m.name).join(', ');
         } catch (_) {}
-        text += `${bul} ${i + 1}. ${e.name}\n`;
-        text += `${bul}    ❤️ HP:  ${e.current_hp}/${e.max_hp}\n`;
-        text += `${bul}    ⚔️ ATK: ${e.atk}\n`;
-        text += `${bul}    🛡️ DEF: ${e.def}\n`;
-        text += `${bul}    🗡️ Moves: ${moveNames}\n`;
-        if (i < enemies.length - 1) text += `${bar}\n`;
+        text += `${bul} ${i + 1}. ${e.name}
+`;
+        text += `${bul}    ❤️ HP:  ${e.current_hp}/${e.max_hp}
+`;
+        text += `${bul}    ⚔️ ATK: ${e.atk}
+`;
+        text += `${bul}    🛡️ DEF: ${e.def}
+`;
+        text += `${bul}    🗡️ Moves: ${moveNames}
+`;
+        if (i < enemies.length - 1) text += `${bar}
+`;
     });
 
-    text += `${bar}\n${bul} 🧭 !skill <move> [enemy #]\n${close}`;
+    text += `${bar}
+${bul} 🧭 !skill <move> [enemy #]
+${close}`;
     return text;
 }
 
@@ -1143,20 +1177,30 @@ async function getDungeonStatusText(dungeonId) {
         ? ['╔══〘 ✦ PRESTIGE STATUS 〙══╗', '┃★────────────', '┃★', '╚═══════════════════════════╝']
         : ['══〘 🏰 DUNGEON STATUS 〙══╮', '┃◆────────────', '┃◆', '╰═══════════════════════╯'];
 
-    let text = `${box}\n`;
-    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}\n`;
-    text += `${bul} Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}\n`;
-    text += `${bar}\n`;
+    let text = `${box}
+`;
+    text += `${bul} Rank: ${d.dungeon_rank}  •  Stage: ${d.stage}/${d.max_stage}
+`;
+    text += `${bul} Locked: ${d.locked ? '🔒 YES' : '🔓 NO'}
+`;
+    text += `${bar}
+`;
     if (enemies.length === 0) {
-        text += `${bul} ✅ All enemies defeated!\n`;
-        text += `${bul} 🧭 Use !onward to advance\n`;
+        text += `${bul} ✅ All enemies defeated!
+`;
+        text += `${bul} 🧭 Use !onward to advance
+`;
     } else {
-        text += `${bul} 👾 ENEMIES:\n`;
+        text += `${bul} 👾 ENEMIES:
+`;
         enemies.forEach((e, i) => {
-            text += `${bul}   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)\n`;
+            text += `${bul}   ${i+1}. ${e.name} (${e.current_hp}/${e.max_hp} HP)
+`;
         });
     }
-    text += `${bar}\n${bul} 🧭 !skill <move> [target]\n${close}`;
+    text += `${bar}
+${bul} 🧭 !skill <move> [target]
+${close}`;
     return text;
 }
 

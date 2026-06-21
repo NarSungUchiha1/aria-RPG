@@ -249,27 +249,44 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
                 }
 
                 await chat.sendMessage(
-                    `╔══〘 ⏰ TERRITORY FORFEIT 〙══╗\n` +
-                    `┃★\n` +
-                    `┃★ *${pNick}* failed to act in time.\n` +
-                    `┃★ Their clan forfeits the war.\n` +
-                    `┃★\n` +
-                    `┃★ 🏆 *${oNick}*'s clan wins!\n` +
-                    `┃★ Territory claimed by default.\n` +
-                    `┃★\n` +
+                    `╔══〘 ⏰ TERRITORY FORFEIT 〙══╗
+` +
+                    `┃★
+` +
+                    `┃★ *${pNick}* failed to act in time.
+` +
+                    `┃★ Their clan forfeits the war.
+` +
+                    `┃★
+` +
+                    `┃★ 🏆 *${oNick}*'s clan wins!
+` +
+                    `┃★ Territory claimed by default.
+` +
+                    `┃★
+` +
                     `╚═══════════════════════════╝`
                 );
             } else {
                 await chat.sendMessage(
-                    `══〘 ⏰ DUEL TIMEOUT 〙══╮\n` +
-                    `┃◆ \n` +
-                    `┃◆ *${pNick}* ran out of time!\n` +
-                    `┃◆ They had ${timerLabel} to act.\n` +
-                    `┃◆ \n` +
-                    `┃◆ 🏳️ *${pNick}* forfeits the duel.\n` +
-                    `┃◆ 🏆 *${oNick}* wins by default!\n` +
-                    `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.\n' : ''}` +
-                    `┃◆ \n` +
+                    `══〘 ⏰ DUEL TIMEOUT 〙══╮
+` +
+                    `┃◆ 
+` +
+                    `┃◆ *${pNick}* ran out of time!
+` +
+                    `┃◆ They had ${timerLabel} to act.
+` +
+                    `┃◆ 
+` +
+                    `┃◆ 🏳️ *${pNick}* forfeits the duel.
+` +
+                    `┃◆ 🏆 *${oNick}* wins by default!
+` +
+                    `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.
+' : ''}` +
+                    `┃◆ 
+` +
                     `╰═══════════════════════╯`
                 );
             }
@@ -308,14 +325,22 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
                     const tourneyGroup = tourney.group_jid || duelGrpJid;
                     await chat.client?.sendMessage(tourneyGroup, {
                         text:
-                            `╔══〘 🏆 ${tourney.phase === PHASES.DUO_GAUNTLET ? 'DUO GAUNTLET' : 'TOURNAMENT'} RESULT 〙══╗\n` +
-                            `┃★\n` +
-                            `┃★ 🏳️ *${pNick}* forfeited (timeout)\n` +
-                            `┃★\n` +
-                            `┃★ 🥇 *${wNames}* — WINNER\n` +
-                            `┃★ 💀 *${lNames}* — forfeited\n` +
-                            `┃★\n` +
-                            `┃★ *!tournament bracket* for standings\n` +
+                            `╔══〘 🏆 ${tourney.phase === PHASES.DUO_GAUNTLET ? 'DUO GAUNTLET' : 'TOURNAMENT'} RESULT 〙══╗
+` +
+                            `┃★
+` +
+                            `┃★ 🏳️ *${pNick}* forfeited (timeout)
+` +
+                            `┃★
+` +
+                            `┃★ 🥇 *${wNames}* — WINNER
+` +
+                            `┃★ 💀 *${lNames}* — forfeited
+` +
+                            `┃★
+` +
+                            `┃★ *!tournament bracket* for standings
+` +
                             `╚═══════════════════════════╝`
                     }).catch(() => {});
                 }
@@ -444,7 +469,10 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         aliveEnemies.forEach(id => {
             data.hp[id] = Math.max(0, data.hp[id] - damage);
         });
-        blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗\n┃◆ ${player.nickname} explodes in draconic fury!\n┃◆ ${damage} damage dealt to all enemies!\n╚═══════════════════════════╝`;
+        blessingMsg = `╔══〘 🐉 DRAGON'S BREATH 〙══╗
+┃◆ ${player.nickname} explodes in draconic fury!
+┃◆ ${damage} damage dealt to all enemies!
+╚═══════════════════════════╝`;
         updateDuelBlessingState(player.id, { blessing_used: 1 });
     }
 
@@ -462,8 +490,12 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
             }
         });
         const defLine = aliveEnemies.filter(id => data.hp[id] > 0).length > 0
-            ? `\n┃◆ 🛡️ Surviving enemies: DEF -${blessing.def_reduction || 50}% for 3 turns!` : '';
-        blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗\n┃◆ ${player.nickname} collapses the arena!\n┃◆ 💥 ${damage} damage to ALL remaining enemies!${defLine}\n╚═══════════════════════════╝`;
+            ? `
+┃◆ 🛡️ Surviving enemies: DEF -${blessing.def_reduction || 50}% for 3 turns!` : '';
+        blessingMsg = `╔══〘 🌑 VOID COLLAPSE 〙══╗
+┃◆ ${player.nickname} collapses the arena!
+┃◆ 💥 ${damage} damage to ALL remaining enemies!${defLine}
+╚═══════════════════════════╝`;
         // on_kill is a REPEAT trigger — do NOT set blessing_used
         // Instead use last_triggered cooldown (30s) from state
     }
@@ -472,7 +504,10 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         const targetId = String(extraData.targetId);
         if (data.hp[targetId] > 0 && data.hp[targetId] <= Math.floor(data.maxHp[targetId] * 0.25)) {
             data.hp[targetId] = 0;
-            blessingMsg = `╔══〘 💀 REAPER'S MARK 〙══╗\n┃◆ ${player.nickname} finishes off ${extraData.targetName}!\n┃◆ Execution completed.\n╚═══════════════════════════╝`;
+            blessingMsg = `╔══〘 💀 REAPER'S MARK 〙══╗
+┃◆ ${player.nickname} finishes off ${extraData.targetName}!
+┃◆ Execution completed.
+╚═══════════════════════════╝`;
             updateDuelBlessingState(player.id, { blessing_used: 1 });
         }
     }
@@ -485,7 +520,10 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
             aliveEnemies.forEach(id => {
                 data.hp[id] = Math.max(0, data.hp[id] - damage);
             });
-            blessingMsg = `╔══〘 ☄️ HEAVEN'S FALL 〙══╗\n┃◆ ${player.nickname} calls down celestial fire!\n┃◆ ${damage} damage to all enemies!\n╚═══════════════════════════╝`;
+            blessingMsg = `╔══〘 ☄️ HEAVEN'S FALL 〙══╗
+┃◆ ${player.nickname} calls down celestial fire!
+┃◆ ${damage} damage to all enemies!
+╚═══════════════════════════╝`;
         }
     }
 
@@ -495,7 +533,10 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
             const targetId = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
             const dmg = Math.max(1, Math.floor(healAmt * (blessing.heal_multiplier || 2.0)));
             data.hp[targetId] = Math.max(0, data.hp[targetId] - dmg);
-            blessingMsg = `╔══〘 🕳️ ABYSSAL HUNGER 〙══╗\n┃◆ ${player.nickname} turns healing into void strike!\n┃◆ ${dmg} damage to an enemy!\n╚═══════════════════════════╝`;
+            blessingMsg = `╔══〘 🕳️ ABYSSAL HUNGER 〙══╗
+┃◆ ${player.nickname} turns healing into void strike!
+┃◆ ${dmg} damage to an enemy!
+╚═══════════════════════════╝`;
         }
     }
 
@@ -513,7 +554,11 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
             const counterDamage = Math.max(1, Math.floor((player.strength || 100) * (blessing.multiplier || 6.0)));
             data.hp[extraData.attackerId] = Math.max(0, data.hp[extraData.attackerId] - counterDamage);
         }
-        blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗\n┃◆ ${player.nickname} refuses to fall!\n┃◆ Revived at ${reviveHp} HP.\n┃◆ All stats empowered for ${blessing.stat_boost_duration || 3} turns.\n╚═══════════════════════════╝`;
+        blessingMsg = `╔══〘 👻 PHANTOM SHIFT 〙══╗
+┃◆ ${player.nickname} refuses to fall!
+┃◆ Revived at ${reviveHp} HP.
+┃◆ All stats empowered for ${blessing.stat_boost_duration || 3} turns.
+╚═══════════════════════════╝`;
         updateDuelBlessingState(player.id, { blessing_used: 1 });
     }
 
@@ -521,7 +566,11 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         const allLow = allies.length > 0 && allies.every(id => data.hp[id] > 0 && data.hp[id] <= Math.floor(data.maxHp[id] * 0.5));
         if (allLow) {
             updateDuelBlessingState(player.id, { damage_boost: 10.0, skill_count: 3, blessing_used: 1 });
-            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗\n┃◆ ${player.nickname} channels Malachar.\n┃◆ Next 3 attacks deal 1000% damage.\n┃◆ Cannot be evaded.\n╚═══════════════════════════╝`;
+            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
+┃◆ ${player.nickname} channels Malachar.
+┃◆ Next 3 attacks deal 1000% damage.
+┃◆ Cannot be evaded.
+╚═══════════════════════════╝`;
         }
     }
 
@@ -529,7 +578,12 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         const newHits = (state.hit_count || 0) + 1;
         if (newHits >= 3) {
             updateDuelBlessingState(player.id, { hit_count: 0, invincible: 2, damage_boost: 4.0 });
-            blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗\n┃◆ 3 hits taken.\n┃◆ ${player.nickname} erupts in fury!\n┃◆ 🛡️ Invincible 2 turns.\n┃◆ ⚡ Next hit: 400% damage.\n╚═══════════════════════════╝`;
+            blessingMsg = `╔══〘 ⚡ TITAN'S ROAR 〙══╗
+┃◆ 3 hits taken.
+┃◆ ${player.nickname} erupts in fury!
+┃◆ 🛡️ Invincible 2 turns.
+┃◆ ⚡ Next hit: 400% damage.
+╚═══════════════════════════╝`;
         } else {
             updateDuelBlessingState(player.id, { hit_count: newHits });
         }
@@ -567,10 +621,14 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
         partyAssembly.delete(assemblyKey);
         const rosterMsg = await buildRosterMessage(s);
         await chat.sendMessage(
-            `╭══〘 ⏰ TIME'S UP — DUEL STARTING 〙══╮\n` +
-            `┃◆ \n` +
-            `┃◆ 2 minutes passed — starting with current rosters!\n` +
-            `┃◆ \n` +
+            `╭══〘 ⏰ TIME'S UP — DUEL STARTING 〙══╮
+` +
+            `┃◆ 
+` +
+            `┃◆ 2 minutes passed — starting with current rosters!
+` +
+            `┃◆ 
+` +
             `${rosterMsg}` +
             `╰═══════════════════════════════════╯`
         ).catch(() => {});
@@ -592,44 +650,79 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
     const teamBLines = enemyIds.map(id => {
         const p = eNickMap[String(id)];
         return `┃◆    • ${p?.nick || id} [${p?.rank || '?'}]`;
-    }).join('\n');
+    }).join('
+');
 
-    const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Gold per side\n┃◆ \n` : '';
+    const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Gold per side
+┃◆ 
+` : '';
 
     await chat.sendMessage(
-        `╭══〘 ⚔️  PARTY DUEL — ASSEMBLY PHASE 〙══╮\n` +
-        `┃◆ \n` +
-        `┃◆ All challenges accepted! Both sides now have\n` +
-        `┃◆ *2 minutes* to assemble their full team.\n` +
-        `┃◆ Max *5 players* per side.\n` +
-        `┃◆ \n` +
+        `╭══〘 ⚔️  PARTY DUEL — ASSEMBLY PHASE 〙══╮
+` +
+        `┃◆ 
+` +
+        `┃◆ All challenges accepted! Both sides now have
+` +
+        `┃◆ *2 minutes* to assemble their full team.
+` +
+        `┃◆ Max *5 players* per side.
+` +
+        `┃◆ 
+` +
         `${betLine}` +
-        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `┃◆ 📋  HOW TO JOIN\n` +
-        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `┃◆ \n` +
-        `┃◆ Join *${cNick}*'s side:\n` +
-        `┃◆    !joinparty @${cNick}\n` +
-        `┃◆ \n` +
-        `┃◆ Join *${eRows[0]?.nickname || teamBLeader}*'s side:\n` +
-        `┃◆    !joinparty @${eRows[0]?.nickname || teamBLeader}\n` +
-        `┃◆ \n` +
-        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `┃◆ 🏁  STARTING THE DUEL\n` +
-        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `┃◆ \n` +
-        `┃◆ When your team is set, the *leader* types:\n` +
-        `┃◆    !startduel\n` +
-        `┃◆ Duel begins once *both* leaders confirm.\n` +
-        `┃◆ \n` +
-        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━\n` +
-        `┃◆ 🔵  Team ${cNick} (1/5)\n` +
-        `┃◆    • ${cNick} [${cRank}] 👑 Leader\n` +
-        `┃◆ \n` +
-        `┃◆ 🔴  Team ${eRows[0]?.nickname || teamBLeader} (${enemyIds.length}/5)\n` +
-        `${teamBLines}\n` +
-        `┃◆ \n` +
-        `┃◆ ⏳ Auto-starts in 2 min if leaders don't confirm.\n` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 📋  HOW TO JOIN
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 
+` +
+        `┃◆ Join *${cNick}*'s side:
+` +
+        `┃◆    !joinparty @${cNick}
+` +
+        `┃◆ 
+` +
+        `┃◆ Join *${eRows[0]?.nickname || teamBLeader}*'s side:
+` +
+        `┃◆    !joinparty @${eRows[0]?.nickname || teamBLeader}
+` +
+        `┃◆ 
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 🏁  STARTING THE DUEL
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 
+` +
+        `┃◆ When your team is set, the *leader* types:
+` +
+        `┃◆    !startduel
+` +
+        `┃◆ Duel begins once *both* leaders confirm.
+` +
+        `┃◆ 
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 🔵  Team ${cNick} (1/5)
+` +
+        `┃◆    • ${cNick} [${cRank}] 👑 Leader
+` +
+        `┃◆ 
+` +
+        `┃◆ 🔴  Team ${eRows[0]?.nickname || teamBLeader} (${enemyIds.length}/5)
+` +
+        `${teamBLines}
+` +
+        `┃◆ 
+` +
+        `┃◆ ⏳ Auto-starts in 2 min if leaders don't confirm.
+` +
         `╰════════════════════════════════════════╯`
     ).catch(() => {});
 }
@@ -659,12 +752,20 @@ async function buildRosterMessage(state) {
     const bLines = await fetchTeam(state.teamB, state.teamBLeader);
 
     return (
-        `┃◆ 🔵  Team ${aNick} (${state.teamA.length}/5)${state.teamAReady ? ' ✅ Ready' : ''}\n` +
-        `${aLines.join('\n')}\n` +
-        `┃◆ \n` +
-        `┃◆ 🔴  Team ${bNick} (${state.teamB.length}/5)${state.teamBReady ? ' ✅ Ready' : ''}\n` +
-        `${bLines.join('\n')}\n` +
-        `┃◆ \n`
+        `┃◆ 🔵  Team ${aNick} (${state.teamA.length}/5)${state.teamAReady ? ' ✅ Ready' : ''}
+` +
+        `${aLines.join('
+')}
+` +
+        `┃◆ 
+` +
+        `┃◆ 🔴  Team ${bNick} (${state.teamB.length}/5)${state.teamBReady ? ' ✅ Ready' : ''}
+` +
+        `${bLines.join('
+')}
+` +
+        `┃◆ 
+`
     );
 }
 
@@ -702,7 +803,8 @@ async function joinPartyAssembly(joinerId, leaderTag) {
         if (aNick === tag || normalizeId(s.teamALeader) === normalizeId(leaderTag)) { state = s; joiningA = true;  break; }
         if (bNick === tag || normalizeId(s.teamBLeader) === normalizeId(leaderTag)) { state = s; joiningA = false; break; }
     }
-    if (!state) return { error: "No active party assembly found for that leader.\nMake sure you spell the nickname exactly as it appears." };
+    if (!state) return { error: "No active party assembly found for that leader.
+Make sure you spell the nickname exactly as it appears." };
 
     if (state.teamA.map(normalizeId).includes(jid) || state.teamB.map(normalizeId).includes(jid))
         return { error: "You are already in this party duel." };
@@ -768,7 +870,8 @@ async function readyPartyDuel(leaderId, chat) {
             const [oppRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [opponentId]);
             return { success: true, waiting: oppRow[0]?.nickname || opponentId, rosterMsg: '' };
         }
-        return { error: "You are not a party leader in any active assembly.\nOnly the challenger and the first enemy to accept can use !startduel." };
+        return { error: "You are not a party leader in any active assembly.
+Only the challenger and the first enemy to accept can use !startduel." };
     }
 
     if (state.teamALeader === lid) state.teamAReady = true;
@@ -823,29 +926,42 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
     await startTurnTimer(duelKey, firstTurn, firstOpponent || opponentTeam[0], chat, 1);
 
     const betLine = betAmount > 0
-        ? `┃◆ 💰 Bet: ${betAmount} Gold each — Pot: ${betAmount * 2} Gold\n`
+        ? `┃◆ 💰 Bet: ${betAmount} Gold each — Pot: ${betAmount * 2} Gold
+`
         : ``;
 
     const formatMember = p =>
         `┃◆  • ${p.nickname} [${p.rank}] ${p.role} — 💪${p.strength} ⚡${p.agility} 🧠${p.intelligence} 🛡️${p.stamina}`;
-    const teamAInfo = teamAPlayers.map(formatMember).join('\n');
-    const teamBInfo = teamBPlayers.map(formatMember).join('\n');
+    const teamAInfo = teamAPlayers.map(formatMember).join('
+');
+    const teamBInfo = teamBPlayers.map(formatMember).join('
+');
 
     const teamALabel = teamA.length > 1 ? `🔵 Team ${teamAPlayers[0].nickname}` : `🔵 ${teamAPlayers[0].nickname}`;
     const teamBLabel = teamB.length > 1 ? `🔴 Team ${teamBPlayers[0].nickname}` : `🔴 ${teamBPlayers[0].nickname}`;
 
     await chat.sendMessage(
-        `╭══〘 ⚔️ DUEL BEGINS 〙══╮\n` +
-        `┃◆ ${teamALabel}\n` +
-        `${teamAInfo}\n` +
-        `┃◆ ━━━━ ⚔️ VS ⚔️ ━━━━\n` +
-        `┃◆ ${teamBLabel}\n` +
-        `${teamBInfo}\n` +
-        `┃◆ ━━━━━━━━━━━━\n` +
+        `╭══〘 ⚔️ DUEL BEGINS 〙══╮
+` +
+        `┃◆ ${teamALabel}
+` +
+        `${teamAInfo}
+` +
+        `┃◆ ━━━━ ⚔️ VS ⚔️ ━━━━
+` +
+        `┃◆ ${teamBLabel}
+` +
+        `${teamBInfo}
+` +
+        `┃◆ ━━━━━━━━━━━━
+` +
         `${betLine}` +
-        `┃◆ ⚡ ${firstPlayer.nickname} goes first!\n` +
-        `┃◆ ⏰ ${territoryWars.has(getDuelKey(teamAPlayers[0], teamBPlayers[0])) ? '2 min' : '45s'} per turn — miss it and you forfeit.\n` +
-        `┃◆ Use !attack <move> to fight.\n` +
+        `┃◆ ⚡ ${firstPlayer.nickname} goes first!
+` +
+        `┃◆ ⏰ ${territoryWars.has(getDuelKey(teamAPlayers[0], teamBPlayers[0])) ? '2 min' : '45s'} per turn — miss it and you forfeit.
+` +
+        `┃◆ Use !attack <move> to fight.
+` +
         `╰═══════════════════════════╯`
     );
 
@@ -907,14 +1023,22 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                     const isDuo = tourney.phase === PHASES.DUO_GAUNTLET;
                     await chat.client.sendMessage(announceTargetP, {
                         text:
-                            `╔══〘 🏆 ${isDuo ? 'DUO GAUNTLET' : 'GRAND FINALS'} RESULT 〙══╗\n` +
-                            `┃★\n` +
-                            `┃★ ⚔️ Match complete!\n` +
-                            `┃★\n` +
-                            `┃★ 🥇 *${winnerNames}* — WINNER${isDuo ? 'S' : ''}\n` +
-                            `┃★ 💀 *${loserNames}* — defeated\n` +
-                            `┃★\n` +
-                            `┃★ *!tournament bracket* for standings\n` +
+                            `╔══〘 🏆 ${isDuo ? 'DUO GAUNTLET' : 'GRAND FINALS'} RESULT 〙══╗
+` +
+                            `┃★
+` +
+                            `┃★ ⚔️ Match complete!
+` +
+                            `┃★
+` +
+                            `┃★ 🥇 *${winnerNames}* — WINNER${isDuo ? 'S' : ''}
+` +
+                            `┃★ 💀 *${loserNames}* — defeated
+` +
+                            `┃★
+` +
+                            `┃★ *!tournament bracket* for standings
+` +
                             `╚═══════════════════════════╝`
                     }).catch(() => {});
                 }
@@ -931,15 +1055,24 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         const survivorLines = aliveWinners.map(id => {
             const p = nicknameMap[String(id)];
             return `┃◆  • ${p?.nickname || id} [${p?.rank || '?'}] — ❤️ ${duelData.hp[id]}/${duelData.maxHp[id]}`;
-        }).join('\n');
+        }).join('
+');
 
         await chat.sendMessage(
-            `╭══〘 🏆 PARTY DUEL OVER 〙══╮\n` +
-            `┃◆ ⚔️ ${winnerNick}'s team stands victorious!\n` +
-            `┃◆ ━━━━━━━━━━━━━━━━\n` +
-            `┃◆ 🟢 Survivors\n` +
-            `${survivorLines}\n` +
-            `${titleLines.length ? `┃◆ ━━━━━━━━━━━━━━━━\n${titleLines.join('\n')}\n` : ''}` +
+            `╭══〘 🏆 PARTY DUEL OVER 〙══╮
+` +
+            `┃◆ ⚔️ ${winnerNick}'s team stands victorious!
+` +
+            `┃◆ ━━━━━━━━━━━━━━━━
+` +
+            `┃◆ 🟢 Survivors
+` +
+            `${survivorLines}
+` +
+            `${titleLines.length ? `┃◆ ━━━━━━━━━━━━━━━━
+${titleLines.join('
+')}
+` : ''}` +
             `╰═══════════════════════════╯`
         );
         // Territory war resolution
@@ -959,13 +1092,27 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
                     for (const pid of warCtx.attackers) { addVoidResonance(pid, 'territory_war_win', chat).catch(() => {}); }
                     const [aClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.attackerClan]);
                     await chat.sendMessage({
-                        text: '╔══〘 🌑 TERRITORY SEIZED 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ now belongs to *' + (aClan[0]?.name || 'Attackers') + '*.\n┃★\n┃★ Bonus: ' + (terr?.bonus?.description || '') + '\n┃★\n╚═══════════════════════════╝'
+                        text: '╔══〘 🌑 TERRITORY SEIZED 〙══╗
+┃★
+┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*
+┃★ now belongs to *' + (aClan[0]?.name || 'Attackers') + '*.
+┃★
+┃★ Bonus: ' + (terr?.bonus?.description || '') + '
+┃★
+╚═══════════════════════════╝'
                     }).catch(() => {});
                 } else {
                     await db.execute("UPDATE territory_wars SET status='completed', winner_clan=? WHERE territory_id=? AND defender_clan=? AND status IN ('pending','active')", [warCtx.defenderClan, warCtx.tid, warCtx.defenderClan]);
                     const [dClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.defenderClan]);
                     await chat.sendMessage({
-                        text: '╔══〘 🛡️ TERRITORY HELD 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ stands firm for *' + (dClan[0]?.name || 'Defenders') + '*.\n┃★\n┃★ The assault has been repelled.\n┃★\n╚═══════════════════════════╝'
+                        text: '╔══〘 🛡️ TERRITORY HELD 〙══╗
+┃★
+┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*
+┃★ stands firm for *' + (dClan[0]?.name || 'Defenders') + '*.
+┃★
+┃★ The assault has been repelled.
+┃★
+╚═══════════════════════════╝'
                     }).catch(() => {});
                 }
                 // Clean up dungeon
@@ -989,12 +1136,14 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
     let betLine = '';
     if (duelData.bet > 0) {
         await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [duelData.bet * 2, winnerId]);
-        betLine = `┃◆ 💰 Prize: ${duelData.bet * 2} Gold claimed\n`;
+        betLine = `┃◆ 💰 Prize: ${duelData.bet * 2} Gold claimed
+`;
     }
 
     await trackPvPWin(winnerId);
     const newTitle = await checkAndGrantTitle(winnerId);
-    const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"\n` : '';
+    const titleLine = newTitle ? `┃◆ 🎖️ New title: "${newTitle}"
+` : '';
 
     // Record result in active tournament + grand announcement to tournament GC
     try {
@@ -1014,14 +1163,22 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
             if (announceTarget && chat?.client) {
                 await chat.client.sendMessage(announceTarget, {
                     text:
-                        `╔══〘 🏆 BATTLE ROYALE RESULT 〙══╗\n` +
-                        `┃★\n` +
-                        `┃★ ⚔️ Match complete!\n` +
-                        `┃★\n` +
-                        `┃★ 🥇 *${winnerNick}* [${wRank}] — WINNER\n` +
-                        `┃★ 💀 *${loserNick}* [${lRank}] — defeated\n` +
-                        `┃★\n` +
-                        `┃★ *!tournament bracket* for standings\n` +
+                        `╔══〘 🏆 BATTLE ROYALE RESULT 〙══╗
+` +
+                        `┃★
+` +
+                        `┃★ ⚔️ Match complete!
+` +
+                        `┃★
+` +
+                        `┃★ 🥇 *${winnerNick}* [${wRank}] — WINNER
+` +
+                        `┃★ 💀 *${loserNick}* [${lRank}] — defeated
+` +
+                        `┃★
+` +
+                        `┃★ *!tournament bracket* for standings
+` +
                         `╚═══════════════════════════╝`
                 }).catch(() => {});
             }
@@ -1030,14 +1187,22 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
 
     // Announce duel result in PvP group
     await chat.sendMessage(
-        `╭══〘 🏆 DUEL OVER 〙══╮\n` +
-        `┃◆ ${await narrateAI('pvpVictory', { winner: winnerNick, loser: loserNick })}\n` +
-        `┃◆ ━━━━━━━━━━━━━━━━\n` +
-        `┃◆ 🥇 *${winnerNick}* [${wRank}] WINS\n` +
-        `┃◆ 💀 ${loserNick} [${lRank}] defeated\n` +
-        `┃◆ ━━━━━━━━━━━━━━━━\n` +
-        `┃◆ ❤️ ${winnerNick}: ${winnerHp}/${duelData.maxHp[winnerId] || DUEL_HP}\n` +
-        `┃◆ 💀 ${loserNick}: 0/${duelData.maxHp[loserId] || DUEL_HP}\n` +
+        `╭══〘 🏆 DUEL OVER 〙══╮
+` +
+        `┃◆ ${await narrateAI('pvpVictory', { winner: winnerNick, loser: loserNick })}
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━
+` +
+        `┃◆ 🥇 *${winnerNick}* [${wRank}] WINS
+` +
+        `┃◆ 💀 ${loserNick} [${lRank}] defeated
+` +
+        `┃◆ ━━━━━━━━━━━━━━━━
+` +
+        `┃◆ ❤️ ${winnerNick}: ${winnerHp}/${duelData.maxHp[winnerId] || DUEL_HP}
+` +
+        `┃◆ 💀 ${loserNick}: 0/${duelData.maxHp[loserId] || DUEL_HP}
+` +
         `${betLine}` +
         `${titleLine}` +
         `╰═══════════════════════════╯`
@@ -1080,16 +1245,26 @@ async function sendCombatMessage(chat, attackerNick, opponentNick, moveName, dam
     };
 
     await chat.sendMessage(
-        `${header}\n` +
-        `${bul}\n` +
-        (narration ? `${bul} 〝${narration}〞\n${bul}\n` : '') +
-        `${bul} 💥 *${moveName}* — ${damage.toLocaleString()} damage\n` +
+        `${header}
+` +
+        `${bul}
+` +
+        (narration ? `${bul} 〝${narration}〞
+${bul}
+` : '') +
+        `${bul} 💥 *${moveName}* — ${damage.toLocaleString()} damage
+` +
         `${extra}` +
-        `${bul}────────────\n` +
-        `${bul} ❤️ ${attackerNick}: ${hpBar(attackerHp, attackerMaxHp)} ${attackerHp.toLocaleString()}/${attackerMaxHp.toLocaleString()}\n` +
-        `${bul} ❤️ ${opponentNick}: ${hpBar(opponentHp, opponentMaxHp)} ${opponentHp.toLocaleString()}/${opponentMaxHp.toLocaleString()}\n` +
-        `${bul}────────────\n` +
-        `${bul} ⚡ *${nextTurnNick}'s turn!* ⏰ 45s\n` +
+        `${bul}────────────
+` +
+        `${bul} ❤️ ${attackerNick}: ${hpBar(attackerHp, attackerMaxHp)} ${attackerHp.toLocaleString()}/${attackerMaxHp.toLocaleString()}
+` +
+        `${bul} ❤️ ${opponentNick}: ${hpBar(opponentHp, opponentMaxHp)} ${opponentHp.toLocaleString()}/${opponentMaxHp.toLocaleString()}
+` +
+        `${bul}────────────
+` +
+        `${bul} ⚡ *${nextTurnNick}'s turn!* ⏰ 45s
+` +
         `${footer}`
     );
 }
@@ -1106,10 +1281,14 @@ function multiTargetFatigue(baseFatigue, numTargets) {
 
 function fatigueWarning(fatigue) {
     const f = clampFatigue(fatigue);
-    if (f >= 90) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *BREAKING POINT. Attacks deal 1 damage!*\n`;
-    if (f >= 75) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *The strain is overwhelming!*\n`;
-    if (f >= 50) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *You're pushing your limits!*\n`;
-    if (f >= 25) return `┃◆ 🔥 ${formatFatigueBar(f)} (${f}%) — you're getting tired.\n`;
+    if (f >= 90) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *BREAKING POINT. Attacks deal 1 damage!*
+`;
+    if (f >= 75) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *The strain is overwhelming!*
+`;
+    if (f >= 50) return `┃◆ ⚠️ ${formatFatigueBar(f)} (${f}%) — *You're pushing your limits!*
+`;
+    if (f >= 25) return `┃◆ 🔥 ${formatFatigueBar(f)} (${f}%) — you're getting tired.
+`;
     return '';
 }
 
@@ -1207,11 +1386,13 @@ async function handlePvPSkill(attackerId, move, targetIds) {
     }
             // Apply attacker potion buffs
             try {
-                const { getTurnEffect } = require('./potionEffects');
-                const turnFx = getTurnEffect(String(attackerId));
-                if (turnFx?.effect === 'berserk')    dmg = Math.floor(dmg * (turnFx.data.mult || 3.0));
-                if (turnFx?.effect === 'stat_boost') dmg = Math.floor(dmg * (turnFx.data.mult || 1.25));
-                if (turnFx?.effect === 'chaos_mode') dmg = Math.floor(dmg * (1 + (turnFx.data.amp || 0.5)));
+                const { getTurnEffectByName } = require('./potionEffects');
+                const bFxP = getTurnEffectByName(String(attackerId), 'berserk');
+                if (bFxP) dmg = Math.floor(dmg * (bFxP.data.mult || 3.0));
+                const sFxP = getTurnEffectByName(String(attackerId), 'stat_boost');
+                if (sFxP) dmg = Math.floor(dmg * (sFxP.data.mult || 1.25));
+                const cFxP = getTurnEffectByName(String(attackerId), 'chaos_mode');
+                if (cFxP) dmg = Math.floor(dmg * (1 + (cFxP.data.amp || 0.5)));
             } catch(e) {}
 
             // Apply defender shield absorption
@@ -1236,16 +1417,18 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             if (newHp <= 0) {
                 // Check Mirror Toxin (death_reflect) — killer takes the hit instead
                 try {
-                    const { getEffect, consumeCharge } = require('./potionEffects');
-                    const mirror = getEffect ? (getEffect(String(tid), 'pvp') || getEffect(String(tid), null)) : null;
-                    if (mirror?.effect === 'death_reflect') {
+                    const { getEffectByName, consumeCharge } = require('./potionEffects');
+                    const mirror = getEffectByName(String(tid), 'death_reflect', null);
+                    if (mirror) {
                         // Reflect — kill the attacker instead, revive defender
                         data.hp[tid] = 1;
                         data.hp[String(attackerId)] = 0;
                         consumeCharge(String(tid));
                         results.push({ tid: String(attackerId), nick: attacker.nickname, rank: attacker.rank, dmg: 0, newHp: 0, maxHp: data.maxHp[String(attackerId)], defeated: true });
                         allDefeated.push({ tid: String(attackerId), nick: attacker.nickname, rank: attacker.rank, def: attacker });
-                        await chat.sendMessage(`🪞 *Mirror Toxin!*\n┃★ ${def.nickname}'s death rebounds!\n┃★ ${attacker.nickname} is destroyed instead!`);
+                        await chat.sendMessage(`🪞 *Mirror Toxin!*
+┃★ ${def.nickname}'s death rebounds!
+┃★ ${attacker.nickname} is destroyed instead!`);
                     } else {
                         allDefeated.push({ tid, nick: def.nickname, rank: def.rank, def });
                     }
@@ -1265,8 +1448,10 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         // ── Build display lines ────────────────────────────────────────────
         const dmgLines   = results.map(r =>
             `┃◆ 💥 ${r.nick} [${r.rank}]: -${r.dmg} HP  (${r.newHp <= 0 ? '💀 0' : r.newHp}/${r.maxHp})`
-        ).join('\n');
-        const totalLine  = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets\n` : '';
+        ).join('
+');
+        const totalLine  = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets
+` : '';
         const fatigueWarn = fatigueWarning(currentFatigue);
         const narrative  = await narrateAI('skillDamage', { attacker: attacker.nickname, move: move.name, target: results[0]?.nick, damage: totalDmg });
 
@@ -1298,9 +1483,14 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                 const fieldLines = oppIds.map(id => {
                     const r = results.find(r => r.tid === id);
                     return `┃◆  • ${r?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`;
-                }).join('\n');
-                const extra = (bl.killedIds || []).length ? `┃◆ ☠️ ${bl.killedIds.length} more fell!\n` : '';
-                pendingBlMsgs.push(`${bl.message}\n┃◆ ━━ Field ━━\n${fieldLines}\n${extra}╰════════════════╯`);
+                }).join('
+');
+                const extra = (bl.killedIds || []).length ? `┃◆ ☠️ ${bl.killedIds.length} more fell!
+` : '';
+                pendingBlMsgs.push(`${bl.message}
+┃◆ ━━ Field ━━
+${fieldLines}
+${extra}╰════════════════╯`);
                 (bl.killedIds || []).forEach(id => {
                     if (!allDefeated.find(d => d.tid === id))
                         allDefeated.push({ tid: id, nick: id, rank: '?', def: {} });
@@ -1327,17 +1517,24 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             nextTurn = await nextTurnAfterMove();
             const [nRow] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [[]];
             const nextNick = nRow[0]?.nickname || 'next player';
-            nextTurnLine = `┃◆ ━━━━━━━━━━━━━━━━\n┃◆ ⚡ *${nextNick}'s turn!*  ⏰ 45 seconds\n`;
+            nextTurnLine = `┃◆ ━━━━━━━━━━━━━━━━
+┃◆ ⚡ *${nextNick}'s turn!*  ⏰ 45 seconds
+`;
         }
 
         // ── 1. ATTACK MESSAGE ──────────────────────────────────────────────
         await chat.sendMessage(
-            `╭══〘 ⚔️ ROUND ${round} 〙══╮\n` +
-            `┃◆ ${narrative}\n` +
-            `┃◆ ━━━━━━━━━━━━━━━━\n` +
-            `${dmgLines}\n` +
+            `╭══〘 ⚔️ ROUND ${round} 〙══╮
+` +
+            `┃◆ ${narrative}
+` +
+            `┃◆ ━━━━━━━━━━━━━━━━
+` +
+            `${dmgLines}
+` +
             `${totalLine}` +
-            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}\n` +
+            `┃◆ ❤️ ${attacker.nickname}: ${attackerHp}/${data.maxHp[attackerId]}
+` +
             `${fatigueWarn}` +
             `${nextTurnLine}` +
             `╰═══════════════════════════╯`
@@ -1358,9 +1555,13 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         // ── 4. KILL ANNOUNCEMENTS (mid-fight, opponents remain) ───────────
         if (allDefeated.length > 0) {
             await chat.sendMessage(
-                `╭══〘 ☠️ ELIMINATED 〙══╮\n` +
-                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] defeated!`).join('\n')}\n` +
-                `┃◆ ${survivingOpponents.length} opponent(s) remain.\n` +
+                `╭══〘 ☠️ ELIMINATED 〙══╮
+` +
+                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] defeated!`).join('
+')}
+` +
+                `┃◆ ${survivingOpponents.length} opponent(s) remain.
+` +
                 `╰═══════════════════════════╯`
             ).catch(() => {});
         }
@@ -1407,7 +1608,8 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const [freshA] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
         const currentFatigue = freshA[0]?.fatigue || 0;
 
-        const healLines = results.map(r => `┃◆ 💚 ${r.nick}: +${r.healAmt} HP  ❤️ ${r.newHp}/${r.maxHp}`).join('\n');
+        const healLines = results.map(r => `┃◆ 💚 ${r.nick}: +${r.healAmt} HP  ❤️ ${r.newHp}/${r.maxHp}`).join('
+');
         const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : (currentFatigue >= 25 ? fatigueWarning(currentFatigue) : '');
 
         await trackBlessings();
@@ -1417,13 +1619,19 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const nextTurnName = nRows[0]?.nickname || 'next player';
 
         await chat.sendMessage(
-            `══〘 💚 DUEL HEAL — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${await narrateAI('heal', { healer: attacker.nickname, target: results.map(r => r.nick).join(' & '), heal: totalHealed })}\n` +
-            `${healLines}\n` +
-            `${numTargets > 1 ? `┃◆ ━━ Total healed: ${totalHealed}\n` : ''}` +
+            `══〘 💚 DUEL HEAL — ROUND ${round} 〙══╮
+` +
+            `┃◆ ${await narrateAI('heal', { healer: attacker.nickname, target: results.map(r => r.nick).join(' & '), heal: totalHealed })}
+` +
+            `${healLines}
+` +
+            `${numTargets > 1 ? `┃◆ ━━ Total healed: ${totalHealed}
+` : ''}` +
             `${fatigueWarn}` +
-            `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
+            `┃◆────────────
+` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!
+` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
@@ -1470,12 +1678,17 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const nextTurnName = nRows[0]?.nickname || 'next player';
 
         await chat.sendMessage(
-            `══〘 ⬆️ DUEL BUFF — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${await narrateAI('buff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}\n` +
-            `┃◆ ${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 3} turns\n` +
+            `══〘 ⬆️ DUEL BUFF — ROUND ${round} 〙══╮
+` +
+            `┃◆ ${await narrateAI('buff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 })}
+` +
+            `┃◆ ${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 3} turns
+` +
             `${fatigueWarn}` +
-            `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
+            `┃◆────────────
+` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!
+` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
@@ -1524,12 +1737,17 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         const pctLabel = move.percent ? `${Math.abs(move.value)}%` : Math.abs(move.value);
 
         await chat.sendMessage(
-            `══〘 ⬇️ DUEL DEBUFF — ROUND ${round} 〙══╮\n` +
-            `┃◆ ${await narrateAI('debuff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: Math.abs(move.value), duration: move.duration || 2 })}\n` +
-            `┃◆ -${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 2} turns\n` +
+            `══〘 ⬇️ DUEL DEBUFF — ROUND ${round} 〙══╮
+` +
+            `┃◆ ${await narrateAI('debuff', { caster: attacker.nickname, target: results.join(' & '), move: move.name, stat: move.effect, value: Math.abs(move.value), duration: move.duration || 2 })}
+` +
+            `┃◆ -${pctLabel} ${statName.toUpperCase()} → ${results.join(', ')} for ${move.duration || 2} turns
+` +
             `${fatigueWarn}` +
-            `┃◆────────────\n` +
-            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!\n` +
+            `┃◆────────────
+` +
+            `┃◆ ⚡ ${nextTurnName}'s turn! ⏰ 45 seconds!
+` +
             `╰═══════════════════════╯`
         );
         return { success: true, nextTurn };
@@ -1581,11 +1799,13 @@ async function handlePvPAttack(attackerId) {
     // Apply attacker potion buffs in solo duel
     let finalDamage = baseDamage;
     try {
-        const { getTurnEffect } = require('./potionEffects');
-        const turnFx = getTurnEffect(String(attackerId));
-        if (turnFx?.effect === 'berserk')    finalDamage = Math.floor(finalDamage * (turnFx.data.mult || 3.0));
-        if (turnFx?.effect === 'stat_boost') finalDamage = Math.floor(finalDamage * (turnFx.data.mult || 1.25));
-        if (turnFx?.effect === 'chaos_mode') finalDamage = Math.floor(finalDamage * (1 + (turnFx.data.amp || 0.5)));
+        const { getTurnEffectByName } = require('./potionEffects');
+        const bFxS = getTurnEffectByName(String(attackerId), 'berserk');
+        if (bFxS) finalDamage = Math.floor(finalDamage * (bFxS.data.mult || 3.0));
+        const sFxS = getTurnEffectByName(String(attackerId), 'stat_boost');
+        if (sFxS) finalDamage = Math.floor(finalDamage * (sFxS.data.mult || 1.25));
+        const cFxS = getTurnEffectByName(String(attackerId), 'chaos_mode');
+        if (cFxS) finalDamage = Math.floor(finalDamage * (1 + (cFxS.data.amp || 0.5)));
     } catch(e) {}
 
     // Apply defender shield absorption in solo duel
@@ -1636,9 +1856,12 @@ async function handlePvPAttack(attackerId) {
             data.round++;
             const nextTurn = await nextTurnAfterMove();
             await chat.sendMessage(
-                `╭══〘 👻 PHANTOM SHIFT 〙══╮\n` +
-                `┃◆ ${defender.nickname} refuses to fall and returns with vengeance!\n` +
-                `┃◆ ❤️ Revived — next: ${nextTurn || defender.nickname}\n` +
+                `╭══〘 👻 PHANTOM SHIFT 〙══╮
+` +
+                `┃◆ ${defender.nickname} refuses to fall and returns with vengeance!
+` +
+                `┃◆ ❤️ Revived — next: ${nextTurn || defender.nickname}
+` +
                 `╰═══════════════════════╯`
             ).catch(() => {});
             return { success: true, nextTurn };
@@ -1654,10 +1877,14 @@ async function handlePvPAttack(attackerId) {
             const [nextRows] = nextTurn ? await db.execute("SELECT nickname FROM players WHERE id=?", [nextTurn]) : [null];
             const nextName = nextRows?.[0]?.nickname || nextTurn;
             await chat.sendMessage(
-                `╭══〘 ☠️ ELIMINATED 〙══╮\n` +
-                `┃◆ 💀 ${defender.nickname} has been defeated!\n` +
-                `┃◆ ${remainingOpponents.length} opponent(s) remain.\n` +
-                `┃◆ ⚡ Next: ${nextName}\n` +
+                `╭══〘 ☠️ ELIMINATED 〙══╮
+` +
+                `┃◆ 💀 ${defender.nickname} has been defeated!
+` +
+                `┃◆ ${remainingOpponents.length} opponent(s) remain.
+` +
+                `┃◆ ⚡ Next: ${nextName}
+` +
                 `╰═══════════════════════╯`
             ).catch(() => {});
             return { success: true, nextTurn };
@@ -1741,12 +1968,18 @@ module.exports = {
                     const [r2] = await db.execute('SELECT nickname FROM players WHERE id=?', [n2]).catch(() => [[]]);
                     await client.sendMessage(pvpGroupJid, {
                         text:
-                            `╔══〘 ⏰ NO-SHOW — MATCH VOIDED 〙══╗\n` +
-                            `┃★\n` +
-                            `┃★ *${r1[0]?.nickname || n1}* vs *${r2[0]?.nickname || n2}*\n` +
-                            `┃★ Neither player started the duel.\n` +
-                            `┃★ Match skipped. Admin can re-call.\n` +
-                            `┃★\n` +
+                            `╔══〘 ⏰ NO-SHOW — MATCH VOIDED 〙══╗
+` +
+                            `┃★
+` +
+                            `┃★ *${r1[0]?.nickname || n1}* vs *${r2[0]?.nickname || n2}*
+` +
+                            `┃★ Neither player started the duel.
+` +
+                            `┃★ Match skipped. Admin can re-call.
+` +
+                            `┃★
+` +
                             `╚═══════════════════════════╝`
                     }).catch(() => {});
                     await demoteAfterDuel(client, [n1, n2]);

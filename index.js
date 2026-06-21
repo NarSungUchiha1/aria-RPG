@@ -527,7 +527,7 @@ async function startBot() {
                        (BOT_LID    && jNum === BOT_LID);
             }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
                || (BOT_LID    && text.includes(`@${BOT_LID}`))
-               || /^@aria\b/i.test(text.trim())
+               || /^@aria/i.test(text.trim())
                || text.toLowerCase().includes('@aria ')
                || text.toLowerCase() === '@aria';
 
@@ -539,7 +539,7 @@ async function startBot() {
                                   (BOT_LID    && quotedNum === BOT_LID);
 
             const stripped = text.replace(/@\d+/g, '').trim().toLowerCase();
-            const QUESTION_STARTERS = /^(what|who|how|when|where|why|can|could|would|should|is|are|do|does|did|will|was|were|tell|show|give|explain|help|check|find|get|which|whose|whom)\b/;
+            const QUESTION_STARTERS = /^(what|who|how|when|where|why|can|could|would|should|is|are|do|does|did|will|was|were|tell|show|give|explain|help|check|find|get|which|whose|whom)/;
             const isAskingQuestion = text.includes('?')
                 || QUESTION_STARTERS.test(stripped)
                 || stripped.split(/\s+/).filter(Boolean).length >= 6;
@@ -631,9 +631,12 @@ async function startBot() {
             if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
                 await sock.sendMessage(jid, {
                     text:
-                        `══〘 🌍 ARIA 〙══╮\n` +
-                        `┃◆ 🔒 ARIA is currently under maintenance.\n` +
-                        `┃◆ We'll be back shortly.\n` +
+                        `══〘 🌍 ARIA 〙══╮
+` +
+                        `┃◆ 🔒 ARIA is currently under maintenance.
+` +
+                        `┃◆ We'll be back shortly.
+` +
                         `╰═══════════════════════╯`
                 }, isDM ? {} : { quoted: msg });
                 return;
@@ -653,17 +656,23 @@ async function startBot() {
                 }
 
                 if (HEALER_GC_ONLY.has(cmdName) && jid !== HEALER_GC_JID) {
-                    await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Healer Market group.\n╰═══════════════════════╯` }, { quoted: msg });
+                    await sock.sendMessage(jid, { text: `══〘 💚 HEALER MARKET 〙══╮
+┃◆ ❌ These commands only work
+┃◆ in the Healer Market group.
+╰═══════════════════════╯` }, isDM ? {} : { quoted: msg });
                     return;
                 }
 
                 if (BLACKSMITH_GC_ONLY.has(cmdName) && jid !== BLACKSMITH_GC_JID) {
-                    await sock.sendMessage(jid, { text: `══〘 ⚒️ BLACKSMITH 〙══╮\n┃◆ ❌ These commands only work\n┃◆ in the Blacksmith group.\n╰═══════════════════════╯` }, { quoted: msg });
+                    await sock.sendMessage(jid, { text: `══〘 ⚒️ BLACKSMITH 〙══╮
+┃◆ ❌ These commands only work
+┃◆ in the Blacksmith group.
+╰═══════════════════════╯` }, isDM ? {} : { quoted: msg });
                     return;
                 }
 
                 if (DM_ONLY.has(cmdName) && !isDM) {
-                    await sock.sendMessage(jid, { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` }, { quoted: msg });
+                    await sock.sendMessage(jid, { text: `📩 Use *!${cmdName}* in the bot's DM, not here.` }, isDM ? {} : { quoted: msg });
                     return;
                 }
             }
@@ -743,12 +752,16 @@ async function startBot() {
                     if (hp !== null && hp <= 0) {
                         return await sock.sendMessage(jid, {
                             text:
-                                `══〘 💀 YOU ARE DEAD 〙══╮\n` +
-                                `┃◆ Your HP has reached 0.\n` +
-                                `┃◆ Use !respawn to revive.\n` +
-                                `┃◆ (Penalties apply on revival)\n` +
+                                `══〘 💀 YOU ARE DEAD 〙══╮
+` +
+                                `┃◆ Your HP has reached 0.
+` +
+                                `┃◆ Use !respawn to revive.
+` +
+                                `┃◆ (Penalties apply on revival)
+` +
                                 `╰═══════════════════════╯`
-                        }, { quoted: msg });
+                        }, isDM ? {} : { quoted: msg });
                     }
                 }
 
@@ -820,13 +833,20 @@ async function startBot() {
                         ).catch(() => {});
                         await sock.sendMessage(REFERRAL_GROUP_JID, {
                             text:
-                                `══〘 🔗 NEW HUNTER 〙══╮\n` +
-                                `┃◆ @${newUserId} just joined ARIA!\n` +
-                                `┃◆ \n` +
-                                `┃◆ 💰 +${REFERRAL_GOLD_NEW} Gold bonus\n` +
-                                `┃◆    waiting on registration.\n` +
-                                `┃◆ \n` +
-                                `┃◆ Use !awaken to begin your journey.\n` +
+                                `══〘 🔗 NEW HUNTER 〙══╮
+` +
+                                `┃◆ @${newUserId} just joined ARIA!
+` +
+                                `┃◆ 
+` +
+                                `┃◆ 💰 +${REFERRAL_GOLD_NEW} Gold bonus
+` +
+                                `┃◆    waiting on registration.
+` +
+                                `┃◆ 
+` +
+                                `┃◆ Use !awaken to begin your journey.
+` +
                                 `╰═══════════════════════╯`,
                             mentions: [participantJid]
                         });
@@ -851,14 +871,22 @@ async function startBot() {
 
                     await sock.sendMessage(REFERRAL_GROUP_JID, {
                         text:
-                            `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
-                            `┃◆ @${newUserId} just joined ARIA!\n` +
-                            `┃◆ Invited by: *${referrer[0].nickname}*\n` +
-                            `┃◆ \n` +
-                            `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
-                            `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register\n` +
-                            `┃◆ \n` +
-                            `┃◆ Use !awaken to begin your journey.\n` +
+                            `══〘 🔗 REFERRAL REWARD 〙══╮
+` +
+                            `┃◆ @${newUserId} just joined ARIA!
+` +
+                            `┃◆ Invited by: *${referrer[0].nickname}*
+` +
+                            `┃◆ 
+` +
+                            `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP
+` +
+                            `┃◆ 💰 New player gets +${REFERRAL_GOLD_NEW} Gold on register
+` +
+                            `┃◆ 
+` +
+                            `┃◆ Use !awaken to begin your journey.
+` +
                             `╰═══════════════════════╯`,
                         mentions: [participantJid, `${referrerId}@s.whatsapp.net`]
                     });
@@ -1014,22 +1042,38 @@ cron.schedule('0 8 * * 1', async () => {
         const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
         await sock.sendMessage(RAID_GROUP, {
             text:
-                `╔══〘 🎯 MOST WANTED 〙══╗\n` +
-                `┃◆\n` +
-                `┃◆ A new bounty has been posted.\n` +
-                `┃◆\n` +
-                `┃◆ 🎯 *${target.nickname}* [${target.rank}]\n` +
-                `┃◆\n` +
-                `┃◆ This hunter has proven themselves\n` +
-                `┃◆ too dangerous to ignore.\n` +
-                `┃◆\n` +
-                `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}G\n` +
-                `┃◆ ⭐ Reward: ${target.reward_xp?.toLocaleString()} XP\n` +
-                `┃◆\n` +
-                `┃◆ Duel them. Beat them.\n` +
-                `┃◆ Then !bounty claim to collect.\n` +
-                `┃◆\n` +
-                `┃◆ Good luck. You'll need it.\n` +
+                `╔══〘 🎯 MOST WANTED 〙══╗
+` +
+                `┃◆
+` +
+                `┃◆ A new bounty has been posted.
+` +
+                `┃◆
+` +
+                `┃◆ 🎯 *${target.nickname}* [${target.rank}]
+` +
+                `┃◆
+` +
+                `┃◆ This hunter has proven themselves
+` +
+                `┃◆ too dangerous to ignore.
+` +
+                `┃◆
+` +
+                `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}G
+` +
+                `┃◆ ⭐ Reward: ${target.reward_xp?.toLocaleString()} XP
+` +
+                `┃◆
+` +
+                `┃◆ Duel them. Beat them.
+` +
+                `┃◆ Then !bounty claim to collect.
+` +
+                `┃◆
+` +
+                `┃◆ Good luck. You'll need it.
+` +
                 `╚═══════════════════════════╝`
         });
         console.log(`🎯 Weekly bounty set: ${target.nickname}`);
