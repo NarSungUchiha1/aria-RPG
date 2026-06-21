@@ -289,11 +289,8 @@ async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = f
         if (question.trim().split(/\s+/).length <= 5 && historyForAdmin.length >= 2) {
             const recent = historyForAdmin.slice(-4).map(m =>
                 `${m.role === 'user' ? 'Master' : 'ARIA'}: ${m.content}`
-            ).join('
-');
-            enrichedQuestion = `[Recent context:
-${recent}
-]
+            ).join('\n');
+            enrichedQuestion = `[Recent context:\n${recent}\n]
 Master now says: ${question}`;
         }
         const { handleAdminCommand } = require('./adminAI');
@@ -363,7 +360,7 @@ Master now says: ${question}`;
             );
             for (const row of allNicks) {
                 const nick = row.nickname.toLowerCase();
-                const regex = new RegExp(`(?<![a-z0-9_])${nick.replace(/[.*+?^${}()|[\]\]/g, '\$&')}(?![a-z0-9_])`, 'i');
+                const regex = new RegExp('(?<![a-z0-9_])' + nick.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9_])', 'i');
                 if (regex.test(q)) {
                     mentionedId   = row.id;
                     mentionedName = row.nickname;
@@ -414,8 +411,7 @@ Master now says: ${question}`;
 Bag: ${bag}`);
             }
             if (pq.length) {
-                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁 Unclaimed') : `🔄 ${q.progress}/${q.objective_count}`} ${q.title}`).join('
-');
+                const quests = pq.map(q => `${q.completed ? (q.claimed ? '✅' : '🎁 Unclaimed') : `🔄 ${q.progress}/${q.objective_count}`} ${q.title}`).join('\n');
                 fetched.push(`Quests:
 ${quests}`);
             }
@@ -436,8 +432,7 @@ ${quests}`);
                  ${where} GROUP BY c.id LIMIT 5`, param
             );
             if (rows.length) fetched.push(`CLAN DATA:
-${rows.map(r => JSON.stringify(r)).join('
-')}`);
+${rows.map(r => JSON.stringify(r)).join('\n')}`);
         }
 
         // Dungeon queries
@@ -458,8 +453,7 @@ ${rows.map(r => JSON.stringify(r)).join('
             if (active[0]) fetched.push(`ACTIVE DUNGEON:
 ${JSON.stringify(active[0], null, 2)}`);
             if (recent.length) fetched.push(`RECENT DUNGEONS:
-${recent.map(r => JSON.stringify(r)).join('
-')}`);
+${recent.map(r => JSON.stringify(r)).join('\n')}`);
         }
 
         // Leaderboard
@@ -473,8 +467,7 @@ ${recent.map(r => JSON.stringify(r)).join('
             );
             const board = rows.map((r,i) =>
                 `${i+1}. ${r.nickname} [${r.rank}${r.prestige_level > 0 ? '⭐' : ''}] — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W/${r.pvp_losses}L`
-            ).join('
-');
+            ).join('\n');
             fetched.push(`Leaderboard (by ${type}):
 ${board}`);
         }
@@ -515,9 +508,7 @@ ${log}`);
 
 ⚠️ REAL DATA — USE ONLY THIS. DO NOT INVENT OR ADD ANYTHING NOT SHOWN HERE:
 
-${fetched.join('
-
-')}
+${fetched.join('\n')}
 
 If asked for something not in the above data, say "I don't have that on record."`;
             console.log(`[ARIA DB] fetched ${fetched.length} sections for: ${mentionedName || 'general'}`);
@@ -548,8 +539,7 @@ ${memoryContext}` : '') +
     if (history.length) {
         const lines = history.slice(-8).map(m =>
             `${m.role === 'user' ? 'Master' : 'You (ARIA)'}: ${m.content}`
-        ).join('
-');
+        ).join('\n');
         historyBlock = `
 
 RECENT CONVERSATION — this happened. You said these things. Do not deny it:
@@ -566,8 +556,7 @@ ${lines}`;
         try {
             const mem = require('./ariaMemory');
             const convLog = [...history.slice(-4).map(m => `${m.role}: ${m.content}`),
-                `user: ${question}`, `assistant: ${reply}`].join('
-');
+                `user: ${question}`, `assistant: ${reply}`].join('\n');
             if (nickname) mem.reflectOnConversation(userId, nickname, convLog);
         } catch {}
     } catch (e) {

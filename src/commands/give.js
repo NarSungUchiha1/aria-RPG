@@ -15,12 +15,9 @@ module.exports = {
 
         if (args.length < 2) {
             return msg.reply(
-                "❌ Usage:
-" +
-                "  !give @user gold <amount>
-" +
-                "  !give @user xp <amount>
-" +
+                "❌ Usage:\n" +
+                "  !give @user gold <amount>\n" +
+                "  !give @user xp <amount>\n" +
                 "  !give @user item <item name> [x<qty>]"
             );
         }

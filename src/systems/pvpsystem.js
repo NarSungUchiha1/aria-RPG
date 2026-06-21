@@ -283,8 +283,7 @@ async function startTurnTimer(duelKey, currentTurnId, opponentId, chat, round) {
 ` +
                     `┃◆ 🏆 *${oNick}* wins by default!
 ` +
-                    `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.
-' : ''}` +
+                    `${data.bet > 0 ? '┃◆ 💰 Bets refunded to both players.\n' : ''}` +
                     `┃◆ 
 ` +
                     `╰═══════════════════════╯`
@@ -650,8 +649,7 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
     const teamBLines = enemyIds.map(id => {
         const p = eNickMap[String(id)];
         return `┃◆    • ${p?.nick || id} [${p?.rank || '?'}]`;
-    }).join('
-');
+    }).join('\n');
 
     const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Gold per side
 ┃◆ 
@@ -754,15 +752,13 @@ async function buildRosterMessage(state) {
     return (
         `┃◆ 🔵  Team ${aNick} (${state.teamA.length}/5)${state.teamAReady ? ' ✅ Ready' : ''}
 ` +
-        `${aLines.join('
-')}
+        `${aLines.join('\n')}
 ` +
         `┃◆ 
 ` +
         `┃◆ 🔴  Team ${bNick} (${state.teamB.length}/5)${state.teamBReady ? ' ✅ Ready' : ''}
 ` +
-        `${bLines.join('
-')}
+        `${bLines.join('\n')}
 ` +
         `┃◆ 
 `
@@ -803,8 +799,7 @@ async function joinPartyAssembly(joinerId, leaderTag) {
         if (aNick === tag || normalizeId(s.teamALeader) === normalizeId(leaderTag)) { state = s; joiningA = true;  break; }
         if (bNick === tag || normalizeId(s.teamBLeader) === normalizeId(leaderTag)) { state = s; joiningA = false; break; }
     }
-    if (!state) return { error: "No active party assembly found for that leader.
-Make sure you spell the nickname exactly as it appears." };
+    if (!state) return { error: "No active party assembly found for that leader.\nMake sure you spell the nickname exactly as it appears." };
 
     if (state.teamA.map(normalizeId).includes(jid) || state.teamB.map(normalizeId).includes(jid))
         return { error: "You are already in this party duel." };
@@ -870,8 +865,7 @@ async function readyPartyDuel(leaderId, chat) {
             const [oppRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [opponentId]);
             return { success: true, waiting: oppRow[0]?.nickname || opponentId, rosterMsg: '' };
         }
-        return { error: "You are not a party leader in any active assembly.
-Only the challenger and the first enemy to accept can use !startduel." };
+        return { error: "You are not a party leader in any active assembly.\nOnly the challenger and the first enemy to accept can use !startduel." };
     }
 
     if (state.teamALeader === lid) state.teamAReady = true;
@@ -932,10 +926,8 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
 
     const formatMember = p =>
         `┃◆  • ${p.nickname} [${p.rank}] ${p.role} — 💪${p.strength} ⚡${p.agility} 🧠${p.intelligence} 🛡️${p.stamina}`;
-    const teamAInfo = teamAPlayers.map(formatMember).join('
-');
-    const teamBInfo = teamBPlayers.map(formatMember).join('
-');
+    const teamAInfo = teamAPlayers.map(formatMember).join('\n');
+    const teamBInfo = teamBPlayers.map(formatMember).join('\n');
 
     const teamALabel = teamA.length > 1 ? `🔵 Team ${teamAPlayers[0].nickname}` : `🔵 ${teamAPlayers[0].nickname}`;
     const teamBLabel = teamB.length > 1 ? `🔴 Team ${teamBPlayers[0].nickname}` : `🔴 ${teamBPlayers[0].nickname}`;
@@ -1055,8 +1047,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
         const survivorLines = aliveWinners.map(id => {
             const p = nicknameMap[String(id)];
             return `┃◆  • ${p?.nickname || id} [${p?.rank || '?'}] — ❤️ ${duelData.hp[id]}/${duelData.maxHp[id]}`;
-        }).join('
-');
+        }).join('\n');
 
         await chat.sendMessage(
             `╭══〘 🏆 PARTY DUEL OVER 〙══╮
@@ -1070,8 +1061,7 @@ async function handleVictory(winnerId, loserId, chat, duelData, winnerNick, lose
             `${survivorLines}
 ` +
             `${titleLines.length ? `┃◆ ━━━━━━━━━━━━━━━━
-${titleLines.join('
-')}
+${titleLines.join('\n')}
 ` : ''}` +
             `╰═══════════════════════════╯`
         );
@@ -1092,27 +1082,13 @@ ${titleLines.join('
                     for (const pid of warCtx.attackers) { addVoidResonance(pid, 'territory_war_win', chat).catch(() => {}); }
                     const [aClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.attackerClan]);
                     await chat.sendMessage({
-                        text: '╔══〘 🌑 TERRITORY SEIZED 〙══╗
-┃★
-┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*
-┃★ now belongs to *' + (aClan[0]?.name || 'Attackers') + '*.
-┃★
-┃★ Bonus: ' + (terr?.bonus?.description || '') + '
-┃★
-╚═══════════════════════════╝'
+                        text: '╔══〘 🌑 TERRITORY SEIZED 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ now belongs to *' + (aClan[0]?.name || 'Attackers') + '*.\n┃★\n┃★ Bonus: ' + (terr?.bonus?.description || '') + '\n┃★\n╚═══════════════════════════╝'
                     }).catch(() => {});
                 } else {
                     await db.execute("UPDATE territory_wars SET status='completed', winner_clan=? WHERE territory_id=? AND defender_clan=? AND status IN ('pending','active')", [warCtx.defenderClan, warCtx.tid, warCtx.defenderClan]);
                     const [dClan] = await db.execute('SELECT name FROM clans WHERE id=?', [warCtx.defenderClan]);
                     await chat.sendMessage({
-                        text: '╔══〘 🛡️ TERRITORY HELD 〙══╗
-┃★
-┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*
-┃★ stands firm for *' + (dClan[0]?.name || 'Defenders') + '*.
-┃★
-┃★ The assault has been repelled.
-┃★
-╚═══════════════════════════╝'
+                        text: '╔══〘 🛡️ TERRITORY HELD 〙══╗\n┃★\n┃★ ' + (terr?.emoji || '') + ' *' + (terr?.name || warCtx.tid) + '*\n┃★ stands firm for *' + (dClan[0]?.name || 'Defenders') + '*.\n┃★\n┃★ The assault has been repelled.\n┃★\n╚═══════════════════════════╝'
                     }).catch(() => {});
                 }
                 // Clean up dungeon
@@ -1448,8 +1424,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
         // ── Build display lines ────────────────────────────────────────────
         const dmgLines   = results.map(r =>
             `┃◆ 💥 ${r.nick} [${r.rank}]: -${r.dmg} HP  (${r.newHp <= 0 ? '💀 0' : r.newHp}/${r.maxHp})`
-        ).join('
-');
+        ).join('\n');
         const totalLine  = numTargets > 1 ? `┃◆ ━━ Total: ${totalDmg} across ${numTargets} targets
 ` : '';
         const fatigueWarn = fatigueWarning(currentFatigue);
@@ -1483,8 +1458,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
                 const fieldLines = oppIds.map(id => {
                     const r = results.find(r => r.tid === id);
                     return `┃◆  • ${r?.nick || id}: ❤️ ${data.hp[id]}/${data.maxHp[id]}`;
-                }).join('
-');
+                }).join('\n');
                 const extra = (bl.killedIds || []).length ? `┃◆ ☠️ ${bl.killedIds.length} more fell!
 ` : '';
                 pendingBlMsgs.push(`${bl.message}
@@ -1557,8 +1531,7 @@ ${extra}╰════════════════╯`);
             await chat.sendMessage(
                 `╭══〘 ☠️ ELIMINATED 〙══╮
 ` +
-                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] defeated!`).join('
-')}
+                `${allDefeated.map(d => `┃◆ 💀 ${d.nick} [${d.rank}] defeated!`).join('\n')}
 ` +
                 `┃◆ ${survivingOpponents.length} opponent(s) remain.
 ` +
@@ -1608,8 +1581,7 @@ ${extra}╰════════════════╯`);
         const [freshA] = await db.execute("SELECT fatigue FROM players WHERE id=?", [attackerId]);
         const currentFatigue = freshA[0]?.fatigue || 0;
 
-        const healLines = results.map(r => `┃◆ 💚 ${r.nick}: +${r.healAmt} HP  ❤️ ${r.newHp}/${r.maxHp}`).join('
-');
+        const healLines = results.map(r => `┃◆ 💚 ${r.nick}: +${r.healAmt} HP  ❤️ ${r.newHp}/${r.maxHp}`).join('\n');
         const fatigueWarn = numTargets > 1 ? fatigueWarning(currentFatigue) : (currentFatigue >= 25 ? fatigueWarning(currentFatigue) : '');
 
         await trackBlessings();

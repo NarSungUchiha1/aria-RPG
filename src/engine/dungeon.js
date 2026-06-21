@@ -596,8 +596,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
-                    retaliationMessage = (retaliationMessage || '') + '
-🛡️ Blessing invincibility absorbed the hit!';
+                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
                     await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
                 }
             } catch(invErr) {}
@@ -816,8 +815,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
-                    retaliationMessage = (retaliationMessage || '') + '
-🛡️ Blessing invincibility absorbed the hit!';
+                    retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
                     await updateBlessingState(playerId, dungeonId, { invincible: Number(bStateInv.invincible) - 1 });
                 }
             } catch(invErr) {}

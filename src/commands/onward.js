@@ -228,9 +228,7 @@ module.exports = {
 ` +
                                     `┃◆
 ` +
-                                    matLines.join('
-') + '
-' +
+                                    matLines.join('\n') + '\n' +
                                     `┃◆
 ` +
                                     `┃◆ Use !materials to see your stash.
@@ -342,26 +340,17 @@ module.exports = {
                         const terr = TERRITORIES[territoryId];
                         await client.sendMessage(getRaidGroup(), {
                             text:
-                                '╔══〘 🌑 ASSAULT FAILED 〙══╗
-' +
-                                '┃★
-' +
-                                '┃★ ' + (terr ? terr.emoji + ' *' + terr.name + '*' : territoryId) + '
-' +
-                                '┃★ The assault party was overwhelmed.
-' +
-                                '┃★ The territory holds.
-' +
-                                '┃★
-' +
+                                '╔══〘 🌑 ASSAULT FAILED 〙══╗\n' +
+                                '┃★\n' +
+                                '┃★ ' + (terr ? terr.emoji + ' *' + terr.name + '*' : territoryId) + '\n' +
+                                '┃★ The assault party was overwhelmed.\n' +
+                                '┃★ The territory holds.\n' +
+                                '┃★\n' +
                                 '╚═══════════════════════════╝'
                         }).catch(() => {});
                     } else {
                         await targetChat.sendMessage(
-                            '══〘 💀 STAGE FAILED 〙══╮
-┃◆ Reinforcements have arrived!
-┃◆ The dungeon overwhelms you. You have died.
-╰═══════════════════════╯'
+                            '══〘 💀 STAGE FAILED 〙══╮\n┃◆ Reinforcements have arrived!\n┃◆ The dungeon overwhelms you. You have died.\n╰═══════════════════════╯'
                         );
                     }
                 } catch (err) { console.error("Onward failCallback error:", err); }
@@ -377,9 +366,7 @@ module.exports = {
             } catch(advErr) {
                 console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
                 await db.execute('UPDATE dungeon SET stage_cleared=0 WHERE id=?', [dungeon.id]);
-                return msg.reply('══〘 🧭 ONWARD 〙══╮
-┃◆ ❌ Failed to advance stage. Try again.
-╰═══════════════════════╯');
+                return msg.reply('══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Try again.\n╰═══════════════════════╯');
             }
 
             const isMalacharFinal = d.dungeon_rank === 'MALACHAR' && next === maxStage;
