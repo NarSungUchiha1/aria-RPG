@@ -402,9 +402,9 @@ async function lockDungeon(dungeonId) {
 
         for (const p of players) {
             await db.execute(
-                `INSERT INTO clan_blessing_state (player_id, dungeon_id, blessing_used, last_triggered, hit_count, skill_count, invincible, damage_boost)
-                 VALUES (?, ?, 0, NULL, 0, 0, 0, 0)
-                 ON DUPLICATE KEY UPDATE blessing_used=0, last_triggered=NULL, hit_count=0, skill_count=0, invincible=0, damage_boost=0`,
+                `INSERT INTO clan_blessing_state (player_id, dungeon_id, blessing_used, last_triggered, hit_count, skill_count, invincible, damage_boost, next_hit_mult, charges)
+                 VALUES (?, ?, 0, NULL, 0, 0, 0, 0, 0, 0)
+                 ON DUPLICATE KEY UPDATE blessing_used=0, last_triggered=NULL, hit_count=0, skill_count=0, invincible=0, damage_boost=0, next_hit_mult=0, charges=0`,
                 [p.player_id, dungeonId]
             );
         }

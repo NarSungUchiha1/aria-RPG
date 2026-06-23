@@ -28,6 +28,22 @@ let isBotRunning = false;
 let sock = null;
 let BOT_NUMBER = '';
 let BOT_LID    = '';
+let lastConnectedAt = null;
+
+// Watchdog — if bot claims to be running but hasn't connected in 3 minutes, force reset
+setInterval(() => {
+    if (isBotRunning && !isReady) {
+        const timeSinceAttempt = lastConnectedAt ? Date.now() - lastConnectedAt : Infinity;
+        if (timeSinceAttempt > 3 * 60 * 1000) {
+            console.log('🔁 Watchdog: bot stuck in connecting state — forcing reset...');
+            isBotRunning = false;
+            try { sock?.ev?.removeAllListeners(); } catch(e) {}
+            try { sock?.ws?.close(); } catch(e) {}
+            sock = null;
+            startBot();
+        }
+    }
+}, 60 * 1000); // check every minute
 
 // ✅ Simple player cache
 const playerCache = new Map();
@@ -271,6 +287,7 @@ async function useMySQLAuthState() {
 async function startBot() {
     if (isBotRunning) return;
     isBotRunning = true;
+    lastConnectedAt = Date.now();
 
     try {
         try {
@@ -939,6 +956,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 process.on('SIGTERM', () => {
     console.log('⚠️ SIGTERM received — Render is restarting the service.');
+    // Give existing operations 5 seconds to finish then exit cleanly
+    setTimeout(() => process.exit(0), 5000);
 });
 
 process.on('exit', (code) => {
