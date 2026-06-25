@@ -538,18 +538,30 @@ async function startBot() {
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
             const quotedNum = quotedParticipant.replace(/@[^@]+$/, '').split(':')[0].trim();
 
-            const botMentioned = mentionedJids.some(j => {
-                const jNum = j.replace(/@[^@]+$/, '').split(':')[0].trim();
-                return (BOT_NUMBER && jNum === BOT_NUMBER) ||
-                       (BOT_LID    && jNum === BOT_LID);
-            }) || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
-               || (BOT_LID    && text.includes(`@${BOT_LID}`))
-               || /^@aria/i.test(text.trim())
-               || text.toLowerCase().includes('@aria ')
-               || text.toLowerCase() === '@aria';
+            // ── Aria trigger — name-based, no tagging required ───────────────────
+            const textLower = text.trim().toLowerCase();
 
-            if (text.toLowerCase().includes('aria') || mentionedJids.length > 0) {
-                console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned} mentionedJids=${JSON.stringify(mentionedJids)}`);
+            // Trigger if message starts with her name or a clear call
+            const ARIA_NAMES = /^(aria|hey aria|oi aria|yo aria|aria[,!?])/i;
+
+            // Also trigger if the whole message sounds like she's being addressed:
+            // short message that contains "aria" anywhere (e.g. "aria what's my rank?")
+            // or a question/statement that starts with aria-adjacent phrasing
+            const ariaInText = textLower.includes('aria');
+            const startsWithAria = ARIA_NAMES.test(text.trim());
+            const shortAriaMsg  = ariaInText && text.trim().split(/\s+/).length <= 12;
+
+            const botMentioned = startsWithAria || shortAriaMsg
+               || mentionedJids.some(j => {
+                    const jNum = j.replace(/@[^@]+$/, '').split(':')[0].trim();
+                    return (BOT_NUMBER && jNum === BOT_NUMBER) ||
+                           (BOT_LID    && jNum === BOT_LID);
+                })
+               || (BOT_NUMBER && text.includes(`@${BOT_NUMBER}`))
+               || (BOT_LID    && text.includes(`@${BOT_LID}`));
+
+            if (ariaInText || mentionedJids.length > 0) {
+                console.log(`[ARIA debug] BOT_NUMBER=${BOT_NUMBER} BOT_LID=${BOT_LID} botMentioned=${botMentioned} startsWithAria=${startsWithAria} shortAriaMsg=${shortAriaMsg}`);
             }
 
             const isReplyToBot = (BOT_NUMBER && quotedNum === BOT_NUMBER) ||
@@ -561,7 +573,8 @@ async function startBot() {
                 || QUESTION_STARTERS.test(stripped)
                 || stripped.split(/\s+/).filter(Boolean).length >= 6;
 
-            if (botMentioned || (isReplyToBot && !text.startsWith('!') && isAskingQuestion)) {
+            // Reply to Aria's message = always follow up, no question check needed
+            if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
                 let question = text;
                 const nonBotMentions = mentionedJids.filter(j => {
                     const n = j.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -598,6 +611,13 @@ async function startBot() {
                             witnessMessage(userId, nick, text, jid, groupName).catch(() => {});
                         }
                     } catch {}
+                    return;
+                }
+                // DM with plain text (no ! prefix, no @aria mention) — route to Aria directly
+                if (!jid.endsWith('@g.us')) {
+                    const { handleAriaCommand } = require('./src/systems/aiSystems');
+                    const isAdmin = (global.ADMINS || ADMINS).includes(userId);
+                    await handleAriaCommand(sock, jid, msg, userId, text, { isAdmin, blockedSet: BLOCKED_USERS });
                 }
                 return;
             }
