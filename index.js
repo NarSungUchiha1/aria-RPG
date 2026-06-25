@@ -23,8 +23,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 let lastQR = '';
 let lastPairingCode = '';
-let isReady = false;
-let isBotRunning = false;
+let isReady        = false;
+let isBotRunning   = false;
+let pairAttempts   = 0;
+const MAX_PAIR_ATTEMPTS = 3;
 let sock = null;
 let BOT_NUMBER = '';
 let BOT_LID    = '';
@@ -362,9 +364,14 @@ async function startBot() {
                 sock = null;
 
                 if (statusCode === DisconnectReason.loggedOut) {
-                    console.log('🔄 Logged out. Clearing session for fresh pair...');
+                    pairAttempts++;
+                    console.log(`🔄 Logged out. Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-                    setTimeout(() => startBot(), 5000);
+                    if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
+                        console.log('🛑 Too many failed pair attempts — bot stopped. Restart manually on Render.');
+                        return; // Stop the loop
+                    }
+                    setTimeout(() => startBot(), 10000);
                 } else if (statusCode === 515) {
                     // 515 = restart required — WhatsApp asking for clean reconnect
                     console.log('🔄 Restart required (515) — reconnecting in 3s...');
@@ -379,6 +386,7 @@ async function startBot() {
                     setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
+                pairAttempts = 0; // Reset on successful connect
                 const rawId  = sock.user?.id  || '';
                 const rawLid = sock.user?.lid || '';
                 BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
@@ -519,6 +527,7 @@ async function startBot() {
         });
 
         sock.ev.on('messages.upsert', async ({ messages, type }) => {
+          try {
             const msg = messages[0];
             if (!msg) return;
             if (!msg.message || msg.key.fromMe) return;
@@ -850,6 +859,9 @@ async function startBot() {
                 playerCache.delete(userId);
                 await sock.sendMessage(jid, { text: "❌ An error occurred." }, isDM ? {} : { quoted: msg });
             }
+          } catch (fatalErr) {
+              console.error('[FATAL MSG HANDLER ERROR]', fatalErr?.message || fatalErr);
+          }
         });
 
         // ==================== REFERRAL TRACKING ====================
