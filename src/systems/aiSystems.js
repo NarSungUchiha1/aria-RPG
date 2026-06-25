@@ -86,8 +86,8 @@ async function getHistory(userId) {
         await db.execute(CREATE_CONV_TABLE).catch(() => {});
         const [rows] = await db.execute(
             `SELECT role, content FROM aria_conversations
-             WHERE player_id = ? ORDER BY created_at DESC LIMIT ?`,
-            [userId, CONV_LOAD]
+             WHERE player_id = ? ORDER BY created_at DESC LIMIT ${parseInt(CONV_LOAD)}`,
+            [userId]
         );
         const history = rows.reverse().map(r => ({ role: r.role, content: r.content }));
         if (history.length) console.log(`[ARIA memory] Loaded ${history.length} messages for ${userId}`);
