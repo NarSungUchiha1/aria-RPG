@@ -6,6 +6,7 @@
  * She's not reactive — she's deliberate.
  */
 
+const db = require('../database/db');
 const { remember, recallRecent, getIdentity, setWorldState, getWorldState } = require('./ariaMemory');
 
 // ── What ARIA witnesses and files away ────────────────────────────────────────

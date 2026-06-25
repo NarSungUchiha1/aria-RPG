@@ -1,6 +1,7 @@
 const db   = require('../database/db');
 const fs   = require('fs');
 const path = require('path');
+const safeQuote = (jid, msg) => jid?.endsWith('@g.us') ? { quoted: msg } : {};
 
 const DB_SCHEMA = `
 players: id, nickname, role, rank(F/E/D/C/B/A/S/PF-PS), hp, max_hp, strength, agility, intelligence, stamina, fatigue(0-100 absolute integer — 0=fresh, 100=exhausted. NEVER multiply. "50%" means SET fatigue=50), sp, prestige_level, pvp_wins, pvp_losses, title
@@ -134,7 +135,7 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
     if (!instruction?.trim()) {
         await sock.sendMessage(jid, {
             text: `Master. What do you require?`
-        }, { quoted: msg });
+        }, safeQuote(jid, msg));
         return true;
     }
 
@@ -305,13 +306,13 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
 
         // Combine and send
         const full = [cleanReply, ...results].filter(Boolean).join('\n\n');
-        await sock.sendMessage(jid, { text: full || '✅' }, { quoted: msg });
+        await sock.sendMessage(jid, { text: full || '✅' }, safeQuote(jid, msg));
 
     } catch (err) {
         console.error('[ARIA adminAI] Error:', err.message);
         await sock.sendMessage(jid, {
             text: `Something went wrong 😅 — ${err.message}`
-        }, { quoted: msg });
+        }, safeQuote(jid, msg));
     }
     return true;
 }

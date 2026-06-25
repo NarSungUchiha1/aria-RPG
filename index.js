@@ -643,6 +643,10 @@ async function startBot() {
 
             if (BLOCKED_USERS.has(userId)) return;
 
+            const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            const isDM        = !jid.endsWith('@g.us');
+            const isRaidGroup = jid === RAID_GROUP;
+
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
 
             if (global.isLockdown && !isAdmin && cmdName !== 'lockdown') {
@@ -658,10 +662,6 @@ async function startBot() {
                 }, isDM ? {} : { quoted: msg });
                 return;
             }
-
-            const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const isDM        = !jid.endsWith('@g.us');
-            const isRaidGroup = jid === RAID_GROUP;
 
             // ── Test group bypasses all GC restrictions ──────────────────
             const isTestGroup = jid === TEST_GROUP_JID;
