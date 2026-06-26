@@ -87,9 +87,9 @@ async function claimStarterPack(playerId, role, prestigeLevel) {
          weapon.durability, weapon.durability]
     );
 
-    // Mark as claimed
+    // Mark as claimed — ignore if already exists (race condition guard)
     await db.execute(
-        "INSERT INTO prestige_starter_claimed (player_id, prestige_level) VALUES (?, ?)",
+        "INSERT IGNORE INTO prestige_starter_claimed (player_id, prestige_level) VALUES (?, ?)",
         [playerId, prestigeLevel]
     );
 
