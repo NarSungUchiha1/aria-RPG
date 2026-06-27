@@ -769,15 +769,13 @@ async function startBot() {
                         ? { text: content, mentions: finalMentions }
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    // Always send to rawJid (original from WhatsApp) — no transformation
-                    // This preserves @lid, @s.whatsapp.net, whatever WhatsApp gave us
-                    const sendJid = isDM ? rawJid : jid;
+                    // jid is already normalized — @lid restored if it was stripped
                     try {
-                        const result = await sock.sendMessage(sendJid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM REPLY] sent to ${sendJid} | ok`);
+                        const result = await sock.sendMessage(jid, messageContent, sendOpts);
+                        if (isDM) console.log(`[DM REPLY] sent to ${jid} | ok`);
                         return result;
                     } catch (sendErr) {
-                        console.error(`[DM REPLY ERROR] sendJid=${sendJid} err=${sendErr?.message}`);
+                        console.error(`[DM REPLY ERROR] jid=${jid} err=${sendErr?.message}`);
                     }
                 },
 
