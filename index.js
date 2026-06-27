@@ -27,6 +27,7 @@ let isReady        = false;
 let isBotRunning   = false;
 let pairAttempts   = 0;
 const MAX_PAIR_ATTEMPTS = 3;
+let lastWas401 = false;
 let sock = null;
 let BOT_NUMBER = '';
 let BOT_LID    = '';
@@ -296,9 +297,10 @@ async function startBot() {
             const [credRows] = await db.execute(
                 "SELECT data_key FROM wa_sessions WHERE id='aria-bot' AND data_key='creds' LIMIT 1"
             );
-            if (!credRows.length) {
+            if (!credRows.length || lastWas401) {
                 await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
-                console.log('🧹 No creds found — session wiped for fresh start.');
+                lastWas401 = false;
+                console.log('🧹 No creds found (or stale 401 session) — session wiped for fresh start.');
             }
         } catch (e) {}
 
@@ -379,6 +381,7 @@ async function startBot() {
                 } else if (statusCode === 401) {
                     // 401 = unauthorized — treat same as loggedOut, wipe and stop
                     pairAttempts++;
+                    lastWas401 = true;
                     console.log(`🔄 Unauthorized (401). Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
                     if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
@@ -824,13 +827,10 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
-                    // ── ADDED: swap userId to demo account if tester session active ──
+                    // effectiveUserId already resolved above — just handle mentionedIds swap here
                     if (isTestGroup && cmdName !== 'tester' && cmdName !== 'testmode') {
                         try {
                             const { activeTesterSessions } = require('./src/commands/tester');
-                            if (activeTesterSessions?.has(userId)) {
-                                effectiveUserId = activeTesterSessions.get(userId);
-                            }
                             // Swap mentioned players to their demo IDs so !duel targets _test accounts
                             const origMentionedIds = fakeMsg.mentionedIds;
                             Object.defineProperty(fakeMsg, 'mentionedIds', {
