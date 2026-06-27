@@ -544,8 +544,10 @@ async function startBot() {
             if (!msg.message || msg.key.fromMe) return;
 
             const rawJid = msg.key.remoteJid;
-            // Keep @lid JID as-is for sending — WhatsApp LID accounts must receive on @lid
-            const jid = rawJid;
+            // Fix malformed LID JIDs — WhatsApp sometimes sends '123alid' instead of '123@lid'
+            const jid = rawJid?.endsWith('alid') && !rawJid.includes('@')
+                ? rawJid.replace('alid', '@lid')
+                : rawJid;
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
