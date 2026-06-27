@@ -59,7 +59,7 @@ module.exports = {
             // Only spawn after NORMAL dungeons
             const [closedRankRow] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]);
             if (!closedRankRow[0]?.dungeon_rank?.startsWith('P')) {
-                trySpawnPrestigeDungeon(client, PRESTIGE_RG).catch(e => console.error('★ Prestige spawn error (closeDungeon):', e.message));
+                trySpawnPrestigeDungeon(client, getRaidGroup()).catch(e => console.error('★ Prestige spawn error (closeDungeon):', e.message));
             }
 
             return msg.reply(
