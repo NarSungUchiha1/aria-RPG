@@ -760,10 +760,14 @@ async function startBot() {
                     const messageContent = typeof content === 'string'
                         ? { text: content, mentions: finalMentions }
                         : content;
-                    // DMs don't support quoted messages the same way groups do —
-                    // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    return await sock.sendMessage(jid, messageContent, sendOpts);
+                    try {
+                        const result = await sock.sendMessage(jid, messageContent, sendOpts);
+                        if (isDM) console.log(`[DM REPLY] sent to ${jid} | ok`);
+                        return result;
+                    } catch (sendErr) {
+                        console.error(`[DM REPLY ERROR] jid=${jid} isDM=${isDM} err=${sendErr?.message}`);
+                    }
                 },
 
                 get mentionedIds() {
