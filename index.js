@@ -544,14 +544,11 @@ async function startBot() {
             if (!msg.message || msg.key.fromMe) return;
 
             const rawJid = msg.key.remoteJid;
-            // Baileys 6.7.18 doesn't support sending to @lid JIDs
-            // WhatsApp sends DMs as '123alid' (no @) or '123@lid' — both need converting to @s.whatsapp.net
-            let jid = rawJid;
-            if (rawJid && !rawJid.endsWith('@g.us')) {
-                // Strip any lid suffix and normalize to @s.whatsapp.net for DMs
-                const numPart = rawJid.replace(/@lid$/, '').replace(/alid$/, '').replace(/@s\.whatsapp\.net$/, '').split(':')[0];
-                jid = numPart + '@s.whatsapp.net';
-            }
+            // WhatsApp sometimes strips the @ from @lid JIDs: '123alid' instead of '123@lid'
+            // Fix it so Baileys can route it correctly
+            const jid = (rawJid && rawJid.endsWith('alid') && !rawJid.includes('@'))
+                ? rawJid.slice(0, -4) + '@lid'
+                : rawJid;
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
@@ -561,6 +558,9 @@ async function startBot() {
 
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
+            if (!jid.endsWith('@g.us')) {
+                console.log(`[DM DEBUG] rawJid=${rawJid} | jid=${jid} | senderJid=${senderJid} | participant=${msg.key.participant}`);
+            }
 
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
@@ -769,29 +769,15 @@ async function startBot() {
                         ? { text: content, mentions: finalMentions }
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    if (isDM) {
-                        // Try sending to original rawJid first (preserves @lid for LID accounts)
-                        // Fall back to normalized @s.whatsapp.net if that fails
-                        try {
-                            const result = await sock.sendMessage(rawJid, messageContent, sendOpts);
-                            console.log(`[DM REPLY] sent to ${rawJid} | ok`);
-                            return result;
-                        } catch (lidErr) {
-                            console.log(`[DM REPLY] rawJid failed (${rawJid}), trying normalized...`);
-                            try {
-                                const result = await sock.sendMessage(jid, messageContent, sendOpts);
-                                console.log(`[DM REPLY] sent to ${jid} | ok (fallback)`);
-                                return result;
-                            } catch (sendErr) {
-                                console.error(`[DM REPLY ERROR] both failed: ${sendErr?.message}`);
-                            }
-                        }
-                    } else {
-                        try {
-                            return await sock.sendMessage(jid, messageContent, sendOpts);
-                        } catch (sendErr) {
-                            console.error(`[DM REPLY ERROR] jid=${jid} err=${sendErr?.message}`);
-                        }
+                    // Always send to rawJid (original from WhatsApp) — no transformation
+                    // This preserves @lid, @s.whatsapp.net, whatever WhatsApp gave us
+                    const sendJid = isDM ? rawJid : jid;
+                    try {
+                        const result = await sock.sendMessage(sendJid, messageContent, sendOpts);
+                        if (isDM) console.log(`[DM REPLY] sent to ${sendJid} | ok`);
+                        return result;
+                    } catch (sendErr) {
+                        console.error(`[DM REPLY ERROR] sendJid=${sendJid} err=${sendErr?.message}`);
                     }
                 },
 
