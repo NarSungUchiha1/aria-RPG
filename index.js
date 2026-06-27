@@ -376,11 +376,19 @@ async function startBot() {
                     // 515 = restart required — WhatsApp asking for clean reconnect
                     console.log('🔄 Restart required (515) — reconnecting in 3s...');
                     setTimeout(() => startBot(), 3000);
+                } else if (statusCode === 401) {
+                    // 401 = unauthorized — treat same as loggedOut, wipe and stop
+                    pairAttempts++;
+                    console.log(`🔄 Unauthorized (401). Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
+                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+                    if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
+                        console.log('🛑 Too many failed attempts — bot stopped. Restart manually on Render.');
+                        return;
+                    }
+                    setTimeout(() => startBot(), 15000);
                 } else {
                     const delay = statusCode === 440
                         ? 15000 + Math.floor(Math.random() * 10000)
-                        : statusCode === 401
-                        ? 8000 + Math.floor(Math.random() * 5000)
                         : 5000 + Math.floor(Math.random() * 5000);
                     console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
                     setTimeout(() => startBot(), delay);
