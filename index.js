@@ -542,11 +542,7 @@ async function startBot() {
             if (!msg) return;
             if (!msg.message || msg.key.fromMe) return;
 
-            const rawJid = msg.key.remoteJid;
-            // WhatsApp strips @ from @lid JIDs: '123alid' → fix to '123@lid'
-            const jid = (rawJid && rawJid.endsWith('alid') && !rawJid.includes('@'))
-                ? rawJid.slice(0, -4) + '@lid'
-                : rawJid;
+            const jid = msg.key.remoteJid;
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
