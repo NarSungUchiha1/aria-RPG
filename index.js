@@ -543,7 +543,11 @@ async function startBot() {
             if (!msg) return;
             if (!msg.message || msg.key.fromMe) return;
 
-            const jid = msg.key.remoteJid;
+            const rawJid = msg.key.remoteJid;
+            // Normalize @lid DM JIDs to @s.whatsapp.net — WhatsApp LID privacy routing
+            const jid = rawJid?.endsWith('@lid')
+                ? rawJid.replace('@lid', '@s.whatsapp.net')
+                : rawJid;
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
