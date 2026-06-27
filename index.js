@@ -769,12 +769,29 @@ async function startBot() {
                         ? { text: content, mentions: finalMentions }
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    try {
-                        const result = await sock.sendMessage(jid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM REPLY] sent to ${jid} | ok`);
-                        return result;
-                    } catch (sendErr) {
-                        console.error(`[DM REPLY ERROR] jid=${jid} isDM=${isDM} err=${sendErr?.message}`);
+                    if (isDM) {
+                        // Try sending to original rawJid first (preserves @lid for LID accounts)
+                        // Fall back to normalized @s.whatsapp.net if that fails
+                        try {
+                            const result = await sock.sendMessage(rawJid, messageContent, sendOpts);
+                            console.log(`[DM REPLY] sent to ${rawJid} | ok`);
+                            return result;
+                        } catch (lidErr) {
+                            console.log(`[DM REPLY] rawJid failed (${rawJid}), trying normalized...`);
+                            try {
+                                const result = await sock.sendMessage(jid, messageContent, sendOpts);
+                                console.log(`[DM REPLY] sent to ${jid} | ok (fallback)`);
+                                return result;
+                            } catch (sendErr) {
+                                console.error(`[DM REPLY ERROR] both failed: ${sendErr?.message}`);
+                            }
+                        }
+                    } else {
+                        try {
+                            return await sock.sendMessage(jid, messageContent, sendOpts);
+                        } catch (sendErr) {
+                            console.error(`[DM REPLY ERROR] jid=${jid} err=${sendErr?.message}`);
+                        }
                     }
                 },
 
