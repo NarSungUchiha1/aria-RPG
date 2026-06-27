@@ -544,10 +544,14 @@ async function startBot() {
             if (!msg.message || msg.key.fromMe) return;
 
             const rawJid = msg.key.remoteJid;
-            // Fix malformed LID JIDs — WhatsApp sometimes sends '123alid' instead of '123@lid'
-            const jid = rawJid?.endsWith('alid') && !rawJid.includes('@')
-                ? rawJid.replace('alid', '@lid')
-                : rawJid;
+            // Baileys 6.7.18 doesn't support sending to @lid JIDs
+            // WhatsApp sends DMs as '123alid' (no @) or '123@lid' — both need converting to @s.whatsapp.net
+            let jid = rawJid;
+            if (rawJid && !rawJid.endsWith('@g.us')) {
+                // Strip any lid suffix and normalize to @s.whatsapp.net for DMs
+                const numPart = rawJid.replace(/@lid$/, '').replace(/alid$/, '').replace(/@s\.whatsapp\.net$/, '').split(':')[0];
+                jid = numPart + '@s.whatsapp.net';
+            }
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
