@@ -544,10 +544,8 @@ async function startBot() {
             if (!msg.message || msg.key.fromMe) return;
 
             const rawJid = msg.key.remoteJid;
-            // Normalize @lid DM JIDs to @s.whatsapp.net — WhatsApp LID privacy routing
-            const jid = rawJid?.endsWith('@lid')
-                ? rawJid.replace('@lid', '@s.whatsapp.net')
-                : rawJid;
+            // Keep @lid JID as-is for sending — WhatsApp LID accounts must receive on @lid
+            const jid = rawJid;
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
@@ -688,7 +686,7 @@ async function startBot() {
             if (BLOCKED_USERS.has(userId)) return;
 
             const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const isDM        = !jid.endsWith('@g.us');
+            const isDM        = !jid.endsWith('@g.us'); // includes @lid and @s.whatsapp.net
             const isRaidGroup = jid === RAID_GROUP;
 
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
