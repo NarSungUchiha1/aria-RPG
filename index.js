@@ -762,13 +762,17 @@ async function startBot() {
                     // DMs don't support quoted messages the same way groups do —
                     // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    if (isDM) console.log(`[DM SEND] jid="${jid}" isDM=${isDM}`);
+                    // Fix malformed LID JID: '123alid' → '123@lid' for proper Baileys routing
+                    const sendJid = (isDM && jid && jid.endsWith('alid') && !jid.includes('@'))
+                        ? jid.slice(0, -4) + '@lid'
+                        : jid;
+                    if (isDM) console.log(`[DM SEND] jid="${jid}" sendJid="${sendJid}" isDM=${isDM}`);
                     try {
-                        const r = await sock.sendMessage(jid, messageContent, sendOpts);
+                        const r = await sock.sendMessage(sendJid, messageContent, sendOpts);
                         if (isDM) console.log(`[DM SEND] ok`);
                         return r;
                     } catch(e) {
-                        console.error(`[DM SEND ERROR] ${e?.message} | jid=${jid}`);
+                        console.error(`[DM SEND ERROR] ${e?.message} | sendJid=${sendJid}`);
                     }
                 },
 
