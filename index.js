@@ -300,7 +300,7 @@ async function startBot() {
             if (!credRows.length || lastWas401) {
                 await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'");
                 lastWas401 = false;
-                console.log('🧹 No creds found (or stale 401 session) — session wiped for fresh start.');
+                console.log('🧹 No creds / stale 401 session — wiped for fresh start.');
             }
         } catch (e) {}
 
@@ -379,7 +379,6 @@ async function startBot() {
                     console.log('🔄 Restart required (515) — reconnecting in 3s...');
                     setTimeout(() => startBot(), 3000);
                 } else if (statusCode === 401) {
-                    // 401 = unauthorized — treat same as loggedOut, wipe and stop
                     pairAttempts++;
                     lastWas401 = true;
                     console.log(`🔄 Unauthorized (401). Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
@@ -544,8 +543,7 @@ async function startBot() {
             if (!msg.message || msg.key.fromMe) return;
 
             const rawJid = msg.key.remoteJid;
-            // WhatsApp sometimes strips the @ from @lid JIDs: '123alid' instead of '123@lid'
-            // Fix it so Baileys can route it correctly
+            // WhatsApp strips @ from @lid JIDs: '123alid' → fix to '123@lid'
             const jid = (rawJid && rawJid.endsWith('alid') && !rawJid.includes('@'))
                 ? rawJid.slice(0, -4) + '@lid'
                 : rawJid;
@@ -558,9 +556,6 @@ async function startBot() {
 
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
-            if (!jid.endsWith('@g.us')) {
-                console.log(`[DM DEBUG] rawJid=${rawJid} | jid=${jid} | senderJid=${senderJid} | participant=${msg.key.participant}`);
-            }
 
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
@@ -692,7 +687,7 @@ async function startBot() {
             if (BLOCKED_USERS.has(userId)) return;
 
             const RAID_GROUP  = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const isDM        = !jid.endsWith('@g.us'); // includes @lid and @s.whatsapp.net
+            const isDM        = !jid.endsWith('@g.us');
             const isRaidGroup = jid === RAID_GROUP;
 
             const isAdmin = (global.ADMINS || ADMINS).includes(userId);
@@ -768,15 +763,10 @@ async function startBot() {
                     const messageContent = typeof content === 'string'
                         ? { text: content, mentions: finalMentions }
                         : content;
+                    // DMs don't support quoted messages the same way groups do —
+                    // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    // jid is already normalized — @lid restored if it was stripped
-                    try {
-                        const result = await sock.sendMessage(jid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM REPLY] sent to ${jid} | ok`);
-                        return result;
-                    } catch (sendErr) {
-                        console.error(`[DM REPLY ERROR] jid=${jid} err=${sendErr?.message}`);
-                    }
+                    return await sock.sendMessage(jid, messageContent, sendOpts);
                 },
 
                 get mentionedIds() {
@@ -840,10 +830,13 @@ async function startBot() {
                 } catch(e) {}
 
                 await enqueueCommand(userId, async () => {
-                    // effectiveUserId already resolved above — just handle mentionedIds swap here
+                    // ── ADDED: swap userId to demo account if tester session active ──
                     if (isTestGroup && cmdName !== 'tester' && cmdName !== 'testmode') {
                         try {
                             const { activeTesterSessions } = require('./src/commands/tester');
+                            if (activeTesterSessions?.has(userId)) {
+                                effectiveUserId = activeTesterSessions.get(userId);
+                            }
                             // Swap mentioned players to their demo IDs so !duel targets _test accounts
                             const origMentionedIds = fakeMsg.mentionedIds;
                             Object.defineProperty(fakeMsg, 'mentionedIds', {
