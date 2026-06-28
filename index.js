@@ -763,10 +763,14 @@ async function startBot() {
                     // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
                     // Fix malformed LID JID: '123alid' → '123@lid' for proper Baileys routing
-                    const sendJid = (isDM && jid && jid.endsWith('alid') && !jid.includes('@'))
-                        ? jid.slice(0, -4) + '@lid'
-                        : jid;
-                    if (isDM) console.log(`[DM SEND] jid="${jid}" sendJid="${sendJid}" isDM=${isDM}`);
+                    const jidBytes = Buffer.from(String(jid || '')).toString('hex');
+                    const jidStr = String(jid || '');
+                    const endsAlid = jidStr.endsWith('alid');
+                    const hasAt = jidStr.includes('@');
+                    const sendJid = (isDM && jidStr && endsAlid && !hasAt)
+                        ? jidStr.slice(0, -4) + '@lid'
+                        : jidStr;
+                    if (isDM) console.log(`[DM SEND] raw="${jid}" type=${typeof jid} hex=${jidBytes.slice(-16)} endsAlid=${endsAlid} hasAt=${hasAt} sendJid="${sendJid}"`);
                     try {
                         const r = await sock.sendMessage(sendJid, messageContent, sendOpts);
                         if (isDM) console.log(`[DM SEND] ok`);
