@@ -163,26 +163,29 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
-// Convert any malformed or LID-based DM JID to the canonical @s.whatsapp.net form
-// WhatsApp's LID system can produce: '53635887153297@lid' or '53635887153297alid' (missing @)
-// Baileys silently accepts sends to @lid but WhatsApp never delivers them
-// The fix: always resolve DM JIDs to @s.whatsapp.net using the numeric part
+// Convert LID-based DM JID to @c.us (contact JID for LID sessions)
+// WhatsApp's LID system produces: '53635887153297@lid' or '53635887153297alid' (malformed, missing @)
+// For LID sessions, user DMs must be sent to @c.us, NOT @s.whatsapp.net (WhatsApp silently rejects those)
 function normalizeDMJid(jid) {
     if (!jid) return jid;
     const str = String(jid).trim();
-    // Already correct — group or standard user JID
-    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net')) return str;
+    // Groups stay as @g.us
+    if (str.endsWith('@g.us')) return str;
     // Malformed LID missing @ → '53635887153297alid'
     const malformedLid = str.match(/^(\d+)alid$/);
-    if (malformedLid) return `${malformedLid[1]}@s.whatsapp.net`;
+    if (malformedLid) return `${malformedLid[1]}@c.us`;
     // Proper LID format → '53635887153297@lid'
     const properLid = str.match(/^(\d+)@lid$/);
-    if (properLid) return `${properLid[1]}@s.whatsapp.net`;
-    // Unknown suffix with @ — extract numeric part and assume user JID
+    if (properLid) return `${properLid[1]}@c.us`;
+    // If it already has @s.whatsapp.net, convert to @c.us for LID
+    if (str.includes('@s.whatsapp.net')) return str.replace('@s.whatsapp.net', '@c.us');
+    // Already @c.us
+    if (str.endsWith('@c.us')) return str;
+    // Unknown suffix with @ — extract numeric part and use @c.us for LID safety
     const anyAt = str.match(/^(\d+)@/);
-    if (anyAt) return `${anyAt[1]}@s.whatsapp.net`;
+    if (anyAt) return `${anyAt[1]}@c.us`;
     // Bare number
-    if (/^\d+$/.test(str)) return `${str}@s.whatsapp.net`;
+    if (/^\d+$/.test(str)) return `${str}@c.us`;
     return str;
 }
 
