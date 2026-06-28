@@ -1,4 +1,4 @@
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 
 module.exports = {
     name: 'lockdown',
@@ -18,7 +18,7 @@ module.exports = {
                 `╰═══════════════════════╯`
             );
 
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `╭══〘 🌍📍 ARIA SYSTEM NOTICE 〙══╮\n` +
                     `┃◆ \n` +
@@ -49,7 +49,7 @@ module.exports = {
                 `╰═══════════════════════╯`
             );
 
-            await client.sendMessage(RAID_GROUP, {
+            await client.sendMessage(getRaidGroup(), {
                 text:
                     `╭══〘 🌍📍 ARIA SYSTEM NOTICE 〙══╮\n` +
                     `┃◆ \n` +

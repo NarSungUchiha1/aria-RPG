@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 
 // ── Boss Lore Pool ────────────────────────────────────────────────────────────
 const WORLD_BOSSES = [
@@ -157,7 +157,7 @@ async function spawnWorldBoss(client) {
         let mentions = [];
         try { const t = await tagAll(client); mentions = t.mentions || []; } catch(e) { console.log('tagAll failed, continuing without mentions.'); }
 
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 `╭══〘 ⚠️ WORLD BOSS ALERT 〙══╮\n` +
                 `┃◆ \n` +

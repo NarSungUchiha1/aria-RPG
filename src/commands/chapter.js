@@ -1,5 +1,5 @@
 const { getCurrentChapter, setChapter, getChapterData, CHAPTERS } = require('../systems/loreSystem');
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 const { tagAll } = require('../utils/tagAll');
 
 module.exports = {
@@ -51,7 +51,7 @@ module.exports = {
         // ✅ Dramatic chapter announcement to GC
         const { mentions } = await tagAll(client);
 
-        await client.sendMessage(RAID_GROUP, {
+        await client.sendMessage(getRaidGroup(), {
             text:
                 `╭══〘 📖 ARIA — NEW CHAPTER 〙══╮\n` +
                 `┃◆ \n` +

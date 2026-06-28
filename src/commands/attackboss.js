@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { attackWorldBoss, getActiveWorldBoss, distributeWorldBossRewards } = require('../systems/worldBossSystem');
-const { RAID_GROUP } = require('../engine/dungeon');
+const { getRaidGroup } = require('../engine/dungeon');
 
 module.exports = {
     name: 'attackboss',
@@ -64,7 +64,7 @@ module.exports = {
                 // Build and send leaderboard to GC
                 const announcement = await distributeWorldBossRewards(boss.id);
                 if (announcement && client) {
-                    await client.sendMessage(RAID_GROUP, { text: announcement });
+                    await client.sendMessage(getRaidGroup(), { text: announcement });
                 }
             } else {
                 return msg.reply(
