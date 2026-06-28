@@ -789,11 +789,15 @@ async function startBot() {
                     const messageContent = typeof content === 'string'
                         ? { text: content, mentions: finalMentions }
                         : content;
-                    // DMs don't support quoted messages the same way groups do —
-                    // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    // jid is already normalized to @s.whatsapp.net by normalizeDMJid() above
-                    if (isDM) console.log(`[DM SEND] jid="${jid}"`);
+                    if (isDM) {
+                        console.log(`[DM SEND] jid="${jid}" — warming contact...`);
+                        try {
+                            // Fetch contact to warm up the connection before sending
+                            await sock.getContactsList().catch(() => {});
+                            await sock.onWhatsApp(jid.split('@')[0]).catch(() => {});
+                        } catch(e) {}
+                    }
                     try {
                         const r = await sock.sendMessage(jid, messageContent, sendOpts);
                         if (isDM) console.log(`[DM SEND] ok`);
