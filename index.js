@@ -163,6 +163,29 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
+// Convert any malformed or LID-based DM JID to the canonical @s.whatsapp.net form
+// WhatsApp's LID system can produce: '53635887153297@lid' or '53635887153297alid' (missing @)
+// Baileys silently accepts sends to @lid but WhatsApp never delivers them
+// The fix: always resolve DM JIDs to @s.whatsapp.net using the numeric part
+function normalizeDMJid(jid) {
+    if (!jid) return jid;
+    const str = String(jid).trim();
+    // Already correct — group or standard user JID
+    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net')) return str;
+    // Malformed LID missing @ → '53635887153297alid'
+    const malformedLid = str.match(/^(\d+)alid$/);
+    if (malformedLid) return `${malformedLid[1]}@s.whatsapp.net`;
+    // Proper LID format → '53635887153297@lid'
+    const properLid = str.match(/^(\d+)@lid$/);
+    if (properLid) return `${properLid[1]}@s.whatsapp.net`;
+    // Unknown suffix with @ — extract numeric part and assume user JID
+    const anyAt = str.match(/^(\d+)@/);
+    if (anyAt) return `${anyAt[1]}@s.whatsapp.net`;
+    // Bare number
+    if (/^\d+$/.test(str)) return `${str}@s.whatsapp.net`;
+    return str;
+}
+
 const DUNGEON_GC_ONLY = new Set([
     'dungeon', 'begin', 'onward',
     'clear', 'closedungeon', 'attackboss', 'worldboss'
@@ -542,7 +565,7 @@ async function startBot() {
             if (!msg) return;
             if (!msg.message || msg.key.fromMe) return;
 
-            const jid = msg.key.remoteJid;
+            const jid = normalizeDMJid(msg.key.remoteJid); // LID fix: normalize before ANY use
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
@@ -762,21 +785,14 @@ async function startBot() {
                     // DMs don't support quoted messages the same way groups do —
                     // quoting in a DM with no participant key causes silent send failures
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    // Fix malformed LID JID: '123alid' → '123@lid' for proper Baileys routing
-                    const jidBytes = Buffer.from(String(jid || '')).toString('hex');
-                    const jidStr = String(jid || '');
-                    const endsAlid = jidStr.endsWith('alid');
-                    const hasAt = jidStr.includes('@');
-                    const sendJid = (isDM && jidStr && endsAlid && !hasAt)
-                        ? jidStr.slice(0, -4) + '@lid'
-                        : jidStr;
-                    if (isDM) console.log(`[DM SEND] raw="${jid}" type=${typeof jid} hex=${jidBytes.slice(-16)} endsAlid=${endsAlid} hasAt=${hasAt} sendJid="${sendJid}"`);
+                    // jid is already normalized to @s.whatsapp.net by normalizeDMJid() above
+                    if (isDM) console.log(`[DM SEND] jid="${jid}"`);
                     try {
-                        const r = await sock.sendMessage(sendJid, messageContent, sendOpts);
+                        const r = await sock.sendMessage(jid, messageContent, sendOpts);
                         if (isDM) console.log(`[DM SEND] ok`);
                         return r;
                     } catch(e) {
-                        console.error(`[DM SEND ERROR] ${e?.message} | sendJid=${sendJid}`);
+                        console.error(`[DM SEND ERROR] ${e?.message} | jid=${jid}`);
                     }
                 },
 
