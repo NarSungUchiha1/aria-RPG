@@ -798,9 +798,12 @@ async function startBot() {
                         console.log(`[DM SOCKET STATE] isReady=${isReady} sockExists=${!!sock} sockConnected=${sock?.ws?.readyState}`);
                         
                         try {
-                            await sock.getContactsList().catch(() => {});
-                            await sock.onWhatsApp(jid.split('@')[0]).catch(() => {});
-                            console.log(`[DM WARMUP] contact fetch complete`);
+                            // Check if contact exists on WhatsApp (use correct Baileys API)
+                            const number = jid.split('@')[0];
+                            const exists = await sock.onWhatsApp(number).catch(() => []);
+                            if (exists?.length) {
+                                console.log(`[DM WARMUP] contact verified on WhatsApp`);
+                            }
                         } catch(e) {
                             console.error(`[DM WARMUP ERROR] ${e?.message}`);
                         }
@@ -808,7 +811,34 @@ async function startBot() {
                     
                     try {
                         const startTime = Date.now();
-                        const r = await sock.sendMessage(jid, messageContent, sendOpts);
+                        let r;
+                        
+                        // For DMs, try multiple JID formats in case one is more reliable
+                        if (isDM) {
+                            const numOnly = jid.split('@')[0];
+                            const altFormats = [
+                                jid,                                    // primary: @c.us
+                                numOnly + '@s.whatsapp.net',          // fallback 1: @s.whatsapp.net
+                                numOnly + '@g.us',                    // fallback 2: try as group (unlikely but test)
+                            ];
+                            
+                            for (let fmt of altFormats) {
+                                try {
+                                    console.log(`[DM RETRY] trying format: ${fmt}`);
+                                    r = await sock.sendMessage(fmt, messageContent, sendOpts);
+                                    if (r) {
+                                        jid = fmt; // use successful format
+                                        console.log(`[DM RETRY SUCCESS] worked with format: ${fmt}`);
+                                        break;
+                                    }
+                                } catch(fmtErr) {
+                                    console.log(`[DM RETRY FAIL] ${fmt}: ${fmtErr?.message}`);
+                                }
+                            }
+                        } else {
+                            r = await sock.sendMessage(jid, messageContent, sendOpts);
+                        }
+                        
                         const elapsed = Date.now() - startTime;
                         if (isDM) {
                             console.log(`[DM SEND SUCCESS] jid="${jid}" elapsed=${elapsed}ms key=${r?.key?.id || 'no-key'}`);
