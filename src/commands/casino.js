@@ -151,7 +151,7 @@ function slotPayout(r, bet) {
 // ── Main command ──────────────────────────────────────────────────────────────
 module.exports = {
     name: 'casino',
-    aliases: ['dice','slots','coinflip','blackjack','bj','hit','stand','roulette','war','highlow'],
+    aliases: ['dice','slots','coinflip','blackjack','bj','hit','stand','roulette','war','highlow','casinolb'],
     async execute(msg, args, { userId }) {
         await ensureTables();
         // Use CASINO_GC_JID env var directly — never use global.overrideRaidGroup here
