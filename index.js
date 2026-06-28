@@ -790,20 +790,40 @@ async function startBot() {
                         ? { text: content, mentions: finalMentions }
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
+                    
                     if (isDM) {
-                        console.log(`[DM SEND] jid="${jid}" — warming contact...`);
+                        // AGGRESSIVE DM LOGGING
+                        const textLen = typeof content === 'string' ? content.length : JSON.stringify(content).length;
+                        console.log(`[DM SEND INIT] jid="${jid}" textLen=${textLen} msgType=${typeof messageContent} opts=${JSON.stringify(sendOpts)}`);
+                        console.log(`[DM SOCKET STATE] isReady=${isReady} sockExists=${!!sock} sockConnected=${sock?.ws?.readyState}`);
+                        
                         try {
-                            // Fetch contact to warm up the connection before sending
                             await sock.getContactsList().catch(() => {});
                             await sock.onWhatsApp(jid.split('@')[0]).catch(() => {});
-                        } catch(e) {}
+                            console.log(`[DM WARMUP] contact fetch complete`);
+                        } catch(e) {
+                            console.error(`[DM WARMUP ERROR] ${e?.message}`);
+                        }
                     }
+                    
                     try {
+                        const startTime = Date.now();
                         const r = await sock.sendMessage(jid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM SEND] ok`);
+                        const elapsed = Date.now() - startTime;
+                        if (isDM) {
+                            console.log(`[DM SEND SUCCESS] jid="${jid}" elapsed=${elapsed}ms key=${r?.key?.id || 'no-key'}`);
+                            console.log(`[DM RESPONSE] type=${r?.constructor?.name} keys=${Object.keys(r || {}).join(',')}`);
+                        }
                         return r;
                     } catch(e) {
-                        console.error(`[DM SEND ERROR] ${e?.message} | jid=${jid}`);
+                        const errStack = e?.stack?.split('\n').slice(0, 3).join(' | ');
+                        if (isDM) {
+                            console.error(`[DM SEND FATAL] jid="${jid}" err="${e?.message}" code=${e?.code} stack="${errStack}"`);
+                            console.error(`[DM BAILEYS] output=${JSON.stringify(e?.output || {})} statusCode=${e?.output?.statusCode}`);
+                            console.error(`[DM MESSAGE WAS] text="${typeof messageContent === 'string' ? messageContent : messageContent?.text}"`);
+                        } else {
+                            console.error(`[GROUP SEND ERROR] ${e?.message}`);
+                        }
                     }
                 },
 
