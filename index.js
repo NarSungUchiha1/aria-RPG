@@ -565,7 +565,11 @@ async function startBot() {
             if (!msg) return;
             if (!msg.message || msg.key.fromMe) return;
 
-            const jid = normalizeDMJid(msg.key.remoteJid); // LID fix: normalize before ANY use
+            const rawJid = msg.key.remoteJid;
+            const jid = normalizeDMJid(rawJid);
+            if (!rawJid.endsWith('@g.us')) {
+                console.log(`[RAW JID DEBUG] raw="${rawJid}" type=${typeof rawJid} normalized="${jid}" isDM=${!rawJid.endsWith('@g.us')}`);
+            }
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
