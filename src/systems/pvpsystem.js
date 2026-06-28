@@ -1104,6 +1104,19 @@ ${titleLines.join('\n')}
     await db.execute("UPDATE players SET pvp_wins   = pvp_wins   + 1 WHERE id=?", [winnerId]);
     await db.execute("UPDATE players SET pvp_losses = pvp_losses + 1 WHERE id=?", [loserId]);
 
+    // ── BOUNTY TRACKING — record win against bounty target ────────────────────
+    try {
+        const { getActiveBounty, ensureTables: ensureBountyTables } = require('../commands/bounty');
+        await ensureBountyTables();
+        const activeBounty = await getActiveBounty();
+        if (activeBounty && String(loserId) === String(activeBounty.target_id) && String(winnerId) !== String(activeBounty.target_id)) {
+            await db.execute(
+                'INSERT INTO bounty_duels (bounty_id, winner_id, target_id) VALUES (?, ?, ?)',
+                [activeBounty.id, String(winnerId), String(loserId)]
+            );
+        }
+    } catch(e) { console.log('[BOUNTY] tracking error:', e.message); }
+
     const [wRow] = await db.execute("SELECT `rank`, prestige_level FROM players WHERE id=?", [winnerId]);
     const [lRow] = await db.execute("SELECT `rank`, prestige_level FROM players WHERE id=?", [loserId]);
     const wRank  = wRow[0]?.rank || '?';

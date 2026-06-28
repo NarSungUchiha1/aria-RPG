@@ -42,6 +42,16 @@ async function ensureTables() {
             claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     `).catch(() => {});
+
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS bounty_duels (
+            id        INT AUTO_INCREMENT PRIMARY KEY,
+            bounty_id INT NOT NULL,
+            winner_id VARCHAR(60) NOT NULL,
+            target_id VARCHAR(60) NOT NULL,
+            fought_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `).catch(() => {});
 }
 
 async function getActiveBounty() {
@@ -109,13 +119,12 @@ module.exports = {
                 `══〘 🎯 BOUNTY 〙══╮\n┃◆ ❌ You can't claim your own bounty.\n╰═══════════════════════╯`
             );
 
-            // Check if they actually beat the target in a recent duel
-            const [duelCheck] = await db.execute(`
-                SELECT id FROM pvp_history
-                WHERE winner_id=? AND loser_id=?
-                AND fought_at > DATE_SUB(NOW(), INTERVAL 7 DAY)
-                ORDER BY fought_at DESC LIMIT 1
-            `, [userId, bounty.target_id]).catch(() => [[]]);
+            // Check if they actually beat the target — look at pvp_wins logged in bounty_duels
+            // We track this when a duel is won against the bounty target
+            const [duelCheck] = await db.execute(
+                'SELECT id FROM bounty_duels WHERE winner_id=? AND target_id=? AND bounty_id=?',
+                [userId, bounty.target_id, bounty.id]
+            ).catch(() => [[]]);
 
             if (!duelCheck.length) return msg.reply(
                 `══〘 🎯 BOUNTY 〙══╮\n` +

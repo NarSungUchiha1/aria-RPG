@@ -25,6 +25,26 @@ async function checkGold(userId) {
 }
 async function addGold(userId, amount) {
     await db.execute('UPDATE currency SET gold = GREATEST(0, gold + ?) WHERE player_id=?', [amount, userId]);
+    // Track casino leaderboard
+    try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS casino_leaderboard (
+            player_id VARCHAR(60) PRIMARY KEY, nickname VARCHAR(60),
+            total_won BIGINT DEFAULT 0, total_lost BIGINT DEFAULT 0, net_gold BIGINT DEFAULT 0
+        )`).catch(() => {});
+        const [nick] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]);
+        const nickname = nick[0]?.nickname || userId;
+        if (amount > 0) {
+            await db.execute(`INSERT INTO casino_leaderboard (player_id, nickname, total_won, net_gold)
+                VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+                nickname=VALUES(nickname), total_won=total_won+VALUES(total_won), net_gold=net_gold+VALUES(net_gold)`,
+                [userId, nickname, amount, amount]);
+        } else {
+            await db.execute(`INSERT INTO casino_leaderboard (player_id, nickname, total_lost, net_gold)
+                VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE
+                nickname=VALUES(nickname), total_lost=total_lost+VALUES(total_lost), net_gold=net_gold+VALUES(net_gold)`,
+                [userId, nickname, Math.abs(amount), amount]);
+        }
+    } catch(e) {}
 }
 
 async function triesLeft(userId, game) {
@@ -141,7 +161,8 @@ module.exports = {
             return msg.reply('🎰 Casino commands only work in the Casino group.');
         }
         const cmd  = (msg.body || '').split(' ')[0].replace('!','').toLowerCase();
-        const bet  = clamp(parseInt(args[0]) || 0);
+        const rawBet = parseInt(args[0]);
+        const bet  = isNaN(rawBet) ? 0 : clamp(rawBet);
 
         const [pRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]);
         if (!pRow.length) return msg.reply('❌ Not registered.');
@@ -162,13 +183,34 @@ module.exports = {
             `┃◆ ⚔️ *!war <bet>*\n` +
             `┃◆ 📈 *!highlow <bet> [h/l]*\n` +
             `┃◆\n` +
-            `┃◆ Type any command without a bet\n` +
-            `┃◆ to see how the game works.\n` +
+            `┃◆ 🏆 *!casinolb* — leaderboard\n` +
             `┃◆\n` +
             `┃◆ Min: ${MIN_BET.toLocaleString()}G  Max: ${MAX_BET.toLocaleString()}G\n` +
             `┃◆ Limit: ${DAILY_LIMIT} tries per game per day\n` +
             `╚═══════════════════════════╝`
         );
+
+        // ── !casinolb ─────────────────────────────────────────────────────────
+        if (cmd === 'casinolb') {
+            await db.execute(`CREATE TABLE IF NOT EXISTS casino_leaderboard (
+                player_id VARCHAR(60) PRIMARY KEY,
+                nickname  VARCHAR(60),
+                total_won  BIGINT DEFAULT 0,
+                total_lost BIGINT DEFAULT 0,
+                net_gold   BIGINT DEFAULT 0
+            )`).catch(() => {});
+            const [rows] = await db.execute(
+                'SELECT nickname, net_gold, total_won, total_lost FROM casino_leaderboard ORDER BY net_gold DESC LIMIT 10'
+            ).catch(() => [[]]);
+            if (!rows.length) return msg.reply('╔══〘 🏆 CASINO LB 〙══╗\n┃◆ No data yet.\n╚═══════════════════════════╝');
+            let text = '╔══〘 🏆 CASINO LEADERBOARD 〙══╗\n┃◆\n';
+            rows.forEach((r, i) => {
+                const sign = r.net_gold >= 0 ? '+' : '';
+                text += '┃◆ ' + (i+1) + '. *' + r.nickname + '* — ' + sign + Number(r.net_gold).toLocaleString() + 'G\n';
+            });
+            text += '┃◆\n╚═══════════════════════════╝';
+            return msg.reply(text);
+        }
 
         // ── Game intros (no bet given) ────────────────────────────────────────
         if (!bet && !['hit','stand'].includes(cmd)) {
