@@ -1761,7 +1761,10 @@ async function handlePvPAttack(attackerId) {
     items.forEach(i => weaponBonus += Number(i.attack_bonus || 0) + Number(i.strength_bonus || 0));
 
     const baseDmg  = Number(attacker.strength) + Math.floor(weaponBonus * 0.5);
-    const defence  = Number(defender.stamina) || 0;
+    // Defense = stamina stat + defense_bonus from equipped weapons
+    let defWeaponBonus = 0;
+    items.forEach(i => defWeaponBonus += Number(i.defense_bonus || 0));
+    const defence  = (Number(defender.stamina) || 0) + defWeaponBonus;
     const fatigueMultiplier = getFatigueMultiplier(attacker);
     const baseDamage = Math.max(1, Math.floor((baseDmg - defence / 2) * fatigueMultiplier));
     const round    = data.round;

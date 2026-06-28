@@ -494,8 +494,11 @@ function calculateEnemyRetaliation(enemy, player) {
         }
     } catch (e) {}
 
-    const playerDef    = Number(buffMods.defense) || 0;
-    const reduction    = Math.min(0.5, playerDef / 100);
+    // Defense = buff skill bonus + weapon defense_bonus stat
+    const buffDef      = Number(buffMods.defense) || 0;
+    const equipDef     = Number(player?.defense_bonus) || 0;
+    const playerDef    = buffDef + equipDef;
+    const reduction    = Math.min(0.75, playerDef / 100);
     const rawDamage    = Number(enemy.atk) || 0;
     let damage         = Math.floor(rawDamage * (1 - reduction));
     const playerShield = Number(buffMods.shield) || 0;

@@ -326,12 +326,17 @@ module.exports = {
         }
 
         if (requiresMana(move, player)) {
-            // Mana cost scales with rank — higher ranks burn more mana per cast
-            const RANK_MANA_MULT = {
+            // Mana cost scales with rank — Healers scale more gently than Mages
+            const RANK_MANA_MULT_MAGE = {
                 F:1.0, E:1.1, D:1.2, C:1.4, B:1.6, A:2.0, S:2.5,
                 PF:3.0, PE:3.5, PD:4.0, PC:5.0, PB:6.0, PA:8.0, PS:10.0
             };
-            const rankMult = RANK_MANA_MULT[player.rank] || 1.0;
+            const RANK_MANA_MULT_HEALER = {
+                F:1.0, E:1.0, D:1.1, C:1.2, B:1.3, A:1.5, S:1.8,
+                PF:2.0, PE:2.2, PD:2.5, PC:2.8, PB:3.0, PA:3.5, PS:4.0
+            };
+            const multTable = player.role === 'Healer' ? RANK_MANA_MULT_HEALER : RANK_MANA_MULT_MAGE;
+            const rankMult = multTable[player.rank] || 1.0;
             const manaCost = Math.ceil((move.cost || 5) * rankMult);
             const currentMana = Number(player.mana) || 0;
             if (currentMana < manaCost) {
