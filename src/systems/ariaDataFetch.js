@@ -178,4 +178,35 @@ async function buildGameContext(question, askingUserId) {
     return `\n\n--- REAL GAME DATA (use this exactly, never modify or invent) ---\n${sections.join('\n\n')}\n---`;
 }
 
-module.exports = { buildGameContext };
+module.exports = { buildGameContext, buildArenaContext };
+
+// ── Arena-only: fetch both fighters' full profiles + moves ───────────────────
+// Called ONLY by the arena/duel system — never during normal Aria conversations
+async function buildArenaContext(player1Id, player2Id) {
+    const { getResonanceProfile, formatGenesisDate } = require('./ascendantSystem');
+
+    async function buildFighterBlock(playerId) {
+        const stats = await fetchPlayerData(playerId);
+        const res = await getResonanceProfile(playerId).catch(() => null);
+        if (!stats) return null;
+
+        let block = stats;
+        if (res && res.moves && res.moves.length) {
+            const moveText = res.moves.map((m, i) => `  ${i+1}. ${m.name} — ${m.desc}`).join('\n');
+            block += `\nResonance Name: ${res.res_name}` +
+                     `\nSoulbound Genesis: ${formatGenesisDate(res.genesis_date)}` +
+                     `\nAuthority: ${res.authority}` +
+                     `\nSIGNATURE MOVES:\n${moveText}`;
+        }
+        return block;
+    }
+
+    const [f1, f2] = await Promise.all([
+        buildFighterBlock(player1Id),
+        buildFighterBlock(player2Id)
+    ]);
+
+    return `--- ARENA DUEL DATA (use exactly, never invent stats or moves) ---\n` +
+           `FIGHTER 1:\n${f1 || 'Unknown'}\n\n` +
+           `FIGHTER 2:\n${f2 || 'Unknown'}\n---`;
+}

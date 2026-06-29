@@ -157,6 +157,8 @@ module.exports = {
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [rewardXp,   p.player_id]);
+                    // Direct dungeon clear counter for resonance tracking
+                    await db.execute("UPDATE players SET dungeons_cleared = COALESCE(dungeons_cleared, 0) + 1 WHERE id=?", [p.player_id]).catch(() => {});
                     // Apply territory bonuses on top
                     await applyGoldBonus(p.player_id, rewardGold).catch(() => {});
                     await applyXpBonus(p.player_id, rewardXp).catch(() => {});

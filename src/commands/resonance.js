@@ -1,11 +1,83 @@
 const db = require('../database/db');
-const { getVoidResonanceStatus, ASCENDANT_THRESHOLD, checkResonanceEligibility } = require('../systems/ascendantSystem');
+const {
+    getVoidResonanceStatus, ASCENDANT_THRESHOLD, checkResonanceEligibility,
+    canResonate, isInResFlow, startResFlow, endResFlow, RESONANCE_REQUIRED_CLEARS
+} = require('../systems/ascendantSystem');
 
 module.exports = {
     name: 'resonance',
-    aliases: ['voidresonance', 'ascendant'],
+    aliases: ['voidresonance', 'ascendant', 'resonate'],
     async execute(msg, args, { userId }) {
         try {
+            // ── !resonate in DM → start registration flow ─────────────
+            const cmdUsed = (msg.body || '').trim().toLowerCase().split(/\s+/)[0];
+            if (cmdUsed === '!resonate' && !msg.from.endsWith('@g.us')) {
+                // Already in a flow? Clear it
+                if (isInResFlow(userId)) {
+                    endResFlow(userId);
+                    return msg.reply(
+                        `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                        `┃✧ Previous session cleared.\n` +
+                        `┃✧ Use *!resonate* again to restart.\n` +
+                        `╰═══════════════════════╯`
+                    );
+                }
+
+                const check = await canResonate(userId);
+                if (!check.ok) {
+                    if (check.reason === 'not_registered')
+                        return msg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ❌ Not registered. Use !awaken.\n╰═══════════════════════╯`);
+                    if (check.reason === 'already_resonated')
+                        return msg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ✅ You have already resonated.\n┃✧ Use !me to view your card.\n╰═══════════════════════╯`);
+                    if (check.reason === 'not_prestige')
+                        return msg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ❌ Only Prestige Hunters can resonate.\n╰═══════════════════════╯`);
+                    if (check.reason === 'not_enough_clears')
+                        return msg.reply(
+                            `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                            `┃✧ ❌ Not enough dungeons cleared.\n` +
+                            `┃✧ 🏰 ${check.current} / ${check.required}\n` +
+                            `┃✧\n` +
+                            `┃✧ Keep clearing dungeons to\n` +
+                            `┃✧ unlock Resonance.\n` +
+                            `╰═══════════════════════╯`
+                        );
+                }
+
+                startResFlow(userId);
+                return msg.reply(
+                    `╭══〘 ⚡ RESONANCE RITUAL 〙══╮\n` +
+                    `┃✧\n` +
+                    `┃✧ 〝You have walked through fire,\n` +
+                    `┃✧  through void, through death itself.\n` +
+                    `┃✧  What remains is not a hunter.\n` +
+                    `┃✧  What remains... is something more.〞\n` +
+                    `┃✧\n` +
+                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃✧ ⚡ STAGE 1 — NAME\n` +
+                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃✧\n` +
+                    `┃✧ Choose the name you will be\n` +
+                    `┃✧ known by from now on.\n` +
+                    `┃✧ It *cannot be changed* after this.\n` +
+                    `┃✧\n` +
+                    `┃✧ Type your name now:\n` +
+                    `┃✧\n` +
+                    `┃✧ (Type *!cancel* to abort)\n` +
+                    `╰═══════════════════════════════╯`
+                );
+            }
+
+            // ── !resonate in group → tell them to go DM ───────────────
+            if (cmdUsed === '!resonate' && msg.from.endsWith('@g.us')) {
+                return msg.reply(
+                    `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                    `┃✧ ⚠️ Resonance is a private ritual.\n` +
+                    `┃✧ Use *!resonate* in DM only.\n` +
+                    `╰═══════════════════════╯`
+                );
+            }
+
+            // ── !resonance / !ascendant → show void resonance status ──
             const status = await getVoidResonanceStatus(userId);
             const [player] = await db.execute('SELECT nickname, `rank` FROM players WHERE id=?', [userId]);
             if (!player.length) return msg.reply('❌ Not registered.');
@@ -22,7 +94,6 @@ module.exports = {
                 '╚═══════════════════════════╝'
             );
 
-            // Show requirements checklist if not eligible
             if (!status.eligible) {
                 const check = await checkResonanceEligibility(userId);
                 let text =

@@ -3,11 +3,75 @@ const { hasClaimedStarter, claimStarterPack } = require('../systems/prestigeStar
 const { getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
 const { getPrestigeBadge } = require('../systems/prestigeSystem');
 const { formatFatigueBar } = require('../systems/fatigueSystem');
+const { getResonanceProfile, formatGenesisDate } = require('../systems/ascendantSystem');
 
 module.exports = {
     name: 'me',
     async execute(msg, args, { userId }) {
         try {
+            // ── RESONANCE CARD ───────────────────────────────────────
+            const resonance = await getResonanceProfile(userId).catch(() => null);
+            if (resonance && resonance.moves && resonance.moves.length) {
+                const genesis = formatGenesisDate(resonance.genesis_date);
+                const playerClan = await getPlayerClan(userId).catch(() => null);
+                const clanDisplay = playerClan ? playerClan.name : 'None';
+
+                const [statRows] = await db.execute(
+                    `SELECT p.role, p.hp, p.max_hp, p.strength, p.agility,
+                            p.intelligence, p.stamina, p.mana, p.max_mana, p.title
+                     FROM players p WHERE p.id = ?`, [userId]
+                );
+                const p = statRows[0] || {};
+                const [items] = await db.execute(
+                    "SELECT strength_bonus, agility_bonus, intelligence_bonus, stamina_bonus FROM inventory WHERE player_id=? AND equipped=1", [userId]
+                );
+                const totalStr = (p.strength||0) + items.reduce((s,i) => s + (i.strength_bonus||0), 0);
+                const totalAgi = (p.agility||0)  + items.reduce((s,i) => s + (i.agility_bonus||0), 0);
+                const totalInt = (p.intelligence||0) + items.reduce((s,i) => s + (i.intelligence_bonus||0), 0);
+                const totalSta = (p.stamina||0)  + items.reduce((s,i) => s + (i.stamina_bonus||0), 0);
+
+                const roleIcons = { Tank:'🛡️', Assassin:'🗡️', Mage:'🔮', Healer:'💚', Berserker:'⚔️', Ranger:'🏹', Explorer:'🧭' };
+                const icon = roleIcons[p.role] || '⚔️';
+
+                const moveList = resonance.moves
+                    .map((m, i) => `┃✧ ${['①','②','③','④','⑤'][i]} *${m.name}*\n┃✧    _${m.desc}_`)
+                    .join('\n');
+
+                const cardText =
+                    `╭══〘 ✧ RESONANCE CARD 〙══╮\n` +
+                    `┃✧\n` +
+                    `┃✧ 👤 ${resonance.res_name}\n` +
+                    `┃✧ 📜 ${p.title || 'Untitled'}\n` +
+                    `┃✧ 🌌 Soulbound Genesis:\n` +
+                    `┃✧    ${genesis}\n` +
+                    `┃✧ 👑 Authority: ${resonance.authority}\n` +
+                    `┃✧ 🏰 Clan: ${clanDisplay}\n` +
+                    `┃✧ ${icon} ${p.role}\n` +
+                    `┃✧\n` +
+                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃✧ 💪 STR: ${totalStr}  ⚡ AGI: ${totalAgi}\n` +
+                    `┃✧ 🧠 INT: ${totalInt}  🛡️ STA: ${totalSta}\n` +
+                    `┃✧ ❤️ HP: ${p.hp}/${p.max_hp}\n` +
+                    ((p.role==='Mage'||p.role==='Healer'||p.role==='Explorer') ? `┃✧ 💙 Mana: ${p.mana||0}/${p.max_mana||50}\n` : '') +
+                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃✧ ⚔️ SIGNATURE MOVES:\n` +
+                    `${moveList}\n` +
+                    `┃✧\n` +
+                    `╰═══════════════════════════════╯`;
+
+                if (resonance.res_image) {
+                    try {
+                        const imgBuffer = Buffer.from(resonance.res_image, 'base64');
+                        await msg.reply({ image: imgBuffer, caption: cardText, mimetype: 'image/jpeg' });
+                        return;
+                    } catch (imgErr) {
+                        console.error('[Resonance Card] Image error:', imgErr.message);
+                    }
+                }
+                return msg.reply(cardText);
+            }
+
+            // ── NORMAL / PRESTIGE CARD ───────────────────────────────
             const [rows] = await db.execute(
                 `SELECT p.nickname, p.role, p.\`rank\`, p.title, p.hp, p.max_hp,
                         p.strength, p.agility, p.intelligence, p.stamina,
