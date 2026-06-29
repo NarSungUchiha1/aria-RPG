@@ -625,6 +625,21 @@ async function startBot() {
                 || QUESTION_STARTERS.test(stripped)
                 || stripped.split(/\s+/).filter(Boolean).length >= 6;
 
+            // ── RESONANCE FLOW INTERCEPTOR (must be BEFORE Aria) ──────────
+            {
+                const { isInResFlow, handleResonanceFlow } = require('./src/systems/ascendantSystem');
+                if (isInResFlow(userId)) {
+                    const flowReply = async (content) => {
+                        const mc = typeof content === 'string' ? { text: content } : content;
+                        const opts = jid.endsWith('@g.us') ? { quoted: msg } : {};
+                        return await sock.sendMessage(jid, mc, opts);
+                    };
+                    const flowMsg = { reply: flowReply, from: jid };
+                    const consumed = await handleResonanceFlow(userId, text, msg, flowMsg, sock);
+                    if (consumed) return;
+                }
+            }
+
             // Reply to Aria's message = always follow up, no question check needed
             if (botMentioned || (isReplyToBot && !text.startsWith('!'))) {
                 let question = text;
@@ -648,21 +663,6 @@ async function startBot() {
                 const isAdmin = (global.ADMINS || ADMINS).includes(userId);
                 await handleAriaCommand(sock, jid, msg, userId, question, { isAdmin, blockedSet: BLOCKED_USERS });
                 return;
-            }
-
-            // ── RESONANCE FLOW INTERCEPTOR ─────────────────────────────
-            {
-                const { isInResFlow, handleResonanceFlow } = require('./src/systems/ascendantSystem');
-                if (isInResFlow(userId)) {
-                    const flowReply = async (content) => {
-                        const mc = typeof content === 'string' ? { text: content } : content;
-                        const opts = jid.endsWith('@g.us') ? { quoted: msg } : {};
-                        return await sock.sendMessage(jid, mc, opts);
-                    };
-                    const flowMsg = { reply: flowReply, from: jid };
-                    const consumed = await handleResonanceFlow(userId, text, msg, flowMsg, sock);
-                    if (consumed) return;
-                }
             }
 
             if (!text.startsWith('!')) {
