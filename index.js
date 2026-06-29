@@ -206,7 +206,7 @@ const BLACKSMITH_GC_ONLY = new Set([
 const HEALER_GC_JID      = '120363427051780444@g.us';
 const CASINO_GC_JID      = process.env.CASINO_GC_JID || '';
 const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
-const DM_ONLY = new Set(['enter', 'resonate']);
+const DM_ONLY = new Set(['enter']);
 
 // ── Ban system ─────────────────────────────────────────────
 const bannedPlayers = new Set();
@@ -651,12 +651,13 @@ async function startBot() {
             }
 
             // ── RESONANCE FLOW INTERCEPTOR ─────────────────────────────
-            if (!jid.endsWith('@g.us')) {
+            {
                 const { isInResFlow, handleResonanceFlow } = require('./src/systems/ascendantSystem');
                 if (isInResFlow(userId)) {
                     const flowReply = async (content) => {
                         const mc = typeof content === 'string' ? { text: content } : content;
-                        return await sock.sendMessage(jid, mc);
+                        const opts = jid.endsWith('@g.us') ? { quoted: msg } : {};
+                        return await sock.sendMessage(jid, mc, opts);
                     };
                     const flowMsg = { reply: flowReply, from: jid };
                     const consumed = await handleResonanceFlow(userId, text, msg, flowMsg, sock);

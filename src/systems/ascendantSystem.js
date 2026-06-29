@@ -389,7 +389,7 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
         await fakeMsg.reply(
             `╭══〘 ✦ RESONANCE 〙══╮\n` +
             `┃✧ ❌ Resonance cancelled.\n` +
-            `┃✧ Use !resonate to start again.\n` +
+            `┃✧ Use !resonance to start again.\n` +
             `╰═══════════════════════╯`
         );
         return true;
@@ -425,8 +425,8 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                     `┃✧ your !me card and *cannot be\n` +
                     `┃✧ changed later*.\n` +
                     `┃✧\n` +
-                    `┃✧ Send a your characters image in this chat\n` +
-                    `┃✧ (as a photo):\n` +
+                    `┃✧ Send a direct image in this chat\n` +
+                    `┃✧ (as a photo, not a file):\n` +
                     `╰═══════════════════════════════╯`
                 );
                 return true;
@@ -562,7 +562,7 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
     } catch (err) {
         console.error('[Resonance] Flow error:', err);
         endResFlow(playerId);
-        await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ❌ Something went wrong.\n┃✧ Use !resonate to try again.\n╰═══════════════════════╯`);
+        await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ❌ Something went wrong.\n┃✧ Use !resonance to try again.\n╰═══════════════════════╯`);
         return true;
     }
 }
