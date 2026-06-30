@@ -90,7 +90,7 @@ module.exports = {
                 weaponResults.push({ ownerId, ownerNick: player[0].nickname, weaponName, weapon, alreadyHad: false });
 
                 // DM the hunter
-                await client.sendMessage(ownerId + '@c.us', {
+                await client.sendMessage(ownerId + '@s.whatsapp.net', {
                     text:
                         '╔══════════════════════════════════════╗\n' +
                         '┃★\n' +

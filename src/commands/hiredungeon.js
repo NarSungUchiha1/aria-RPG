@@ -110,7 +110,7 @@ module.exports = {
             });
 
             // Notify healer
-            await client.sendMessage(`${listing.healer_id}@c.us`, {
+            await client.sendMessage(`${listing.healer_id}@s.whatsapp.net`, {
                 text:
                     `══〘 💚 YOU'VE BEEN HIRED 〙══╮\n` +
                     `┃◆ \n` +

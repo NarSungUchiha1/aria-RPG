@@ -88,7 +88,7 @@ module.exports = {
 
                 // DM the player
                 try {
-                    await client.sendMessage(ownerId + '@c.us', {
+                    await client.sendMessage(ownerId + '@s.whatsapp.net', {
                         text:
                             '╔══════════════════════════════════════╗\n' +
                             '┃★\n' +

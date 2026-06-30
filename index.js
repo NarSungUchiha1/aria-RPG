@@ -166,27 +166,20 @@ function normalizeId(id) {
 
 // Convert LID-based DM JID to @c.us (contact JID for LID sessions)
 // WhatsApp's LID system produces: '53635887153297@lid' or '53635887153297alid' (malformed, missing @)
-// For LID sessions, user DMs must be sent to @c.us, NOT @s.whatsapp.net (WhatsApp silently rejects those)
+// Fix malformed LID JID — the number IS a phone number,
+// the 'alid'/'@lid' suffix is just WhatsApp's routing to the bot's linked device.
+// Convert back to @s.whatsapp.net so replies reach the actual phone.
 function normalizeDMJid(jid) {
     if (!jid) return jid;
     const str = String(jid).trim();
-    // Groups stay as @g.us
     if (str.endsWith('@g.us')) return str;
-    // Malformed LID missing @ → '53635887153297alid'
-    const malformedLid = str.match(/^(\d+)alid$/);
-    if (malformedLid) return `${malformedLid[1]}@c.us`;
-    // Proper LID format → '53635887153297@lid'
-    const properLid = str.match(/^(\d+)@lid$/);
-    if (properLid) return `${properLid[1]}@c.us`;
-    // If it already has @s.whatsapp.net, convert to @c.us for LID
-    if (str.includes('@s.whatsapp.net')) return str.replace('@s.whatsapp.net', '@c.us');
-    // Already @c.us
-    if (str.endsWith('@c.us')) return str;
-    // Unknown suffix with @ — extract numeric part and use @c.us for LID safety
-    const anyAt = str.match(/^(\d+)@/);
-    if (anyAt) return `${anyAt[1]}@c.us`;
-    // Bare number
-    if (/^\d+$/.test(str)) return `${str}@c.us`;
+    if (str.endsWith('@s.whatsapp.net')) return str;
+    // Malformed LID: '53635887153297alid' → '53635887153297@s.whatsapp.net'
+    const malformed = str.match(/^(\d+)alid$/);
+    if (malformed) return `${malformed[1]}@s.whatsapp.net`;
+    // Proper LID: '53635887153297@lid' → '53635887153297@s.whatsapp.net'
+    const proper = str.match(/^(\d+)@lid$/);
+    if (proper) return `${proper[1]}@s.whatsapp.net`;
     return str;
 }
 
