@@ -152,7 +152,7 @@ async function addVoidResonance(playerId, eventType, client = null) {
         const hit = milestones.some(m => oldRes < m && newRes >= m);
         if (hit) {
             const bar = '🟣'.repeat(Math.floor(newRes / 10)) + '⬛'.repeat(10 - Math.floor(newRes / 10));
-            client.sendMessage(playerId + '@s.whatsapp.net', {
+            client.sendMessage(playerId + '@c.us', {
                 text:
                     '══〘 👁️ VOID RESONANCE 〙══╮\n' +
                     '┃★ Something stirs inside you.\n' +
@@ -236,7 +236,7 @@ async function triggerAscendant(playerId, client = null) {
 
     if (client) {
         try {
-            await client.sendMessage(playerId + '@s.whatsapp.net', {
+            await client.sendMessage(playerId + '@c.us', {
                 text:
                     '╔══════════════════════════════════════╗\n' +
                     '┃★\n' +

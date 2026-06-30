@@ -111,7 +111,7 @@ module.exports = {
                 const nick = pRow[0]?.nickname || userId;
 
                 try {
-                    await client.sendMessage(`${clan.leader_id}@s.whatsapp.net`, {
+                    await client.sendMessage(`${clan.leader_id}@c.us`, {
                         text: `══〘 🏰 CLAN REQUEST 〙══╮\n┃◆ *${nick}* wants to join *${clan.name}*.\n┃◆ !clan accept @${userId}\n╰═══════════════════════╯`
                     });
                 } catch(e) {}
@@ -148,7 +148,7 @@ module.exports = {
                 const blessing = CLAN_BLESSINGS[myClan.blessing_id];
 
                 try {
-                    await client.sendMessage(`${targetId}@s.whatsapp.net`, {
+                    await client.sendMessage(`${targetId}@c.us`, {
                         text:
                             `╔══〘 🏰 CLAN INDUCTION 〙══╗\n` +
                             `┃◆\n` +
@@ -305,7 +305,7 @@ module.exports = {
 
                 // Notify the target
                 try {
-                    await client.sendMessage(`${targetId}@s.whatsapp.net`, {
+                    await client.sendMessage(`${targetId}@c.us`, {
                         text:
                             `╔══〘 📜 CLAN QUEST ASSIGNED 〙══╗\n` +
                             `┃◆\n` +

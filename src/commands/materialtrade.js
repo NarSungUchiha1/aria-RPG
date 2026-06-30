@@ -98,7 +98,7 @@ module.exports = {
 
                 // Notify target in DM
                 try {
-                    await msg.client?.sendMessage(`${targetId}@s.whatsapp.net`, {
+                    await msg.client?.sendMessage(`${targetId}@c.us`, {
                         text:
                             `╔══〘 🔄 TRADE OFFER 〙══╗\n` +
                             `┃◆\n` +
@@ -173,7 +173,7 @@ module.exports = {
 
                 // Notify seller
                 try {
-                    await msg.client?.sendMessage(`${offer.fromId}@s.whatsapp.net`, {
+                    await msg.client?.sendMessage(`${offer.fromId}@c.us`, {
                         text:
                             `╔══〘 🔄 TRADE ACCEPTED 〙══╗\n` +
                             `┃◆ ${p.nickname} accepted your offer!\n` +

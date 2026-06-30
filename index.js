@@ -573,9 +573,6 @@ async function startBot() {
 
             const rawJid = msg.key.remoteJid;
             const jid = normalizeDMJid(rawJid);
-            if (!rawJid.endsWith('@g.us')) {
-                console.log(`[RAW JID DEBUG] raw="${rawJid}" type=${typeof rawJid} normalized="${jid}" isDM=${!rawJid.endsWith('@g.us')}`);
-            }
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
@@ -809,70 +806,12 @@ async function startBot() {
                         ? { text: content, mentions: finalMentions }
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
-                    
-                    if (isDM) {
-                        // AGGRESSIVE DM LOGGING
-                        const textLen = typeof content === 'string' ? content.length : JSON.stringify(content).length;
-                        console.log(`[DM SEND INIT] jid="${jid}" textLen=${textLen} msgType=${typeof messageContent} opts=${JSON.stringify(sendOpts)}`);
-                        console.log(`[DM SOCKET STATE] isReady=${isReady} sockExists=${!!sock} sockConnected=${sock?.ws?.readyState}`);
-                        
-                        try {
-                            // Check if contact exists on WhatsApp (use correct Baileys API)
-                            const number = jid.split('@')[0];
-                            const exists = await sock.onWhatsApp(number).catch(() => []);
-                            if (exists?.length) {
-                                console.log(`[DM WARMUP] contact verified on WhatsApp`);
-                            }
-                        } catch(e) {
-                            console.error(`[DM WARMUP ERROR] ${e?.message}`);
-                        }
-                    }
-                    
                     try {
-                        const startTime = Date.now();
-                        let r;
-                        
-                        // For DMs, try multiple JID formats in case one is more reliable
-                        if (isDM) {
-                            const numOnly = jid.split('@')[0];
-                            const altFormats = [
-                                jid,                                    // primary: @c.us
-                                numOnly + '@s.whatsapp.net',          // fallback 1: @s.whatsapp.net
-                                numOnly + '@g.us',                    // fallback 2: try as group (unlikely but test)
-                            ];
-                            
-                            for (let fmt of altFormats) {
-                                try {
-                                    console.log(`[DM RETRY] trying format: ${fmt}`);
-                                    r = await sock.sendMessage(fmt, messageContent, sendOpts);
-                                    if (r) {
-                                        jid = fmt; // use successful format
-                                        console.log(`[DM RETRY SUCCESS] worked with format: ${fmt}`);
-                                        break;
-                                    }
-                                } catch(fmtErr) {
-                                    console.log(`[DM RETRY FAIL] ${fmt}: ${fmtErr?.message}`);
-                                }
-                            }
-                        } else {
-                            r = await sock.sendMessage(jid, messageContent, sendOpts);
-                        }
-                        
-                        const elapsed = Date.now() - startTime;
-                        if (isDM) {
-                            console.log(`[DM SEND SUCCESS] jid="${jid}" elapsed=${elapsed}ms key=${r?.key?.id || 'no-key'}`);
-                            console.log(`[DM RESPONSE] type=${r?.constructor?.name} keys=${Object.keys(r || {}).join(',')}`);
-                        }
+                        const r = await sock.sendMessage(jid, messageContent, sendOpts);
+                        if (isDM) console.log(`[DM SEND] jid="${jid}" ok`);
                         return r;
                     } catch(e) {
-                        const errStack = e?.stack?.split('\n').slice(0, 3).join(' | ');
-                        if (isDM) {
-                            console.error(`[DM SEND FATAL] jid="${jid}" err="${e?.message}" code=${e?.code} stack="${errStack}"`);
-                            console.error(`[DM BAILEYS] output=${JSON.stringify(e?.output || {})} statusCode=${e?.output?.statusCode}`);
-                            console.error(`[DM MESSAGE WAS] text="${typeof messageContent === 'string' ? messageContent : messageContent?.text}"`);
-                        } else {
-                            console.error(`[GROUP SEND ERROR] ${e?.message}`);
-                        }
+                        console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
                     }
                 },
 

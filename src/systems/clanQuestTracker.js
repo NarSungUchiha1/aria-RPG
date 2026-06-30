@@ -51,7 +51,7 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
 
             // Milestone nudge
             if (client && (hitMilestone || oneAway) && newProgress < quest.target) {
-                client.sendMessage(playerId + '@s.whatsapp.net', {
+                client.sendMessage(playerId + '@c.us', {
                     text:
                         '══〘 📜 QUEST UPDATE 〙══╮\n' +
                         '┃◆ *' + quest.title + '*\n' +
@@ -92,7 +92,7 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
                 if (client) {
                     try {
                         const [clan] = await db.execute('SELECT name FROM clans WHERE id=?', [quest.clan_id]);
-                        await client.sendMessage(playerId + '@s.whatsapp.net', {
+                        await client.sendMessage(playerId + '@c.us', {
                             text:
                                 '╔══〘 ✅ CLAN QUEST COMPLETE 〙══╗\n' +
                                 '┃◆\n' +
@@ -117,7 +117,7 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
                         const [clanRow]   = await db.execute('SELECT leader_id, name FROM clans WHERE id=?', [quest.clan_id]);
                         const [playerRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [playerId]);
                         if (clanRow.length) {
-                            await client.sendMessage(clanRow[0].leader_id + '@s.whatsapp.net', {
+                            await client.sendMessage(clanRow[0].leader_id + '@c.us', {
                                 text:
                                     '══〘 📜 QUEST COMPLETED 〙══╮\n' +
                                     '┃◆ *' + (playerRow[0] ? playerRow[0].nickname : playerId) + '* completed\n' +
