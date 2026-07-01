@@ -389,7 +389,9 @@ const resonanceFlows = new Map();
 
 function startResFlow(playerId) {
     resonanceFlows.set(playerId, { stage: 'name', startedAt: Date.now() });
+    console.log(`[RESFLOW] started for playerId="${playerId}" | keys now: ${JSON.stringify([...resonanceFlows.keys()])}`);
 }
+function resFlowKeys() { return [...resonanceFlows.keys()]; }
 function getResFlow(playerId) {
     const f = resonanceFlows.get(playerId);
     if (!f) return null;
@@ -607,5 +609,6 @@ module.exports = {
     handleResonanceFlow,
     isInResFlow,
     startResFlow,
-    endResFlow
+    endResFlow,
+    resFlowKeys
 };

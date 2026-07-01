@@ -726,7 +726,10 @@ async function startBot() {
 
             // ── RESONANCE FLOW INTERCEPTOR (must be BEFORE Aria) ──────────
             {
-                const { isInResFlow, handleResonanceFlow } = require('./src/systems/ascendantSystem');
+                const { isInResFlow, handleResonanceFlow, resFlowKeys } = require('./src/systems/ascendantSystem');
+                if (!text.startsWith('!')) {
+                    console.log(`[RESFLOW CHECK] userId="${userId}" inFlow=${isInResFlow(userId)} | activeKeys=${JSON.stringify(resFlowKeys())}`);
+                }
                 if (isInResFlow(userId)) {
                     const flowReply = async (content) => {
                         const mc = typeof content === 'string' ? { text: content } : content;
