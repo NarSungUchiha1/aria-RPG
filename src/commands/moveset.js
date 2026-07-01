@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { getAllMoves, getMoveCooldown } = require('../systems/skillSystem');
+const { getAllMoves, getMoveCooldown, ensureSignatureMoves } = require('../systems/skillSystem');
 
 module.exports = {
     name: 'moveset',
@@ -15,9 +15,11 @@ module.exports = {
             const [items] = await db.execute(
                 "SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]
             );
+            await ensureSignatureMoves(player.id);
             const moves       = getAllMoves(player, items);
             const roleMoves   = moves.filter(m => m.source === 'role');
             const weaponMoves = moves.filter(m => m.source === 'weapon');
+            const sigMoves    = moves.filter(m => m.source === 'signature');
 
             function cdText(cd) {
                 return cd > 0 ? `⏳ ${Math.ceil(cd / 1000)}s` : '✅ Ready';
@@ -44,6 +46,14 @@ module.exports = {
                     });
                 }
 
+                if (sigMoves.length) {
+                    text += `┃◆────────────\n┃◆ 👁️ SIGNATURE MOVES:\n`;
+                    sigMoves.forEach(m => {
+                        const cd = getMoveCooldown(userId, m.name);
+                        text += `┃◆   ${m.name} | ${cdText(cd)}\n`;
+                    });
+                }
+
                 text += `┃◆────────────\n┃◆ 🧭 Use !skill <move>\n╰═══════════════════════╯`;
                 return msg.reply(text);
             }
@@ -67,6 +77,14 @@ module.exports = {
                 weaponMoves.forEach(m => {
                     const cd = getMoveCooldown(userId, m.name);
                     text += `┃★   ${m.name} (${m.weapon}) - ${m.type} | ${cdText(cd)}\n`;
+                });
+            }
+
+            if (sigMoves.length) {
+                text += `┃★────────────\n┃★ 👁️ SIGNATURE MOVES:\n`;
+                sigMoves.forEach(m => {
+                    const cd = getMoveCooldown(userId, m.name);
+                    text += `┃★   ${m.name} | ${cdText(cd)}\n`;
                 });
             }
 

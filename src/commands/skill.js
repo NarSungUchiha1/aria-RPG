@@ -7,7 +7,7 @@ const { addToBag, getPlayerBag, destroyBag, getBagContents } = require('../syste
 const { assignDropsToContributors, clearStage, getStagePool, setStagePool, getRankedContributors } = require('../systems/contributionSystem');
 const { demoteRaider, getRaidGroup } = require('../engine/dungeon');
 const getUserId = require('../utils/getUserId');
-const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
+const { getAllMoves, calculateMoveDamage, calculateHeal, getMoveCooldown, setMoveCooldown, ensureSignatureMoves } = require('../systems/skillSystem');
 const { getActiveDungeon, getCurrentEnemies, playerSkill, findEnemyTarget, findPlayerTarget, isPlayerInAnyDungeon, addDamageContribution } = require('../engine/dungeon');
 const { applyBuff, clearBuffs } = require('../systems/activeBuffs');
 const { isPlayerInDuel } = require('../systems/pvpsystem');
@@ -262,6 +262,7 @@ module.exports = {
         if (!playerRows.length) return msg.reply("❌ Not registered.");
         const player = playerRows[0];
         const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
+        await ensureSignatureMoves(player.id);
         const moves = getAllMoves(player, items);
 
         let matchedMove = null;

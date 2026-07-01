@@ -1,5 +1,5 @@
 const db = require('../database/db');
-const { getAllMoves, getMoveCooldown, setMoveCooldown } = require('../systems/skillSystem');
+const { getAllMoves, getMoveCooldown, setMoveCooldown, ensureSignatureMoves } = require('../systems/skillSystem');
 
 let pvpSystem;
 try {
@@ -26,6 +26,7 @@ module.exports = {
             );
             const player = playerRows[0];
             const [items] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1", [userId]);
+            await ensureSignatureMoves(player.id);
             const moves = getAllMoves(player, items);
 
             // ── Move name: match longest prefix that isn't a @mention ────────────

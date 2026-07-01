@@ -15,8 +15,63 @@ const { getBuffModifiers } = require('./activeBuffs');
 const { getTurnEffect, getTurnEffectByName, tickTurnEffect, getEffect, getEffectByName } = require('./potionEffects');
 const { getCooldownMultiplier } = require('../data/rankMultipliers');
 const { getFatigueMultiplier } = require('./fatigueSystem');
+const db = require('../database/db');
 
 const cooldowns = new Map();
+
+// ── ASCENDANT SIGNATURE MOVES ─────────────────────────────────────────────────
+// The 5 moves a player defines in the resonance ritual (stored as {name,desc} in
+// resonance_profiles.moves) become REAL, powerful combat moves. Cached because
+// they're immutable once set. Scaling stat is chosen at build time from the
+// player's CURRENT best offensive stat so it keeps up as they grow.
+const signatureMovesCache = new Map(); // playerId -> [{name,desc}] or null
+const SIG_MULT = [2.0, 2.4, 2.8, 3.2, 4.0]; // escalating; move 5 is the "ultimate"
+const SIG_CD   = [2, 3, 4, 6, 10];
+const SIG_COST = [8, 12, 16, 20, 28];
+
+async function ensureSignatureMoves(playerId) {
+    if (!playerId || signatureMovesCache.has(playerId)) return;
+    try {
+        const [rows] = await db.execute('SELECT moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
+        if (!rows.length) { signatureMovesCache.set(playerId, null); return; }
+        let moves = [];
+        try { moves = JSON.parse(rows[0].moves || '[]'); } catch { moves = []; }
+        signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+    } catch {
+        signatureMovesCache.set(playerId, null);
+    }
+}
+
+// Populate/refresh the cache directly (called right after the ritual completes).
+function setSignatureMoves(playerId, moves) {
+    if (!playerId) return;
+    signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+}
+
+function bestOffensiveStat(player) {
+    const s = {
+        strength:     Number(player.strength)     || 0,
+        agility:      Number(player.agility)      || 0,
+        intelligence: Number(player.intelligence) || 0
+    };
+    return Object.entries(s).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function buildSignatureMoveObjects(player, resMoves) {
+    if (!Array.isArray(resMoves) || !resMoves.length) return [];
+    const stat = bestOffensiveStat(player);
+    return resMoves.slice(0, 5).map((m, i) => ({
+        name:       m.name,
+        type:       'damage',
+        stat,
+        multiplier: SIG_MULT[i] ?? 2.0,
+        cooldown:   SIG_CD[i]   ?? 4,
+        cost:       SIG_COST[i] ?? 12,
+        desc:       m.desc || '',
+        source:     'signature',
+        signature:  true
+    }));
+}
 
 function getMoveCooldown(userId, moveName) {
     const key = `${userId}_${moveName}`;
@@ -61,6 +116,11 @@ function getAllMoves(player, equippedItems) {
             weaponMoveList.forEach(m => moves.push({ ...m, source: 'weapon', weapon: item.item_name }));
         });
     }
+
+    // Ascendant signature moves (cache must be primed via ensureSignatureMoves).
+    const sig = signatureMovesCache.get(player.id);
+    if (sig) buildSignatureMoveObjects(player, sig).forEach(m => moves.push(m));
+
     return moves;
 }
 
@@ -223,5 +283,7 @@ module.exports = {
     calculateHeal,
     getMoveCooldown,
     setMoveCooldown,
-    clearPlayerCooldowns
+    clearPlayerCooldowns,
+    ensureSignatureMoves,
+    setSignatureMoves
 };

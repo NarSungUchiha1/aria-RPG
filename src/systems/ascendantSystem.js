@@ -606,6 +606,10 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                 );
                 endResFlow(playerId);
 
+                // Make the signature moves usable in combat immediately (lazy
+                // loaded by ensureSignatureMoves too, but prime it now).
+                try { require('./skillSystem').setSignatureMoves(playerId, moves); } catch {}
+
                 const profile = await getResonanceProfile(playerId);
                 const genesis = formatGenesisDate(profile.genesis_date);
                 const moveList = moves.map((m, i) => `┃✧ ${i+1}. *${m.name}*\n┃✧    _${m.desc}_`).join('\n');
