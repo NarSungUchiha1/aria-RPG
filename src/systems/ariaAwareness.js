@@ -11,15 +11,18 @@ const { remember, recallRecent, getIdentity, setWorldState, getWorldState } = re
 
 // ── What ARIA witnesses and files away ────────────────────────────────────────
 
-async function witnessMessage(userId, nickname, text, groupJid = null, groupName = null) {
-    if (!text || text.length < 4) return;
-    if (text.startsWith('!')) return;
+// Passive chatter logging is NON-ESSENTIAL. During a big raid, dozens of players
+// chat rapidly and this used to fire ~4 DB ops per line (incl. a CREATE TABLE and
+// an expensive prune), starving the DB pool / CPU from actual gameplay. We now:
+//   • ensure the table ONCE, not per message
+//   • throttle per user (skip if we logged them in the last WITNESS_THROTTLE_MS)
+//   • prune only occasionally instead of every message
+const WITNESS_THROTTLE_MS = 30000;
+const lastWitness = new Map();
+let groupLogTableReady = false;
 
-    await remember('episodic', userId,
-        `${nickname} said: "${text.substring(0, 120)}"`,
-        { importance: 3 }
-    ).catch(() => {});
-
+async function ensureGroupLogTable() {
+    if (groupLogTableReady) return;
     try {
         await db.execute(`
             CREATE TABLE IF NOT EXISTS aria_group_log (
@@ -33,22 +36,45 @@ async function witnessMessage(userId, nickname, text, groupJid = null, groupName
                 INDEX idx_group_time (group_jid, created_at),
                 INDEX idx_time (created_at)
             )
-        `).catch(() => {});
+        `);
+        groupLogTableReady = true;
+    } catch {}
+}
+
+async function witnessMessage(userId, nickname, text, groupJid = null, groupName = null) {
+    if (!text || text.length < 4) return;
+    if (text.startsWith('!')) return;
+
+    // Per-user throttle — sheds load under raids without losing the gist of chat.
+    const now = Date.now();
+    if (now - (lastWitness.get(userId) || 0) < WITNESS_THROTTLE_MS) return;
+    lastWitness.set(userId, now);
+
+    await remember('episodic', userId,
+        `${nickname} said: "${text.substring(0, 120)}"`,
+        { importance: 3 }
+    ).catch(() => {});
+
+    try {
+        await ensureGroupLogTable();
 
         await db.execute(
             `INSERT INTO aria_group_log (group_jid, group_name, player_id, nickname, content) VALUES (?,?,?,?,?)`,
             [groupJid || 'unknown', groupName || groupJid || 'unknown', userId, nickname, text.substring(0, 500)]
         );
 
-        await db.execute(`
-            DELETE FROM aria_group_log
-            WHERE group_jid = ? AND id NOT IN (
-                SELECT id FROM (
-                    SELECT id FROM aria_group_log
-                    WHERE group_jid = ? ORDER BY created_at DESC LIMIT 500
-                ) t
-            )`, [groupJid || 'unknown', groupJid || 'unknown']
-        ).catch(() => {});
+        // The prune uses a nested subquery — expensive. Run it rarely, not per line.
+        if (Math.random() < 0.02) {
+            await db.execute(`
+                DELETE FROM aria_group_log
+                WHERE group_jid = ? AND id NOT IN (
+                    SELECT id FROM (
+                        SELECT id FROM aria_group_log
+                        WHERE group_jid = ? ORDER BY created_at DESC LIMIT 500
+                    ) t
+                )`, [groupJid || 'unknown', groupJid || 'unknown']
+            ).catch(() => {});
+        }
     } catch {}
 }
 

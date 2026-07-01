@@ -195,6 +195,26 @@ function enqueueCommand(userId, fn) {
     return queue;
 }
 
+// ── GLOBAL COMMAND CONCURRENCY LIMITER (backpressure) ─────────────────────────
+// Combat commands fire dozens of sequential DB queries each. During a big raid,
+// 20+ players issuing them at once thrash the event loop and exhaust the 10-conn
+// DB pool, so everything backs up and throughput collapses (the "died under
+// pressure" symptom). Capping how many commands run AT ONCE keeps the pool
+// un-starved so each command finishes fast — higher total throughput under load,
+// and it degrades gracefully instead of falling over.
+const MAX_CONCURRENT_COMMANDS = 6;
+let activeCommands = 0;
+const commandWaiters = [];
+function acquireCommandSlot() {
+    if (activeCommands < MAX_CONCURRENT_COMMANDS) { activeCommands++; return Promise.resolve(); }
+    return new Promise(resolve => commandWaiters.push(resolve));
+}
+function releaseCommandSlot() {
+    const next = commandWaiters.shift();
+    if (next) next();            // hand the slot straight to the next waiter
+    else if (activeCommands > 0) activeCommands--;
+}
+
 app.get('/ping', (req, res) => res.status(200).send('OK'));
 
 // Self-ping every 4 min as backup — real fix is UptimeRobot hitting /ping externally
@@ -1049,15 +1069,27 @@ async function startBot() {
                     // Test GC and live GC commands run in parallel without interfering.
                     // All getRaidGroup() calls anywhere in the chain read from AsyncLocalStorage.
                     const executionGroupJid = isTestGroup ? TEST_GROUP_JID : (process.env.RAID_GROUP_JID || '120363213735662100@g.us');
+                    // Backpressure: wait for a free slot before running the command.
+                    await acquireCommandSlot();
                     try {
-                        await runWithGroup(executionGroupJid, () =>
-                            command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock })
-                        );
+                        await Promise.race([
+                            runWithGroup(executionGroupJid, () =>
+                                command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock })
+                            ),
+                            // Safety valve: never let one hung command hold a slot forever
+                            // and deadlock the limiter. Release after 60s and move on.
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('cmd-slot-timeout')), 60000))
+                        ]);
                     } catch (execErr) {
-                        console.error("Command Error:", execErr);
-                        await sock.sendMessage(jid, { text: "❌ An error occurred." }, isDM ? {} : { quoted: msg });
+                        if (execErr?.message === 'cmd-slot-timeout') {
+                            console.warn(`[CMD TIMEOUT] ${cmdName} by ${userId} exceeded 60s — slot released`);
+                        } else {
+                            console.error("Command Error:", execErr);
+                            await sock.sendMessage(jid, { text: "❌ An error occurred." }, isDM ? {} : { quoted: msg });
+                        }
                     } finally {
                         playerCache.delete(userId);
+                        releaseCommandSlot();
                     }
                 });
             } catch (err) {
