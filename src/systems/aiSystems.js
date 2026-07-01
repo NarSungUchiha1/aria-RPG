@@ -345,27 +345,63 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
     if (isOnCooldown(userId)) return;
     stampCooldown(userId);
 
-    const { ctx, nickname } = await getPlayerContext(userId);
-    const isMaster = isOwner(userId); // unknown commands don't have isAdmin context
-    const sysPrompt = buildSystemPrompt(isMaster, nickname || '');
     const fullInput = `!${cmdName} ${args.join(' ')}`.trim();
-    const prompt    = ctx
-        ? `This player (context: ${ctx}) typed "${fullInput}" — not a valid command. Help them figure out what they meant or what they should do.`
-        : `A player typed "${fullInput}" — not a valid command. Help them figure out what they meant.`;
 
-    let reply;
-    try {
-        reply = await callGemini(prompt, sysPrompt);
-        if (!reply) throw new Error('empty');
-    } catch {
-        reply = `❓ "${fullInput}" isn't a recognised command. Type !help for a list of commands!`;
+    // Over AI capacity — skip the AI call, give the static fallback instead.
+    if (!isOwner(userId) && activeAICalls >= MAX_AI_CONCURRENT) {
+        await sock.sendMessage(jid, { text: `❓ "${fullInput}" isn't a recognised command. Type !help for a list of commands!` }, safeQuote(jid, msg)).catch(() => {});
+        return;
     }
 
-    await sock.sendMessage(jid, { text: reply }, safeQuote(jid, msg)).catch(() => {});
+    activeAICalls++;
+    try {
+        const { ctx, nickname } = await getPlayerContext(userId);
+        const isMaster = isOwner(userId); // unknown commands don't have isAdmin context
+        const sysPrompt = buildSystemPrompt(isMaster, nickname || '');
+        const prompt    = ctx
+            ? `This player (context: ${ctx}) typed "${fullInput}" — not a valid command. Help them figure out what they meant or what they should do.`
+            : `A player typed "${fullInput}" — not a valid command. Help them figure out what they meant.`;
+
+        let reply;
+        try {
+            reply = await callGemini(prompt, sysPrompt);
+            if (!reply) throw new Error('empty');
+        } catch {
+            reply = `❓ "${fullInput}" isn't a recognised command. Type !help for a list of commands!`;
+        }
+
+        await sock.sendMessage(jid, { text: reply }, safeQuote(jid, msg)).catch(() => {});
+    } finally {
+        activeAICalls--;
+    }
 }
 
 // ── 2. Direct AI chat — triggered by @Aria mention or !aria ──────────────────
-async function handleAriaCommand(sock, jid, msg, userId, question, { isAdmin = false, blockedSet = null } = {}) {
+// ── GLOBAL AI CONCURRENCY LIMITER ─────────────────────────────────────────────
+// Each Aria interaction fires an AI call PLUS several DB reads (history, context,
+// memory). With only a per-USER cooldown and no GLOBAL cap, many different people
+// chatting at once flood the shared 10-conn DB pool and the 1-CPU instance and
+// drag the whole bot for a long time (30-min lag with no raid). Cap concurrent AI
+// interactions and shed the overflow with a quick note instead of piling on.
+// Owner/admin bypass the cap.
+let activeAICalls = 0;
+const MAX_AI_CONCURRENT = 3;
+
+async function handleAriaCommand(sock, jid, msg, userId, question, opts = {}) {
+    const privileged = isOwner(userId) || opts.isAdmin;
+    if (!privileged && activeAICalls >= MAX_AI_CONCURRENT) {
+        await sock.sendMessage(jid, { text: `One sec — catching up 😮‍💨` }, safeQuote(jid, msg)).catch(() => {});
+        return;
+    }
+    activeAICalls++;
+    try {
+        return await _handleAriaCommandInner(sock, jid, msg, userId, question, opts);
+    } finally {
+        activeAICalls--;
+    }
+}
+
+async function _handleAriaCommandInner(sock, jid, msg, userId, question, { isAdmin = false, blockedSet = null } = {}) {
     const owner        = isOwner(userId);
     const isMaster     = owner || isAdmin; // admin = master, same treatment
     const isPrivileged = isMaster;
