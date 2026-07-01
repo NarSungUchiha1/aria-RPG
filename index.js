@@ -97,8 +97,33 @@ setInterval(() => {
 // round-trip response within a hard timeout. Two consecutive misses => the
 // connection is dead; force a clean reconnect immediately instead of waiting
 // hours. A server error response still counts as ALIVE (we got a round-trip).
+// Timestamp of the last inbound event of ANY kind (message/receipt/presence).
+// Bumped by listeners registered in startBot(). Used by the receive watchdog
+// below to catch the case where the socket is alive but Baileys has stopped
+// delivering incoming events.
+let lastInbound = Date.now();
+let lastForcedReconnect = 0;
+
+function forceReconnect(reason) {
+    console.log(`🔁 Forcing reconnect — ${reason}`);
+    lastForcedReconnect = Date.now();
+    heartbeatFails = 0;
+    lastInbound = Date.now(); // reset so the fresh socket isn't instantly re-flagged
+    isReady = false;
+    isBotRunning = false;
+    // removeAllListeners first so closing this socket does NOT re-enter the
+    // connection.update handler (which would schedule its own startBot()).
+    try { sock?.ev?.removeAllListeners(); } catch(e) {}
+    try { sock?.end?.(new Error(reason)); } catch(e) {}
+    try { sock?.ws?.close(); } catch(e) {}
+    sock = null;
+    startBot();
+}
+
 let heartbeatFails = 0;
 let heartbeatInFlight = false;
+const RECEIVE_STALL_MS   = 4 * 60 * 1000;   // no inbound events for this long => stalled
+const RECONNECT_COOLDOWN = 10 * 60 * 1000;  // don't force-reconnect more than once per 10 min
 setInterval(async () => {
     if (!isReady || !sock || heartbeatInFlight) return;
     heartbeatInFlight = true;
@@ -121,25 +146,22 @@ setInterval(async () => {
         heartbeatInFlight = false;
     }
 
-    if (alive) {
-        heartbeatFails = 0;
+    // ── CASE 1: socket-level zombie (no round-trip at all) ────────────────
+    if (!alive) {
+        heartbeatFails++;
+        console.log(`💓 Heartbeat: no round-trip (${heartbeatFails}/2) — connection may be a zombie.`);
+        if (heartbeatFails >= 2) forceReconnect('heartbeat: connection dead (no round-trip)');
         return;
     }
+    heartbeatFails = 0;
 
-    heartbeatFails++;
-    console.log(`💓 Heartbeat: no round-trip (${heartbeatFails}/2) — connection may be a zombie.`);
-    if (heartbeatFails >= 2) {
-        console.log('🔁 Heartbeat: connection confirmed dead — forcing reconnect...');
-        heartbeatFails = 0;
-        isReady = false;
-        isBotRunning = false;
-        // removeAllListeners first so closing this socket does NOT re-enter the
-        // connection.update handler (which would schedule its own startBot()).
-        try { sock?.ev?.removeAllListeners(); } catch(e) {}
-        try { sock?.end?.(new Error('heartbeat-forced reconnect')); } catch(e) {}
-        try { sock?.ws?.close(); } catch(e) {}
-        sock = null;
-        startBot();
+    // ── CASE 2: socket is alive but Baileys stopped delivering events ─────
+    // The ping round-trips fine, yet no messages/receipts/presence have come
+    // in for minutes. That's a receive-pipeline stall the socket probe can't
+    // see. Force a reconnect (rate-limited so genuine idle can't cause churn).
+    const inboundAge = Date.now() - lastInbound;
+    if (inboundAge > RECEIVE_STALL_MS && (Date.now() - lastForcedReconnect) > RECONNECT_COOLDOWN) {
+        forceReconnect(`receive stall: socket alive but no inbound events for ${Math.round(inboundAge/1000)}s`);
     }
 }, 30 * 1000); // probe every 30s
 
@@ -441,6 +463,16 @@ async function startBot() {
         });
 
         const thisSock = sock;
+
+        // Bump inbound-activity timestamp on ANY incoming event. The receive
+        // watchdog uses this to detect a stalled receive pipeline (socket alive
+        // but Baileys no longer delivering events).
+        const bumpInbound = () => { if (sock === thisSock) lastInbound = Date.now(); };
+        sock.ev.on('messages.upsert', bumpInbound);
+        sock.ev.on('messages.update', bumpInbound);
+        sock.ev.on('message-receipt.update', bumpInbound);
+        sock.ev.on('presence.update', bumpInbound);
+
         sock.ev.on('creds.update', async () => {
             if (sock !== thisSock) return; // stale socket — ignore
             await saveCreds();
@@ -529,6 +561,7 @@ async function startBot() {
                 BOT_LID    = rawLid.replace(/@[^@]+$/, '').split(':')[0].trim();
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
+                lastInbound = Date.now(); // fresh connection — reset receive-stall clock
 
                 // Load banned players into memory
                 try {
