@@ -1,13 +1,14 @@
 require('dotenv').config();
 
-const { 
-    default: makeWASocket, 
-    useMultiFileAuthState, 
-    DisconnectReason, 
+const {
+    default: makeWASocket,
+    useMultiFileAuthState,
+    DisconnectReason,
     fetchLatestBaileysVersion,
     initAuthCreds,
     BufferJSON,
-    downloadMediaMessage
+    downloadMediaMessage,
+    S_WHATSAPP_NET
 } = require('@whiskeysockets/baileys');
 const express = require('express');
 const QRCode = require('qrcode');
@@ -83,6 +84,64 @@ setInterval(() => {
         }
     }
 }, 60 * 1000); // check every minute
+
+// ── LIVENESS HEARTBEAT ────────────────────────────────────────────────────
+// The "stuck connecting" watchdog above only fires when !isReady. It does NOT
+// cover a ZOMBIE socket: a black-holed TCP connection where the peer vanished
+// without a FIN/RST. In that state Baileys never emits 'close', isReady stays
+// true, and sends silently buffer into the dead socket (cron "succeeds" in the
+// logs but nothing reaches WhatsApp) — for hours, until the server reaps it.
+//
+// Baileys' own keepAlive is meant to catch this but empirically does not here.
+// So we run an INDEPENDENT active probe: send the same w:p ping and require a
+// round-trip response within a hard timeout. Two consecutive misses => the
+// connection is dead; force a clean reconnect immediately instead of waiting
+// hours. A server error response still counts as ALIVE (we got a round-trip).
+let heartbeatFails = 0;
+let heartbeatInFlight = false;
+setInterval(async () => {
+    if (!isReady || !sock || heartbeatInFlight) return;
+    heartbeatInFlight = true;
+    let alive = false;
+    try {
+        await Promise.race([
+            sock.query({
+                tag: 'iq',
+                attrs: { to: S_WHATSAPP_NET, type: 'get', xmlns: 'w:p' },
+                content: [{ tag: 'ping', attrs: {} }]
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('hb-timeout')), 15000))
+        ]);
+        alive = true; // got a normal response
+    } catch (e) {
+        // Only our own timeout means "no round-trip". A server-side error node
+        // means the socket is alive and talking, so don't treat it as a zombie.
+        alive = e?.message !== 'hb-timeout';
+    } finally {
+        heartbeatInFlight = false;
+    }
+
+    if (alive) {
+        heartbeatFails = 0;
+        return;
+    }
+
+    heartbeatFails++;
+    console.log(`💓 Heartbeat: no round-trip (${heartbeatFails}/2) — connection may be a zombie.`);
+    if (heartbeatFails >= 2) {
+        console.log('🔁 Heartbeat: connection confirmed dead — forcing reconnect...');
+        heartbeatFails = 0;
+        isReady = false;
+        isBotRunning = false;
+        // removeAllListeners first so closing this socket does NOT re-enter the
+        // connection.update handler (which would schedule its own startBot()).
+        try { sock?.ev?.removeAllListeners(); } catch(e) {}
+        try { sock?.end?.(new Error('heartbeat-forced reconnect')); } catch(e) {}
+        try { sock?.ws?.close(); } catch(e) {}
+        sock = null;
+        startBot();
+    }
+}, 30 * 1000); // probe every 30s
 
 // ✅ Simple player cache
 const playerCache = new Map();
@@ -378,6 +437,7 @@ async function startBot() {
             printQRInTerminal: false,
             syncFullHistory: false,
             markOnlineOnConnect: false,
+            keepAliveIntervalMs: 20000,
         });
 
         const thisSock = sock;
