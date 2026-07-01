@@ -199,22 +199,26 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
-// Convert LID-based DM JID to @c.us (contact JID for LID sessions)
-// WhatsApp's LID system produces: '53635887153297@lid' or '53635887153297alid' (malformed, missing @)
-// Fix malformed LID JID — the number IS a phone number,
-// the 'alid'/'@lid' suffix is just WhatsApp's routing to the bot's linked device.
-// Convert back to @s.whatsapp.net so replies reach the actual phone.
+// Repair a DM JID to a routable form WITHOUT guessing a phone number.
+//
+// WhatsApp's LID ("linked identity") system delivers DMs with an opaque JID like
+// '53635887153297@lid'. That number is NOT the user's phone number — it is a
+// separate, opaque identifier. Do NOT rewrite it to '<number>@s.whatsapp.net':
+// Baileys will accept the send (valid format) but WhatsApp delivers it to a
+// nonexistent/stranger phone, so the reply silently never arrives.
+//
+// The only address we hold a valid signal session for is the JID the message
+// arrived on. So we PRESERVE the @lid form and only repair the malformed
+// '53635887153297alid' variant (the '@' dropped somewhere upstream) back to @lid.
 function normalizeDMJid(jid) {
     if (!jid) return jid;
     const str = String(jid).trim();
     if (str.endsWith('@g.us')) return str;
     if (str.endsWith('@s.whatsapp.net')) return str;
-    // Malformed LID: '53635887153297alid' → '53635887153297@s.whatsapp.net'
+    if (str.endsWith('@lid')) return str;
+    // Malformed LID missing its '@': '53635887153297alid' → '53635887153297@lid'
     const malformed = str.match(/^(\d+)alid$/);
-    if (malformed) return `${malformed[1]}@s.whatsapp.net`;
-    // Proper LID: '53635887153297@lid' → '53635887153297@s.whatsapp.net'
-    const proper = str.match(/^(\d+)@lid$/);
-    if (proper) return `${proper[1]}@s.whatsapp.net`;
+    if (malformed) return `${malformed[1]}@lid`;
     return str;
 }
 
