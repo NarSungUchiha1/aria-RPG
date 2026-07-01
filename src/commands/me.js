@@ -37,6 +37,8 @@ module.exports = {
                     .map((m, i) => `┃✧ ${['①','②','③','④','⑤'][i]} *${m.name}*\n┃✧    _${m.desc}_`)
                     .join('\n');
 
+                // Ascendants transcend roles — keep the card to a clean identity:
+                // ends at Clan. Stats/moves live in !me stats / !moveset.
                 const cardText =
                     `╭══〘 ✧ RESONANCE CARD 〙══╮\n` +
                     `┃✧\n` +
@@ -46,16 +48,6 @@ module.exports = {
                     `┃✧    ${genesis}\n` +
                     `┃✧ 👑 Authority: ${resonance.authority}\n` +
                     `┃✧ 🏰 Clan: ${clanDisplay}\n` +
-                    `┃✧ ${icon} ${p.role}\n` +
-                    `┃✧\n` +
-                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `┃✧ 💪 STR: ${totalStr}  ⚡ AGI: ${totalAgi}\n` +
-                    `┃✧ 🧠 INT: ${totalInt}  🛡️ STA: ${totalSta}\n` +
-                    `┃✧ ❤️ HP: ${p.hp}/${p.max_hp}\n` +
-                    ((p.role==='Mage'||p.role==='Healer'||p.role==='Explorer') ? `┃✧ 💙 Mana: ${p.mana||0}/${p.max_mana||50}\n` : '') +
-                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-                    `┃✧ ⚔️ SIGNATURE MOVES:\n` +
-                    `${moveList}\n` +
                     `┃✧\n` +
                     `╰═══════════════════════════════╯`;
 
