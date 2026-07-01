@@ -681,6 +681,9 @@ async function startBot() {
 
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
+            if (!jid.endsWith('@g.us')) {
+                console.log(`[DM DEBUG] rawJid="${rawJid}" -> jid="${jid}" | senderJid="${senderJid}" | participant="${msg.key.participant || ''}"`);
+            }
 
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
@@ -907,10 +910,10 @@ async function startBot() {
                     const sendOpts = isDM ? {} : { quoted: msg };
                     try {
                         const r = await sock.sendMessage(jid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM SEND] jid="${jid}" ok`);
+                        if (isDM) console.log(`[DM SEND] rawJid="${rawJid}" jid="${jid}" ok | msgId=${r?.key?.id} status=${r?.status}`);
                         return r;
                     } catch(e) {
-                        console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
+                        console.error(`[SEND ERROR] rawJid="${rawJid}" jid="${jid}" ${e?.stack || e?.message}`);
                     }
                 },
 
