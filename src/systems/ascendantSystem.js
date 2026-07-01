@@ -384,6 +384,46 @@ async function canResonate(playerId) {
     return { ok: true };
 }
 
+// Per-condition progress for the !resonance checklist. Uses the SAME data
+// sources as canResonate() so the display never disagrees with the gate.
+async function getResonanceProgress(playerId) {
+    const [rows] = await db.execute(
+        "SELECT nickname, `rank`, COALESCE(prestige_level,0) as prestige_level, COALESCE(dungeons_cleared,0) as dungeons_cleared FROM players WHERE id=?",
+        [playerId]
+    );
+    if (!rows.length) return { registered: false };
+    const p = rows[0];
+    const resonated = await isResonated(playerId);
+
+    const rankIdx = PRESTIGE_RANK_ORDER.indexOf(p.rank);
+    const isPS = (rankIdx >= 0 && rankIdx >= PRESTIGE_RANK_ORDER.indexOf('PS')) || p.rank === ASCENDANT_RANK;
+
+    const [psc] = await db.execute(
+        `SELECT COALESCE(SUM(pq.progress), 0) as clears
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='prestige_clear'`,
+        [playerId]
+    ).catch(() => [[{ clears: 0 }]]);
+    const psClears = Number(psc[0]?.clears || 0);
+
+    return {
+        registered: true,
+        resonated,
+        nickname: p.nickname,
+        rank: p.rank,
+        prestige: p.prestige_level,
+        isPrestige: p.prestige_level >= 1,
+        isPS,
+        psClears,
+        hasPsClear: psClears >= 1,
+        totalClears: p.dungeons_cleared,
+        requiredClears: RESONANCE_REQUIRED_CLEARS,
+        hasClears: p.dungeons_cleared >= RESONANCE_REQUIRED_CLEARS,
+        eligible: !resonated && p.prestige_level >= 1 && isPS && psClears >= 1 && p.dungeons_cleared >= RESONANCE_REQUIRED_CLEARS
+    };
+}
+
 // ── FLOW STATE MACHINE ────────────────────────────────────────────────
 const resonanceFlows = new Map();
 
@@ -421,9 +461,23 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
 
             // ── STAGE 1: NAME ─────────────────────────────────────
             case 'name': {
-                const name = text.trim();
+                // Require the labeled format "Name: <new name>" so the bot can
+                // positively identify the name — critical in a group where any
+                // other message must NOT be mistaken for the resonance name.
+                const m = text.match(/^\s*name\s*:\s*(.+)$/is);
+                if (!m) {
+                    await fakeMsg.reply(
+                        `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                        `┃✧ ⚠️ Declare your name like this:\n` +
+                        `┃✧\n` +
+                        `┃✧    *Name: <your new name>*\n` +
+                        `╰═══════════════════════╯`
+                    );
+                    return true;
+                }
+                const name = m[1].trim();
                 if (name.length < 2 || name.length > 30) {
-                    await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ⚠️ Name must be 2-30 characters.\n┃✧ Try again:\n╰═══════════════════════╯`);
+                    await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ⚠️ Name must be 2-30 characters.\n┃✧ Format: *Name: <your new name>*\n╰═══════════════════════╯`);
                     return true;
                 }
                 const [dup] = await db.execute('SELECT player_id FROM resonance_profiles WHERE res_name=? AND player_id!=?', [name, playerId]);
@@ -446,8 +500,9 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                     `┃✧ your !me card and *cannot be\n` +
                     `┃✧ changed later*.\n` +
                     `┃✧\n` +
-                    `┃✧ Send a direct image in this chat\n` +
-                    `┃✧ (as a photo, not a file):\n` +
+                    `┃✧ Send it as a *photo* (not a file)\n` +
+                    `┃✧ with the caption *Pic* so it is\n` +
+                    `┃✧ recognised:\n` +
                     `╰═══════════════════════════════╯`
                 );
                 return true;
@@ -610,5 +665,6 @@ module.exports = {
     isInResFlow,
     startResFlow,
     endResFlow,
-    resFlowKeys
+    resFlowKeys,
+    getResonanceProgress
 };
