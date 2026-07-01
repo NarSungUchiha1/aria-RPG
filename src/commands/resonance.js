@@ -24,6 +24,20 @@ module.exports = {
                     return msg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ✅ You have already resonated.\n┃✧ Use !me to view your card.\n╰═══════════════════════╯`);
                 if (check.reason === 'not_prestige')
                     return msg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ❌ Only Prestige Hunters can resonate.\n╰═══════════════════════╯`);
+                if (check.reason === 'not_ps_rank')
+                    return msg.reply(
+                        `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                        `┃✧ ❌ You must reach Rank PS first.\n` +
+                        `┃✧ 🏅 Current: ${check.rank}\n` +
+                        `╰═══════════════════════╯`
+                    );
+                if (check.reason === 'no_ps_clear')
+                    return msg.reply(
+                        `╭══〘 ✦ RESONANCE 〙══╮\n` +
+                        `┃✧ ❌ Clear at least one PS dungeon\n` +
+                        `┃✧ before you can resonate.\n` +
+                        `╰═══════════════════════╯`
+                    );
                 if (check.reason === 'not_enough_clears')
                     return msg.reply(
                         `╭══〘 ✦ RESONANCE 〙══╮\n` +

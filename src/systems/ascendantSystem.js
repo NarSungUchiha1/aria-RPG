@@ -359,7 +359,26 @@ async function canResonate(playerId) {
     if (!rows.length) return { ok: false, reason: 'not_registered' };
     if (await isResonated(playerId)) return { ok: false, reason: 'already_resonated' };
     const p = rows[0];
+
+    // Must be a Prestige hunter
     if (p.prestige_level < 1) return { ok: false, reason: 'not_prestige' };
+
+    // Must be Rank PS (or already Ascendant)
+    const rankIdx = PRESTIGE_RANK_ORDER.indexOf(p.rank);
+    if (rankIdx < PRESTIGE_RANK_ORDER.indexOf('PS') && p.rank !== ASCENDANT_RANK)
+        return { ok: false, reason: 'not_ps_rank', rank: p.rank };
+
+    // Must have cleared at least one PS dungeon
+    const [psClears] = await db.execute(
+        `SELECT COALESCE(SUM(pq.progress), 0) as clears
+         FROM player_quests pq
+         JOIN quests q ON q.id = pq.quest_id
+         WHERE pq.player_id=? AND q.objective_type='prestige_clear'`,
+        [playerId]
+    ).catch(() => [[{ clears: 0 }]]);
+    if ((psClears[0]?.clears || 0) < 1) return { ok: false, reason: 'no_ps_clear' };
+
+    // 200 total dungeon clears
     if (p.dungeons_cleared < RESONANCE_REQUIRED_CLEARS)
         return { ok: false, reason: 'not_enough_clears', current: p.dungeons_cleared, required: RESONANCE_REQUIRED_CLEARS };
     return { ok: true };
