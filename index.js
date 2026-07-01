@@ -727,17 +727,28 @@ async function startBot() {
             // ── RESONANCE FLOW INTERCEPTOR (must be BEFORE Aria) ──────────
             {
                 const { isInResFlow, handleResonanceFlow, resFlowKeys } = require('./src/systems/ascendantSystem');
+                // In the test group the !resonance command runs under the tester's
+                // demo id (e.g. "<num>_test"), so the flow was started under THAT id.
+                // Resolve the same effective id here — otherwise the interceptor
+                // checks the raw id and never matches the flow the command wrote.
+                let flowUserId = userId;
+                try {
+                    if (jid === TEST_GROUP_JID) {
+                        const { activeTesterSessions } = require('./src/commands/tester');
+                        if (activeTesterSessions?.has(userId)) flowUserId = activeTesterSessions.get(userId);
+                    }
+                } catch(e) {}
                 if (!text.startsWith('!')) {
-                    console.log(`[RESFLOW CHECK] userId="${userId}" inFlow=${isInResFlow(userId)} | activeKeys=${JSON.stringify(resFlowKeys())}`);
+                    console.log(`[RESFLOW CHECK] flowUserId="${flowUserId}" inFlow=${isInResFlow(flowUserId)} | activeKeys=${JSON.stringify(resFlowKeys())}`);
                 }
-                if (isInResFlow(userId)) {
+                if (isInResFlow(flowUserId)) {
                     const flowReply = async (content) => {
                         const mc = typeof content === 'string' ? { text: content } : content;
                         const opts = jid.endsWith('@g.us') ? { quoted: msg } : {};
                         return await sock.sendMessage(jid, mc, opts);
                     };
                     const flowMsg = { reply: flowReply, from: jid };
-                    const consumed = await handleResonanceFlow(userId, text, msg, flowMsg, sock);
+                    const consumed = await handleResonanceFlow(flowUserId, text, msg, flowMsg, sock);
                     if (consumed) return;
                 }
             }
