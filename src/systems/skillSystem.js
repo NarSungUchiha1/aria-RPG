@@ -24,10 +24,21 @@ const cooldowns = new Map();
 // resonance_profiles.moves) become REAL, powerful combat moves. Cached because
 // they're immutable once set. Scaling stat is chosen at build time from the
 // player's CURRENT best offensive stat so it keeps up as they grow.
-const signatureMovesCache = new Map(); // playerId -> [{name,desc}] or null
-const SIG_MULT = [2.0, 2.4, 2.8, 3.2, 4.0]; // escalating; move 5 is the "ultimate"
-const SIG_CD   = [2, 3, 4, 6, 10];
-const SIG_COST = [8, 12, 16, 20, 28];
+const signatureMovesCache = new Map(); // playerId -> enriched [{name,desc,type,power}] or null
+const signatureLevelCache = new Map(); // playerId -> { moveName: level }  (filled by leveling system)
+
+// Per power-tier magnitudes. AI assigns each move a type + power tier at ritual
+// time; we own the actual numbers so moves stay balanced. Level scales them up.
+const POWER_TIER = { weak: 0, medium: 1, strong: 2, ultimate: 3 };
+const DMG_MULT   = [1.8, 2.4, 3.0, 4.0];
+const HEAL_MULT  = [3.0, 4.0, 5.0, 6.5];
+const HEAL_BASE  = [20, 30, 45, 65];
+const SHIELD_VAL = [90, 150, 240, 380];
+const BUFF_VAL   = [20, 30, 45, 65];
+const DEBUFF_VAL = [10, 16, 24, 34];
+const TIER_CD    = [2, 3, 5, 8];
+const TIER_COST  = [8, 12, 18, 26];
+const LEVEL_STEP = 0.08; // +8% power per level
 
 async function ensureSignatureMoves(playerId) {
     if (!playerId || signatureMovesCache.has(playerId)) return;
@@ -57,20 +68,35 @@ function bestOffensiveStat(player) {
     return Object.entries(s).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-function buildSignatureMoveObjects(player, resMoves) {
+function tierOf(power) { return POWER_TIER[String(power || 'medium').toLowerCase()] ?? 1; }
+
+function buildSignatureMoveObjects(player, resMoves, levels = {}) {
     if (!Array.isArray(resMoves) || !resMoves.length) return [];
     const stat = bestOffensiveStat(player);
-    return resMoves.slice(0, 5).map((m, i) => ({
-        name:       m.name,
-        type:       'damage',
-        stat,
-        multiplier: SIG_MULT[i] ?? 2.0,
-        cooldown:   SIG_CD[i]   ?? 4,
-        cost:       SIG_COST[i] ?? 12,
-        desc:       m.desc || '',
-        source:     'signature',
-        signature:  true
-    }));
+    return resMoves.slice(0, 5).map(m => {
+        const t     = tierOf(m.power);
+        const level = Math.max(1, Number(levels[m.name]) || 1);
+        const s     = 1 + (level - 1) * LEVEL_STEP; // level scaling
+        const base  = {
+            name: m.name, desc: m.desc || '', source: 'signature', signature: true,
+            level, cooldown: TIER_CD[t], cost: TIER_COST[t]
+        };
+        switch (m.type) {
+            case 'heal':
+                return { ...base, type: 'heal', stat: 'intelligence',
+                         multiplier: +(HEAL_MULT[t] * s).toFixed(2), baseHeal: Math.round(HEAL_BASE[t] * s) };
+            case 'shield':
+            case 'evasion':
+                return { ...base, type: 'shield', value: Math.round(SHIELD_VAL[t] * s),
+                         duration: 2, evasion: m.type === 'evasion' };
+            case 'buff':
+                return { ...base, type: 'buff', effect: stat, value: Math.round(BUFF_VAL[t] * s), duration: 3 };
+            case 'debuff':
+                return { ...base, type: 'debuff', effect: 'attack', value: -Math.round(DEBUFF_VAL[t] * s), duration: 3 };
+            default:
+                return { ...base, type: 'damage', stat, multiplier: +(DMG_MULT[t] * s).toFixed(2) };
+        }
+    });
 }
 
 function getMoveCooldown(userId, moveName) {
@@ -119,7 +145,10 @@ function getAllMoves(player, equippedItems) {
 
     // Ascendant signature moves (cache must be primed via ensureSignatureMoves).
     const sig = signatureMovesCache.get(player.id);
-    if (sig) buildSignatureMoveObjects(player, sig).forEach(m => moves.push(m));
+    if (sig) {
+        const levels = signatureLevelCache.get(player.id) || {};
+        buildSignatureMoveObjects(player, sig, levels).forEach(m => moves.push(m));
+    }
 
     return moves;
 }

@@ -50,7 +50,7 @@ module.exports = {
                     text += `┃◆────────────\n┃◆ 👁️ SIGNATURE MOVES:\n`;
                     sigMoves.forEach(m => {
                         const cd = getMoveCooldown(userId, m.name);
-                        text += `┃◆   ${m.name} | ${cdText(cd)}\n`;
+                        text += `┃◆   ${m.name} - ${m.type} (Lv${m.level || 1}) | ${cdText(cd)}\n`;
                     });
                 }
 
@@ -84,7 +84,7 @@ module.exports = {
                 text += `┃★────────────\n┃★ 👁️ SIGNATURE MOVES:\n`;
                 sigMoves.forEach(m => {
                     const cd = getMoveCooldown(userId, m.name);
-                    text += `┃★   ${m.name} | ${cdText(cd)}\n`;
+                    text += `┃★   ${m.name} - ${m.type} (Lv${m.level || 1}) | ${cdText(cd)}\n`;
                 });
             }
 

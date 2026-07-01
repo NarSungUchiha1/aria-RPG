@@ -424,6 +424,42 @@ async function getResonanceProgress(playerId) {
     };
 }
 
+// Classify the 5 ritual moves into combat mechanics via the AI. The player only
+// writes a name + description; the AI decides what each move DOES (damage / heal
+// / shield / evasion / buff / debuff) and how strong it is. Falls back to
+// "damage" on any failure so the ritual never breaks.
+async function classifySignatureMoves(moves) {
+    const fallback = moves.map(m => ({ name: m.name, desc: m.desc, type: 'damage', power: 'medium' }));
+    try {
+        const { callGemini } = require('./aiSystems');
+        const list = moves.map((m, i) => `${i + 1}. ${m.name} — ${m.desc}`).join('\n');
+        const sys = 'You classify RPG signature moves into combat mechanics. Reply with ONLY a JSON array — no prose, no code fences.';
+        const prompt =
+`For each move, decide its combat TYPE and POWER tier from the name and description.
+TYPE (pick one): "damage" (harms the enemy), "heal" (restores HP), "shield" (absorbs damage), "evasion" (dodge/avoid attacks), "buff" (boosts the user), "debuff" (weakens the enemy).
+POWER (pick one): "weak","medium","strong","ultimate" — judge from how dramatic the move sounds.
+Moves:
+${list}
+Reply exactly as: [{"name":"<move name>","type":"<type>","power":"<power>"}]`;
+        const raw = await callGemini(prompt, sys);
+        if (!raw) return fallback;
+        const a = raw.indexOf('['), b = raw.lastIndexOf(']');
+        if (a === -1 || b === -1) return fallback;
+        const parsed = JSON.parse(raw.slice(a, b + 1));
+        const VALID = ['damage', 'heal', 'shield', 'evasion', 'buff', 'debuff'];
+        const POW   = ['weak', 'medium', 'strong', 'ultimate'];
+        return moves.map((m, i) => {
+            const c = parsed.find(p => String(p.name || '').toLowerCase() === m.name.toLowerCase()) || parsed[i] || {};
+            const type  = VALID.includes(String(c.type || '').toLowerCase())  ? String(c.type).toLowerCase()  : 'damage';
+            const power = POW.includes(String(c.power || '').toLowerCase())    ? String(c.power).toLowerCase() : 'medium';
+            return { name: m.name, desc: m.desc, type, power };
+        });
+    } catch (e) {
+        console.error('[Resonance] Move classification failed — defaulting to damage:', e.message);
+        return fallback;
+    }
+}
+
 // ── FLOW STATE MACHINE ────────────────────────────────────────────────
 const resonanceFlows = new Map();
 
@@ -601,18 +637,23 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                     return true;
                 }
 
+                // AI decides what each move DOES (type + power) from its description.
+                const enriched = await classifySignatureMoves(moves);
                 await db.execute('UPDATE resonance_profiles SET moves=?, authority=? WHERE player_id=?',
-                    [JSON.stringify(moves), 'Resonant', playerId]
+                    [JSON.stringify(enriched), 'Resonant', playerId]
                 );
                 endResFlow(playerId);
 
                 // Make the signature moves usable in combat immediately (lazy
                 // loaded by ensureSignatureMoves too, but prime it now).
-                try { require('./skillSystem').setSignatureMoves(playerId, moves); } catch {}
+                try { require('./skillSystem').setSignatureMoves(playerId, enriched); } catch {}
 
                 const profile = await getResonanceProfile(playerId);
                 const genesis = formatGenesisDate(profile.genesis_date);
-                const moveList = moves.map((m, i) => `┃✧ ${i+1}. *${m.name}*\n┃✧    _${m.desc}_`).join('\n');
+                const TYPE_ICON = { damage: '⚔️', heal: '💚', shield: '🛡️', evasion: '💨', buff: '⬆️', debuff: '⬇️' };
+                const moveList = enriched.map((m, i) =>
+                    `┃✧ ${i+1}. *${m.name}*  ${TYPE_ICON[m.type] || '⚔️'} ${m.type}\n┃✧    _${m.desc}_`
+                ).join('\n');
 
                 await fakeMsg.reply(
                     `╭══〘 ⚡ RESONANCE COMPLETE 〙══╮\n` +
