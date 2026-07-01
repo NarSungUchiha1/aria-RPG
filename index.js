@@ -28,6 +28,41 @@ let isReady        = false;
 let isBotRunning   = false;
 let pairAttempts   = 0;
 const MAX_PAIR_ATTEMPTS = 3;
+const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
+
+// Load pair attempts from DB on startup (survives Render restarts)
+async function loadPairAttempts() {
+    try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS pair_state (
+            k VARCHAR(50) PRIMARY KEY, v TEXT
+        )`);
+        const [rows] = await db.execute("SELECT v FROM pair_state WHERE k='pair_data'");
+        if (rows.length) {
+            const data = JSON.parse(rows[0].v);
+            pairAttempts = data.attempts || 0;
+            const elapsed = Date.now() - (data.lastAttempt || 0);
+            // Reset after cooldown
+            if (elapsed > PAIR_COOLDOWN_MS) {
+                pairAttempts = 0;
+                await savePairAttempts();
+            }
+            console.log(`📊 Pair attempts loaded: ${pairAttempts}/${MAX_PAIR_ATTEMPTS}`);
+        }
+    } catch(e) { console.error('Pair state load error:', e.message); }
+}
+async function savePairAttempts() {
+    try {
+        await db.execute(
+            "INSERT INTO pair_state (k, v) VALUES ('pair_data', ?) ON DUPLICATE KEY UPDATE v=?",
+            [JSON.stringify({ attempts: pairAttempts, lastAttempt: Date.now() }),
+             JSON.stringify({ attempts: pairAttempts, lastAttempt: Date.now() })]
+        );
+    } catch(e) {}
+}
+async function resetPairAttempts() {
+    pairAttempts = 0;
+    await savePairAttempts();
+}
 let lastWas401 = false;
 let sock = null;
 let BOT_NUMBER = '';
@@ -310,6 +345,7 @@ async function useMySQLAuthState() {
 async function startBot() {
     if (isBotRunning) return;
     isBotRunning = true;
+    await loadPairAttempts();
     lastConnectedAt = Date.now();
 
     try {
@@ -360,6 +396,10 @@ async function startBot() {
                 setTimeout(async () => {
                     try {
                         if (sock?.user) return;
+                        if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
+                            console.log('🛑 Pair cap reached — not requesting new code. Wait 30 min or restart manually.');
+                            return;
+                        }
                         const phoneNumber = process.env.BOT_PHONE_NUMBER;
                         if (!phoneNumber) {
                             console.warn("⚠️ BOT_PHONE_NUMBER not set in .env — skipping pairing code");
@@ -371,7 +411,7 @@ async function startBot() {
                     } catch (e) {
                         console.error("Pairing code error:", e.message);
                     }
-                }, 3000);
+                }, 5000);
             }
 
             if (connection === 'close') {
@@ -387,6 +427,7 @@ async function startBot() {
 
                 if (statusCode === DisconnectReason.loggedOut) {
                     pairAttempts++;
+                    await savePairAttempts();
                     console.log(`🔄 Logged out. Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
                     if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
@@ -400,6 +441,7 @@ async function startBot() {
                     setTimeout(() => startBot(), 3000);
                 } else if (statusCode === 401) {
                     pairAttempts++;
+                    await savePairAttempts();
                     lastWas401 = true;
                     console.log(`🔄 Unauthorized (401). Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
                     await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
@@ -416,7 +458,7 @@ async function startBot() {
                     setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
-                pairAttempts = 0; // Reset on successful connect
+                resetPairAttempts(); // Persist reset to DB
                 const rawId  = sock.user?.id  || '';
                 const rawLid = sock.user?.lid || '';
                 BOT_NUMBER = rawId.replace(/@[^@]+$/, '').split(':')[0].trim();
