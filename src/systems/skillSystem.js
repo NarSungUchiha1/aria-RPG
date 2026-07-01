@@ -40,6 +40,43 @@ const TIER_CD    = [2, 3, 5, 8];
 const TIER_COST  = [8, 12, 18, 26];
 const LEVEL_STEP = 0.08; // +8% power per level
 
+// Usage-based leveling: a signature move earns 1 XP each time it's used; it
+// levels every USES_PER_LEVEL uses up to MAX_SIG_LEVEL, getting stronger.
+const USES_PER_LEVEL = 8;
+const MAX_SIG_LEVEL  = 10;
+function levelFromXp(xp) { return Math.min(MAX_SIG_LEVEL, 1 + Math.floor((Number(xp) || 0) / USES_PER_LEVEL)); }
+
+let progressTableReady = false;
+async function ensureProgressTable() {
+    if (progressTableReady) return;
+    try {
+        await db.execute(`CREATE TABLE IF NOT EXISTS resonance_move_progress (
+            player_id VARCHAR(50) NOT NULL,
+            move_name VARCHAR(80) NOT NULL,
+            xp INT DEFAULT 0,
+            PRIMARY KEY (player_id, move_name)
+        )`);
+        progressTableReady = true;
+    } catch {}
+}
+
+// Called (fire-and-forget) when a signature move is used. Increments XP and
+// refreshes the level cache so the move scales up as it's used.
+async function recordSignatureUse(playerId, moveName) {
+    try {
+        await ensureProgressTable();
+        await db.execute(
+            'INSERT INTO resonance_move_progress (player_id, move_name, xp) VALUES (?,?,1) ON DUPLICATE KEY UPDATE xp = xp + 1',
+            [playerId, moveName]
+        );
+        const [rows] = await db.execute('SELECT xp FROM resonance_move_progress WHERE player_id=? AND move_name=?', [playerId, moveName]);
+        const level = levelFromXp(rows[0]?.xp || 1);
+        const levels = signatureLevelCache.get(playerId) || {};
+        levels[moveName] = level;
+        signatureLevelCache.set(playerId, levels);
+    } catch {}
+}
+
 async function ensureSignatureMoves(playerId) {
     if (!playerId || signatureMovesCache.has(playerId)) return;
     try {
@@ -48,6 +85,13 @@ async function ensureSignatureMoves(playerId) {
         let moves = [];
         try { moves = JSON.parse(rows[0].moves || '[]'); } catch { moves = []; }
         signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+
+        // Load per-move levels from usage progress.
+        await ensureProgressTable();
+        const [prog] = await db.execute('SELECT move_name, xp FROM resonance_move_progress WHERE player_id=?', [playerId]);
+        const levels = {};
+        prog.forEach(p => { levels[p.move_name] = levelFromXp(p.xp); });
+        signatureLevelCache.set(playerId, levels);
     } catch {
         signatureMovesCache.set(playerId, null);
     }
@@ -114,6 +158,13 @@ function setMoveCooldown(userId, moveName, baseCooldownSeconds, playerRank) {
     // Floor at 3s to prevent spam at high ranks
     const actualCooldown = Math.max(10, Math.floor(baseCooldownSeconds * multiplier));
     cooldowns.set(key, Date.now() + actualCooldown * 1000);
+
+    // If this was a signature move, earn XP toward leveling (non-blocking).
+    const sig = signatureMovesCache.get(userId);
+    if (sig && sig.some(m => m.name === moveName)) {
+        recordSignatureUse(userId, moveName).catch(() => {});
+    }
+
     return actualCooldown;
 }
 
