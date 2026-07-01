@@ -104,7 +104,29 @@ setInterval(() => {
 let lastInbound = Date.now();
 let lastForcedReconnect = 0;
 
+// ── EVENT-LOOP LAG MONITOR ────────────────────────────────────────────────────
+// Distinguishes "actually dead" from "saturated but alive". A 1s timer that
+// fires much later means the loop is overloaded (a big raid), NOT that the
+// connection died. We use this to SUPPRESS forced reconnects during saturation:
+// reconnecting mid-overload just adds load and — worse — the churn/conflict can
+// make WhatsApp log the device out, forcing a manual re-link.
+let loopLag = 0;
+let lagLastTick = Date.now();
+setInterval(() => {
+    const now = Date.now();
+    loopLag = Math.max(0, now - lagLastTick - 1000);
+    lagLastTick = now;
+}, 1000);
+const SATURATION_LAG_MS = 5000;
+
 function forceReconnect(reason) {
+    // If the event loop is badly lagged we're saturated, not dead — a reconnect
+    // now would worsen it and risk a WhatsApp logout. Let it drain instead.
+    if (loopLag > SATURATION_LAG_MS) {
+        console.warn(`⏳ Skipping reconnect (${reason}) — event loop lagged ${loopLag}ms, likely saturation not death.`);
+        heartbeatFails = 0;
+        return;
+    }
     console.log(`🔁 Forcing reconnect — ${reason}`);
     lastForcedReconnect = Date.now();
     heartbeatFails = 0;
@@ -380,8 +402,12 @@ console.log(`📦 Loaded ${commands.size} commands`);
 
 async function useMySQLAuthState() {
     const SESSION_ID = 'aria-bot';
+    // Use the DEDICATED auth pool so session writes are never starved by
+    // gameplay load on the main pool during a raid (starved writes => corrupted
+    // persisted session => forced re-link).
+    const authDb = db.authPool || db;
 
-    await db.execute(`
+    await authDb.execute(`
         CREATE TABLE IF NOT EXISTS wa_sessions (
             id VARCHAR(50) PRIMARY KEY,
             data_key VARCHAR(255) NOT NULL,
@@ -390,16 +416,28 @@ async function useMySQLAuthState() {
         )
     `).catch(() => {});
 
+    // Retry session writes — a transient failure here silently corrupts the
+    // session, so we never want a single hiccup to lose a key/cred update.
     const writeData = async (key, value) => {
         const json = JSON.stringify(value, BufferJSON.replacer);
-        await db.execute(
-            'INSERT INTO wa_sessions (id, data_key, data_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data_value = ?',
-            [SESSION_ID, key, json, json]
-        );
+        let lastErr;
+        for (let attempt = 1; attempt <= 4; attempt++) {
+            try {
+                await authDb.execute(
+                    'INSERT INTO wa_sessions (id, data_key, data_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data_value = ?',
+                    [SESSION_ID, key, json, json]
+                );
+                return;
+            } catch (e) {
+                lastErr = e;
+                await new Promise(r => setTimeout(r, 200 * attempt));
+            }
+        }
+        console.error(`[AUTH WRITE FAILED] key="${key}" after retries — session persistence at risk: ${lastErr?.message}`);
     };
 
     const readData = async (key) => {
-        const [rows] = await db.execute(
+        const [rows] = await authDb.execute(
             'SELECT data_value FROM wa_sessions WHERE id = ? AND data_key = ?',
             [SESSION_ID, key]
         );
@@ -408,10 +446,10 @@ async function useMySQLAuthState() {
     };
 
     const removeData = async (key) => {
-        await db.execute(
+        await authDb.execute(
             'DELETE FROM wa_sessions WHERE id = ? AND data_key = ?',
             [SESSION_ID, key]
-        );
+        ).catch(() => {});
     };
 
     const creds = (await readData('creds')) || initAuthCreds();
