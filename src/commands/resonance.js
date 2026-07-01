@@ -1,18 +1,28 @@
 const db = require('../database/db');
-const { getResonanceProgress, isInResFlow, startResFlow, endResFlow } = require('../systems/ascendantSystem');
+const { getResonanceProgress, isInResFlow, startResFlow, resFlowStage } = require('../systems/ascendantSystem');
+
+const STAGE_HINT = {
+    name:  '⚡ STAGE 1 — send *Name: <your new name>*',
+    image: '⚡ STAGE 2 — send your photo with caption *Pic*',
+    moves: '⚡ STAGE 3 — send your 5 signature moves',
+};
 
 module.exports = {
     name: 'resonance',
     aliases: [],
     async execute(msg, args, { userId }) {
         try {
-            // If already mid-flow, reset so they can restart cleanly.
+            // Already mid-flow: DON'T wipe it — remind them where they are.
             if (isInResFlow(userId)) {
-                endResFlow(userId);
+                const stage = resFlowStage(userId);
                 return msg.reply(
                     `╭══〘 ✦ RESONANCE 〙══╮\n` +
-                    `┃✧ Previous session cleared.\n` +
-                    `┃✧ Use *!resonance* again to restart.\n` +
+                    `┃✧ You are already resonating.\n` +
+                    `┃✧ Continue where you left off:\n` +
+                    `┃✧\n` +
+                    `┃✧ ${STAGE_HINT[stage] || 'Continue the ritual.'}\n` +
+                    `┃✧\n` +
+                    `┃✧ (Type *!cancel* to abort)\n` +
                     `╰═══════════════════════╯`
                 );
             }

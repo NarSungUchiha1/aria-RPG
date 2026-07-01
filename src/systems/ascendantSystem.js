@@ -440,6 +440,7 @@ function getResFlow(playerId) {
 }
 function isInResFlow(playerId) { return resonanceFlows.has(playerId); }
 function endResFlow(playerId) { resonanceFlows.delete(playerId); }
+function resFlowStage(playerId) { const f = getResFlow(playerId); return f ? f.stage : null; }
 
 async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
     const flow = getResFlow(playerId);
@@ -666,5 +667,6 @@ module.exports = {
     startResFlow,
     endResFlow,
     resFlowKeys,
+    resFlowStage,
     getResonanceProgress
 };
