@@ -726,7 +726,7 @@ async function startBot() {
 
             // ── RESONANCE FLOW INTERCEPTOR (must be BEFORE Aria) ──────────
             {
-                const { isInResFlow, handleResonanceFlow, resFlowKeys } = require('./src/systems/ascendantSystem');
+                const { isInResFlow, handleResonanceFlow } = require('./src/systems/ascendantSystem');
                 // In the test group the !resonance command runs under the tester's
                 // demo id (e.g. "<num>_test"), so the flow was started under THAT id.
                 // Resolve the same effective id here — otherwise the interceptor
@@ -738,9 +738,6 @@ async function startBot() {
                         if (activeTesterSessions?.has(userId)) flowUserId = activeTesterSessions.get(userId);
                     }
                 } catch(e) {}
-                if (!text.startsWith('!')) {
-                    console.log(`[RESFLOW CHECK] flowUserId="${flowUserId}" inFlow=${isInResFlow(flowUserId)} | activeKeys=${JSON.stringify(resFlowKeys())}`);
-                }
                 if (isInResFlow(flowUserId)) {
                     const flowReply = async (content) => {
                         const mc = typeof content === 'string' ? { text: content } : content;
