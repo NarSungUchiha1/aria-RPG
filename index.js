@@ -29,6 +29,10 @@ let isReady        = false;
 let isBotRunning   = false;
 let pairAttempts   = 0;
 const MAX_PAIR_ATTEMPTS = 3;
+// Under heavy load WhatsApp can throw a spurious 401. Wiping the session forces
+// a manual re-link, so try the EXISTING session a couple times before giving up.
+let consecutive401 = 0;
+const SOFT_401_RETRIES = 2;
 const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
 
 // Load pair attempts from DB on startup (survives Render restarts)
@@ -580,30 +584,32 @@ async function startBot() {
                 sock = null;
 
                 if (statusCode === DisconnectReason.loggedOut) {
-                    pairAttempts++;
-                    await savePairAttempts();
-                    console.log(`🔄 Logged out. Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
-                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-                    if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
-                        console.log('🛑 Too many failed pair attempts — bot stopped. Restart manually on Render.');
-                        return; // Stop the loop
+                    // DisconnectReason.loggedOut === 401. Don't wipe on the first
+                    // one — under load it may be spurious. Retry the existing
+                    // session a bounded number of times; only wipe (=> re-link)
+                    // if the logout persists.
+                    consecutive401++;
+                    if (consecutive401 <= SOFT_401_RETRIES) {
+                        console.log(`🔄 401/logout — soft retry ${consecutive401}/${SOFT_401_RETRIES} with EXISTING session (not wiping yet)...`);
+                        setTimeout(() => startBot(), 8000);
+                    } else {
+                        pairAttempts++;
+                        await savePairAttempts();
+                        console.log(`🔄 Persistent logout after ${SOFT_401_RETRIES} retries. Clearing session (pair attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
+                        await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+                        consecutive401 = 0;
+                        if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
+                            console.log('🛑 Too many failed pair attempts — bot stopped. Restart manually on Render.');
+                            return; // Stop the loop
+                        }
+                        setTimeout(() => startBot(), 10000);
                     }
-                    setTimeout(() => startBot(), 10000);
                 } else if (statusCode === 515) {
                     // 515 = restart required — WhatsApp asking for clean reconnect
                     console.log('🔄 Restart required (515) — reconnecting in 3s...');
                     setTimeout(() => startBot(), 3000);
-                } else if (statusCode === 401) {
-                    pairAttempts++;
-                    await savePairAttempts();
-                    lastWas401 = true;
-                    console.log(`🔄 Unauthorized (401). Clearing session (attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
-                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-                    if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
-                        console.log('🛑 Too many failed attempts — bot stopped. Restart manually on Render.');
-                        return;
-                    }
-                    setTimeout(() => startBot(), 15000);
+                // NOTE: 401 is handled by the loggedOut branch above
+                // (DisconnectReason.loggedOut === 401) — no separate case needed.
                 } else {
                     const delay = statusCode === 440
                         ? 15000 + Math.floor(Math.random() * 10000)
@@ -620,6 +626,7 @@ async function startBot() {
                 console.log(`✅ ARIA ONLINE | number: ${BOT_NUMBER} | lid: ${BOT_LID}`);
                 isReady = true;
                 lastInbound = Date.now(); // fresh connection — reset receive-stall clock
+                consecutive401 = 0;       // connected fine — clear the soft-retry counter
 
                 // Load banned players into memory
                 try {
