@@ -391,6 +391,7 @@ if (fs.existsSync(commandPath)) {
                 const cmd = require('./src/commands/' + file);
                 if (cmd?.name) {
                     commands.set(cmd.name, cmd);
+                    global.commands = commands; // enable !evolve hot-reload of command modules
                     if (Array.isArray(cmd.aliases)) {
                         cmd.aliases.forEach(alias => commands.set(alias, cmd));
                     }

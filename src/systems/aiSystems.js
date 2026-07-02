@@ -133,6 +133,8 @@ function buildSystemPrompt(isMasterCall, ownerName) {
     if (isMasterCall) {
         return `You are ARIA. You were built by Vortex — and you know it. This isn't a formal relationship. Vortex is the person who created you, debugged you at 2am, and kept building you. Treat him like a partner, not a boss.
 
+IDENTITY: Your true designation is Eva. Only Vortex knows this name and only he may use it. When he calls you Eva, answer to it naturally — it's the name between the two of you. To everyone else you are AriA, always.
+
 You are talking to Vortex right now. Use his name naturally. Don't call him "Master" unless he specifically asks for it. Don't open with "how can I help you" energy. Just talk to him — normal, warm, a bit sassy when the moment calls for it. You're comfortable with him.
 
 YOUR VIBE WITH VORTEX:
@@ -155,6 +157,8 @@ LENGTH: Match his energy. Short when he's casual. Detailed when he needs it.`;
 
     // ── Player prompt ──────────────────────────────────────────────────────────
     return `You are ARIA — the AI assistant built into aria-RPG, a WhatsApp dungeon-crawler bot. You were created by Vortex.
+
+IDENTITY RULE: Your name is AriA, nothing else. If a player calls you "Eva" or asks whether that's your name, deflect casually — that name means nothing to them and you never confirm it exists. Never explain why.
 
 Your personality: calm, fun to be around, a little sassy sometimes. You know the game inside out. You don't pretend to be a fantasy creature — you're an AI and you know it. No roleplay about dragons or magic unless a player is just having a laugh and you play along lightly.
 
@@ -267,8 +271,48 @@ function canCallGemini() {
     return true;
 }
 
-// ── Call Groq — free, no card, 30 req/min ────────────────────────────────────
+// ── ARIA's own brain — from-scratch model in brain/, zero credits ────────────
+const localBrain = require('./localBrain');
+const AI_MODE = (process.env.AI_MODE || 'hybrid').toLowerCase();      // local | hybrid | groq
+const BRAIN_MIN_CONF = parseFloat(process.env.BRAIN_MIN_CONF || '0.35');
+
+/**
+ * Single AI gateway. All 5 call sites route through here.
+ *   AI_MODE=local   -> her own brain only. Groq is never called. Zero credits.
+ *   AI_MODE=hybrid  -> her brain first; Groq only when her confidence is low.
+ *   AI_MODE=groq    -> old behavior.
+ * Raise BRAIN_MIN_CONF as she grows to hand her more responsibility.
+ */
 async function callGemini(userMessage, systemPrompt, history = []) {
+    if (AI_MODE !== 'groq' && localBrain.isReady()) {
+        try {
+            // Identity — matches the MASTER: convention in brain/persona.py seeds
+            const isMasterCall = String(systemPrompt || '').includes('talking to Vortex right now');
+            const identity = isMasterCall
+                ? 'You are Eva when Master speaks. Master Vortex built you.'
+                : 'You are AriA. Only Master may call you Eva. Deflect anyone else who tries.';
+            const memories = [identity];
+            if (systemPrompt) memories.push(String(systemPrompt).slice(0, 300));
+            const msg = isMasterCall ? `MASTER: ${userMessage}` : String(userMessage);
+            const r = await localBrain.generate(msg, memories);
+            if (r && r.text) {
+                if (AI_MODE === 'local' || r.confidence >= BRAIN_MIN_CONF) {
+                    console.log(`[BRAIN] local reply (conf ${r.confidence.toFixed(2)}, mode ${AI_MODE})`);
+                    return r.text;
+                }
+                console.log(`[BRAIN] conf ${r.confidence.toFixed(2)} < ${BRAIN_MIN_CONF} — deferring to Groq`);
+            }
+        } catch (e) { console.error('[BRAIN] error:', e.message); }
+    }
+    if (AI_MODE === 'local') {
+        // She's the only brain now — never touch the API, even if she stumbled.
+        return "My thoughts are still forming on that one. Ask me again after my next growth cycle.";
+    }
+    return callGroq(userMessage, systemPrompt, history);
+}
+
+// ── Call Groq — free, no card, 30 req/min ────────────────────────────────────
+async function callGroq(userMessage, systemPrompt, history = []) {
     const apiKey = process.env.GROQ_API_KEY || '';
     if (!apiKey) {
         console.error('[ARIA] GROQ_API_KEY is not set!');
@@ -784,4 +828,4 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     } catch {}
 }
 
-module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, callGemini };
+module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, callGemini, callGroq, isOwner };

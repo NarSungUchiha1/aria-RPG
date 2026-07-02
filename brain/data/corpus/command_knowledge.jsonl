@@ -1,0 +1,428 @@
+{"user": "what does !me do", "bot": "!me - Stats, rank & equipment."}
+{"user": "how do i use !me", "bot": "Use it like this: !me. Stats, rank & equipment."}
+{"user": "!me?", "bot": "!me - Stats, rank & equipment."}
+{"user": "explain me", "bot": "!me — Stats, rank & equipment."}
+{"user": "what does !stats do", "bot": "!stats - Combat record & history."}
+{"user": "how do i use !stats", "bot": "Use it like this: !stats. Combat record & history."}
+{"user": "!stats?", "bot": "!stats - Combat record & history."}
+{"user": "explain stats", "bot": "!stats — Combat record & history."}
+{"user": "what does !moveset do", "bot": "!moveset - Your skill set."}
+{"user": "how do i use !moveset", "bot": "Use it like this: !moveset. Your skill set."}
+{"user": "!moveset?", "bot": "!moveset - Your skill set."}
+{"user": "explain moveset", "bot": "!moveset — Your skill set."}
+{"user": "what does !daily do", "bot": "!daily - Claim daily gold & XP bonus."}
+{"user": "how do i use !daily", "bot": "Use it like this: !daily. Claim daily gold & XP bonus."}
+{"user": "!daily?", "bot": "!daily - Claim daily gold & XP bonus."}
+{"user": "explain daily", "bot": "!daily — Claim daily gold & XP bonus."}
+{"user": "what does !explore do", "bot": "!explore - List rifts & survival rates."}
+{"user": "how do i use !explore", "bot": "Use it like this: !explore. List rifts & survival rates."}
+{"user": "!explore?", "bot": "!explore - List rifts & survival rates."}
+{"user": "explain explore", "bot": "!explore — List rifts & survival rates."}
+{"user": "what does !return do", "bot": "!return - Exit the rift & collect drops."}
+{"user": "how do i use !return", "bot": "Use it like this: !return. Exit the rift & collect drops."}
+{"user": "!return?", "bot": "!return - Exit the rift & collect drops."}
+{"user": "explain return", "bot": "!return — Exit the rift & collect drops."}
+{"user": "what does !expmaterials do", "bot": "!expmaterials - View your rift materials."}
+{"user": "how do i use !expmaterials", "bot": "Use it like this: !expmaterials. View your rift materials."}
+{"user": "!expmaterials?", "bot": "!expmaterials - View your rift materials."}
+{"user": "explain expmaterials", "bot": "!expmaterials — View your rift materials."}
+{"user": "what does !explorershop do", "bot": "!explorershop - Browse consumables & gear."}
+{"user": "how do i use !explorershop", "bot": "Use it like this: !explorershop. Browse consumables & gear."}
+{"user": "!explorershop?", "bot": "!explorershop - Browse consumables & gear."}
+{"user": "explain explorershop", "bot": "!explorershop — Browse consumables & gear."}
+{"user": "what does !brew do", "bot": "!brew - View all brew recipes."}
+{"user": "how do i use !brew", "bot": "Use it like this: !brew. View all brew recipes."}
+{"user": "!brew?", "bot": "!brew - View all brew recipes."}
+{"user": "explain brew", "bot": "!brew — View all brew recipes."}
+{"user": "what does !potionmarket do", "bot": "!potionmarket - Buy raw potions."}
+{"user": "how do i use !potionmarket", "bot": "Use it like this: !potionmarket. Buy raw potions."}
+{"user": "!potionmarket?", "bot": "!potionmarket - Buy raw potions."}
+{"user": "explain potionmarket", "bot": "!potionmarket — Buy raw potions."}
+{"user": "what does !buypot do", "bot": "!buypot <name> - Quick buy a potion."}
+{"user": "how do i use !buypot", "bot": "Use it like this: !buypot <name>. Quick buy a potion."}
+{"user": "!buypot?", "bot": "!buypot <name> - Quick buy a potion."}
+{"user": "explain buypot", "bot": "!buypot <name> — Quick buy a potion."}
+{"user": "what does !usepotion do", "bot": "!usepotion / !use - Use a potion in your bag."}
+{"user": "how do i use !usepotion", "bot": "Use it like this: !usepotion / !use. Use a potion in your bag."}
+{"user": "!usepotion?", "bot": "!usepotion / !use - Use a potion in your bag."}
+{"user": "explain usepotion", "bot": "!usepotion / !use — Use a potion in your bag."}
+{"user": "what does !wanderertrade do", "bot": "!wanderertrade - Trade materials to the Wanderer."}
+{"user": "how do i use !wanderertrade", "bot": "Use it like this: !wanderertrade. Trade materials to the Wanderer."}
+{"user": "!wanderertrade?", "bot": "!wanderertrade - Trade materials to the Wanderer."}
+{"user": "explain wanderertrade", "bot": "!wanderertrade — Trade materials to the Wanderer."}
+{"user": "what does !checkbag do", "bot": "!checkbag - View bag contents."}
+{"user": "how do i use !checkbag", "bot": "Use it like this: !checkbag. View bag contents."}
+{"user": "!checkbag?", "bot": "!checkbag - View bag contents."}
+{"user": "explain checkbag", "bot": "!checkbag — View bag contents."}
+{"user": "what does !emptybag do", "bot": "!emptybag - Bank materials to storage."}
+{"user": "how do i use !emptybag", "bot": "Use it like this: !emptybag. Bank materials to storage."}
+{"user": "!emptybag?", "bot": "!emptybag - Bank materials to storage."}
+{"user": "explain emptybag", "bot": "!emptybag — Bank materials to storage."}
+{"user": "what does !repairbag do", "bot": "!repairbag - Repair bag durability."}
+{"user": "how do i use !repairbag", "bot": "Use it like this: !repairbag. Repair bag durability."}
+{"user": "!repairbag?", "bot": "!repairbag - Repair bag durability."}
+{"user": "explain repairbag", "bot": "!repairbag — Repair bag durability."}
+{"user": "what does !materials do", "bot": "!materials - All your crafting materials."}
+{"user": "how do i use !materials", "bot": "Use it like this: !materials. All your crafting materials."}
+{"user": "!materials?", "bot": "!materials - All your crafting materials."}
+{"user": "explain materials", "bot": "!materials — All your crafting materials."}
+{"user": "what does !pickup do", "bot": "!pickup <#> - Collect a dungeon drop."}
+{"user": "how do i use !pickup", "bot": "Use it like this: !pickup <#>. Collect a dungeon drop."}
+{"user": "!pickup?", "bot": "!pickup <#> - Collect a dungeon drop."}
+{"user": "explain pickup", "bot": "!pickup <#> — Collect a dungeon drop."}
+{"user": "what does !shop do", "bot": "!shop - Your role's daily shop."}
+{"user": "how do i use !shop", "bot": "Use it like this: !shop. Your role's daily shop."}
+{"user": "!shop?", "bot": "!shop - Your role's daily shop."}
+{"user": "explain shop", "bot": "!shop — Your role's daily shop."}
+{"user": "what does !buy do", "bot": "!buy <number> - Purchase an item."}
+{"user": "how do i use !buy", "bot": "Use it like this: !buy <number>. Purchase an item."}
+{"user": "!buy?", "bot": "!buy <number> - Purchase an item."}
+{"user": "explain buy", "bot": "!buy <number> — Purchase an item."}
+{"user": "what does !inventory do", "bot": "!inventory - View your items."}
+{"user": "how do i use !inventory", "bot": "Use it like this: !inventory. View your items."}
+{"user": "!inventory?", "bot": "!inventory - View your items."}
+{"user": "explain inventory", "bot": "!inventory — View your items."}
+{"user": "what does !inspect do", "bot": "!inspect <number> - View item bonuses."}
+{"user": "how do i use !inspect", "bot": "Use it like this: !inspect <number>. View item bonuses."}
+{"user": "!inspect?", "bot": "!inspect <number> - View item bonuses."}
+{"user": "explain inspect", "bot": "!inspect <number> — View item bonuses."}
+{"user": "what does !equip do", "bot": "!equip <number> - Equip an item."}
+{"user": "how do i use !equip", "bot": "Use it like this: !equip <number>. Equip an item."}
+{"user": "!equip?", "bot": "!equip <number> - Equip an item."}
+{"user": "explain equip", "bot": "!equip <number> — Equip an item."}
+{"user": "what does !unequip do", "bot": "!unequip <number> - Unequip an item."}
+{"user": "how do i use !unequip", "bot": "Use it like this: !unequip <number>. Unequip an item."}
+{"user": "!unequip?", "bot": "!unequip <number> - Unequip an item."}
+{"user": "explain unequip", "bot": "!unequip <number> — Unequip an item."}
+{"user": "what does !repair do", "bot": "!repair <number> - Repair durability."}
+{"user": "how do i use !repair", "bot": "Use it like this: !repair <number>. Repair durability."}
+{"user": "!repair?", "bot": "!repair <number> - Repair durability."}
+{"user": "explain repair", "bot": "!repair <number> — Repair durability."}
+{"user": "what does !melt do", "bot": "!melt / !melt <#> - View or destroy for gold."}
+{"user": "how do i use !melt", "bot": "Use it like this: !melt / !melt <#>. View or destroy for gold."}
+{"user": "!melt?", "bot": "!melt / !melt <#> - View or destroy for gold."}
+{"user": "explain melt", "bot": "!melt / !melt <#> — View or destroy for gold."}
+{"user": "what does !upgradeweapon do", "bot": "!upgradeweapon <#> - Upgrade weapon grade."}
+{"user": "how do i use !upgradeweapon", "bot": "Use it like this: !upgradeweapon <#>. Upgrade weapon grade."}
+{"user": "!upgradeweapon?", "bot": "!upgradeweapon <#> - Upgrade weapon grade."}
+{"user": "explain upgradeweapon", "bot": "!upgradeweapon <#> — Upgrade weapon grade."}
+{"user": "what does !use do", "bot": "!use <item> - Use a consumable."}
+{"user": "how do i use !use", "bot": "Use it like this: !use <item>. Use a consumable."}
+{"user": "!use?", "bot": "!use <item> - Use a consumable."}
+{"user": "explain use", "bot": "!use <item> — Use a consumable."}
+{"user": "what does !duel do", "bot": "!duel @user [bet] - Challenge a player."}
+{"user": "how do i use !duel", "bot": "Use it like this: !duel @user [bet]. Challenge a player."}
+{"user": "!duel?", "bot": "!duel @user [bet] - Challenge a player."}
+{"user": "explain duel", "bot": "!duel @user [bet] — Challenge a player."}
+{"user": "what does !accept do", "bot": "!accept @nickname - Accept a challenge."}
+{"user": "how do i use !accept", "bot": "Use it like this: !accept @nickname. Accept a challenge."}
+{"user": "!accept?", "bot": "!accept @nickname - Accept a challenge."}
+{"user": "explain accept", "bot": "!accept @nickname — Accept a challenge."}
+{"user": "what does !decline do", "bot": "!decline @nickname - Decline."}
+{"user": "how do i use !decline", "bot": "Use it like this: !decline @nickname. Decline."}
+{"user": "!decline?", "bot": "!decline @nickname - Decline."}
+{"user": "explain decline", "bot": "!decline @nickname — Decline."}
+{"user": "what does !attack do", "bot": "!attack <move> - Use a move in your duel."}
+{"user": "how do i use !attack", "bot": "Use it like this: !attack <move>. Use a move in your duel."}
+{"user": "!attack?", "bot": "!attack <move> - Use a move in your duel."}
+{"user": "explain attack", "bot": "!attack <move> — Use a move in your duel."}
+{"user": "what does !startduel do", "bot": "!startduel - Confirm party duel start (leaders)."}
+{"user": "how do i use !startduel", "bot": "Use it like this: !startduel. Confirm party duel start (leaders)."}
+{"user": "!startduel?", "bot": "!startduel - Confirm party duel start (leaders)."}
+{"user": "explain startduel", "bot": "!startduel — Confirm party duel start (leaders)."}
+{"user": "what does !joinparty do", "bot": "!joinparty @leader - Join a party duel side."}
+{"user": "how do i use !joinparty", "bot": "Use it like this: !joinparty @leader. Join a party duel side."}
+{"user": "!joinparty?", "bot": "!joinparty @leader - Join a party duel side."}
+{"user": "explain joinparty", "bot": "!joinparty @leader — Join a party duel side."}
+{"user": "what does !pay do", "bot": "!pay @user <amount> - Send gold."}
+{"user": "how do i use !pay", "bot": "Use it like this: !pay @user <amount>. Send gold."}
+{"user": "!pay?", "bot": "!pay @user <amount> - Send gold."}
+{"user": "explain pay", "bot": "!pay @user <amount> — Send gold."}
+{"user": "what does !transfer do", "bot": "!transfer @user <amount> - Send XP."}
+{"user": "how do i use !transfer", "bot": "Use it like this: !transfer @user <amount>. Send XP."}
+{"user": "!transfer?", "bot": "!transfer @user <amount> - Send XP."}
+{"user": "explain transfer", "bot": "!transfer @user <amount> — Send XP."}
+{"user": "what does !trade do", "bot": "!trade @user <item #> - Give an item (Rank D+)."}
+{"user": "how do i use !trade", "bot": "Use it like this: !trade @user <item #>. Give an item (Rank D+)."}
+{"user": "!trade?", "bot": "!trade @user <item #> - Give an item (Rank D+)."}
+{"user": "explain trade", "bot": "!trade @user <item #> — Give an item (Rank D+)."}
+{"user": "what does !tradematerial do", "bot": "!tradematerial @user <mat> <qty> - Trade materials."}
+{"user": "how do i use !tradematerial", "bot": "Use it like this: !tradematerial @user <mat> <qty>. Trade materials."}
+{"user": "!tradematerial?", "bot": "!tradematerial @user <mat> <qty> - Trade materials."}
+{"user": "explain tradematerial", "bot": "!tradematerial @user <mat> <qty> — Trade materials."}
+{"user": "what does !bounty do", "bot": "!bounty - Most Wanted — weekly target."}
+{"user": "how do i use !bounty", "bot": "Use it like this: !bounty. Most Wanted — weekly target."}
+{"user": "!bounty?", "bot": "!bounty - Most Wanted — weekly target."}
+{"user": "explain bounty", "bot": "!bounty — Most Wanted — weekly target."}
+{"user": "what does !dice do", "bot": "!dice <bet> - Roll vs house."}
+{"user": "how do i use !dice", "bot": "Use it like this: !dice <bet>. Roll vs house."}
+{"user": "!dice?", "bot": "!dice <bet> - Roll vs house."}
+{"user": "explain dice", "bot": "!dice <bet> — Roll vs house."}
+{"user": "what does !slots do", "bot": "!slots <bet> - Spin the reels."}
+{"user": "how do i use !slots", "bot": "Use it like this: !slots <bet>. Spin the reels."}
+{"user": "!slots?", "bot": "!slots <bet> - Spin the reels."}
+{"user": "explain slots", "bot": "!slots <bet> — Spin the reels."}
+{"user": "what does !coinflip do", "bot": "!coinflip <bet> [h/t] - 50/50."}
+{"user": "how do i use !coinflip", "bot": "Use it like this: !coinflip <bet> [h/t]. 50/50."}
+{"user": "!coinflip?", "bot": "!coinflip <bet> [h/t] - 50/50."}
+{"user": "explain coinflip", "bot": "!coinflip <bet> [h/t] — 50/50."}
+{"user": "what does !blackjack do", "bot": "!blackjack <bet> - Beat the dealer."}
+{"user": "how do i use !blackjack", "bot": "Use it like this: !blackjack <bet>. Beat the dealer."}
+{"user": "!blackjack?", "bot": "!blackjack <bet> - Beat the dealer."}
+{"user": "explain blackjack", "bot": "!blackjack <bet> — Beat the dealer."}
+{"user": "what does !rankup do", "bot": "!rankup - Rank up (costs XP)."}
+{"user": "how do i use !rankup", "bot": "Use it like this: !rankup. Rank up (costs XP)."}
+{"user": "!rankup?", "bot": "!rankup - Rank up (costs XP)."}
+{"user": "explain rankup", "bot": "!rankup — Rank up (costs XP)."}
+{"user": "what does !convert do", "bot": "!convert <xp> - 250 XP = 1 SP."}
+{"user": "how do i use !convert", "bot": "Use it like this: !convert <xp>. 250 XP = 1 SP."}
+{"user": "!convert?", "bot": "!convert <xp> - 250 XP = 1 SP."}
+{"user": "explain convert", "bot": "!convert <xp> — 250 XP = 1 SP."}
+{"user": "what does !upgrade do", "bot": "!upgrade <stat> <points> - Spend SP on stats."}
+{"user": "how do i use !upgrade", "bot": "Use it like this: !upgrade <stat> <points>. Spend SP on stats."}
+{"user": "!upgrade?", "bot": "!upgrade <stat> <points> - Spend SP on stats."}
+{"user": "explain upgrade", "bot": "!upgrade <stat> <points> — Spend SP on stats."}
+{"user": "what does !prestige do", "bot": "!prestige confirm - Prestige at S rank."}
+{"user": "how do i use !prestige", "bot": "Use it like this: !prestige confirm. Prestige at S rank."}
+{"user": "!prestige?", "bot": "!prestige confirm - Prestige at S rank."}
+{"user": "explain prestige", "bot": "!prestige confirm — Prestige at S rank."}
+{"user": "what does !codex do", "bot": "!codex - Lore fragments you have collected."}
+{"user": "how do i use !codex", "bot": "Use it like this: !codex. Lore fragments you have collected."}
+{"user": "!codex?", "bot": "!codex - Lore fragments you have collected."}
+{"user": "explain codex", "bot": "!codex — Lore fragments you have collected."}
+{"user": "what does !confirmrole do", "bot": "!confirmrole - Accept a role change offer."}
+{"user": "how do i use !confirmrole", "bot": "Use it like this: !confirmrole. Accept a role change offer."}
+{"user": "!confirmrole?", "bot": "!confirmrole - Accept a role change offer."}
+{"user": "explain confirmrole", "bot": "!confirmrole — Accept a role change offer."}
+{"user": "what does !cancelrole do", "bot": "!cancelrole - Decline a role change offer."}
+{"user": "how do i use !cancelrole", "bot": "Use it like this: !cancelrole. Decline a role change offer."}
+{"user": "!cancelrole?", "bot": "!cancelrole - Decline a role change offer."}
+{"user": "explain cancelrole", "bot": "!cancelrole — Decline a role change offer."}
+{"user": "what does !lore do", "bot": "!lore - Current chapter  |  !lore all → All chapters."}
+{"user": "how do i use !lore", "bot": "Use it like this: !lore. Current chapter  |  !lore all → All chapters."}
+{"user": "!lore?", "bot": "!lore - Current chapter  |  !lore all → All chapters."}
+{"user": "explain lore", "bot": "!lore — Current chapter  |  !lore all → All chapters."}
+{"user": "what does !quests do", "bot": "!quests - Daily, achievement & party quests."}
+{"user": "how do i use !quests", "bot": "Use it like this: !quests. Daily, achievement & party quests."}
+{"user": "!quests?", "bot": "!quests - Daily, achievement & party quests."}
+{"user": "explain quests", "bot": "!quests — Daily, achievement & party quests."}
+{"user": "what does !claim do", "bot": "!claim <id> - Claim a completed quest."}
+{"user": "how do i use !claim", "bot": "Use it like this: !claim <id>. Claim a completed quest."}
+{"user": "!claim?", "bot": "!claim <id> - Claim a completed quest."}
+{"user": "explain claim", "bot": "!claim <id> — Claim a completed quest."}
+{"user": "what does !clan do", "bot": "!clan - View your clan info."}
+{"user": "how do i use !clan", "bot": "Use it like this: !clan. View your clan info."}
+{"user": "!clan?", "bot": "!clan - View your clan info."}
+{"user": "explain clan", "bot": "!clan — View your clan info."}
+{"user": "what does !leaveclan do", "bot": "!leaveclan - Leave  |  !clanlist → All clans."}
+{"user": "how do i use !leaveclan", "bot": "Use it like this: !leaveclan. Leave  |  !clanlist → All clans."}
+{"user": "!leaveclan?", "bot": "!leaveclan - Leave  |  !clanlist → All clans."}
+{"user": "explain leaveclan", "bot": "!leaveclan — Leave  |  !clanlist → All clans."}
+{"user": "what does !myquest do", "bot": "!myquest - Your active clan quest."}
+{"user": "how do i use !myquest", "bot": "Use it like this: !myquest. Your active clan quest."}
+{"user": "!myquest?", "bot": "!myquest - Your active clan quest."}
+{"user": "explain myquest", "bot": "!myquest — Your active clan quest."}
+{"user": "what does !healers do", "bot": "!healers - Browse available healers."}
+{"user": "how do i use !healers", "bot": "Use it like this: !healers. Browse available healers."}
+{"user": "!healers?", "bot": "!healers - Browse available healers."}
+{"user": "explain healers", "bot": "!healers — Browse available healers."}
+{"user": "what does !hire do", "bot": "!hire <#> - Book a healer."}
+{"user": "how do i use !hire", "bot": "Use it like this: !hire <#>. Book a healer."}
+{"user": "!hire?", "bot": "!hire <#> - Book a healer."}
+{"user": "explain hire", "bot": "!hire <#> — Book a healer."}
+{"user": "what does !removelisting do", "bot": "!removelisting - Remove your listing."}
+{"user": "how do i use !removelisting", "bot": "Use it like this: !removelisting. Remove your listing."}
+{"user": "!removelisting?", "bot": "!removelisting - Remove your listing."}
+{"user": "explain removelisting", "bot": "!removelisting — Remove your listing."}
+{"user": "what does !worldboss do", "bot": "!worldboss - Active world boss [GC]."}
+{"user": "how do i use !worldboss", "bot": "Use it like this: !worldboss. Active world boss [GC]."}
+{"user": "!worldboss?", "bot": "!worldboss - Active world boss [GC]."}
+{"user": "explain worldboss", "bot": "!worldboss — Active world boss [GC]."}
+{"user": "what does !attackboss do", "bot": "!attackboss - Attack world boss [GC]."}
+{"user": "how do i use !attackboss", "bot": "Use it like this: !attackboss. Attack world boss [GC]."}
+{"user": "!attackboss?", "bot": "!attackboss - Attack world boss [GC]."}
+{"user": "explain attackboss", "bot": "!attackboss — Attack world boss [GC]."}
+{"user": "what does !referral do", "bot": "!referral - Invite link (+20 XP per referral)."}
+{"user": "how do i use !referral", "bot": "Use it like this: !referral. Invite link (+20 XP per referral)."}
+{"user": "!referral?", "bot": "!referral - Invite link (+20 XP per referral)."}
+{"user": "explain referral", "bot": "!referral — Invite link (+20 XP per referral)."}
+{"user": "what does !spawnwanderer do", "bot": "!spawnwanderer - Force spawn Wanderer [Exp GC]."}
+{"user": "how do i use !spawnwanderer", "bot": "Use it like this: !spawnwanderer. Force spawn Wanderer [Exp GC]."}
+{"user": "!spawnwanderer?", "bot": "!spawnwanderer - Force spawn Wanderer [Exp GC]."}
+{"user": "explain spawnwanderer", "bot": "!spawnwanderer — Force spawn Wanderer [Exp GC]."}
+{"user": "what does !spawnmalachar do", "bot": "!spawnmalachar ┃◆ !chapter5 - Launch Chapter 5 sequence."}
+{"user": "how do i use !spawnmalachar", "bot": "Use it like this: !spawnmalachar ┃◆ !chapter5. Launch Chapter 5 sequence."}
+{"user": "!spawnmalachar?", "bot": "!spawnmalachar ┃◆ !chapter5 - Launch Chapter 5 sequence."}
+{"user": "explain spawnmalachar", "bot": "!spawnmalachar ┃◆ !chapter5 — Launch Chapter 5 sequence."}
+{"user": "what does !givemalacharweapon do", "bot": "!givemalacharweapon - Give bound weapons."}
+{"user": "how do i use !givemalacharweapon", "bot": "Use it like this: !givemalacharweapon. Give bound weapons."}
+{"user": "!givemalacharweapon?", "bot": "!givemalacharweapon - Give bound weapons."}
+{"user": "explain givemalacharweapon", "bot": "!givemalacharweapon — Give bound weapons."}
+{"user": "what does !resonance do", "bot": "!resonance - Void resonance (path to Ascendant)."}
+{"user": "how do i use !resonance", "bot": "Use it like this: !resonance. Void resonance (path to Ascendant)."}
+{"user": "!resonance?", "bot": "!resonance - Void resonance (path to Ascendant)."}
+{"user": "explain resonance", "bot": "!resonance — Void resonance (path to Ascendant)."}
+{"user": "what does !enter do", "bot": "!enter - Join a prestige dungeon (DM bot)."}
+{"user": "how do i use !enter", "bot": "Use it like this: !enter. Join a prestige dungeon (DM bot)."}
+{"user": "!enter?", "bot": "!enter - Join a prestige dungeon (DM bot)."}
+{"user": "explain enter", "bot": "!enter — Join a prestige dungeon (DM bot)."}
+{"user": "what does !dungeon do", "bot": "!dungeon - View enemies & stage [GC]."}
+{"user": "how do i use !dungeon", "bot": "Use it like this: !dungeon. View enemies & stage [GC]."}
+{"user": "!dungeon?", "bot": "!dungeon - View enemies & stage [GC]."}
+{"user": "explain dungeon", "bot": "!dungeon — View enemies & stage [GC]."}
+{"user": "what does !skill do", "bot": "!skill <move> [target] - Use a move [GC]."}
+{"user": "how do i use !skill", "bot": "Use it like this: !skill <move> [target]. Use a move [GC]."}
+{"user": "!skill?", "bot": "!skill <move> [target] - Use a move [GC]."}
+{"user": "explain skill", "bot": "!skill <move> [target] — Use a move [GC]."}
+{"user": "what does !onward do", "bot": "!onward - Advance to next stage [GC]."}
+{"user": "how do i use !onward", "bot": "Use it like this: !onward. Advance to next stage [GC]."}
+{"user": "!onward?", "bot": "!onward - Advance to next stage [GC]."}
+{"user": "explain onward", "bot": "!onward — Advance to next stage [GC]."}
+{"user": "what does !respawn do", "bot": "!respawn - Revive after death."}
+{"user": "how do i use !respawn", "bot": "Use it like this: !respawn. Revive after death."}
+{"user": "!respawn?", "bot": "!respawn - Revive after death."}
+{"user": "explain respawn", "bot": "!respawn — Revive after death."}
+{"user": "what does !territory do", "bot": "!territory - View all 3 void territories."}
+{"user": "how do i use !territory", "bot": "Use it like this: !territory. View all 3 void territories."}
+{"user": "!territory?", "bot": "!territory - View all 3 void territories."}
+{"user": "explain territory", "bot": "!territory — View all 3 void territories."}
+{"user": "what does !defend do", "bot": "!defend <name> - Defend held territory (DM bot)."}
+{"user": "how do i use !defend", "bot": "Use it like this: !defend <name>. Defend held territory (DM bot)."}
+{"user": "!defend?", "bot": "!defend <name> - Defend held territory (DM bot)."}
+{"user": "explain defend", "bot": "!defend <name> — Defend held territory (DM bot)."}
+{"user": "what does !prestigeshop do", "bot": "!prestigeshop - Void weapons & consumables."}
+{"user": "how do i use !prestigeshop", "bot": "Use it like this: !prestigeshop. Void weapons & consumables."}
+{"user": "!prestigeshop?", "bot": "!prestigeshop - Void weapons & consumables."}
+{"user": "explain prestigeshop", "bot": "!prestigeshop — Void weapons & consumables."}
+{"user": "what does !recipes do", "bot": "!recipes - Craftable weapons for your role."}
+{"user": "how do i use !recipes", "bot": "Use it like this: !recipes. Craftable weapons for your role."}
+{"user": "!recipes?", "bot": "!recipes - Craftable weapons for your role."}
+{"user": "explain recipes", "bot": "!recipes — Craftable weapons for your role."}
+{"user": "what does !forge do", "bot": "!forge <#> - Craft a weapon."}
+{"user": "how do i use !forge", "bot": "Use it like this: !forge <#>. Craft a weapon."}
+{"user": "!forge?", "bot": "!forge <#> - Craft a weapon."}
+{"user": "explain forge", "bot": "!forge <#> — Craft a weapon."}
+{"user": "what does !createclan do", "bot": "!createclan - Forge a clan (Prestige only)."}
+{"user": "how do i use !createclan", "bot": "Use it like this: !createclan. Forge a clan (Prestige only)."}
+{"user": "!createclan?", "bot": "!createclan - Forge a clan (Prestige only)."}
+{"user": "explain createclan", "bot": "!createclan — Forge a clan (Prestige only)."}
+{"user": "what does !clanlist do", "bot": "!clanlist - All clans."}
+{"user": "how do i use !clanlist", "bot": "Use it like this: !clanlist. All clans."}
+{"user": "!clanlist?", "bot": "!clanlist - All clans."}
+{"user": "explain clanlist", "bot": "!clanlist — All clans."}
+{"user": "what does !clanwar do", "bot": "!clanwar - View war status."}
+{"user": "how do i use !clanwar", "bot": "Use it like this: !clanwar. View war status."}
+{"user": "!clanwar?", "bot": "!clanwar - View war status."}
+{"user": "explain clanwar", "bot": "!clanwar — View war status."}
+{"user": "what does !chapter5 do", "bot": "!chapter5 - Launch Chapter 5 sequence."}
+{"user": "how do i use !chapter5", "bot": "Use it like this: !chapter5. Launch Chapter 5 sequence."}
+{"user": "!chapter5?", "bot": "!chapter5 - Launch Chapter 5 sequence."}
+{"user": "explain chapter5", "bot": "!chapter5 — Launch Chapter 5 sequence."}
+{"user": "what does !hiredungeon do", "bot": "!hiredungeon <#> - Hire for dungeon (paid on clear)."}
+{"user": "how do i use !hiredungeon", "bot": "Use it like this: !hiredungeon <#>. Hire for dungeon (paid on clear)."}
+{"user": "!hiredungeon?", "bot": "!hiredungeon <#> - Hire for dungeon (paid on clear)."}
+{"user": "explain hiredungeon", "bot": "!hiredungeon <#> — Hire for dungeon (paid on clear)."}
+{"user": "what does !listservice do", "bot": "!listservice <gold> <xp> <desc> - Post your service."}
+{"user": "how do i use !listservice", "bot": "Use it like this: !listservice <gold> <xp> <desc>. Post your service."}
+{"user": "!listservice?", "bot": "!listservice <gold> <xp> <desc> - Post your service."}
+{"user": "explain listservice", "bot": "!listservice <gold> <xp> <desc> — Post your service."}
+{"user": "what does !begin do", "bot": "!begin - Force-start dungeon [GC]."}
+{"user": "how do i use !begin", "bot": "Use it like this: !begin. Force-start dungeon [GC]."}
+{"user": "!begin?", "bot": "!begin - Force-start dungeon [GC]."}
+{"user": "explain begin", "bot": "!begin — Force-start dungeon [GC]."}
+{"user": "what does !clear do", "bot": "!clear - Force-clear stage [GC]."}
+{"user": "how do i use !clear", "bot": "Use it like this: !clear. Force-clear stage [GC]."}
+{"user": "!clear?", "bot": "!clear - Force-clear stage [GC]."}
+{"user": "explain clear", "bot": "!clear — Force-clear stage [GC]."}
+{"user": "what does !closedungeon do", "bot": "!closedungeon - Force-close dungeon."}
+{"user": "how do i use !closedungeon", "bot": "Use it like this: !closedungeon. Force-close dungeon."}
+{"user": "!closedungeon?", "bot": "!closedungeon - Force-close dungeon."}
+{"user": "explain closedungeon", "bot": "!closedungeon — Force-close dungeon."}
+{"user": "what does !announce do", "bot": "!announce <msg> - Broadcast to GC."}
+{"user": "how do i use !announce", "bot": "Use it like this: !announce <msg>. Broadcast to GC."}
+{"user": "!announce?", "bot": "!announce <msg> - Broadcast to GC."}
+{"user": "explain announce", "bot": "!announce <msg> — Broadcast to GC."}
+{"user": "what does !restock do", "bot": "!restock - Refill shop stock."}
+{"user": "how do i use !restock", "bot": "Use it like this: !restock. Refill shop stock."}
+{"user": "!restock?", "bot": "!restock - Refill shop stock."}
+{"user": "explain restock", "bot": "!restock — Refill shop stock."}
+{"user": "what does !promote do", "bot": "!promote / !demote @user - Bot admin."}
+{"user": "how do i use !promote", "bot": "Use it like this: !promote / !demote @user. Bot admin."}
+{"user": "!promote?", "bot": "!promote / !demote @user - Bot admin."}
+{"user": "explain promote", "bot": "!promote / !demote @user — Bot admin."}
+{"user": "what does !erase do", "bot": "!erase @user - Delete player data."}
+{"user": "how do i use !erase", "bot": "Use it like this: !erase @user. Delete player data."}
+{"user": "!erase?", "bot": "!erase @user - Delete player data."}
+{"user": "explain erase", "bot": "!erase @user — Delete player data."}
+{"user": "what does !lockdown do", "bot": "!lockdown - Toggle maintenance mode."}
+{"user": "how do i use !lockdown", "bot": "Use it like this: !lockdown. Toggle maintenance mode."}
+{"user": "!lockdown?", "bot": "!lockdown - Toggle maintenance mode."}
+{"user": "explain lockdown", "bot": "!lockdown — Toggle maintenance mode."}
+{"user": "what does !update do", "bot": "!update - Trigger redeploy."}
+{"user": "how do i use !update", "bot": "Use it like this: !update. Trigger redeploy."}
+{"user": "!update?", "bot": "!update - Trigger redeploy."}
+{"user": "explain update", "bot": "!update — Trigger redeploy."}
+{"user": "what does !getgroupid do", "bot": "!getgroupid - Get current group JID."}
+{"user": "how do i use !getgroupid", "bot": "Use it like this: !getgroupid. Get current group JID."}
+{"user": "!getgroupid?", "bot": "!getgroupid - Get current group JID."}
+{"user": "explain getgroupid", "bot": "!getgroupid — Get current group JID."}
+{"user": "what does !awaken do", "bot": "!awaken - Registration prompt."}
+{"user": "how do i use !awaken", "bot": "Use it like this: !awaken. Registration prompt."}
+{"user": "!awaken?", "bot": "!awaken - Registration prompt."}
+{"user": "explain awaken", "bot": "!awaken — Registration prompt."}
+{"user": "what does !register do", "bot": "!register <name> - Create your character."}
+{"user": "how do i use !register", "bot": "Use it like this: !register <name>. Create your character."}
+{"user": "!register?", "bot": "!register <name> - Create your character."}
+{"user": "explain register", "bot": "!register <name> — Create your character."}
+{"user": "what does !spawn do", "bot": "!spawn [rank] - Spawn dungeon."}
+{"user": "how do i use !spawn", "bot": "Use it like this: !spawn [rank]. Spawn dungeon."}
+{"user": "!spawn?", "bot": "!spawn [rank] - Spawn dungeon."}
+{"user": "explain spawn", "bot": "!spawn [rank] — Spawn dungeon."}
+{"user": "what does !spawnprestige do", "bot": "!spawnprestige [rank] - Spawn prestige dungeon."}
+{"user": "how do i use !spawnprestige", "bot": "Use it like this: !spawnprestige [rank]. Spawn prestige dungeon."}
+{"user": "!spawnprestige?", "bot": "!spawnprestige [rank] - Spawn prestige dungeon."}
+{"user": "explain spawnprestige", "bot": "!spawnprestige [rank] — Spawn prestige dungeon."}
+{"user": "what does !spawnboss do", "bot": "!spawnboss - Spawn a world boss."}
+{"user": "how do i use !spawnboss", "bot": "Use it like this: !spawnboss. Spawn a world boss."}
+{"user": "!spawnboss?", "bot": "!spawnboss - Spawn a world boss."}
+{"user": "explain spawnboss", "bot": "!spawnboss — Spawn a world boss."}
+{"user": "what does !spawnleviathan do", "bot": "!spawnleviathan - Spawn the Void Leviathan."}
+{"user": "how do i use !spawnleviathan", "bot": "Use it like this: !spawnleviathan. Spawn the Void Leviathan."}
+{"user": "!spawnleviathan?", "bot": "!spawnleviathan - Spawn the Void Leviathan."}
+{"user": "explain spawnleviathan", "bot": "!spawnleviathan — Spawn the Void Leviathan."}
+{"user": "what does !leviathanphase do", "bot": "!leviathanphase - Force Leviathan to final phase."}
+{"user": "how do i use !leviathanphase", "bot": "Use it like this: !leviathanphase. Force Leviathan to final phase."}
+{"user": "!leviathanphase?", "bot": "!leviathanphase - Force Leviathan to final phase."}
+{"user": "explain leviathanphase", "bot": "!leviathanphase — Force Leviathan to final phase."}
+{"user": "what does !give do", "bot": "!give @user gold/xp/item <value> - Grant resources."}
+{"user": "how do i use !give", "bot": "Use it like this: !give @user gold/xp/item <value>. Grant resources."}
+{"user": "!give?", "bot": "!give @user gold/xp/item <value> - Grant resources."}
+{"user": "explain give", "bot": "!give @user gold/xp/item <value> — Grant resources."}
+{"user": "what does !gift do", "bot": "!gift @user <item> - Quick item gift."}
+{"user": "how do i use !gift", "bot": "Use it like this: !gift @user <item>. Quick item gift."}
+{"user": "!gift?", "bot": "!gift @user <item> - Quick item gift."}
+{"user": "explain gift", "bot": "!gift @user <item> — Quick item gift."}
+{"user": "what does !payxp do", "bot": "!payxp @user <amount> - Grant XP directly."}
+{"user": "how do i use !payxp", "bot": "Use it like this: !payxp @user <amount>. Grant XP directly."}
+{"user": "!payxp?", "bot": "!payxp @user <amount> - Grant XP directly."}
+{"user": "explain payxp", "bot": "!payxp @user <amount> — Grant XP directly."}
+{"user": "what does !setrole do", "bot": "!setrole @user <role> - Offer role change."}
+{"user": "how do i use !setrole", "bot": "Use it like this: !setrole @user <role>. Offer role change."}
+{"user": "!setrole?", "bot": "!setrole @user <role> - Offer role change."}
+{"user": "explain setrole", "bot": "!setrole @user <role> — Offer role change."}
+{"user": "what does !event do", "bot": "!event - Start a Void Fracture event."}
+{"user": "how do i use !event", "bot": "Use it like this: !event. Start a Void Fracture event."}
+{"user": "!event?", "bot": "!event - Start a Void Fracture event."}
+{"user": "explain event", "bot": "!event — Start a Void Fracture event."}
+{"user": "what does !chapter do", "bot": "!chapter - View/advance story chapter."}
+{"user": "how do i use !chapter", "bot": "Use it like this: !chapter. View/advance story chapter."}
+{"user": "!chapter?", "bot": "!chapter - View/advance story chapter."}
+{"user": "explain chapter", "bot": "!chapter — View/advance story chapter."}
+{"user": "what does !chapter4 do", "bot": "!chapter4 - Trigger chapter 4 sequence."}
+{"user": "how do i use !chapter4", "bot": "Use it like this: !chapter4. Trigger chapter 4 sequence."}
+{"user": "!chapter4?", "bot": "!chapter4 - Trigger chapter 4 sequence."}
+{"user": "explain chapter4", "bot": "!chapter4 — Trigger chapter 4 sequence."}
+{"user": "are there any hidden commands", "bot": "A few exist outside the public guide: !aria, !ban, !casino, !clanlore, !communityid, !conquer, !contracts, !demote, !eleaderboard, !evolve, !givexp, !help, !materialtrade, !mypotions, !referred, !tester, !testmode, !title, !tournament, !unban, !updateforged. Mostly admin and system tools."}
+{"user": "list every command you know", "bot": "Full command registry (119 commands): !accept, !announce, !aria, !attack, !attackboss, !awaken, !ban, !begin, !bounty, !brew, !buy, !buypot, !cancelrole, !casino, !chapter, !chapter4, !chapter5, !checkbag, !claim, !clan, !clanlist, !clanlore, !clanwar, !clear, !closedungeon, !codex, !communityid, !confirmrole, !conquer, !contracts, !convert, !createclan, !daily, !decline, !defend, !demote, !duel, !dungeon, !eleaderboard, !emptybag, !enter, !equip, !erase, !event, !evolve, !explore, !explorershop, !expmaterials, !forge, !getgroupid, !gift, !give, !givemalacharweapon, !givexp, !healers, !help, !hire, !hiredungeon, !inspect, !inventory, !joinparty, !leaveclan, !listservice, !lockdown, !lore, !materials, !materialtrade, !me, !melt, !moveset, !mypotions, !myquest, !onward, !pay, !pickup, !potionmarket, !prestige, !prestigeshop, !promote, !quests, !rankup, !recipes, !referral, !referred, !register, !removelisting, !repair, !repairbag, !resonance, !respawn, !restock, !return, !setrole, !shop, !skill, !spawn, !spawnboss, !spawnprestige, !spawnwanderer, !startduel, !stats, !territory, !tester, !testmode, !title, !tournament, !trade, !tradematerial, !transfer, !unban, !unequip, !update, !updateforged, !upgrade, !upgradeweapon, !use, !usepotion, !wanderertrade, !worldboss"}
+{"user": "how many commands does the game have", "bot": "There are 119 registered commands. Ask me about any of them."}
+{"user": "what game is this", "bot": "This is aria-RPG — a WhatsApp dungeon-crawler with raids, PvP, clans, prestige, an economy, and me, AriA, watching over all of it."}

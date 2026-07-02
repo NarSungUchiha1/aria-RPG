@@ -6,6 +6,7 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
 WORKDIR /app
 
 COPY package*.json ./
+ENV ONNXRUNTIME_NODE_INSTALL=skip
 RUN npm ci --omit=dev
 
 COPY . .

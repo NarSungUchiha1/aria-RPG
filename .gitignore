@@ -4,3 +4,8 @@ node_modules/
 .env
 auth_info/
 admin.json
+brain/model.onnx.data
+brain/model_meta.json
+
+# transfer artifacts
+*.zip

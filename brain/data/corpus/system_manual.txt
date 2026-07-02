@@ -1,0 +1,311 @@
+AriA SYSTEM MANUAL — aria-RPG
+!me  - Stats, rank & equipment
+!stats  - Combat record & history
+!moveset  - Your skill set
+!daily  - Claim daily gold & XP bonus
+!explore  - List rifts & survival rates
+!explore <rank> - Enter a rift (e.g. !explore C)
+!return  - Exit the rift & collect drops
+!expmaterials  - View your rift materials
+!explorershop  - Browse consumables & gear
+!explorershop buy <name> - Purchase item
+!brew  - View all brew recipes
+!brew <recipe> - Brew a specific potion
+!potionmarket  - Buy raw potions
+!buypot <name> - Quick buy a potion
+!usepotion / !use - Use a potion in your bag
+!wanderertrade  - Trade materials to the Wanderer
+!checkbag  - View bag contents
+!emptybag  - Bank materials to storage
+!repairbag  - Repair bag durability
+!materials  - All your crafting materials
+!pickup <#> - Collect a dungeon drop
+!shop  - Your role's daily shop
+!buy <number> - Purchase an item
+!inventory  - View your items
+!inspect <number> - View item bonuses
+!equip <number> - Equip an item
+!unequip <number> - Unequip an item
+!repair <number> - Repair durability
+!melt / !melt <#> - View or destroy for gold
+!upgradeweapon <#> - Upgrade weapon grade
+!use <item> - Use a consumable
+!duel @user [bet] - Challenge a player
+!duel party @user1 @user2... - Party duel
+!accept @nickname - Accept a challenge
+!decline @nickname - Decline
+!attack <move> - Use a move in your duel
+!startduel  - Confirm party duel start (leaders)
+!joinparty @leader - Join a party duel side
+!pay @user <amount> - Send gold
+!transfer @user <amount> - Send XP
+!trade @user <item #> - Give an item (Rank D+)
+!tradematerial @user <mat> <qty> - Trade materials
+!bounty  - Most Wanted — weekly target
+!bounty claim - Claim after beating them
+!bounty history - Past bounties
+!dice <bet> - Roll vs house
+!slots <bet> - Spin the reels
+!coinflip <bet> [h/t] - 50/50
+!blackjack <bet> - Beat the dealer
+!rankup  - Rank up (costs XP)
+!convert <xp> - 250 XP = 1 SP
+!upgrade <stat> <points> - Spend SP on stats
+!prestige confirm - Prestige at S rank
+!codex  - Lore fragments you have collected
+!confirmrole  - Accept a role change offer
+!cancelrole  - Decline a role change offer
+!lore  - Current chapter  |  !lore all → All chapters
+!quests  - Daily, achievement & party quests
+!claim <id> - Claim a completed quest
+!clan  - View your clan info
+!clan join <name> - Request to join (Rank D+)
+!leaveclan  - Leave  |  !clanlist → All clans
+!myquest  - Your active clan quest
+!healers  - Browse available healers
+!hire <#> - Book a healer
+!removelisting  - Remove your listing
+!worldboss  - Active world boss [GC]
+!attackboss  - Attack world boss [GC]
+!referral  - Invite link (+20 XP per referral)
+!spawnwanderer  - Force spawn Wanderer [Exp GC]
+!spawnmalachar ┃◆ !chapter5 - Launch Chapter 5 sequence
+!givemalacharweapon  - Give bound weapons
+!me  - Stats, rank & prestige level
+!stats  - Combat record & history
+!moveset  - Your void skill set
+!daily  - Claim daily bonus
+!resonance  - Void resonance (path to Ascendant)
+!explore  - List rifts (prestige tiers unlocked)
+!explore <rank> - Enter a rift (e.g. !explore PB)
+!return  - Exit rift & collect void drops
+!expmaterials  - Your rift materials
+!explorershop  - Void consumables & gear
+!explorershop buy <name> - Purchase
+!brew / !brew <recipe> - Craft potions [Exp GC]
+!potionmarket  - Buy raw potions
+!buypot <name> - Quick buy a potion
+!usepotion / !use - Use a potion
+!wanderertrade  - Trade materials with the Wanderer
+!enter  - Join a prestige dungeon (DM bot)
+!dungeon  - View enemies & stage [GC]
+!skill <move> [target] - Use a move [GC]
+!onward  - Advance to next stage [GC]
+!respawn  - Revive after death
+!pickup <#> - Collect drop
+!checkbag  - View bag  |  !emptybag → Bank
+!repairbag  - Repair bag
+!territory  - View all 3 void territories
+!defend <name> - Defend held territory (DM bot)
+!duel @user [bet] - Challenge
+!duel party @user1 @user2... - Party duel
+!attack <move> - Use a move in duel
+!startduel  - Confirm party duel (leaders)
+!joinparty @leader - Join a party duel side
+!prestigeshop  - Void weapons & consumables
+!prestigeshop buy <name> - Purchase
+!inventory  - Items  |  !inspect <#> → Bonuses
+!melt / !melt <#> - View or destroy for gold
+!upgradeweapon <#> - Upgrade weapon grade
+!materials  - All materials
+!recipes  - Craftable weapons for your role
+!forge <#> - Craft a weapon
+!clan  - View clan & blessing
+!createclan  - Forge a clan (Prestige only)
+!clan join <name> - Join  |  !leaveclan → Leave
+!clanlist  - All clans
+!clan assign @u <quest> - Assign quest (officer+)
+!clan quests - Active quests (officer+)
+!myquest  - Your active clan quest
+!clanwar  - View war status
+!bounty  - Most Wanted weekly bounty
+!bounty claim - Claim reward after win
+!dice /!slots/!coinflip/!blackjack - Casino
+!rankup  - Rank up through prestige ranks
+!prestige confirm - Prestige again at S rank
+!codex  - Lore fragments
+!lore  - Current chapter  |  !lore all → All
+!quests  - Daily quests  |  !claim <id> → Claim
+!worldboss  - Active world boss [GC]
+!attackboss  - Attack [GC]
+!referral  - Invite link (+20 XP per referral)
+!spawnwanderer  - Force spawn Wanderer [Exp GC]
+!spawnmalachar ┃★ !leviathanphase - Force Leviathan to final phase
+!chapter5  - Launch Chapter 5 sequence
+!givemalacharweapon  - Give bound weapons
+!me  - Stats, rank & prestige level
+!stats  - Combat record & PvP history
+!moveset  - Your void skill set
+!daily  - Claim daily gold & XP bonus
+!resonance  - Void resonance (path to Ascendant)
+!enter  - Join an active prestige dungeon (DM bot)
+!dungeon  - View enemies & stage [GC]
+!skill <move> [target] - Use a move [GC]
+!onward  - Advance to next stage [GC]
+!respawn  - Revive after death (DM bot)
+!pickup <#> - Collect void material drop
+!checkbag  - View bag  |  !emptybag → Bank
+!repairbag  - Repair bag durability
+!territory  - View all 3 void territories
+!defend <name> - Defend held territory (DM bot)
+!duel @user [bet] - Challenge a player
+!duel party @user1 @user2... - Party duel
+!accept @nickname - Accept  |  !decline → Decline
+!attack <move> - Use a move in duel
+!startduel  - Confirm party duel start (leaders)
+!joinparty @leader - Join a party duel side
+!prestigeshop  - Void weapons & consumables
+!prestigeshop buy <name> - Purchase
+!inventory  - Items  |  !inspect <#> → Bonuses
+!melt / !melt <#> - View or destroy for gold
+!upgradeweapon <#> - Upgrade weapon grade
+!potionmarket  - Browse prestige potions
+!buypot <name> - Buy a potion
+!usepotion / !use - Use a potion from bag
+!clan  - View your clan & blessing
+!createclan  - Forge a clan
+!clan join <name> - Join  |  !leaveclan → Leave
+!clan accept @user - Accept member (officer+)
+!clan assign @u <quest> - Assign quest (officer+)
+!clan quests - View active quests (officer+)
+!clanlist  - View all clans
+!myquest  - Your active clan quest
+!clanwar  - View war status
+!pay @user <amount> - Send gold
+!transfer @user <amount> - Send XP
+!trade @user <item #> - Give an item
+!tradematerial @user <mat> <qty> - Trade materials
+!bounty  - View active bounties
+!rankup  - Rank up through prestige ranks
+!convert <xp> - 250 XP = 1 SP
+!upgrade <stat> <points> - Spend SP
+!prestige confirm - Prestige again at S rank
+!codex  - Lore fragments you have collected
+!recipes  - Craftable weapons for your role
+!forge <#> - Craft using void materials
+!materials  - Your collected materials
+!healers  - Browse available healers
+!hire <#> - Book a healer
+!hiredungeon <#> - Hire for dungeon (paid on clear)
+!listservice <gold> <xp> <desc> - Post your service
+!removelisting  - Remove listing  |  !contracts → History
+!lore  - Current chapter  |  !lore all → All chapters
+!quests  - Daily, achievement & party quests
+!claim <id> - Claim a completed quest
+!worldboss  - Active world boss [GC]
+!attackboss  - Attack world boss [GC]
+!referral  - Invite link (+20 XP per referral)
+!spawnwanderer  - Force spawn Wanderer [Exp GC]
+!begin  - Force-start dungeon [GC]
+!clear  - Force-clear stage [GC]
+!closedungeon  - Force-close dungeon
+!spawnmalachar ┃★ !leviathanphase - Force Leviathan to final phase
+!chapter5  - Launch Chapter 5 sequence
+!givemalacharweapon  - Give bound weapons
+!announce <msg> - Broadcast to GC
+!restock  - Refill shop stock
+!promote / !demote @user - Bot admin
+!erase @user - Delete player data
+!lockdown  - Toggle maintenance mode
+!update  - Trigger redeploy
+!getgroupid  - Get current group JID
+!awaken  - Registration prompt
+!register <name> - Create your character
+!me  - View stats, rank & equipment
+!stats  - Combat record & PvP history
+!daily  - Claim daily gold & XP bonus
+!enter  - DM the bot to join a dungeon
+!dungeon  - View enemies & stage [GC]
+!skill <move> [target] - Use a move [GC]
+!onward  - Advance to next stage [GC]
+!respawn  - Revive after death (DM bot)
+!pickup <#> - Collect a material drop
+!checkbag  - View bag  |  !emptybag → Bank
+!repairbag  - Repair bag durability
+!moveset  - See all your available moves
+!duel @user [bet] - Challenge a player
+!duel party @user1 @user2... - Party duel
+!accept @nickname - Accept a challenge
+!decline @nickname - Decline
+!attack <move> - Use a move in your duel
+!startduel  - Confirm party duel (leaders)
+!joinparty @leader - Join a party duel side
+!shop  - Your role's daily shop
+!buy <number> - Purchase an item
+!inventory  - View your items
+!inspect <number> - View item bonuses
+!equip <number> - Equip an item
+!unequip <number> - Unequip an item
+!repair <number> - Repair durability
+!upgradeweapon <number> - Upgrade grade
+!melt / !melt <#> - View or destroy for gold
+!use <item name> - Use a consumable
+!potionmarket  - Browse available potions
+!buypot <name> - Buy a specific potion
+!usepotion / !use - Use a potion from bag
+!pay @user <amount> - Send gold
+!transfer @user <amount> - Send XP
+!trade @user <item #> - Give an item (Rank D+)
+!tradematerial @user <mat> <qty> - Trade materials
+!bounty  - View active bounties
+!rankup  - Rank up (costs XP)
+!convert <xp> - 250 XP = 1 SP
+!upgrade <stat> <points> - Spend SP on stats
+!prestige confirm - Prestige at S rank
+!codex  - Lore fragments you have collected
+!confirmrole  - Accept a role change offer
+!cancelrole  - Decline a role change offer
+!lore  - Current chapter of ARIA's story
+!lore all - All chapters & status
+!quests  - Daily, achievement & party quests
+!claim <id> - Claim a completed quest
+!recipes  - Craftable weapons for your role
+!forge <number> - Craft a weapon
+!materials  - Your crafting materials
+!explore  - View rifts & survival rates [Exp GC]
+!explore <rank> - Enter a rift [Exp GC]
+!return  - Exit rift & collect drops [Exp GC]
+!expmaterials  - Your rift materials
+!explorershop  - Explorer-exclusive shop [Exp GC]
+!brew / !brew <recipe> - Craft potions [Exp GC]
+!wanderertrade  - Trade with the Wanderer [Exp GC]
+!clan  - View your clan info
+!createclan  - Start a clan (Prestige only)
+!clan join <name> - Request to join (Rank D+)
+!leaveclan  - Leave  |  !clanlist → All clans
+!myquest  - Your active clan quest
+!healers  - Browse available healers
+!hire <number> - Book a healer
+!hiredungeon <number> - Hire for dungeon run
+!listservice <gold> <xp> <desc> - Post service
+!removelisting  - Remove  |  !contracts → History
+!worldboss  - View active world boss [GC]
+!attackboss  - Attack the world boss [GC]
+!referral  - Invite link (+20 XP per referral)
+!spawn [rank] - Spawn dungeon
+!spawnprestige [rank] - Spawn prestige dungeon
+!spawnwanderer  - Force spawn Wanderer [Exp GC]
+!begin  - Force-start dungeon [GC]
+!clear  - Force-clear current stage [GC]
+!closedungeon  - Force-close dungeon
+!spawnboss  - Spawn a world boss
+!spawnleviathan  - Spawn the Void Leviathan
+!spawnmalachar  - Spawn Malachar raid
+!leviathanphase  - Force Leviathan to final phase
+!chapter5  - Launch Chapter 5 sequence
+!givemalacharweapon  - Give bound weapons
+!give @user gold/xp/item <value> - Grant resources
+!gift @user <item> - Quick item gift
+!payxp @user <amount> - Grant XP directly
+!setrole @user <role> - Offer role change
+!event  - Start a Void Fracture event
+!event end - End event + leaderboard
+!chapter  - View/advance story chapter
+!chapter4  - Trigger chapter 4 sequence
+!announce <msg> - Broadcast to GC
+!restock  - Refill shop stock
+!promote / !demote @user - Bot admin
+!erase @user - Delete player data
+!lockdown  - Toggle maintenance mode
+!update  - Trigger redeploy
+!getgroupid  - Get current group JID
