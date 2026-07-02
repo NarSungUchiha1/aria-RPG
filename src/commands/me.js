@@ -44,8 +44,8 @@ module.exports = {
                 const cardText =
                     '```\n' +
                     `╭─〘 ✧ RESONANCE ✧ 〙──────────────────╮\n` +
-                    ` 👤 ${resonance.res_name}\n` +
-                    ` 📜 ${p.title || 'Untitled'}\n` +
+                    ` 👤 Name: ${resonance.res_name}\n` +
+                    ` 📜 Title: ${p.title || 'Untitled'}\n` +
                     ` 🌌 Genesis: ${genesis}\n` +
                     ` 👑 Authority: ${resonance.authority}\n` +
                     ` 🏰 Clan: ${clanDisplay}\n` +
