@@ -1,0 +1,6 @@
+torch
+numpy
+flask
+onnx
+onnxscript
+pymysql
