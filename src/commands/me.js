@@ -39,17 +39,18 @@ module.exports = {
 
                 // Ascendants transcend roles — keep the card to a clean identity:
                 // ends at Clan. Stats/moves live in !me stats / !moveset.
+                // Monospace (```) so it renders smaller & fixed-width; each field
+                // stays on one line. No right border (emojis are double-width).
                 const cardText =
-                    `╭══〘 ✧ RESONANCE CARD 〙══╮\n` +
-                    `┃✧\n` +
-                    `┃✧ 👤 ${resonance.res_name}\n` +
-                    `┃✧ 📜 ${p.title || 'Untitled'}\n` +
-                    `┃✧ 🌌 Soulbound Genesis:\n` +
-                    `┃✧    ${genesis}\n` +
-                    `┃✧ 👑 Authority: ${resonance.authority}\n` +
-                    `┃✧ 🏰 Clan: ${clanDisplay}\n` +
-                    `┃✧\n` +
-                    `╰═══════════════════════════════╯`;
+                    '```\n' +
+                    `╭─〘 ✧ RESONANCE ✧ 〙──────────────────╮\n` +
+                    ` 👤 ${resonance.res_name}\n` +
+                    ` 📜 ${p.title || 'Untitled'}\n` +
+                    ` 🌌 Genesis: ${genesis}\n` +
+                    ` 👑 Authority: ${resonance.authority}\n` +
+                    ` 🏰 Clan: ${clanDisplay}\n` +
+                    `╰─────────────────────────────────────╯\n` +
+                    '```';
 
                 if (resonance.res_image) {
                     try {

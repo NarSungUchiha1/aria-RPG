@@ -22,6 +22,7 @@ const SPAM_WINDOW_MS  = 3000;
 const SPAM_THRESHOLD  = 2;
 const SPAM_FATIGUE    = 50;
 const { narrate } = require('../utils/narrator');
+const { narrateSignatureMove } = require('../systems/aiSystems');
 const { recordDamage, recordHeal, recordKill, calculateMvp } = require('../systems/mvpSystem');
 
 function requiresMana(move, player) {
@@ -466,7 +467,16 @@ module.exports = {
                 const evadeMsg = narrate('evasion', { target: targetEnemy.name });
                 reply += `┃◆ ${evadeMsg}\n`;
             } else {
-                const skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
+                let skillMsg = null;
+                if (move.signature) {
+                    // AriA narrates Ascendant signature moves as they land.
+                    const killed = (Number(targetEnemy.current_hp) || 0) - result.damage <= 0;
+                    skillMsg = await narrateSignatureMove({
+                        attacker: player.nickname, move, target: targetEnemy.name,
+                        type: 'damage', amount: result.damage, killed
+                    });
+                }
+                if (!skillMsg) skillMsg = narrate('skillDamage', { attacker: player.nickname, move: move.name, target: targetEnemy.name, damage: result.damage });
                 reply += `┃◆ ${skillMsg}\n`;
             }
 

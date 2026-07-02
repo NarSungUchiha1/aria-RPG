@@ -828,4 +828,31 @@ async function maybeMindle(sock, jid, msg, userId, text) {
     } catch {}
 }
 
-module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, callGemini, callGroq, isOwner };
+// ── Signature-move combat narration (Ascendant moves) ────────────────────────
+// AriA narrates a signature move as it lands. One vivid in-world line, generated
+// from the move's name + player-written description + what mechanically happened.
+// Returns a string, or null on timeout/failure so the caller can fall back to
+// the template narrator.
+async function narrateSignatureMove({ attacker, move, target, type, amount = 0, killed = false }) {
+    let outcome;
+    switch (type) {
+        case 'heal':   outcome = `restoring ${amount} health`; break;
+        case 'shield': outcome = `conjuring a protective ward`; break;
+        case 'buff':   outcome = `surging with power`; break;
+        case 'debuff': outcome = `sapping ${target}'s strength`; break;
+        default:       outcome = `dealing ${amount} damage${killed ? ' — a killing blow' : ''}`;
+    }
+    const sys = 'You are AriA narrating epic WhatsApp-RPG combat. Reply with ONE vivid in-world sentence, max 22 words. No preamble, no quotes, at most one emoji.';
+    const desc = move?.desc ? ` — described as "${move.desc}"` : '';
+    const prompt = `${attacker} unleashes their signature move "${move?.name}"${desc}, a ${type} move, against ${target}, ${outcome}. Narrate that single moment.`;
+    try {
+        const reply = await Promise.race([
+            callGemini(prompt, sys),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('narr-timeout')), 5000))
+        ]);
+        const line = String(reply || '').trim().split('\n')[0].replace(/^["']|["']$/g, '').slice(0, 220);
+        return line || null;
+    } catch { return null; }
+}
+
+module.exports = { handleUnknownCommand, handleAriaCommand, narrateAI, callGemini, callGroq, isOwner, narrateSignatureMove };
