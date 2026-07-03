@@ -834,6 +834,11 @@ async function maybeMindle(sock, jid, msg, userId, text) {
 // Returns a string, or null on timeout/failure so the caller can fall back to
 // the template narrator.
 async function narrateSignatureMove({ attacker, move, target, type, amount = 0, killed = false }) {
+    // IMPORTANT: narration uses ONLY her local brain — NEVER Groq. Combat can
+    // fire many of these per minute (signature-move spam); routing them to Groq
+    // burns the ~30/min budget and starves real Aria chat (she goes silent).
+    // If the brain isn't ready, return null so the caller uses the template line.
+    if (!localBrain.isReady()) return null;
     let outcome;
     switch (type) {
         case 'heal':   outcome = `restoring ${amount} health`; break;
@@ -842,15 +847,14 @@ async function narrateSignatureMove({ attacker, move, target, type, amount = 0, 
         case 'debuff': outcome = `sapping ${target}'s strength`; break;
         default:       outcome = `dealing ${amount} damage${killed ? ' — a killing blow' : ''}`;
     }
-    const sys = 'You are AriA narrating epic WhatsApp-RPG combat. Reply with ONE vivid in-world sentence, max 22 words. No preamble, no quotes, at most one emoji.';
-    const desc = move?.desc ? ` — described as "${move.desc}"` : '';
-    const prompt = `${attacker} unleashes their signature move "${move?.name}"${desc}, a ${type} move, against ${target}, ${outcome}. Narrate that single moment.`;
+    const desc = move?.desc ? ` — "${move.desc}"` : '';
+    const prompt = `Narrate epic combat in ONE vivid sentence: ${attacker} unleashes signature move "${move?.name}"${desc}, a ${type} move, against ${target}, ${outcome}.`;
     try {
-        const reply = await Promise.race([
-            callGemini(prompt, sys),
-            new Promise((_, rej) => setTimeout(() => rej(new Error('narr-timeout')), 5000))
+        const r = await Promise.race([
+            localBrain.generate(prompt, ['You are AriA narrating epic RPG combat in one vivid sentence.']),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('narr-timeout')), 3000))
         ]);
-        const line = String(reply || '').trim().split('\n')[0].replace(/^["']|["']$/g, '').slice(0, 220);
+        const line = String(r?.text || '').trim().split('\n')[0].replace(/^["']|["']$/g, '').slice(0, 220);
         return line || null;
     } catch { return null; }
 }
