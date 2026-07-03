@@ -37,20 +37,18 @@ module.exports = {
                     .map((m, i) => `┃✧ ${['①','②','③','④','⑤'][i]} *${m.name}*\n┃✧    _${m.desc}_`)
                     .join('\n');
 
-                // Ascendants transcend roles — keep the card to a clean identity:
-                // ends at Clan. Stats/moves live in !me stats / !moveset.
-                // Monospace (```) so it renders smaller & fixed-width; each field
-                // stays on one line. No right border (emojis are double-width).
+                // Ascendants transcend roles — clean identity card, ends at Clan.
+                // Proportional (mobile) view: bold labels + emoji, one field per
+                // line, framed with plain rules (no monospace, no box-drawing).
                 const cardText =
-                    '```\n' +
-                    `╭─〘 ✧ RESONANCE ✧ 〙──────────────────╮\n` +
-                    ` 👤 Name: ${resonance.res_name}\n` +
-                    ` 📜 Title: ${p.title || 'Untitled'}\n` +
-                    ` 🌌 Genesis: ${genesis}\n` +
-                    ` 👑 Authority: ${resonance.authority}\n` +
-                    ` 🏰 Clan: ${clanDisplay}\n` +
-                    `╰─────────────────────────────────────╯\n` +
-                    '```';
+                    `━━━━━━━ ✧ RESONANCE ✧ ━━━━━━━\n` +
+                    `\n` +
+                    `👤 *Name:* ${resonance.res_name}\n` +
+                    `📜 *Title:* ${p.title || 'Untitled'}\n` +
+                    `🌌 *Genesis:* ${genesis}\n` +
+                    `👑 *Authority:* ${resonance.authority}\n` +
+                    `🏰 *Clan:* ${clanDisplay}\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
                 if (resonance.res_image) {
                     try {
