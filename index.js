@@ -362,6 +362,11 @@ const BLACKSMITH_GC_ONLY = new Set([
     'forge', 'recipes', 'materials'
 ]);
 
+// Item-management commands blocked for Ascendants — they are beyond items.
+const ASCENDANT_BLOCKED = new Set([
+    'shop', 'buy', 'forge', 'equip', 'unequip', 'usepotion', 'brew', 'upgrade', 'repair'
+]);
+
 const HEALER_GC_JID      = '120363427051780444@g.us';
 const CASINO_GC_JID      = process.env.CASINO_GC_JID || '';
 const BLACKSMITH_GC_JID  = '120363426728151625@g.us';
@@ -1048,6 +1053,23 @@ async function startBot() {
                     const { activeTesterSessions } = require('./src/commands/tester');
                     if (activeTesterSessions?.has(userId)) {
                         effectiveUserId = activeTesterSessions.get(userId);
+                    }
+                } catch(e) {}
+            }
+
+            // Ascendants are beyond items — block item-management commands for them.
+            if (ASCENDANT_BLOCKED.has(cmdName)) {
+                try {
+                    const { isResonated } = require('./src/systems/ascendantSystem');
+                    if (await isResonated(effectiveUserId)) {
+                        return await sock.sendMessage(jid, {
+                            text:
+                                `╭══〘 ✧ ASCENDANT 〙══╮\n` +
+                                `┃✧ You have transcended items.\n` +
+                                `┃✧ No shops, no forge, no potions.\n` +
+                                `┃✧ Your power is your own now.\n` +
+                                `╰═══════════════════════╯`
+                        }, isDM ? {} : { quoted: msg });
                     }
                 } catch(e) {}
             }

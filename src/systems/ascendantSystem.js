@@ -778,5 +778,6 @@ module.exports = {
     startResFlow,
     endResFlow,
     resFlowStage,
-    getResonanceProgress
+    getResonanceProgress,
+    forgeAscendantWeapon
 };
