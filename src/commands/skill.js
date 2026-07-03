@@ -421,7 +421,9 @@ module.exports = {
                 triggerBlessingIfReady('on_healed', targetPlayer.id, dungeon.id, targetPlayer, dungeon, msg, { healAmount: heal }).catch(() => {});
             }
 
-            const healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
+            let healMsg = null;
+            if (move.signature) healMsg = await narrateSignatureMove({ attacker: player.nickname, move, target: targetPlayer.nickname, type: 'heal', amount: heal });
+            if (!healMsg) healMsg = narrate('heal', { healer: player.nickname, target: targetPlayer.nickname, heal });
             return msg.reply(`══〘 💚 HEAL 〙══╮\n┃◆ ${healMsg}\n┃◆ 💚 Restored ${heal} HP.\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
         }
 
@@ -769,7 +771,9 @@ module.exports = {
                     type: 'shield', stat: 'shield', value: shieldValue, duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                const shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
+                let shieldMsg = null;
+                if (move.signature) shieldMsg = await narrateSignatureMove({ attacker: player.nickname, move, target: targetPlayer.nickname, type: move.evasion ? 'evasion' : 'shield' });
+                if (!shieldMsg) shieldMsg = narrate('shield', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, value: shieldValue, duration: move.duration || 3 });
                 return msg.reply(`══〘 🛡️ SHIELD 〙══╮\n┃◆ ${shieldMsg}\n┃◆ Cooldown: ${actualCd}s\n╰═══════════════════════╯`);
             }
 
@@ -779,7 +783,9 @@ module.exports = {
                     type: 'buff', stat: statName, value: move.value, duration: move.duration || 3
                 });
                 actualCd = setMoveCooldown(userId, move.name, move.cooldown || 4, player.rank);
-                const buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
+                let buffMsg = null;
+                if (move.signature) buffMsg = await narrateSignatureMove({ attacker: player.nickname, move, target: targetPlayer.nickname, type: 'buff' });
+                if (!buffMsg) buffMsg = narrate('buff', { caster: player.nickname, target: targetPlayer.nickname, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 3 });
 
                 if (dungeon) {
                     const buffReward = Math.floor((move.value || 20) * 2);
@@ -809,7 +815,9 @@ module.exports = {
                 type: 'debuff', stat: statName, value: -move.value, duration: move.duration || 2
             });
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 3, player.rank);
-            const debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
+            let debuffMsg = null;
+            if (move.signature) debuffMsg = await narrateSignatureMove({ attacker: player.nickname, move, target: targetEnemy.name, type: 'debuff' });
+            if (!debuffMsg) debuffMsg = narrate('debuff', { caster: player.nickname, target: targetEnemy.name, move: move.name, stat: move.effect, value: move.value, duration: move.duration || 2 });
             try { if (dungeon) trackContribution(dungeon.id, userId, player.nickname, 'debuff', 1); } catch(e) {}
 
             if (move.name && move.name.toLowerCase().includes('taunt')) {
