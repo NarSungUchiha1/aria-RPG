@@ -31,20 +31,20 @@ module.exports = {
                 const TYPE_ICON = { damage: '⚔️', heal: '💚', shield: '🛡️', evasion: '💨', buff: '⬆️', debuff: '⬇️' };
                 const weaponName = weaponMoves[0]?.weapon || 'Unique Weapon';
                 let text =
-                    `━━━━ ✧ ASCENDANT MOVESET ✧ ━━━━\n` +
-                    `👤 ${player.nickname}\n` +
-                    `\n` +
-                    `👁️ *SIGNATURE MOVES*\n`;
+                    `╔═══〘 ✧ ASCENDANT MOVESET 〙═══╗\n` +
+                    `┃✧ 👤 ${player.nickname}\n` +
+                    `┃✧▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
+                    `┃✧ 👁️ *SIGNATURE MOVES*\n`;
                 sigMoves.forEach(m => {
                     const cd = getMoveCooldown(userId, m.name);
-                    text += `${TYPE_ICON[m.type] || '⚔️'} ${m.name}  ·  Lv${m.level || 1}  ·  ${cdText(cd)}\n`;
+                    text += `┃✧ ${TYPE_ICON[m.type] || '⚔️'} ${m.name}  ·  Lv${m.level || 1}  ·  ${cdText(cd)}\n`;
                 });
-                text += `\n🗡️ *${weaponName}*\n`;
+                text += `┃✧▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n┃✧ 🗡️ *${weaponName}*\n`;
                 weaponMoves.forEach(m => {
                     const cd = getMoveCooldown(userId, m.name);
-                    text += `${TYPE_ICON[m.type] || '⚔️'} ${m.name}  ·  ${cdText(cd)}\n`;
+                    text += `┃✧ ${TYPE_ICON[m.type] || '⚔️'} ${m.name}  ·  ${cdText(cd)}\n`;
                 });
-                text += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n🧭 Use *!skill <move>*`;
+                text += `┃✧▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n┃✧ 🧭 Use *!skill <move>*\n╚═══════════════════════════╝`;
                 return msg.reply(text);
             }
 

@@ -38,17 +38,18 @@ module.exports = {
                     .join('\n');
 
                 // Ascendants transcend roles — clean identity card, ends at Clan.
-                // Proportional (mobile) view: bold labels + emoji, one field per
-                // line, framed with plain rules (no monospace, no box-drawing).
+                // !clan house style with ┃✧ resonance bullets. Wide borders force
+                // the WhatsApp bubble to stretch (width = longest line).
                 const cardText =
-                    `━━━━━━━ ✧ RESONANCE ✧ ━━━━━━━\n` +
-                    `\n` +
-                    `👤 *Name:* ${resonance.res_name}\n` +
-                    `📜 *Title:* ${p.title || 'Untitled'}\n` +
-                    `🌌 *Genesis:* ${genesis}\n` +
-                    `👑 *Authority:* ${resonance.authority}\n` +
-                    `🏰 *Clan:* ${clanDisplay}\n` +
-                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+                    `╔═════〘 ✧ RESONANCE ✧ 〙═════╗\n` +
+                    `┃✧\n` +
+                    `┃✧ 👤 *Name:* ${resonance.res_name}\n` +
+                    `┃✧ 📜 *Title:* ${p.title || 'Untitled'}\n` +
+                    `┃✧ 🌌 *Genesis:* ${genesis}\n` +
+                    `┃✧ 👑 *Authority:* ${resonance.authority}\n` +
+                    `┃✧ 🏰 *Clan:* ${clanDisplay}\n` +
+                    `┃✧\n` +
+                    `╚═══════════════════════════╝`;
 
                 if (resonance.res_image) {
                     try {
