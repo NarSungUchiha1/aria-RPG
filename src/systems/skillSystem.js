@@ -80,29 +80,38 @@ async function recordSignatureUse(playerId, moveName) {
 
 async function ensureSignatureMoves(playerId) {
     if (!playerId || signatureMovesCache.has(playerId)) return;
+
+    // Ascendant detection hinges ONLY on `moves` — query it alone so a missing
+    // weapon_* column (older DB) can't break it.
     try {
-        const [rows] = await db.execute('SELECT moves, weapon_name, weapon_moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
+        const [rows] = await db.execute('SELECT moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
         if (!rows.length) { signatureMovesCache.set(playerId, null); signatureWeaponCache.set(playerId, null); return; }
         let moves = [];
         try { moves = JSON.parse(rows[0].moves || '[]'); } catch { moves = []; }
         signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+    } catch {
+        signatureMovesCache.set(playerId, null);
+        signatureWeaponCache.set(playerId, null);
+        return;
+    }
 
-        // Unique Ascendant weapon (forged at rebirth).
+    // Unique Ascendant weapon — separate query; tolerate missing columns.
+    try {
+        const [wr] = await db.execute('SELECT weapon_name, weapon_moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
         let wMoves = [];
-        try { wMoves = JSON.parse(rows[0].weapon_moves || '[]'); } catch { wMoves = []; }
+        try { wMoves = JSON.parse(wr[0]?.weapon_moves || '[]'); } catch { wMoves = []; }
         signatureWeaponCache.set(playerId,
-            (rows[0].weapon_name && Array.isArray(wMoves) && wMoves.length) ? { name: rows[0].weapon_name, moves: wMoves } : null);
+            (wr[0]?.weapon_name && Array.isArray(wMoves) && wMoves.length) ? { name: wr[0].weapon_name, moves: wMoves } : null);
+    } catch { signatureWeaponCache.set(playerId, null); }
 
-        // Load per-move levels from usage progress.
+    // Per-move levels from usage progress — separate too.
+    try {
         await ensureProgressTable();
         const [prog] = await db.execute('SELECT move_name, xp FROM resonance_move_progress WHERE player_id=?', [playerId]);
         const levels = {};
         prog.forEach(p => { levels[p.move_name] = levelFromXp(p.xp); });
         signatureLevelCache.set(playerId, levels);
-    } catch {
-        signatureMovesCache.set(playerId, null);
-        signatureWeaponCache.set(playerId, null);
-    }
+    } catch { signatureLevelCache.set(playerId, {}); }
 }
 
 // Populate/refresh the cache directly (called right after the ritual completes).

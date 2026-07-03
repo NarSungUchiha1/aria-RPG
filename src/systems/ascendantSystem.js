@@ -337,8 +337,10 @@ async function ensureResonanceProfileTable() {
     `).catch(e => console.error('[Resonance] Table error:', e.message));
     await db.execute('ALTER TABLE players ADD COLUMN IF NOT EXISTS dungeons_cleared INT DEFAULT 0').catch(() => {});
     // Unique Ascendant weapon (forged at rebirth) — name + its 3 moves (JSON).
-    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN IF NOT EXISTS weapon_name VARCHAR(60)").catch(() => {});
-    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN IF NOT EXISTS weapon_moves TEXT").catch(() => {});
+    // Plain ADD COLUMN (not IF NOT EXISTS): adds if missing, caught error if it
+    // already exists — works on MySQL 8 too (no IF NOT EXISTS support for cols).
+    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN weapon_name VARCHAR(60)").catch(() => {});
+    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN weapon_moves TEXT").catch(() => {});
 }
 
 async function getResonanceProfile(playerId) {
