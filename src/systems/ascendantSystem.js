@@ -336,6 +336,9 @@ async function ensureResonanceProfileTable() {
         )
     `).catch(e => console.error('[Resonance] Table error:', e.message));
     await db.execute('ALTER TABLE players ADD COLUMN IF NOT EXISTS dungeons_cleared INT DEFAULT 0').catch(() => {});
+    // Unique Ascendant weapon (forged at rebirth) — name + its 3 moves (JSON).
+    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN IF NOT EXISTS weapon_name VARCHAR(60)").catch(() => {});
+    await db.execute("ALTER TABLE resonance_profiles ADD COLUMN IF NOT EXISTS weapon_moves TEXT").catch(() => {});
 }
 
 async function getResonanceProfile(playerId) {
@@ -456,6 +459,50 @@ Reply exactly as: [{"name":"<move name>","type":"<type>","power":"<power>"}]`;
         });
     } catch (e) {
         console.error('[Resonance] Move classification failed — defaulting to damage:', e.message);
+        return fallback;
+    }
+}
+
+// Forge ONE unique weapon whose 3 moves COMPLEMENT the player's signature kit.
+// AI-generated to suit the theme of their described moves.
+async function forgeAscendantWeapon(sigMoves) {
+    const fallback = {
+        name: 'Ascendant Relic',
+        moves: [
+            { name: 'Relic Strike', desc: 'A surge of void-forged force.', type: 'damage', power: 'strong' },
+            { name: 'Relic Ward',   desc: 'The relic shields its bearer.',  type: 'shield', power: 'medium' },
+            { name: 'Relic Surge',  desc: 'Power floods the wielder.',       type: 'buff',   power: 'medium' }
+        ]
+    };
+    try {
+        const { callGemini } = require('./aiSystems');
+        const list = sigMoves.map((m, i) => `${i + 1}. ${m.name} (${m.type}) — ${m.desc}`).join('\n');
+        const sys = 'You invent a unique RPG weapon and 3 complementary moves. Reply with ONLY JSON — no prose, no code fences.';
+        const prompt =
+`A fighter has these 5 signature moves:
+${list}
+Invent ONE unique weapon that suits this fighter, and exactly 3 weapon moves that COMPLEMENT (do not duplicate) their signature kit.
+TYPE per move (pick one): "damage","heal","shield","evasion","buff","debuff".
+POWER per move (pick one): "weak","medium","strong","ultimate".
+Reply exactly as: {"weapon":"<weapon name>","moves":[{"name":"<move>","desc":"<short desc>","type":"<type>","power":"<power>"}]}`;
+        const raw = await callGemini(prompt, sys);
+        if (!raw) return fallback;
+        const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+        if (a === -1 || b === -1) return fallback;
+        const obj = JSON.parse(raw.slice(a, b + 1));
+        const VALID = ['damage', 'heal', 'shield', 'evasion', 'buff', 'debuff'];
+        const POW   = ['weak', 'medium', 'strong', 'ultimate'];
+        const name = String(obj.weapon || '').trim().slice(0, 40) || fallback.name;
+        let moves = (Array.isArray(obj.moves) ? obj.moves : []).slice(0, 3).map((m, i) => ({
+            name:  String(m.name || `Move ${i + 1}`).trim().slice(0, 40),
+            desc:  String(m.desc || '').trim().slice(0, 100),
+            type:  VALID.includes(String(m.type || '').toLowerCase())  ? String(m.type).toLowerCase()  : 'damage',
+            power: POW.includes(String(m.power || '').toLowerCase())    ? String(m.power).toLowerCase() : 'medium'
+        }));
+        if (moves.length < 3) return fallback;
+        return { name, moves };
+    } catch (e) {
+        console.error('[Resonance] Weapon forge failed — using fallback:', e.message);
         return fallback;
     }
 }
@@ -644,9 +691,23 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                 );
                 endResFlow(playerId);
 
-                // Make the signature moves usable in combat immediately (lazy
-                // loaded by ensureSignatureMoves too, but prime it now).
-                try { require('./skillSystem').setSignatureMoves(playerId, enriched); } catch {}
+                // Forge the unique Ascendant weapon (AI, complements their kit).
+                const weapon = await forgeAscendantWeapon(enriched);
+                await db.execute(
+                    'UPDATE resonance_profiles SET weapon_name=?, weapon_moves=? WHERE player_id=?',
+                    [weapon.name, JSON.stringify(weapon.moves), playerId]
+                ).catch(() => {});
+
+                // REBIRTH — erased and born anew: total wipe of items AND gold.
+                await db.execute('DELETE FROM inventory WHERE player_id=?', [playerId]).catch(() => {});
+                await db.execute('UPDATE currency SET gold=0 WHERE player_id=?', [playerId]).catch(() => {});
+
+                // Prime combat caches so signature + unique-weapon moves work now.
+                try {
+                    const ss = require('./skillSystem');
+                    ss.setSignatureMoves(playerId, enriched);
+                    ss.setAscendantWeapon(playerId, weapon.name, weapon.moves);
+                } catch {}
 
                 const profile = await getResonanceProfile(playerId);
                 const genesis = formatGenesisDate(profile.genesis_date);
@@ -654,12 +715,16 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                 const moveList = enriched.map((m, i) =>
                     `┃✧ ${i+1}. *${m.name}*  ${TYPE_ICON[m.type] || '⚔️'} ${m.type}\n┃✧    _${m.desc}_`
                 ).join('\n');
+                const weaponList = weapon.moves.map(m =>
+                    `┃✧ • *${m.name}*  ${TYPE_ICON[m.type] || '⚔️'} ${m.type}\n┃✧   _${m.desc}_`
+                ).join('\n');
 
                 await fakeMsg.reply(
                     `╭══〘 ⚡ RESONANCE COMPLETE 〙══╮\n` +
                     `┃✧\n` +
                     `┃✧ You have transcended.\n` +
-                    `┃✧ The old system no longer binds you.\n` +
+                    `┃✧ The old you is gone — weapons,\n` +
+                    `┃✧ gold, all of it. You are reborn.\n` +
                     `┃✧\n` +
                     `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
                     `┃✧ 👤 ${profile.res_name}\n` +
@@ -669,6 +734,9 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                     `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
                     `┃✧ ⚔️ SIGNATURE MOVES:\n` +
                     `${moveList}\n` +
+                    `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃✧ 🗡️ UNIQUE WEAPON: *${weapon.name}*\n` +
+                    `${weaponList}\n` +
                     `┃✧ ━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
                     `┃✧\n` +
                     `┃✧ Use *!me* to view your card.\n` +

@@ -26,6 +26,7 @@ const cooldowns = new Map();
 // player's CURRENT best offensive stat so it keeps up as they grow.
 const signatureMovesCache = new Map(); // playerId -> enriched [{name,desc,type,power}] or null
 const signatureLevelCache = new Map(); // playerId -> { moveName: level }  (filled by leveling system)
+const signatureWeaponCache = new Map(); // playerId -> { name, moves:[{name,desc,type,power}] } or null
 
 // Per power-tier magnitudes. AI assigns each move a type + power tier at ritual
 // time; we own the actual numbers so moves stay balanced. Level scales them up.
@@ -80,11 +81,17 @@ async function recordSignatureUse(playerId, moveName) {
 async function ensureSignatureMoves(playerId) {
     if (!playerId || signatureMovesCache.has(playerId)) return;
     try {
-        const [rows] = await db.execute('SELECT moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
-        if (!rows.length) { signatureMovesCache.set(playerId, null); return; }
+        const [rows] = await db.execute('SELECT moves, weapon_name, weapon_moves FROM resonance_profiles WHERE player_id=? LIMIT 1', [playerId]);
+        if (!rows.length) { signatureMovesCache.set(playerId, null); signatureWeaponCache.set(playerId, null); return; }
         let moves = [];
         try { moves = JSON.parse(rows[0].moves || '[]'); } catch { moves = []; }
         signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+
+        // Unique Ascendant weapon (forged at rebirth).
+        let wMoves = [];
+        try { wMoves = JSON.parse(rows[0].weapon_moves || '[]'); } catch { wMoves = []; }
+        signatureWeaponCache.set(playerId,
+            (rows[0].weapon_name && Array.isArray(wMoves) && wMoves.length) ? { name: rows[0].weapon_name, moves: wMoves } : null);
 
         // Load per-move levels from usage progress.
         await ensureProgressTable();
@@ -94,6 +101,7 @@ async function ensureSignatureMoves(playerId) {
         signatureLevelCache.set(playerId, levels);
     } catch {
         signatureMovesCache.set(playerId, null);
+        signatureWeaponCache.set(playerId, null);
     }
 }
 
@@ -101,6 +109,12 @@ async function ensureSignatureMoves(playerId) {
 function setSignatureMoves(playerId, moves) {
     if (!playerId) return;
     signatureMovesCache.set(playerId, Array.isArray(moves) && moves.length ? moves : null);
+}
+
+function setAscendantWeapon(playerId, name, moves) {
+    if (!playerId) return;
+    signatureWeaponCache.set(playerId,
+        (name && Array.isArray(moves) && moves.length) ? { name, moves } : null);
 }
 
 function bestOffensiveStat(player) {
@@ -114,16 +128,18 @@ function bestOffensiveStat(player) {
 
 function tierOf(power) { return POWER_TIER[String(power || 'medium').toLowerCase()] ?? 1; }
 
-function buildSignatureMoveObjects(player, resMoves, levels = {}) {
+function buildSignatureMoveObjects(player, resMoves, levels = {}, opts = {}) {
     if (!Array.isArray(resMoves) || !resMoves.length) return [];
+    const source = opts.source || 'signature';
     const stat = bestOffensiveStat(player);
     return resMoves.slice(0, 5).map(m => {
         const t     = tierOf(m.power);
         const level = Math.max(1, Number(levels[m.name]) || 1);
         const s     = 1 + (level - 1) * LEVEL_STEP; // level scaling
         const base  = {
-            name: m.name, desc: m.desc || '', source: 'signature', signature: true,
-            level, cooldown: TIER_CD[t], cost: TIER_COST[t]
+            name: m.name, desc: m.desc || '', source, signature: true,
+            level, cooldown: TIER_CD[t], cost: TIER_COST[t],
+            ...(opts.weapon ? { weapon: opts.weapon } : {})
         };
         switch (m.type) {
             case 'heal':
@@ -178,6 +194,23 @@ function clearPlayerCooldowns(userId) {
 }
 
 function getAllMoves(player, equippedItems) {
+    // ── ASCENDANT: reborn. Kit is ONLY their 5 signature moves + the 3 moves of
+    // their unique weapon. No role moves, no equipped/void weapon moves — those
+    // were stripped at rebirth. (Cache primed via ensureSignatureMoves.)
+    const sig = signatureMovesCache.get(player.id);
+    if (sig) {
+        const moves  = [];
+        const levels = signatureLevelCache.get(player.id) || {};
+        buildSignatureMoveObjects(player, sig, levels).forEach(m => moves.push(m));
+        const weapon = signatureWeaponCache.get(player.id);
+        if (weapon && Array.isArray(weapon.moves)) {
+            buildSignatureMoveObjects(player, weapon.moves, {}, { source: 'weapon', weapon: weapon.name })
+                .forEach(m => moves.push(m));
+        }
+        return moves;
+    }
+
+    // ── Normal players: role moves + equipped-weapon moves.
     const moves = [];
     const isPrestige = (player.prestige_level || 0) > 0;
     const roleMoveSource = isPrestige ? prestigeRoleMoves : roleMoves;
@@ -192,13 +225,6 @@ function getAllMoves(player, equippedItems) {
             const weaponMoveList = weaponMoves[item.item_name] || [];
             weaponMoveList.forEach(m => moves.push({ ...m, source: 'weapon', weapon: item.item_name }));
         });
-    }
-
-    // Ascendant signature moves (cache must be primed via ensureSignatureMoves).
-    const sig = signatureMovesCache.get(player.id);
-    if (sig) {
-        const levels = signatureLevelCache.get(player.id) || {};
-        buildSignatureMoveObjects(player, sig, levels).forEach(m => moves.push(m));
     }
 
     return moves;
@@ -365,5 +391,6 @@ module.exports = {
     setMoveCooldown,
     clearPlayerCooldowns,
     ensureSignatureMoves,
-    setSignatureMoves
+    setSignatureMoves,
+    setAscendantWeapon
 };

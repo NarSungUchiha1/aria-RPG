@@ -25,6 +25,32 @@ module.exports = {
                 return cd > 0 ? `⏳ ${Math.ceil(cd / 1000)}s` : '✅ Ready';
             }
 
+            // ── ASCENDANT: reborn kit — ONLY signature moves + the unique weapon.
+            // No role moves, no void weapon moves (stripped at rebirth).
+            if (sigMoves.length) {
+                const TYPE_ICON = { damage: '⚔️', heal: '💚', shield: '🛡️', evasion: '💨', buff: '⬆️', debuff: '⬇️' };
+                const weaponName = weaponMoves[0]?.weapon || 'Unique Weapon';
+                let text =
+                    '```\n' +
+                    `╭─〘 ✧ ASCENDANT MOVESET ✧ 〙──────────╮\n` +
+                    ` 👤 ${player.nickname}\n` +
+                    `├─ 👁️ SIGNATURE MOVES\n`;
+                sigMoves.forEach(m => {
+                    const cd = getMoveCooldown(userId, m.name);
+                    text += ` ${TYPE_ICON[m.type] || '⚔️'} ${m.name} · Lv${m.level || 1} · ${cdText(cd)}\n`;
+                });
+                text += `├─ 🗡️ ${weaponName}\n`;
+                weaponMoves.forEach(m => {
+                    const cd = getMoveCooldown(userId, m.name);
+                    text += ` ${TYPE_ICON[m.type] || '⚔️'} ${m.name} · ${cdText(cd)}\n`;
+                });
+                text +=
+                    `╰──────────────────────────────────────╯\n` +
+                    '```\n' +
+                    `🧭 Use *!skill <move>*`;
+                return msg.reply(text);
+            }
+
             if (!isPrestige) {
                 let text =
                     `══〘 ⚔️ MOVESET 〙══╮\n` +
