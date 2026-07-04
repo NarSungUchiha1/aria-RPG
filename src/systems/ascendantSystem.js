@@ -509,6 +509,32 @@ Reply exactly as: {"weapon":"<weapon name>","moves":[{"name":"<move>","desc":"<s
     }
 }
 
+// Stretch a resonance image horizontally so the WhatsApp caption (the card)
+// gets more width. WhatsApp bounds caption width to the image width, so a
+// portrait image squeezes the card. Returns new base64 (or the original on any
+// failure). jimp v1 is ESM, hence the dynamic import.
+async function widenResonanceImage(base64) {
+    if (!base64) return base64;
+    try {
+        const { Jimp } = await import('jimp');
+        const img = await Jimp.read(Buffer.from(base64, 'base64'));
+        let w = img.width, h = img.height;
+        const targetW = Math.round(h * 1.5); // ~3:2 landscape for a wide caption
+        if (w < targetW) { img.resize({ w: targetW, h }); w = targetW; h = img.height; }
+        if (w > 1280) { img.resize({ w: 1280, h: Math.round(h * (1280 / w)) }); }
+        let out = await img.getBuffer('image/jpeg');
+        // Keep it under the storage cap; downscale once if needed.
+        if (out.toString('base64').length > 700000) {
+            img.resize({ w: Math.round(img.width * 0.7), h: Math.round(img.height * 0.7) });
+            out = await img.getBuffer('image/jpeg');
+        }
+        return out.toString('base64');
+    } catch (e) {
+        console.error('[Resonance] widen image failed:', e.message);
+        return base64;
+    }
+}
+
 // ── FLOW STATE MACHINE ────────────────────────────────────────────────
 const resonanceFlows = new Map();
 
@@ -602,11 +628,13 @@ async function handleResonanceFlow(playerId, text, rawMsg, fakeMsg, sock) {
                 try {
                     const { downloadMediaMessage } = require('@whiskeysockets/baileys');
                     const buffer = await downloadMediaMessage(rawMsg, 'buffer', {});
-                    const base64 = buffer.toString('base64');
-                    if (base64.length > 700000) {
-                        await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ⚠️ Image too large (under 500KB).\n┃✧ Send a smaller one:\n╰═══════════════════════╯`);
+                    const raw64 = buffer.toString('base64');
+                    if (raw64.length > 900000) {
+                        await fakeMsg.reply(`╭══〘 ✦ RESONANCE 〙══╮\n┃✧ ⚠️ Image too large (under 600KB).\n┃✧ Send a smaller one:\n╰═══════════════════════╯`);
                         return true;
                     }
+                    // Widen so the !me card caption isn't cramped by a narrow image.
+                    const base64 = await widenResonanceImage(raw64);
                     await db.execute('UPDATE resonance_profiles SET res_image=? WHERE player_id=?', [base64, playerId]);
                     flow.stage = 'moves';
                     await fakeMsg.reply(
@@ -781,5 +809,6 @@ module.exports = {
     endResFlow,
     resFlowStage,
     getResonanceProgress,
-    forgeAscendantWeapon
+    forgeAscendantWeapon,
+    widenResonanceImage
 };

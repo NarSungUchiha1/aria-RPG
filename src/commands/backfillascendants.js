@@ -3,7 +3,7 @@
 // Idempotent — only touches profiles that don't yet have a forged weapon.
 const db = require('../database/db');
 const { isOwner } = require('../systems/aiSystems');
-const { forgeAscendantWeapon } = require('../systems/ascendantSystem');
+const { forgeAscendantWeapon, widenResonanceImage } = require('../systems/ascendantSystem');
 const { setSignatureMoves, setAscendantWeapon } = require('../systems/skillSystem');
 
 module.exports = {
@@ -12,10 +12,30 @@ module.exports = {
     async execute(msg, args, { userId }) {
         if (!isOwner(userId)) return msg.reply('❌ Owner only.');
 
+        // ── Pass A: widen EVERY existing resonance image (fixes cramped cards) ──
+        try {
+            const [imgs] = await db.execute(
+                "SELECT player_id, res_image FROM resonance_profiles WHERE res_image IS NOT NULL AND res_image <> ''"
+            );
+            let widened = 0;
+            for (const r of imgs) {
+                try {
+                    const wide = await widenResonanceImage(r.res_image);
+                    if (wide && wide !== r.res_image) {
+                        await db.execute('UPDATE resonance_profiles SET res_image=? WHERE player_id=?', [wide, r.player_id]);
+                        widened++;
+                    }
+                } catch {}
+                await new Promise(res => setTimeout(res, 300));
+            }
+            if (widened) await msg.reply(`🖼️ Widened ${widened} resonance image(s).`);
+        } catch (e) { console.error('[backfill] image pass:', e.message); }
+
+        // ── Pass B: forge weapons + rebirth wipe for weapon-less Ascendants ─────
         const [rows] = await db.execute(
             "SELECT player_id, moves FROM resonance_profiles WHERE weapon_moves IS NULL OR weapon_moves = ''"
         );
-        if (!rows.length) return msg.reply('✅ No Ascendants need backfilling — all have a unique weapon.');
+        if (!rows.length) return msg.reply('✅ No Ascendants need weapon backfilling — all have a unique weapon.');
 
         await msg.reply(`⚙️ Backfilling ${rows.length} Ascendant(s): forging weapons + wiping items/gold…`);
 
