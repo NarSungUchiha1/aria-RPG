@@ -10,7 +10,14 @@ module.exports = {
     name: 'backfillascendants',
     aliases: ['forgeascendants'],
     async execute(msg, args, { userId }) {
-        if (!isOwner(userId)) return msg.reply('❌ Owner only.');
+        if (!isOwner(userId)) {
+            console.log(`[backfill] owner check failed: seen as "${userId}" | OWNER_ID="${process.env.OWNER_ID || ''}"`);
+            return msg.reply(
+                `❌ Owner only.\n` +
+                `You're seen as: *${String(userId).replace(/\D/g, '')}*\n` +
+                `Add that to the OWNER_ID env (comma-separated) and redeploy.`
+            );
+        }
 
         // ── Pass A: widen EVERY existing resonance image (fixes cramped cards) ──
         try {
