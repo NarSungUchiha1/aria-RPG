@@ -326,26 +326,24 @@ function normalizeId(id) {
     return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
 }
 
-// Repair a DM JID to a routable form WITHOUT guessing a phone number.
-//
-// WhatsApp's LID ("linked identity") system delivers DMs with an opaque JID like
-// '53635887153297@lid'. That number is NOT the user's phone number — it is a
-// separate, opaque identifier. Do NOT rewrite it to '<number>@s.whatsapp.net':
-// Baileys will accept the send (valid format) but WhatsApp delivers it to a
-// nonexistent/stranger phone, so the reply silently never arrives.
-//
-// The only address we hold a valid signal session for is the JID the message
-// arrived on. So we PRESERVE the @lid form and only repair the malformed
-// '53635887153297alid' variant (the '@' dropped somewhere upstream) back to @lid.
+// Convert any malformed or LID-based DM JID to the canonical @s.whatsapp.net
+// form (original behavior — reverted from the @lid experiment).
 function normalizeDMJid(jid) {
     if (!jid) return jid;
     const str = String(jid).trim();
-    if (str.endsWith('@g.us')) return str;
-    if (str.endsWith('@s.whatsapp.net')) return str;
-    if (str.endsWith('@lid')) return str;
-    // Malformed LID missing its '@': '53635887153297alid' → '53635887153297@lid'
-    const malformed = str.match(/^(\d+)alid$/);
-    if (malformed) return `${malformed[1]}@lid`;
+    // Already correct — group or standard user JID
+    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net')) return str;
+    // Malformed LID missing @ → '53635887153297alid'
+    const malformedLid = str.match(/^(\d+)alid$/);
+    if (malformedLid) return `${malformedLid[1]}@s.whatsapp.net`;
+    // Proper LID format → '53635887153297@lid'
+    const properLid = str.match(/^(\d+)@lid$/);
+    if (properLid) return `${properLid[1]}@s.whatsapp.net`;
+    // Unknown suffix with @ — extract numeric part and assume user JID
+    const anyAt = str.match(/^(\d+)@/);
+    if (anyAt) return `${anyAt[1]}@s.whatsapp.net`;
+    // Bare number
+    if (/^\d+$/.test(str)) return `${str}@s.whatsapp.net`;
     return str;
 }
 
@@ -590,25 +588,25 @@ async function startBot() {
                 sock = null;
 
                 if (statusCode === DisconnectReason.loggedOut) {
-                    // DisconnectReason.loggedOut === 401. Don't wipe on the first
-                    // one — under load it may be spurious. Retry the existing
-                    // session a bounded number of times; only wipe (=> re-link)
-                    // if the logout persists.
+                    // DisconnectReason.loggedOut === 401. One soft retry with the
+                    // EXISTING session in case it's spurious.
                     consecutive401++;
                     if (consecutive401 <= SOFT_401_RETRIES) {
-                        console.log(`🔄 401/logout — soft retry ${consecutive401}/${SOFT_401_RETRIES} with EXISTING session (not wiping yet)...`);
-                        setTimeout(() => startBot(), 8000);
+                        console.log(`🔄 401/logout — soft retry ${consecutive401}/${SOFT_401_RETRIES} with EXISTING session...`);
+                        setTimeout(() => startBot(), 20000);
                     } else {
-                        pairAttempts++;
-                        await savePairAttempts();
-                        console.log(`🔄 Persistent logout after ${SOFT_401_RETRIES} retries. Clearing session (pair attempt ${pairAttempts}/${MAX_PAIR_ATTEMPTS})...`);
+                        // Persistent 401 = WhatsApp rejected/logged out this session.
+                        // DO NOT auto-wipe-and-re-pair: rapidly re-pairing a number
+                        // WhatsApp just logged out is exactly what gets the NUMBER
+                        // BANNED. Clear the dead session and STOP. A human must
+                        // restart the service to link again (one clean pairing).
+                        console.log('🛑 Persistent 401 — WhatsApp logged this session out.');
+                        console.log('🛑 Auto re-pair DISABLED (it triggers number bans). Session cleared.');
+                        console.log('🛑 RESTART the service manually to link again.');
                         await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
                         consecutive401 = 0;
-                        if (pairAttempts >= MAX_PAIR_ATTEMPTS) {
-                            console.log('🛑 Too many failed pair attempts — bot stopped. Restart manually on Render.');
-                            return; // Stop the loop
-                        }
-                        setTimeout(() => startBot(), 10000);
+                        isBotRunning = false;
+                        return; // STOP — no auto reconnect / re-pair loop
                     }
                 } else if (statusCode === 515) {
                     // 515 = restart required — WhatsApp asking for clean reconnect
@@ -785,9 +783,6 @@ async function startBot() {
 
             const msgTypes = Object.keys(msg.message || {}).filter(k => k !== 'messageContextInfo').join(',');
             console.log(`[MSG] ${userId} | ${jid.endsWith('@g.us') ? 'GC' : 'DM'} | ${msgTypes} | "${text.substring(0, 60)}"`);
-            if (!jid.endsWith('@g.us')) {
-                console.log(`[DM DEBUG] rawJid="${rawJid}" -> jid="${jid}" | senderJid="${senderJid}" | participant="${msg.key.participant || ''}"`);
-            }
 
             const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
             const quotedParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
@@ -1024,11 +1019,9 @@ async function startBot() {
                         : content;
                     const sendOpts = isDM ? {} : { quoted: msg };
                     try {
-                        const r = await sock.sendMessage(jid, messageContent, sendOpts);
-                        if (isDM) console.log(`[DM SEND] rawJid="${rawJid}" jid="${jid}" ok | msgId=${r?.key?.id} status=${r?.status}`);
-                        return r;
+                        return await sock.sendMessage(jid, messageContent, sendOpts);
                     } catch(e) {
-                        console.error(`[SEND ERROR] rawJid="${rawJid}" jid="${jid}" ${e?.stack || e?.message}`);
+                        console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
                     }
                 },
 
