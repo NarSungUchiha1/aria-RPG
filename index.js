@@ -34,6 +34,11 @@ const MAX_PAIR_ATTEMPTS = 3;
 let consecutive401 = 0;
 const SOFT_401_RETRIES = 2;
 const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
+// Global reconnect-failure governor: any run of failed connects (no successful
+// 'open' between them) that hits this cap STOPS all reconnects. Prevents the
+// tight reconnect spam (403/503/etc.) that gets a number flagged/banned.
+let consecutiveCloses = 0;
+const MAX_CONSECUTIVE_CLOSES = 5;
 
 // Load pair attempts from DB on startup (survives Render restarts)
 async function loadPairAttempts() {
@@ -587,38 +592,43 @@ async function startBot() {
                 try { sock?.ws?.close(); } catch(e) {}
                 sock = null;
 
-                if (statusCode === DisconnectReason.loggedOut) {
-                    // DisconnectReason.loggedOut === 401. One soft retry with the
-                    // EXISTING session in case it's spurious.
+                consecutiveCloses++;
+
+                // ── REFUSAL codes → STOP, never loop. Rapidly reconnecting a
+                // number WhatsApp is refusing is exactly what escalates to a ban.
+                if (statusCode === DisconnectReason.loggedOut) { // 401
                     consecutive401++;
                     if (consecutive401 <= SOFT_401_RETRIES) {
                         console.log(`🔄 401/logout — soft retry ${consecutive401}/${SOFT_401_RETRIES} with EXISTING session...`);
                         setTimeout(() => startBot(), 20000);
-                    } else {
-                        // Persistent 401 = WhatsApp rejected/logged out this session.
-                        // DO NOT auto-wipe-and-re-pair: rapidly re-pairing a number
-                        // WhatsApp just logged out is exactly what gets the NUMBER
-                        // BANNED. Clear the dead session and STOP. A human must
-                        // restart the service to link again (one clean pairing).
-                        console.log('🛑 Persistent 401 — WhatsApp logged this session out.');
-                        console.log('🛑 Auto re-pair DISABLED (it triggers number bans). Session cleared.');
-                        console.log('🛑 RESTART the service manually to link again.');
-                        await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
-                        consecutive401 = 0;
-                        isBotRunning = false;
-                        return; // STOP — no auto reconnect / re-pair loop
+                        return;
                     }
-                } else if (statusCode === 515) {
-                    // 515 = restart required — WhatsApp asking for clean reconnect
+                    console.log('🛑 Persistent 401 — WhatsApp logged this session out. Clearing session and STOPPING.');
+                    console.log('🛑 Auto re-pair DISABLED (it triggers bans). RESTART the service manually to re-link.');
+                    await db.execute("DELETE FROM wa_sessions WHERE id='aria-bot'").catch(() => {});
+                    consecutive401 = 0;
+                    return; // STOP
+                }
+                if (statusCode === 403 || statusCode === 405) {
+                    console.log(`🛑 Connection ${statusCode} — WhatsApp is REFUSING this number (blocked/restricted).`);
+                    console.log('🛑 STOPPING all reconnects — looping here is what escalates to a full ban.');
+                    console.log('🛑 This number is likely flagged. Switch numbers and RESTART manually.');
+                    return; // STOP
+                }
+
+                // ── Global safety cap (any code): too many failures in a row → STOP.
+                if (consecutiveCloses >= MAX_CONSECUTIVE_CLOSES) {
+                    console.log(`🛑 ${consecutiveCloses} reconnect failures in a row — STOPPING to avoid flagging the number. Restart manually.`);
+                    return; // STOP
+                }
+
+                // ── Transient codes → reconnect with GROWING backoff (10s,20s,...,60s).
+                if (statusCode === 515) {
                     console.log('🔄 Restart required (515) — reconnecting in 3s...');
                     setTimeout(() => startBot(), 3000);
-                // NOTE: 401 is handled by the loggedOut branch above
-                // (DisconnectReason.loggedOut === 401) — no separate case needed.
                 } else {
-                    const delay = statusCode === 440
-                        ? 15000 + Math.floor(Math.random() * 10000)
-                        : 5000 + Math.floor(Math.random() * 5000);
-                    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s...`);
+                    const delay = Math.min(10000 * consecutiveCloses, 60000) + Math.floor(Math.random() * 5000);
+                    console.log(`⏳ Reconnecting in ${Math.floor(delay/1000)}s (attempt ${consecutiveCloses}/${MAX_CONSECUTIVE_CLOSES})...`);
                     setTimeout(() => startBot(), delay);
                 }
             } else if (connection === 'open') {
@@ -631,6 +641,7 @@ async function startBot() {
                 isReady = true;
                 lastInbound = Date.now(); // fresh connection — reset receive-stall clock
                 consecutive401 = 0;       // connected fine — clear the soft-retry counter
+                consecutiveCloses = 0;    // clear the global reconnect-failure counter
 
                 // Load banned players into memory
                 try {
