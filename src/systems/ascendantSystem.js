@@ -509,24 +509,40 @@ Reply exactly as: {"weapon":"<weapon name>","moves":[{"name":"<move>","desc":"<s
     }
 }
 
-// Stretch a resonance image horizontally so the WhatsApp caption (the card)
-// gets more width. WhatsApp bounds caption width to the image width, so a
-// portrait image squeezes the card. Returns new base64 (or the original on any
-// failure). jimp v1 is ESM, hence the dynamic import.
+// Widen a resonance image so the WhatsApp caption (the card) isn't cramped.
+// WhatsApp bounds caption width to the image width, so a portrait image squeezes
+// the card. Rather than distort by stretching, we pad the sides with a BLURRED,
+// zoomed copy of the image and center the original undistorted on top.
+// Returns new base64 (or the original on any failure). jimp v1 is ESM.
 async function widenResonanceImage(base64) {
     if (!base64) return base64;
     try {
         const { Jimp } = await import('jimp');
-        const img = await Jimp.read(Buffer.from(base64, 'base64'));
-        let w = img.width, h = img.height;
-        const targetW = Math.round(h * 1.5); // ~3:2 landscape for a wide caption
-        if (w < targetW) { img.resize({ w: targetW, h }); w = targetW; h = img.height; }
-        if (w > 1280) { img.resize({ w: 1280, h: Math.round(h * (1280 / w)) }); }
-        let out = await img.getBuffer('image/jpeg');
-        // Keep it under the storage cap; downscale once if needed.
+        const orig = await Jimp.read(Buffer.from(base64, 'base64'));
+        // Cap size first — keeps memory/CPU sane on small hosts.
+        if (orig.height > 720) orig.resize({ w: Math.round(orig.width * 720 / orig.height), h: 720 });
+        const ow = orig.width, oh = orig.height;
+        const targetW = Math.round(oh * 1.6);      // wide canvas
+        if (ow >= targetW) return base64;          // already wide enough
+
+        // Blurred background that COVERS the wide canvas.
+        const bg = orig.clone();
+        const scale = targetW / ow;                // > 1 (ow < targetW)
+        bg.resize({ w: Math.round(ow * scale), h: Math.round(oh * scale) });
+        bg.crop({
+            x: Math.max(0, Math.round((bg.width  - targetW) / 2)),
+            y: Math.max(0, Math.round((bg.height - oh)      / 2)),
+            w: targetW, h: oh
+        });
+        bg.blur(14);
+
+        // Original centered on top, undistorted → blurred bars left & right.
+        bg.composite(orig, Math.round((targetW - ow) / 2), 0);
+
+        let out = await bg.getBuffer('image/jpeg');
         if (out.toString('base64').length > 700000) {
-            img.resize({ w: Math.round(img.width * 0.7), h: Math.round(img.height * 0.7) });
-            out = await img.getBuffer('image/jpeg');
+            bg.resize({ w: Math.round(bg.width * 0.75), h: Math.round(bg.height * 0.75) });
+            out = await bg.getBuffer('image/jpeg');
         }
         return out.toString('base64');
     } catch (e) {
