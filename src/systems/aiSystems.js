@@ -434,7 +434,8 @@ async function handleUnknownCommand(sock, jid, msg, userId, cmdName, args) {
 // interactions and shed the overflow with a quick note instead of piling on.
 // Owner/admin bypass the cap.
 let activeAICalls = 0;
-const MAX_AI_CONCURRENT = 3;
+// Scaled down for Render's 0.1 CPU (was 3). Raise via env on a bigger host.
+const MAX_AI_CONCURRENT = parseInt(process.env.MAX_AI_CONCURRENT) || 2;
 
 async function handleAriaCommand(sock, jid, msg, userId, question, opts = {}) {
     const privileged = isOwner(userId) || opts.isAdmin;

@@ -153,8 +153,10 @@ function forceReconnect(reason) {
 
 let heartbeatFails = 0;
 let heartbeatInFlight = false;
-const RECEIVE_STALL_MS   = 4 * 60 * 1000;   // no inbound events for this long => stalled
-const RECONNECT_COOLDOWN = 10 * 60 * 1000;  // don't force-reconnect more than once per 10 min
+// Conservative (8 min) so quiet periods don't trigger false-positive reconnects
+// that hammer Render / churn the WhatsApp connection. Tunable via env.
+const RECEIVE_STALL_MS   = (parseInt(process.env.RECEIVE_STALL_MIN) || 8) * 60 * 1000;
+const RECONNECT_COOLDOWN = 15 * 60 * 1000;  // don't force-reconnect more than once per 15 min
 setInterval(async () => {
     if (!isReady || !sock || heartbeatInFlight) return;
     heartbeatInFlight = true;
@@ -233,7 +235,8 @@ function enqueueCommand(userId, fn) {
 // pressure" symptom). Capping how many commands run AT ONCE keeps the pool
 // un-starved so each command finishes fast — higher total throughput under load,
 // and it degrades gracefully instead of falling over.
-const MAX_CONCURRENT_COMMANDS = 6;
+// Scaled down for Render's 0.1 CPU (was 6). Raise via env on a bigger host.
+const MAX_CONCURRENT_COMMANDS = parseInt(process.env.MAX_CONCURRENT_COMMANDS) || 4;
 let activeCommands = 0;
 const commandWaiters = [];
 function acquireCommandSlot() {
