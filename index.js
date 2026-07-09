@@ -38,7 +38,7 @@ const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
 // 'open' between them) that hits this cap STOPS all reconnects. Prevents the
 // tight reconnect spam (403/503/etc.) that gets a number flagged/banned.
 let consecutiveCloses = 0;
-const MAX_CONSECUTIVE_CLOSES = 5;
+const MAX_CONSECUTIVE_CLOSES = 3;
 
 // Load pair attempts from DB on startup (survives Render restarts)
 async function loadPairAttempts() {
