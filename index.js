@@ -329,31 +329,8 @@ if (fs.existsSync(ADMIN_FILE)) {
 
 const BLOCKED_USERS = new Set([]);
 
-function normalizeId(id) {
-    if (!id) return "";
-    return id.toString().replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, "").split(":")[0].split("@")[0];
-}
-
-// Convert any malformed or LID-based DM JID to the canonical @s.whatsapp.net
-// form (original behavior — reverted from the @lid experiment).
-function normalizeDMJid(jid) {
-    if (!jid) return jid;
-    const str = String(jid).trim();
-    // Already correct — group or standard user JID
-    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net')) return str;
-    // Malformed LID missing @ → '53635887153297alid'
-    const malformedLid = str.match(/^(\d+)alid$/);
-    if (malformedLid) return `${malformedLid[1]}@s.whatsapp.net`;
-    // Proper LID format → '53635887153297@lid'
-    const properLid = str.match(/^(\d+)@lid$/);
-    if (properLid) return `${properLid[1]}@s.whatsapp.net`;
-    // Unknown suffix with @ — extract numeric part and assume user JID
-    const anyAt = str.match(/^(\d+)@/);
-    if (anyAt) return `${anyAt[1]}@s.whatsapp.net`;
-    // Bare number
-    if (/^\d+$/.test(str)) return `${str}@s.whatsapp.net`;
-    return str;
-}
+// Identity handling lives in ONE place now — src/utils/identity.js.
+const { normalizeId, normalizeDMJid } = require('./src/utils/identity');
 
 const DUNGEON_GC_ONLY = new Set([
     'dungeon', 'begin', 'onward',

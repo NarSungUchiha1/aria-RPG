@@ -11,28 +11,9 @@
 const db = require('../database/db');
 const safeQuote = (jid, msg) => jid?.endsWith('@g.us') ? { quoted: msg } : {};
 
-// ── Owner recognition — only one person is Master, ever ──────────────────────
-// OWNER_ID may hold MULTIPLE ids (comma/space separated) — e.g. your phone
-// number AND your WhatsApp LID number, since in groups WhatsApp identifies you
-// by an opaque LID that differs from your phone number.
-const OWNER_ID = process.env.OWNER_ID || '';
-
-function digitsOnly(id) {
-    return String(id || '').replace(/\D/g, ''); // strip everything, keep only numbers
-}
-
-const OWNER_IDS = OWNER_ID.split(/[\s,]+/).map(digitsOnly).filter(Boolean);
-
-function isOwner(userId) {
-    const uid = digitsOnly(userId);
-    return !!uid && OWNER_IDS.includes(uid);
-}
-
-// For extra safety — also check against ADMINS list but still require digits match
-function isAdminId(userId, admins = []) {
-    const uid = digitsOnly(userId);
-    return admins.some(a => digitsOnly(a) === uid);
-}
+// ── Owner recognition — single source of truth in utils/identity ─────────────
+// (re-exported below for the modules that import isOwner from here)
+const { digitsOnly, isOwner, isAdminId } = require('../utils/identity');
 
 // ── Conversation history — stored in DB forever, never deleted ────────────────
 const CONV_LOAD = 12; // keep context window tight for llama-3.1-8b

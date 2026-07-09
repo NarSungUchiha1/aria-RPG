@@ -30,13 +30,7 @@ const LOBBY_WARN_MS  = 8  * 60 * 1000;
 const LOBBY_CLOSE_MS = 10 * 60 * 1000;
 const lobbyTimers = new Map();
 
-function normalizeId(id) {
-    if (!id) return '';
-    return id.toString()
-        .replace(/@s\.whatsapp\.net|@g\.us|@lid|@c\.us/g, '')
-        .split(':')[0]
-        .split('@')[0];
-}
+const { normalizeId } = require('../utils/identity');
 
 function clearLobbyTimer(dungeonId) {
     const t = lobbyTimers.get(dungeonId);

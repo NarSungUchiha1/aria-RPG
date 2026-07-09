@@ -86,11 +86,7 @@ async function getDuelHp(playerId) {
     return DUEL_HP;
 }
 
-function normalizeIds(ids) {
-    return Array.isArray(ids)
-        ? ids.map(id => String(id || '').replace(/@s\.whatsapp\.net|@c\.us|@g\.us|@lid/g, '').split(':')[0].split('@')[0].trim())
-        : [];
-}
+const { normalizeId, normalizeIds } = require('../utils/identity');
 
 function getDuelKeyFromTeams(teamA, teamB) {
     const allIds = [...normalizeIds(teamA), ...normalizeIds(teamB)];
@@ -765,9 +761,8 @@ async function buildRosterMessage(state) {
     );
 }
 
-function normalizeId(id) {
-    return String(id || '').replace(/@[^@]+$/, '').split('@')[0].trim();
-}
+// (normalizeId now comes from utils/identity — the old local copy here didn't
+// strip the ':device' suffix, a latent identity-mismatch bug in PvP.)
 
 function getAssemblyByLeader(leaderId) {
     const lid = normalizeId(leaderId);
