@@ -15,11 +15,9 @@ const QRCode = require('qrcode');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
-const cron = require('node-cron');
 const db = require('./src/database/db');
 // Per-execution raid group context — replaces global.overrideRaidGroup race condition
 const { runWithGroup } = require('./src/utils/raidContext');
-const { restockPrestigeShop } = require('./src/systems/prestigeShop');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1242,20 +1240,6 @@ async function startBot() {
     }
 }
 
-// ==================== DATABASE HEARTBEAT ====================
-let _heartbeatRunning = false;
-cron.schedule('*/5 * * * *', async () => {
-    if (_heartbeatRunning) return;
-    _heartbeatRunning = true;
-    try {
-        await db.query('SELECT 1');
-    } catch (err) {
-        console.log('💔 DB Heartbeat failed:', err.message);
-    } finally {
-        _heartbeatRunning = false;
-    }
-});
-
 process.on('uncaughtException', (err) => {
     if (err.message?.includes('Connection Closed') || err.output?.statusCode === 428) {
         console.log('⚠️ Connection dropped — bot will reconnect automatically.');
@@ -1287,196 +1271,12 @@ process.on('exit', (code) => {
 });
 
 // ==================== CRON JOBS ====================
-const { spawnDungeon, getWeightedDungeonRank, getActiveDungeon } = require('./src/engine/dungeon');
-
-cron.schedule('0 */1 * * *', async () => {
-    if (!isReady || !sock) { console.log('⏭️ Spawn skipped — bot not ready.'); return; }
-    console.log('🕒 Scheduled dungeon spawn triggered.');
-    try {
-        let isEventRunning = false;
-        try {
-            const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-            isEventRunning = eventRows.length > 0;
-        } catch (e) { isEventRunning = false; }
-        if (isEventRunning) { console.log('⏭️ Regular spawn skipped — event active.'); return; }
-
-        const LRJID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-        const [terrActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LRJID]);
-        if (terrActive.length) { console.log('⏭️ Spawn skipped — territory assault active.'); return; }
-
-        const active = await getActiveDungeon();
-        if (active) {
-            const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Skipping — dungeon ${active.id} has ${pc[0].cnt} players.`); return; }
-            console.log(`🧹 Closing stale dungeon ${active.id}.`);
-        }
-        const rank = await getWeightedDungeonRank();
-        console.log(`🎲 Weighted rank selected: ${rank}`);
-        await spawnDungeon(rank, sock);
-    } catch (err) {
-        console.error('Scheduled spawn failed:', err);
-    }
-});
-
-cron.schedule('*/20 * * * *', async () => {
-    if (!isReady || !sock) return;
-    try {
-        let hasActiveEvent = false;
-        try {
-            const [eventRows] = await db.execute("SELECT id FROM events WHERE is_active=1 AND ends_at > NOW() LIMIT 1");
-            hasActiveEvent = eventRows.length > 0;
-        } catch (e) { hasActiveEvent = false; }
-        if (!hasActiveEvent) return;
-
-        const LRJID2 = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-        const [terrActiveE] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND dungeon_rank LIKE 'TERRITORY_%' AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LRJID2]);
-        if (terrActiveE.length) { console.log('⏭️ Event spawn skipped — territory assault active.'); return; }
-
-        const active = await getActiveDungeon();
-        if (active) {
-            const [pc] = await db.execute("SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1", [active.id]);
-            if (pc[0].cnt > 0 || active.locked === 1) { console.log(`⏭️ Event spawn skipped — dungeon ${active.id} active.`); return; }
-        }
-        const rank = await getWeightedDungeonRank();
-        console.log(`💠 Event dungeon spawn: ${rank}`);
-        await spawnDungeon(rank, sock);
-    } catch (err) {
-        console.error('Event spawn failed:', err);
-    }
-});
-
-// ==================== EVENT AUTO-END ====================
-cron.schedule('8-59/10 * * * *', async () => {
-    try {
-        const [expired] = await db.execute("SELECT * FROM events WHERE is_active=1 AND ends_at <= NOW() LIMIT 1");
-        if (!expired.length) return;
-        console.log(`⏰ Event "${expired[0].name}" expired — ending with leaderboard.`);
-        const { endEvent } = require('./src/commands/event');
-        await endEvent(expired[0].id, sock);
-    } catch (e) {
-        console.error('Event auto-end error:', e.message);
-    }
-});
-
-// ==================== SHOP RESTOCK ====================
-const { restockAllItems } = require('./src/systems/shopSystem');
-cron.schedule('0 0 * * *', async () => {
-    console.log('🛒 Restocking shop...');
-    try { await restockAllItems(); } catch (err) { console.error('Shop restock failed:', err); }
-});
-
-// ==================== PRESTIGE SHOP RESTOCK ====================
-cron.schedule('5 0 * * *', async () => {
-    console.log('💎 Restocking prestige shop...');
-    try { await restockPrestigeShop(); } catch (err) { console.error('Prestige shop restock failed:', err); }
+// All scheduled jobs live in src/boot/crons.js (extracted from index.js).
+// Registered ONCE at boot; the accessors hand each tick the LIVE socket and
+// ready flag, exactly like the old closures over module-level variables did.
+require('./src/boot/crons').registerCrons({
+    getSock: () => sock,
+    isReady: () => isReady,
 });
 
 startBot();
-
-// ==================== WEEKLY BOUNTY ====================
-cron.schedule('0 8 * * 1', async () => {
-    if (!isReady || !sock) return;
-    try {
-        const { selectWeeklyTarget } = require('./src/commands/bounty');
-        const target = await selectWeeklyTarget();
-        if (!target) return;
-        const RAID_GROUP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-        await sock.sendMessage(RAID_GROUP, {
-            text:
-                `╔══〘 🎯 MOST WANTED 〙══╗
-` +
-                `┃◆
-` +
-                `┃◆ A new bounty has been posted.
-` +
-                `┃◆
-` +
-                `┃◆ 🎯 *${target.nickname}* [${target.rank}]
-` +
-                `┃◆
-` +
-                `┃◆ This hunter has proven themselves
-` +
-                `┃◆ too dangerous to ignore.
-` +
-                `┃◆
-` +
-                `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}G
-` +
-                `┃◆ ⭐ Reward: ${target.reward_xp?.toLocaleString()} XP
-` +
-                `┃◆
-` +
-                `┃◆ Duel them. Beat them.
-` +
-                `┃◆ Then !bounty claim to collect.
-` +
-                `┃◆
-` +
-                `┃◆ Good luck. You'll need it.
-` +
-                `╚═══════════════════════════╝`
-        });
-        console.log(`🎯 Weekly bounty set: ${target.nickname}`);
-    } catch(e) { console.error('Bounty cron error:', e.message); }
-});
-
-// ==================== MANA REGENERATION ====================
-cron.schedule('2-59/10 * * * *', async () => {
-    try {
-        await db.execute(`
-            UPDATE players 
-            SET mana = LEAST(max_mana, mana + GREATEST(1, FLOOR(max_mana / 48)))
-            WHERE mana < max_mana AND max_mana > 0
-        `);
-    } catch(e) { console.error('Mana regen error:', e.message); }
-});
-
-// ==================== FATIGUE RECOVERY ====================
-cron.schedule('4-59/10 * * * *', async () => {
-    try {
-        await db.execute(`
-            UPDATE players
-            SET fatigue = GREATEST(0, COALESCE(fatigue, 0) - 5)
-            WHERE fatigue > 0
-        `);
-    } catch(e) { console.error('Fatigue recovery error:', e.message); }
-});
-
-
-// ==================== WEEKLY INACTIVE CLEANUP ====================
-cron.schedule('0 3 * * 1', async () => {
-    try {
-        const { clearInactivePlayers } = require('./src/systems/prestigeSystem');
-        await clearInactivePlayers();
-        console.log('🧹 Weekly inactive player cleanup done');
-    } catch(e) { console.error('Cleanup error:', e.message); }
-});
-
-// ==================== PRESTIGE DUNGEON SPAWN ====================
-cron.schedule('30 */1 * * *', async () => {
-    if (!isReady || !sock) return;
-    try {
-        const [prestigePlayers] = await db.execute(
-            "SELECT DISTINCT prestige_level FROM players WHERE prestige_level > 0 LIMIT 1"
-        );
-        if (!prestigePlayers.length) return;
-
-        const LIVE_GP = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-        const [anyActive] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 AND (group_jid=? OR group_jid IS NULL) LIMIT 1", [LIVE_GP]);
-        if (anyActive.length) { console.log('⏭️ Prestige cron skipped — dungeon active'); return; }
-
-        const [recentP] = await db.execute(
-            "SELECT id FROM dungeon WHERE dungeon_rank LIKE 'P%' AND created_at > DATE_SUB(NOW(), INTERVAL 25 MINUTE) LIMIT 1"
-        );
-        if (recentP.length) { console.log('⏭️ Prestige cron skipped — ran recently'); return; }
-
-        const { spawnPrestigeDungeon, getWeightedPrestigeRank } = require('./src/engine/prestigeDungeon');
-        const RAID_GROUP = process.env.RAID_GROUP_JID || process.env.GROUP_JID;
-        if (!RAID_GROUP) { console.error('★ No RAID_GROUP_JID — cannot spawn prestige dungeon'); return; }
-
-        const prestigeRank = await getWeightedPrestigeRank();
-        console.log(`✦ Prestige cron spawn: ${prestigeRank}`);
-        await spawnPrestigeDungeon(prestigeRank, sock, RAID_GROUP);
-    } catch(e) { console.error('Prestige cron spawn error:', e.message); }
-});
