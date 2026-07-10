@@ -37,6 +37,11 @@ const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
 // tight reconnect spam (403/503/etc.) that gets a number flagged/banned.
 let consecutiveCloses = 0;
 const MAX_CONSECUTIVE_CLOSES = 3;
+// Set on SIGTERM. Render's zero-downtime deploys run OLD and NEW instances
+// simultaneously; if the old one keeps reconnecting, the two fight over the
+// single WhatsApp session (each connect 401-kicks the other) — flagged fast.
+// When true: no reconnects, no forceReconnect, no startBot. Die quietly.
+let shuttingDown = false;
 // Pairing-code governor — see the qr handler. Requesting a new link code on
 // every ~20s QR rotation is itself number-flagging behavior.
 let lastPairingCodeAt = 0;
@@ -133,6 +138,7 @@ setInterval(() => {
 const SATURATION_LAG_MS = 5000;
 
 function forceReconnect(reason) {
+    if (shuttingDown) return;
     // If the event loop is badly lagged we're saturated, not dead — a reconnect
     // now would worsen it and risk a WhatsApp logout. Let it drain instead.
     if (loopLag > SATURATION_LAG_MS) {
@@ -483,6 +489,7 @@ async function useMySQLAuthState() {
 }
 
 async function startBot() {
+    if (shuttingDown) { console.log('⚰️ Shutting down — not (re)connecting.'); return; }
     if (isBotRunning) return;
     isBotRunning = true;
     await loadPairAttempts();
@@ -590,6 +597,8 @@ async function startBot() {
                 try { sock?.ev?.removeAllListeners(); } catch(e) {}
                 try { sock?.ws?.close(); } catch(e) {}
                 sock = null;
+
+                if (shuttingDown) { console.log('⚰️ Closed during shutdown — no reconnect.'); return; }
 
                 consecutiveCloses++;
 
@@ -1282,9 +1291,18 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 process.on('SIGTERM', () => {
-    console.log('⚠️ SIGTERM received — Render is restarting the service.');
-    // Give existing operations 5 seconds to finish then exit cleanly
-    setTimeout(() => process.exit(0), 5000);
+    console.log('⚠️ SIGTERM — releasing the WhatsApp session NOW so the replacement instance can take it without a fight.');
+    shuttingDown = true;
+    isReady = false;
+    isBotRunning = false;
+    // Close the socket immediately — the new deploy instance is about to (or
+    // already trying to) use these same credentials. removeAllListeners first
+    // so the close doesn't schedule a reconnect.
+    try { sock?.ev?.removeAllListeners(); } catch(e) {}
+    try { sock?.end?.(new Error('sigterm')); } catch(e) {}
+    try { sock?.ws?.close(); } catch(e) {}
+    sock = null;
+    setTimeout(() => process.exit(0), 3000);
 });
 
 process.on('exit', (code) => {
@@ -1300,4 +1318,13 @@ require('./src/boot/crons').registerCrons({
     isReady: () => isReady,
 });
 
-startBot();
+// ── DEPLOY-SAFE STARTUP ──────────────────────────────────────────────────────
+// Render's zero-downtime deploy runs the OLD instance until this one is live.
+// Connecting immediately means two processes fight over the one WhatsApp
+// session (each connect 401-kicks the other) — prime number-flagging behavior.
+// The Express port above is already open (that's what makes Render mark us
+// live and SIGTERM the old instance), so wait for the old one to release the
+// session before we touch it. Tunable via CONNECT_DELAY_MS.
+const CONNECT_DELAY_MS = parseInt(process.env.CONNECT_DELAY_MS || '20000');
+console.log(`⏳ Waiting ${Math.round(CONNECT_DELAY_MS / 1000)}s before connecting — letting any previous deploy instance release the session...`);
+setTimeout(() => startBot(), CONNECT_DELAY_MS);
