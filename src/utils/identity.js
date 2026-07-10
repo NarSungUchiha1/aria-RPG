@@ -28,18 +28,18 @@ function digitsOnly(id) {
     return String(id || '').replace(/\D/g, '');
 }
 
-// Convert any malformed or LID-based DM JID to canonical @s.whatsapp.net.
+// Reply/route to the EXACT address WhatsApp gave us. Most users now arrive as
+// opaque @lid ids (15-digit LIDs, NOT phone numbers). Converting a LID to
+// '<lid>@s.whatsapp.net' addresses a phone number that doesn't exist, so the
+// command runs but the reply is delivered to a ghost — the long-standing "DM
+// commands work but you never see the reply" bug. Preserve @lid; only repair
+// the malformed '<digits>alid' variant back to @lid.
 function normalizeDMJid(jid) {
     if (!jid) return jid;
     const str = String(jid).trim();
-    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net')) return str;
+    if (str.endsWith('@g.us') || str.endsWith('@s.whatsapp.net') || str.endsWith('@lid')) return str;
     const malformedLid = str.match(/^(\d+)alid$/);
-    if (malformedLid) return `${malformedLid[1]}@s.whatsapp.net`;
-    const properLid = str.match(/^(\d+)@lid$/);
-    if (properLid) return `${properLid[1]}@s.whatsapp.net`;
-    const anyAt = str.match(/^(\d+)@/);
-    if (anyAt) return `${anyAt[1]}@s.whatsapp.net`;
-    if (/^\d+$/.test(str)) return `${str}@s.whatsapp.net`;
+    if (malformedLid) return `${malformedLid[1]}@lid`;
     return str;
 }
 
