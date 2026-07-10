@@ -526,8 +526,10 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
 
     // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
     // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    let bStateShared = null; // fetched once, reused by the invincible check below
     try {
         const bState = await getPlayerBlessingState(playerId, dungeonId);
+        bStateShared = bState;
         if (bState.damage_boost > 0) {
             damage = Math.floor(damage * (1 + Number(bState.damage_boost)));
         }
@@ -543,7 +545,8 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     } catch(eclipseErr) {}
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
-    const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
+    // Re-read only current_hp (concurrency-correct defeated check, minimal cost)
+    const [updatedEnemy] = await db.execute("SELECT current_hp FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
 
     let exp = 0, gold = 0, rewardDistribution = null;
@@ -589,8 +592,10 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             }
 
             // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            // (reuses the blessing state fetched above — `invincible` isn't touched
+            // by the next_hit_mult update, so the earlier read is still accurate)
             try {
-                const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
+                const bStateInv = bStateShared || await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
                     retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
@@ -713,10 +718,15 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     };
 }
 
-async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedItems) {
-    const [enemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
+// `enemyRow` lets the caller pass the already-fetched enemy row (the !skill hot
+// path just looked it up) instead of re-SELECTing the same row.
+async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedItems, enemyRow = null) {
+    let e = enemyRow;
+    if (!e) {
+        const [enemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
+        e = enemy[0];
+    }
     const p = player;
-    const e = enemy[0];
 
     let evaded = false;
 
@@ -740,8 +750,10 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 
     // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
     // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    let bStateShared = null; // fetched once, reused by the invincible check below
     try {
         const bState2 = await getPlayerBlessingState(playerId, dungeonId);
+        bStateShared = bState2;
         if (bState2.damage_boost > 0) {
             damage = Math.floor(damage * (1 + Number(bState2.damage_boost)));
         }
@@ -761,7 +773,8 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
 
     try { mvpRecordDmg(`dungeon_${dungeonId}`, playerId, damage); } catch(e) {}
 
-    const [updatedEnemy] = await db.execute("SELECT * FROM dungeon_enemies WHERE id=?", [enemyId]);
+    // Re-read only current_hp (concurrency-correct defeated check, minimal cost)
+    const [updatedEnemy] = await db.execute("SELECT current_hp FROM dungeon_enemies WHERE id=?", [enemyId]);
     const defeated = updatedEnemy[0].current_hp <= 0;
 
     let exp = 0, gold = 0, rewardDistribution = null;
@@ -808,8 +821,10 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             }
 
             // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            // (reuses the blessing state fetched above — `invincible` isn't touched
+            // by the next_hit_mult update, so the earlier read is still accurate)
             try {
-                const bStateInv = await getPlayerBlessingState(playerId, dungeonId);
+                const bStateInv = bStateShared || await getPlayerBlessingState(playerId, dungeonId);
                 if (Number(bStateInv.invincible) > 0) {
                     retaliation = 0;
                     retaliationMessage = (retaliationMessage || '') + '\n🛡️ Blessing invincibility absorbed the hit!';
@@ -1083,8 +1098,10 @@ async function isPlayerInAnyDungeon(playerId) {
     return rows.length ? rows[0].dungeon_id : null;
 }
 
-async function findEnemyTarget(dungeonId, targetArg) {
-    const enemies = await getCurrentEnemies(dungeonId);
+// `preloaded` lets callers that already fetched the enemy list skip a duplicate
+// full-table read (the !skill hot path fetches it right before targeting).
+async function findEnemyTarget(dungeonId, targetArg, preloaded = null) {
+    const enemies = preloaded || await getCurrentEnemies(dungeonId);
     if (!enemies.length) return null;
     const index = parseInt(targetArg) - 1;
     if (!isNaN(index) && index >= 0 && index < enemies.length) return enemies[index];

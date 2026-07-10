@@ -441,25 +441,26 @@ module.exports = {
             const enemies = await getCurrentEnemies(dungeon.id);
             if (enemies.length === 0) return msg.reply("✅ No enemies. Use !onward.");
 
-            let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
+            let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg, enemies) : enemies[0];
             if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
             const estDamage = calculateMoveDamage(player, move, targetEnemy, items, { noTick: true });
             await addDamageContribution(dungeon.id, targetEnemy.id, userId, estDamage);
             try { trackContribution(dungeon.id, userId, player.nickname, 'damage', estDamage); } catch(e) {}
 
-            const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items);
+            const result = await playerSkill(userId, dungeon.id, targetEnemy.id, move, player, items, targetEnemy);
             const actualCd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
-            const [weapon] = await db.execute("SELECT * FROM inventory WHERE player_id=? AND equipped=1 LIMIT 1", [userId]);
+            // Durability: reuse the equipped items already fetched above — same
+            // rows the old re-SELECT returned.
             let weaponBroke = false;
-            if (weapon.length) {
-                const newDur = (weapon[0].durability || 100) - 1;
+            if (items.length) {
+                const newDur = (items[0].durability || 100) - 1;
                 if (newDur <= 0) {
-                    await db.execute("DELETE FROM inventory WHERE id=?", [weapon[0].id]);
+                    await db.execute("DELETE FROM inventory WHERE id=?", [items[0].id]);
                     weaponBroke = true;
                 } else {
-                    await db.execute("UPDATE inventory SET durability=? WHERE id=?", [newDur, weapon[0].id]);
+                    await db.execute("UPDATE inventory SET durability=? WHERE id=?", [newDur, items[0].id]);
                 }
             }
 
@@ -807,7 +808,7 @@ module.exports = {
             if (!dungeon.locked) return msg.reply("❌ Dungeon hasn't started.");
             const enemies = await getCurrentEnemies(dungeon.id);
             if (enemies.length === 0) return msg.reply("✅ No enemies.");
-            let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg) : enemies[0];
+            let targetEnemy = targetArg ? await findEnemyTarget(dungeon.id, targetArg, enemies) : enemies[0];
             if (!targetEnemy) return msg.reply(`❌ Enemy "${targetArg}" not found.`);
 
             const statName = move.effect.toLowerCase();
