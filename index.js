@@ -37,6 +37,12 @@ const PAIR_COOLDOWN_MS  = 30 * 60 * 1000; // 30 min cooldown after cap
 // tight reconnect spam (403/503/etc.) that gets a number flagged/banned.
 let consecutiveCloses = 0;
 const MAX_CONSECUTIVE_CLOSES = 3;
+// Pairing-code governor — see the qr handler. Requesting a new link code on
+// every ~20s QR rotation is itself number-flagging behavior.
+let lastPairingCodeAt = 0;
+let pairingCodesThisBoot = 0;
+const PAIRING_CODE_INTERVAL_MS = 3 * 60 * 1000;
+const MAX_PAIRING_CODES_PER_BOOT = 3;
 
 // Load pair attempts from DB on startup (survives Render restarts)
 async function loadPairAttempts() {
@@ -525,8 +531,10 @@ async function startBot() {
         sock.ev.on('creds.update', async () => {
             if (sock !== thisSock) return; // stale socket — ignore
             await saveCreds();
-            // Only log once per connection, not on every minor creds update
-            if (state.creds?.registrationId && !isReady) {
+            // Only log when ACTUALLY paired — registrationId exists even before
+            // pairing (initAuthCreds pre-creates it), which made the log print
+            // "Paired!" on every creds save while still unpaired.
+            if (state.creds?.registered && !isReady) {
                 console.log(`📱 Paired! registrationId: ${state.creds.registrationId}`);
             }
         });
@@ -538,6 +546,12 @@ async function startBot() {
                 lastQR = qr;
                 isReady = false;
                 console.log("📲 QR generated — open your Render URL");
+                // Baileys rotates the QR every ~20s while unpaired. Requesting a
+                // pairing code on EVERY rotation hammered WhatsApp with a new
+                // link-code request each time (6+/3min) — flagging behavior all
+                // by itself. Governor: max one code per PAIRING_CODE_INTERVAL_MS,
+                // max MAX_PAIRING_CODES_PER_BOOT per process. The QR itself keeps
+                // rotating on the dashboard regardless.
                 setTimeout(async () => {
                     try {
                         if (sock?.user) return;
@@ -545,14 +559,21 @@ async function startBot() {
                             console.log('🛑 Pair cap reached — not requesting new code. Wait 30 min or restart manually.');
                             return;
                         }
+                        if (Date.now() - lastPairingCodeAt < PAIRING_CODE_INTERVAL_MS) return; // current code still valid — don't invalidate it
+                        if (pairingCodesThisBoot >= MAX_PAIRING_CODES_PER_BOOT) {
+                            console.log('🛑 Pairing-code cap for this boot reached — scan the QR instead, or restart to get a fresh code.');
+                            return;
+                        }
                         const phoneNumber = process.env.BOT_PHONE_NUMBER;
                         if (!phoneNumber) {
                             console.warn("⚠️ BOT_PHONE_NUMBER not set in .env — skipping pairing code");
                             return;
                         }
+                        lastPairingCodeAt = Date.now();
+                        pairingCodesThisBoot++;
                         const code = await sock.requestPairingCode(phoneNumber);
                         lastPairingCode = code;
-                        console.log(`📱 PAIRING CODE: ${code}`);
+                        console.log(`📱 PAIRING CODE: ${code} (${pairingCodesThisBoot}/${MAX_PAIRING_CODES_PER_BOOT} this boot)`);
                     } catch (e) {
                         console.error("Pairing code error:", e.message);
                     }
