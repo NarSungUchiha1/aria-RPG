@@ -42,13 +42,11 @@ module.exports = {
                 // the WhatsApp bubble to stretch (width = longest line).
                 const cardText =
                     `╔═════〘 ✧ RESONANCE ✧ 〙═════╗\n` +
-                    `┃✧\n` +
                     `┃✧ 👤 *Name:* ${resonance.res_name}\n` +
                     `┃✧ 📜 *Title:* ${p.title || 'Untitled'}\n` +
                     `┃✧ 🌌 *Genesis:* ${genesis}\n` +
                     `┃✧ 👑 *Authority:* ${resonance.authority}\n` +
                     `┃✧ 🏰 *Clan:* ${clanDisplay}\n` +
-                    `┃✧\n` +
                     `╚═══════════════════════════╝`;
 
                 if (resonance.res_image) {
