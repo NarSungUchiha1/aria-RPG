@@ -796,6 +796,14 @@ async function startBot() {
             const senderJid = msg.key.participant || jid;
             const userId = normalizeId(senderJid);
 
+            // EXPERIMENT: never process the bot's OWN account's messages, even if
+            // fromMe wasn't set (multi-device/LID can misflag self-messages). The
+            // linked number was seeing/echoing its own traffic — this cuts that.
+            if ((BOT_NUMBER && userId === BOT_NUMBER) || (BOT_LID && userId === BOT_LID)) {
+                console.log(`[SELF] Ignored own-account message (userId=${userId})`);
+                return;
+            }
+
             const text = msg.message.conversation ||
                          msg.message.extendedTextMessage?.text ||
                          msg.message.imageMessage?.caption || "";
