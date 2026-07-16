@@ -41,12 +41,17 @@ module.exports = {
                 // Ascendants transcend roles — clean identity card, ends at Clan.
                 // !clan house style with ┃✧ resonance bullets. Wide borders force
                 // the WhatsApp bubble to stretch (width = longest line).
+                // VIP Ascendants get the crown merged into the header + a VIP line.
+                const resVip = await getVip(userId).catch(() => null);
+                const header = resVip
+                    ? `╔════〘 👑 ✧ RESONANCE ✧ 👑 〙════╗\n`
+                    : `╔═════〘 ✧ RESONANCE ✧ 〙═════╗\n`;
                 const cardText =
-                    `╔═════〘 ✧ RESONANCE ✧ 〙═════╗\n` +
+                    header +
                     `┃✧ 👤 *Name:* ${resonance.res_name}\n` +
                     `┃✧ 📜 *Title:* ${p.title || 'Untitled'}\n` +
                     `┃✧ 🌌 *Genesis:* ${genesis}\n` +
-                    `┃✧ 👑 *Authority:* ${resonance.authority}\n` +
+                    `┃✧ 👑 *Authority:* ${resonance.authority}${resVip ? ' • VIP' : ''}\n` +
                     `┃✧ 🏰 *Clan:* ${clanDisplay}\n` +
                     `╚═══════════════════════════╝`;
 

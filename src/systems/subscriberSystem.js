@@ -1,14 +1,23 @@
 /**
  * VIP subscriber system (monetization).
  *
- * Access is OWNER-GRANTED only — the owner verifies payment out-of-band and
- * runs !vip grant. Perks: one-time 1M gold + 1M XP on grant, a custom card
- * image (like the resonance card), and a VIP-styled !me interface.
+ * Access is OWNER-GRANTED only — the owner verifies payment out-of-band
+ * (GHS 5 / ~NGN equivalent) and runs !vip grant. Subscription lasts 30 days.
+ *
+ * Perks credited on EVERY grant (the owner is the paywall — a grant means a
+ * payment; monthly renewals re-credit, that's the incentive to renew):
+ *   • 1,000,000 gold  • 1,000,000 XP
+ *   • 6× Fatigue Potion  • 2× Fracture Potion   (consumables → inventory)
+ *   • 1 random explorer-brewed potion            (POTIONS catalog → potion_inventory)
+ * Plus: custom card image and the VIP-styled !me interface.
  */
 const db = require('../database/db');
 
 const GRANT_GOLD = 1_000_000;
 const GRANT_XP   = 1_000_000;
+const SUB_DAYS   = 30;
+const PRICE_GHS  = 5;
+const PRICE_NGN  = 750; // approx — adjust to the current GHS→NGN rate
 
 let tableReady = false;
 async function ensureVipTable() {
@@ -23,40 +32,76 @@ async function ensureVipTable() {
             revoked_at DATETIME DEFAULT NULL
         )
     `).catch(e => console.error('[VIP] table error:', e.message));
+    await db.execute('ALTER TABLE vip_subscribers ADD COLUMN expires_at DATETIME DEFAULT NULL').catch(() => {});
     tableReady = true;
 }
 
+// Active AND not expired. Expiry is passive — no cron needed.
+const ACTIVE_SQL = 'active=1 AND (expires_at IS NULL OR expires_at > NOW())';
+
 async function isVip(playerId) {
     await ensureVipTable();
-    const [rows] = await db.execute('SELECT 1 FROM vip_subscribers WHERE player_id=? AND active=1 LIMIT 1', [playerId]);
+    const [rows] = await db.execute(`SELECT 1 FROM vip_subscribers WHERE player_id=? AND ${ACTIVE_SQL} LIMIT 1`, [playerId]);
     return rows.length > 0;
 }
 
 async function getVip(playerId) {
     await ensureVipTable();
-    const [rows] = await db.execute('SELECT * FROM vip_subscribers WHERE player_id=? AND active=1 LIMIT 1', [playerId]);
+    const [rows] = await db.execute(`SELECT * FROM vip_subscribers WHERE player_id=? AND ${ACTIVE_SQL} LIMIT 1`, [playerId]);
     return rows[0] || null;
 }
 
-// Grant VIP. Credits the 1M/1M only on FIRST-ever grant (re-granting after a
-// revoke doesn't re-pay — prevents grant/revoke farming).
+// Stackable consumable grant (matches buy.js semantics: item_type 'consumable').
+async function grantConsumable(playerId, itemName, qty) {
+    const [r] = await db.execute(
+        "UPDATE inventory SET quantity = COALESCE(quantity,0) + ? WHERE player_id=? AND item_name=? AND equipped=0 LIMIT 1",
+        [qty, playerId, itemName]
+    );
+    if (r.affectedRows === 0) {
+        await db.execute(
+            "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES (?, ?, 'consumable', ?, 0)",
+            [playerId, itemName, qty]
+        );
+    }
+}
+
+// One random explorer-brewed potion from the POTIONS catalog → potion_inventory.
+function randomExplorerPotion() {
+    const { POTIONS } = require('./potions');
+    const names = Object.keys(POTIONS);
+    return names[Math.floor(Math.random() * names.length)];
+}
+
 async function grantVip(playerId, grantedBy) {
     await ensureVipTable();
-    const [existing] = await db.execute('SELECT active FROM vip_subscribers WHERE player_id=? LIMIT 1', [playerId]);
-    if (existing.length && existing[0].active === 1) return { ok: false, reason: 'already_vip' };
+    const [existing] = await db.execute(`SELECT 1 FROM vip_subscribers WHERE player_id=? AND ${ACTIVE_SQL} LIMIT 1`, [playerId]);
+    if (existing.length) return { ok: false, reason: 'already_vip' };
 
-    const firstGrant = existing.length === 0;
     await db.execute(
-        `INSERT INTO vip_subscribers (player_id, active, granted_by, granted_at, revoked_at)
-         VALUES (?, 1, ?, NOW(), NULL)
-         ON DUPLICATE KEY UPDATE active=1, granted_by=?, granted_at=NOW(), revoked_at=NULL`,
+        `INSERT INTO vip_subscribers (player_id, active, granted_by, granted_at, revoked_at, expires_at)
+         VALUES (?, 1, ?, NOW(), NULL, DATE_ADD(NOW(), INTERVAL ${SUB_DAYS} DAY))
+         ON DUPLICATE KEY UPDATE active=1, granted_by=?, granted_at=NOW(), revoked_at=NULL,
+                                 expires_at=DATE_ADD(NOW(), INTERVAL ${SUB_DAYS} DAY)`,
         [playerId, grantedBy, grantedBy]
     );
-    if (firstGrant) {
-        await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [GRANT_GOLD, playerId]).catch(() => {});
-        await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [GRANT_XP, playerId]).catch(() => {});
-    }
-    return { ok: true, firstGrant };
+
+    // Perk package (every grant = a verified payment)
+    await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [GRANT_GOLD, playerId]).catch(() => {});
+    await db.execute('UPDATE xp SET xp = xp + ? WHERE player_id=?', [GRANT_XP, playerId]).catch(() => {});
+    await grantConsumable(playerId, 'Fatigue Potion', 6).catch(() => {});
+    await grantConsumable(playerId, 'Fracture Potion', 2).catch(() => {});
+
+    let bonusPotion = null;
+    try {
+        bonusPotion = randomExplorerPotion();
+        await db.execute(
+            `INSERT INTO potion_inventory (player_id, potion_name, quantity) VALUES (?, ?, 1)
+             ON DUPLICATE KEY UPDATE quantity = quantity + 1`,
+            [playerId, bonusPotion]
+        );
+    } catch (e) { console.error('[VIP] bonus potion failed:', e.message); bonusPotion = null; }
+
+    return { ok: true, bonusPotion, days: SUB_DAYS };
 }
 
 async function revokeVip(playerId) {
@@ -67,17 +112,20 @@ async function revokeVip(playerId) {
 
 async function setVipImage(playerId, base64) {
     await ensureVipTable();
-    await db.execute('UPDATE vip_subscribers SET vip_image=? WHERE player_id=? AND active=1', [base64, playerId]);
+    await db.execute(`UPDATE vip_subscribers SET vip_image=? WHERE player_id=? AND ${ACTIVE_SQL}`, [base64, playerId]);
 }
 
 async function listVips() {
     await ensureVipTable();
     const [rows] = await db.execute(
-        `SELECT v.player_id, v.granted_at, p.nickname
+        `SELECT v.player_id, v.granted_at, v.expires_at, p.nickname
          FROM vip_subscribers v LEFT JOIN players p ON p.id = v.player_id
-         WHERE v.active=1 ORDER BY v.granted_at`
+         WHERE v.${ACTIVE_SQL} ORDER BY v.expires_at`
     );
     return rows;
 }
 
-module.exports = { GRANT_GOLD, GRANT_XP, isVip, getVip, grantVip, revokeVip, setVipImage, listVips };
+module.exports = {
+    GRANT_GOLD, GRANT_XP, SUB_DAYS, PRICE_GHS, PRICE_NGN,
+    isVip, getVip, grantVip, revokeVip, setVipImage, listVips
+};
