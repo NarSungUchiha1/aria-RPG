@@ -461,24 +461,35 @@ async function useMySQLAuthState() {
         state: {
             creds,
             keys: {
+                // Batch fetch — ONE query instead of N sequential round-trips.
+                // Baileys hits this on every encrypt/decrypt (session/sender-key/
+                // pre-key lookups); in a busy group a single incoming message can
+                // request a dozen+ ids. Awaiting them one at a time over a remote
+                // DB connection was N×RTT of latency stacked onto every message —
+                // the main source of the bot's sluggishness under load.
                 get: async (type, ids) => {
                     const data = {};
+                    if (!ids.length) return data;
+                    const keys = ids.map(id => `${type}-${id}`);
+                    const [rows] = await authDb.execute(
+                        `SELECT data_key, data_value FROM wa_sessions WHERE id = ? AND data_key IN (${keys.map(() => '?').join(',')})`,
+                        [SESSION_ID, ...keys]
+                    );
+                    const rowMap = Object.fromEntries(rows.map(r => [r.data_key, r.data_value]));
                     for (const id of ids) {
-                        const value = await readData(`${type}-${id}`);
-                        if (value) data[id] = value;
+                        const raw = rowMap[`${type}-${id}`];
+                        if (raw) data[id] = JSON.parse(raw, BufferJSON.reviver);
                     }
                     return data;
                 },
                 set: async (data) => {
+                    const tasks = [];
                     for (const [type, values] of Object.entries(data)) {
                         for (const [id, value] of Object.entries(values || {})) {
-                            if (value) {
-                                await writeData(`${type}-${id}`, value);
-                            } else {
-                                await removeData(`${type}-${id}`);
-                            }
+                            tasks.push(value ? writeData(`${type}-${id}`, value) : removeData(`${type}-${id}`));
                         }
                     }
+                    await Promise.all(tasks);
                 }
             }
         },
@@ -522,7 +533,39 @@ async function startBot() {
             syncFullHistory: false,
             markOnlineOnConnect: false,
             keepAliveIntervalMs: 20000,
+            // Default is 20s. Under real load (decrypting a busy raid group) the
+            // handshake can miss that window, which registers as a connection
+            // failure and fires ANOTHER connect attempt — the exact rapid-retry
+            // pattern that gets a number flagged. 60s matches the known-stable
+            // reference bot's setting.
+            connectTimeoutMs: 60000,
         });
+
+        // ── OUTBOUND SEND THROTTLE ─────────────────────────────────────────
+        // Combat/tournament resolution fires several sendMessage calls back to
+        // back (attack line, blessing procs, kill announce, next-turn prompt)
+        // — a burst of messages landing in the SAME chat within milliseconds
+        // is exactly the pattern WhatsApp's abuse detection watches for. Space
+        // sends to the same jid out with a minimum gap + jitter so it reads as
+        // pacing, not a script dumping a buffer. Per-jid ordering is preserved;
+        // different chats are NOT held up by each other's queue.
+        const _rawSendMessage = sock.sendMessage.bind(sock);
+        const _sendQueues = new Map(); // jid -> promise chain
+        const _lastSendAt  = new Map(); // jid -> ts of last actual send
+        const SEND_MIN_GAP_MS = 600;
+        sock.sendMessage = (jid, content, options) => {
+            const prevChain = _sendQueues.get(jid) || Promise.resolve();
+            const nextChain = prevChain.then(async () => {
+                const wait = SEND_MIN_GAP_MS - (Date.now() - (_lastSendAt.get(jid) || 0));
+                if (wait > 0) await new Promise(r => setTimeout(r, wait + Math.floor(Math.random() * 250)));
+                _lastSendAt.set(jid, Date.now());
+                return _rawSendMessage(jid, content, options);
+            });
+            // Detach the queue from this send's own outcome so one failed/rejected
+            // send doesn't wedge every later message to the same jid.
+            _sendQueues.set(jid, nextChain.catch(() => {}));
+            return nextChain;
+        };
 
         const thisSock = sock;
 
