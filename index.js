@@ -1087,6 +1087,16 @@ async function startBot() {
                     const messageContent = typeof content === 'string'
                         ? { text: content, mentions: finalMentions }
                         : content;
+                    // VIPs get the gold interface on EVERY command reply — the
+                    // standard UI is restyled here at the send layer (cached
+                    // check, 60s TTL) so no command file needs to know about it.
+                    try {
+                        const { isVipCached, applyVipStyle } = require('./src/systems/subscriberSystem');
+                        if (await isVipCached(userId)) {
+                            if (messageContent.text)    messageContent.text    = applyVipStyle(messageContent.text);
+                            if (messageContent.caption) messageContent.caption = applyVipStyle(messageContent.caption);
+                        }
+                    } catch(e) {}
                     const sendOpts = isDM ? {} : { quoted: msg };
                     try {
                         return await sock.sendMessage(jid, messageContent, sendOpts);
