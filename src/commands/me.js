@@ -4,6 +4,7 @@ const { getPlayerClan, CLAN_BLESSINGS } = require('../systems/clanSystem');
 const { getPrestigeBadge } = require('../systems/prestigeSystem');
 const { formatFatigueBar } = require('../systems/fatigueSystem');
 const { getResonanceProfile, formatGenesisDate } = require('../systems/ascendantSystem');
+const { getVip } = require('../systems/subscriberSystem');
 
 module.exports = {
     name: 'me',
@@ -146,9 +147,39 @@ module.exports = {
                 ? `\n┃◆ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
                 : '';
 
+            // VIP subscribers get their own premium interface (resonance card
+            // still outranks it — that early-returned above).
+            const vipRow = await getVip(userId).catch(() => null);
+
             let reply;
 
-            if (prestigeLvl > 0) {
+            if (vipRow) {
+                const manaLineV = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer')
+                    ? `\n┃◈ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
+                    : '';
+                reply =
+                    `◆═════〘 👑 V I P • H U N T E R 〙═════◆\n` +
+                    `┃◈ 👤 ${badge} ${styledName}\n` +
+                    `┃◈ 🎭 ${icon} ${p.role}\n` +
+                    `┃◈ 🏅 Rank: ${rankLine}${prestigeLvl > 0 ? `  •  Prestige ${prestigeLvl}` : ''}\n` +
+                    `┃◈ 📜 Title: ${p.title || 'None'}\n` +
+                    (clanDisplay ? `┃◈ 🏰 Clan: ${clanDisplay}\n` : '') +
+                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈ 💪 Strength: ${totalStr}\n` +
+                    `┃◈ ⚡ Agility: ${totalAgi}\n` +
+                    `┃◈ 🧠 Intelligence: ${totalInt}\n` +
+                    `┃◈ 🛡️ Stamina: ${totalSta}\n` +
+                    `┃◈ 🔵 Fatigue: ${fatigueBar} ${fatigue}%\n` +
+                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈ ❤️ HP: ${p.hp}/${p.max_hp}` +
+                    manaLineV +
+                    `\n┃◈ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
+                    `┃◈ ✨ SP: ${p.sp || 0}\n` +
+                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈ 💰 Gold: ${gold.toLocaleString()}\n` +
+                    `┃◈ ⭐ XP: ${xp.toLocaleString()}\n` +
+                    `◆═══════════════════════════════◆`;
+            } else if (prestigeLvl > 0) {
                 // ✅ PRESTIGE — star bullets
                 const manaLineP = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer')
                     ? `\n┃★ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
@@ -206,13 +237,23 @@ module.exports = {
                 const bonuses = await getPlayerTerritoryBonuses(userId);
                 if (bonuses.length) {
                     const isP = (p.prestige_level || 0) > 0;
-                    const bul = isP ? '┃★' : '┃◆';
+                    const bul = vipRow ? '┃◈' : isP ? '┃★' : '┃◆';
                     reply += bul + '────────────\n';
                     reply += bul + ' 🌑 TERRITORY BONUSES ACTIVE:\n';
                     bonuses.forEach(b => { reply += bul + ' ✦ ' + b.label + ': ' + b.description + '\n'; });
                 }
             } catch(e) {}
 
+            // VIP with a custom image → send the card as the image caption
+            // (same pattern as the resonance card).
+            if (vipRow?.vip_image) {
+                try {
+                    const imgBuffer = Buffer.from(vipRow.vip_image, 'base64');
+                    return await msg.reply({ image: imgBuffer, caption: reply, mimetype: 'image/jpeg' });
+                } catch (imgErr) {
+                    console.error('[VIP Card] Image error:', imgErr.message);
+                }
+            }
             return msg.reply(reply);
         } catch (err) {
             console.error(err);
