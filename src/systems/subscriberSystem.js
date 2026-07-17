@@ -79,18 +79,18 @@ async function getVip(playerId) {
     return rows[0] || null;
 }
 
-// Stackable consumable grant (matches buy.js semantics: item_type 'consumable').
+// Consumable grant — ONE ROW PER POTION, quantity=1 each. That's the game's
+// convention: buy.js inserts a fresh row per purchase and !use deletes the
+// WHOLE row (DELETE WHERE id) regardless of quantity. Stacking qty into a
+// single row made 6 potions display/consume as 1.
 async function grantConsumable(playerId, itemName, qty) {
-    const [r] = await db.execute(
-        "UPDATE inventory SET quantity = COALESCE(quantity,0) + ? WHERE player_id=? AND item_name=? AND equipped=0 LIMIT 1",
-        [qty, playerId, itemName]
+    const rows = Array.from({ length: qty }, () => `(?, ?, 'consumable', 1, 0)`).join(',');
+    const params = [];
+    for (let i = 0; i < qty; i++) params.push(playerId, itemName);
+    await db.execute(
+        `INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES ${rows}`,
+        params
     );
-    if (r.affectedRows === 0) {
-        await db.execute(
-            "INSERT INTO inventory (player_id, item_name, item_type, quantity, equipped) VALUES (?, ?, 'consumable', ?, 0)",
-            [playerId, itemName, qty]
-        );
-    }
 }
 
 // One random explorer-brewed potion from the POTIONS catalog → potion_inventory.
