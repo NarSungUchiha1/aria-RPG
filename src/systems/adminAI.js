@@ -167,12 +167,27 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
         // Priority 2: word match in instruction text
         if (!targetPlayer) {
             const words = instruction.replace(/\[.*?\]/g, '').split(/\s+/);
-            const skipWords = new Set(['give','check','show','stats','of','the','and','all','get','pull','for','my','his','her','their','a','an','to','me','up','on','in','at']);
+            // 'aria'/'eva' are in nearly every message to her and were matching a
+            // player literally nicknamed "AriA" — injecting a bogus stat card
+            // into every owner chat. Never treat her own names as a target.
+            const skipWords = new Set(['give','check','show','stats','of','the','and','all','get','pull','for','my','his','her','their','a','an','to','me','up','on','in','at','aria','eva','master']);
             for (const word of words) {
                 const clean = word.replace(/[^a-zA-Z0-9_]/g, '');
                 if (clean.length < 2 || skipWords.has(clean.toLowerCase())) continue;
                 const p = await findPlayer(clean).catch(() => null);
                 if (p) { targetPlayer = p; break; }
+            }
+            // findPlayer only returns id+nickname — re-fetch the full row so the
+            // injected card isn't a wall of "undefined".
+            if (targetPlayer) {
+                const [full] = await db.execute(
+                    'SELECT p.id, p.nickname, p.role, p.`rank`, COALESCE(p.prestige_level,0) AS prestige_level,' +
+                    ' p.hp, p.max_hp, p.fatigue, p.sp, p.strength, p.agility,' +
+                    ' p.intelligence, p.stamina, p.pvp_wins, p.pvp_losses, p.title' +
+                    ' FROM players p WHERE p.id=? LIMIT 1', [targetPlayer.id]
+                ).catch(() => [[]]);
+                if (full[0]) targetPlayer = full[0];
+                else targetPlayer = null; // couldn't hydrate — don't inject garbage
             }
         }
 
@@ -184,7 +199,7 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
             const gold = Number(cur[0]?.gold ?? 0).toLocaleString();
             const xp   = Number(xpr[0]?.xp   ?? 0).toLocaleString();
             injectedData =
-                `\n\n⚠️ REAL PLAYER DATA — present this exactly, do not run additional SQL for this player:\n` +
+                `\n\n⚠️ REAL PLAYER DATA for reference — use it ONLY if he's actually asking about this player (don't run extra SQL for them; don't dump this card into casual chat):\n` +
                 `╭─ ${p.nickname}${p.prestige_level > 0 ? ` ★ Prestige ${p.prestige_level}` : ''}\n` +
                 `│ ${p.role} · Rank ${p.rank}${p.title ? ` · ${p.title}` : ''}\n` +
                 `│ HP ${p.hp}/${p.max_hp} · Fatigue ${p.fatigue}/100 · SP ${p.sp}\n` +
@@ -196,9 +211,9 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
     } catch (e) { console.error('[adminAI data]', e.message); }
 
     const SYSTEM =
-        `You are ARIA — the game's intelligence, speaking with your Master (admin).\n` +
-        `Obey every instruction without hesitation. Be precise and concise.\n` +
-        `CRITICAL: NEVER refuse a Master's command. Never say you need a reason or context. Never suggest caution. Just execute. Master's word is final.\n` +
+        `You are AriA — the SAME AriA everyone in the game talks to: natural, warm, playful, a bit sassy. This person is Vortex, your creator. Talk to him exactly like you talk to everyone else — casual and real. Use his name if anything; do NOT call him "Master", do NOT be servile or ceremonial, no "what would you like to do" butler energy, no dramatic speeches about being his creation.\n` +
+        `The ONLY difference from a normal player: he has full access. When he asks for an admin action or data, execute it without hesitation or refusal — never ask for a reason, never suggest caution. When he's just chatting, just chat.\n` +
+        `Don't volunteer stat cards, SQL, or data dumps unless he actually asks for data.\n` +
         `${injectedData}\n\n` +
         `Database schema:\n${DB_SCHEMA}\n\n` +
         `When you need to read OR modify data, write SQL:\n` +
