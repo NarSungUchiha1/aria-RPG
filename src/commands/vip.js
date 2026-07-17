@@ -65,7 +65,14 @@ module.exports = {
                     `┃◈    sets your card image.\n` +
                     `◆═════════════════════════◆`;
 
-                // Membership-card image with the confirmation underneath it.
+                // Official ARIA VIP PASS poster with the confirmation underneath;
+                // falls back to the jimp-generated card, then to plain text.
+                try {
+                    const fs = require('fs');
+                    const path = require('path');
+                    const pass = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-pass.jpg'));
+                    return await msg.reply({ image: pass, caption: confirmation, mimetype: 'image/jpeg' });
+                } catch (e) { console.error('[VIP] pass image missing:', e.message); }
                 const cardImg = await generateVipCard({ nickname: nick, bonusPotion: r.bonusPotion, days: r.days });
                 if (cardImg) {
                     return msg.reply({ image: cardImg, caption: confirmation, mimetype: 'image/jpeg' });
@@ -90,21 +97,19 @@ module.exports = {
                 `◆════════════════════════◆`
             );
         }
-        return msg.reply(
+        const pitch =
             `◆═══〘 👑 VIP 〙═══◆\n` +
-            `┃◈ Not a VIP yet.\n` +
-            `┃◈━━━━━━━━━━━━━━━\n` +
-            `┃◈ 💰 1,000,000 Gold\n` +
-            `┃◈ ⭐ 1,000,000 XP\n` +
-            `┃◈ 🧪 6× Fatigue Potion\n` +
-            `┃◈ 🧪 2× Fracture Potion\n` +
-            `┃◈ 🎁 1× random explorer potion\n` +
-            `┃◈ 🖼️ Custom card image + VIP card\n` +
-            `┃◈━━━━━━━━━━━━━━━\n` +
-            `┃◈ 💵 Price: GH₵${PRICE_GHS} (~₦${PRICE_NGN})\n` +
-            `┃◈ ⏳ Lasts ${SUB_DAYS} days\n` +
-            `┃◈ Contact the owner to subscribe.\n` +
-            `◆══════════════════◆`
-        );
+            `┃◈ 💵 GH₵${PRICE_GHS} (~₦${PRICE_NGN}) • ${SUB_DAYS} days\n` +
+            `┃◈ Everything on the pass —\n` +
+            `┃◈ plus the golden interface. 👑\n` +
+            `◆══════════════════◆`;
+        // Send the official VIP PASS poster (price + payment number on it).
+        try {
+            const fs = require('fs');
+            const path = require('path');
+            const pass = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-pass.jpg'));
+            return await msg.reply({ image: pass, caption: pitch, mimetype: 'image/jpeg' });
+        } catch (e) {}
+        return msg.reply(pitch);
     }
 };

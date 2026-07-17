@@ -514,41 +514,31 @@ Reply exactly as: {"weapon":"<weapon name>","moves":[{"name":"<move>","desc":"<s
 // the card. Rather than distort by stretching, we pad the sides with a BLURRED,
 // zoomed copy of the image and center the original undistorted on top.
 // Returns new base64 (or the original on any failure). jimp v1 is ESM.
-async function widenResonanceImage(base64) {
-    if (!base64) return base64;
-    try {
-        const { Jimp } = await import('jimp');
-        const orig = await Jimp.read(Buffer.from(base64, 'base64'));
-        // Cap size first — keeps memory/CPU sane on small hosts.
-        if (orig.height > 720) orig.resize({ w: Math.round(orig.width * 720 / orig.height), h: 720 });
-        const ow = orig.width, oh = orig.height;
-        const targetW = Math.round(oh * 1.6);      // wide canvas
-        if (ow >= targetW) return base64;          // already wide enough
-
-        // Blurred background that COVERS the wide canvas.
-        const bg = orig.clone();
-        const scale = targetW / ow;                // > 1 (ow < targetW)
-        bg.resize({ w: Math.round(ow * scale), h: Math.round(oh * scale) });
-        bg.crop({
-            x: Math.max(0, Math.round((bg.width  - targetW) / 2)),
-            y: Math.max(0, Math.round((bg.height - oh)      / 2)),
-            w: targetW, h: oh
-        });
-        bg.blur(14);
-
-        // Original centered on top, undistorted → blurred bars left & right.
-        bg.composite(orig, Math.round((targetW - ow) / 2), 0);
-
-        let out = await bg.getBuffer('image/jpeg');
-        if (out.toString('base64').length > 700000) {
-            bg.resize({ w: Math.round(bg.width * 0.75), h: Math.round(bg.height * 0.75) });
-            out = await bg.getBuffer('image/jpeg');
+// Runs in a WORKER THREAD (src/utils/imageWorker.js): jimp decode/resize of a
+// phone photo is pure-JS CPU work that froze the main event loop on 0.1 CPU,
+// starving the WhatsApp keepalive → 408 disconnect mid-command. The worker
+// keeps the loop free; on any failure/timeout the original image is kept.
+function widenResonanceImage(base64) {
+    if (!base64) return Promise.resolve(base64);
+    return new Promise((resolve) => {
+        let settled = false;
+        const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+        try {
+            const { Worker } = require('node:worker_threads');
+            const path = require('path');
+            const worker = new Worker(path.join(__dirname, '..', 'utils', 'imageWorker.js'), { workerData: { base64 } });
+            const timer = setTimeout(() => { try { worker.terminate(); } catch {} done(base64); }, 120000);
+            worker.once('message', (m) => {
+                clearTimeout(timer);
+                if (!m?.ok) console.error('[Resonance] widen worker failed:', m?.error);
+                done(m?.ok ? m.base64 : base64);
+            });
+            worker.once('error', (e) => { clearTimeout(timer); console.error('[Resonance] widen worker error:', e.message); done(base64); });
+        } catch (e) {
+            console.error('[Resonance] widen spawn failed:', e.message);
+            done(base64);
         }
-        return out.toString('base64');
-    } catch (e) {
-        console.error('[Resonance] widen image failed:', e.message);
-        return base64;
-    }
+    });
 }
 
 // ── FLOW STATE MACHINE ────────────────────────────────────────────────

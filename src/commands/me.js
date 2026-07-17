@@ -44,8 +44,8 @@ module.exports = {
                 // VIP Ascendants get the crown merged into the header + a VIP line.
                 const resVip = await getVip(userId).catch(() => null);
                 const header = resVip
-                    ? `╔════〘 👑 ✧ RESONANCE ✧ 👑 〙════╗\n`
-                    : `╔═════〘 ✧ RESONANCE ✧ 〙═════╗\n`;
+                    ? `╔══〘 👑 ✧ RESONANCE ✧ 👑 〙══╗\n`
+                    : `╔══〘 ✧ RESONANCE ✧ 〙══╗\n`;
                 const cardText =
                     header +
                     `┃✧ 👤 *Name:* ${resonance.res_name}\n` +
@@ -53,7 +53,7 @@ module.exports = {
                     `┃✧ 🌌 *Genesis:* ${genesis}\n` +
                     `┃✧ 👑 *Authority:* ${resonance.authority}${resVip ? ' • VIP' : ''}\n` +
                     `┃✧ 🏰 *Clan:* ${clanDisplay}\n` +
-                    `╚═══════════════════════════╝`;
+                    `╚═══════════════════╝`;
 
                 if (resonance.res_image) {
                     try {
@@ -163,27 +163,27 @@ module.exports = {
                     ? `\n┃◈ 💙 Mana: ${p.mana || 0}/${p.max_mana || 50}`
                     : '';
                 reply =
-                    `◆═════〘 👑 V I P • H U N T E R 〙═════◆\n` +
+                    `◆═══〘 👑 V I P • H U N T E R 〙═══◆\n` +
                     `┃◈ 👤 ${badge} ${styledName}\n` +
                     `┃◈ 🎭 ${icon} ${p.role}\n` +
                     `┃◈ 🏅 Rank: ${rankLine}${prestigeLvl > 0 ? `  •  Prestige ${prestigeLvl}` : ''}\n` +
                     `┃◈ 📜 Title: ${p.title || 'None'}\n` +
                     (clanDisplay ? `┃◈ 🏰 Clan: ${clanDisplay}\n` : '') +
-                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈━━━━━━━━━━━━━\n` +
                     `┃◈ 💪 Strength: ${totalStr}\n` +
                     `┃◈ ⚡ Agility: ${totalAgi}\n` +
                     `┃◈ 🧠 Intelligence: ${totalInt}\n` +
                     `┃◈ 🛡️ Stamina: ${totalSta}\n` +
                     `┃◈ 🔵 Fatigue: ${fatigueBar} ${fatigue}%\n` +
-                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈━━━━━━━━━━━━━\n` +
                     `┃◈ ❤️ HP: ${p.hp}/${p.max_hp}` +
                     manaLineV +
                     `\n┃◈ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃◈ ✨ SP: ${p.sp || 0}\n` +
-                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈━━━━━━━━━━━━━\n` +
                     `┃◈ 💰 Gold: ${gold.toLocaleString()}\n` +
                     `┃◈ ⭐ XP: ${xp.toLocaleString()}\n` +
-                    `◆═══════════════════════════════◆`;
+                    `◆═══════════════════◆`;
             } else if (prestigeLvl > 0) {
                 // ✅ PRESTIGE — star bullets
                 const manaLineP = (p.role === 'Mage' || p.role === 'Healer' || p.role === 'Explorer')

@@ -31,6 +31,9 @@ module.exports = {
             if (raw64.length > 900000) {
                 return msg.reply('⚠️ Image too large — keep it under 600KB.');
             }
+            // Ack FIRST — image processing is CPU work; if anything hiccups
+            // after this, the user still got feedback.
+            await msg.reply('👑 Got it — forging your card image...').catch(() => {});
             const base64 = await widenResonanceImage(raw64);
             await setVipImage(userId, base64);
             return msg.reply(
