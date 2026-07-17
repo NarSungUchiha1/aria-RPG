@@ -65,14 +65,14 @@ module.exports = {
                     `┃◈    sets your card image.\n` +
                     `◆═════════════════════════◆`;
 
-                // Official ARIA VIP PASS poster with the confirmation underneath;
-                // falls back to the jimp-generated card, then to plain text.
+                // "CONGRATULATIONS — VIP PASS unlocked" poster with the
+                // confirmation underneath; falls back to the jimp card, then text.
                 try {
                     const fs = require('fs');
                     const path = require('path');
-                    const pass = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-pass.jpg'));
-                    return await msg.reply({ image: pass, caption: confirmation, mimetype: 'image/jpeg' });
-                } catch (e) { console.error('[VIP] pass image missing:', e.message); }
+                    const congrats = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-congrats.jpg'));
+                    return await msg.reply({ image: congrats, caption: confirmation, mimetype: 'image/jpeg' });
+                } catch (e) { console.error('[VIP] congrats image missing:', e.message); }
                 const cardImg = await generateVipCard({ nickname: nick, bonusPotion: r.bonusPotion, days: r.days });
                 if (cardImg) {
                     return msg.reply({ image: cardImg, caption: confirmation, mimetype: 'image/jpeg' });
