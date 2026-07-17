@@ -66,8 +66,8 @@ function applyVipStyle(text) {
     if (!text || typeof text !== 'string') return text;
     let t = text
         .replace(/┃[◆★]/g, '┃◈')
-        .replace(/[╔╭]?══+〘/g, '◆═══〘')
-        .replace(/〙══+[╗╮]?/g, '〙═══◆')
+        .replace(/[╔╭]?═+〘/g, '◆══〘')
+        .replace(/〙═+[╗╮]?/g, '〙══ ◆')
         .replace(/[╰╚](═+)[╯╝]/g, (m, eq) => '◆' + eq + '◆');
     if (!t.includes('👑')) t = t.replace('〘 ', '〘 👑 ');
     return t;
