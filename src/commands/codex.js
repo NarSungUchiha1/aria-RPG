@@ -61,7 +61,7 @@ const CODEX_ENTRIES = [
             `They are infections. Willing ones.`
     },
     {
-        id: 7, title: "the Hollow King's Herald",
+        id: 7, title: "The Hollow King's Herald",
         unlock_condition: 'reach_rank_PS',
         text:
             `The Herald does not speak.\n` +

@@ -8,7 +8,7 @@ const POTIONS = {
     'Ichor of the Fallen': {
         effect: 'death_protect',
         desc: 'Die in a dungeon — keep all gold and XP instead of losing it. One use.',
-        ingredients: { 'Life Essence': 2, 'Shadow Essence': 2, 'Void Crystal': 1 },
+        ingredients: { 'Life Essence': 2, 'Umbral Essence': 2, 'Twilight Crystal': 1 },
         minPrice: 3000,
         prestige: false,
         lore: 'Brewed from the last breath of something that should not have been killable.'
@@ -17,7 +17,7 @@ const POTIONS = {
         effect: 'true_damage',
         turns: 5,
         desc: 'Next 5 attacks deal true damage — bypass ALL defense and shields.',
-        ingredients: { 'Void Crystal': 2, 'Shadow Fragment': 2, 'Ancient Tome Fragment': 1 },
+        ingredients: { 'Twilight Crystal': 2, 'Shadow Fragment': 2, 'Ancient Tome Fragment': 1 },
         minPrice: 4000,
         prestige: false,
         lore: 'The void looked at armour and laughed.'
@@ -35,7 +35,7 @@ const POTIONS = {
         turns: 5,
         stat_boost: 2.0,
         desc: '+200% damage for 5 turns but you cannot see your own HP.',
-        ingredients: { 'Void Ink': 2, 'Blood Root': 2, 'Shadow Essence': 1 },
+        ingredients: { 'Void Ink': 2, 'Blood Root': 2, 'Umbral Essence': 1 },
         minPrice: 3500,
         prestige: false,
         lore: 'Power has a price. You just agreed to it.'
@@ -44,7 +44,7 @@ const POTIONS = {
         effect: 'auto_revive',
         heal_percent: 0.5,
         desc: 'If you die this dungeon you resurrect once at 50% HP. No gold or XP loss.',
-        ingredients: { 'Life Essence': 3, 'Void Crystal': 1, 'Ancient Herb': 2 },
+        ingredients: { 'Life Essence': 3, 'Twilight Crystal': 1, 'Ancient Herb': 2 },
         minPrice: 5000,
         prestige: false,
         lore: 'Something in the void decided you were not done yet.'
@@ -59,11 +59,11 @@ const POTIONS = {
         prestige: false,
         lore: 'Your strikes exist between moments now.'
     },
-    "the Hollow King's Hunger": {
+    "The Hollow King's Hunger": {
         effect: 'hp_steal_first',
         steal_percent: 0.3,
         desc: 'Prestige only — steal 30% of every enemy current HP on your first hit each stage.',
-        ingredients: { 'the Hollow King Fragment': 1, 'Void Crystal': 2, 'Blood Root': 2 },
+        ingredients: { 'the Hollow King Fragment': 1, 'Twilight Crystal': 2, 'Blood Root': 2 },
         minPrice: 8000,
         prestige: true,
         lore: 'He learned to take before the world learned to give.'
@@ -72,7 +72,7 @@ const POTIONS = {
         effect: 'clan_boost',
         stat_mult: 1.25,
         desc: 'All clan members in dungeon get +25% all stats for entire run.',
-        ingredients: { 'Void Crystal': 3, 'Life Essence': 2 },
+        ingredients: { 'Twilight Crystal': 3, 'Life Essence': 2 },
         minPrice: 6000,
         prestige: false,
         lore: 'The bloodline hears itself. It responds.'
@@ -90,7 +90,7 @@ const POTIONS = {
         effect: 'hp_to_damage',
         hp_cost: 0.4,
         desc: 'Sacrifice 40% current HP — deal that amount as bonus damage on next hit.',
-        ingredients: { 'Blood Root': 3, 'Shadow Essence': 1 },
+        ingredients: { 'Blood Root': 3, 'Umbral Essence': 1 },
         minPrice: 2000,
         prestige: false,
         lore: 'You paid. The void delivers.'
@@ -99,7 +99,7 @@ const POTIONS = {
         effect: 'last_stand',
         condition_hp: 0.1,
         desc: 'Full HP restore + invincible for 2 turns. Only usable below 10% HP.',
-        ingredients: { 'Life Essence': 3, 'Ancient Herb': 2, 'Void Crystal': 2 },
+        ingredients: { 'Life Essence': 3, 'Ancient Herb': 2, 'Twilight Crystal': 2 },
         minPrice: 7000,
         prestige: false,
         lore: 'Reserved for those who have absolutely run out of options.'
@@ -146,7 +146,7 @@ const POTIONS = {
         effect: 'redirect_aggro',
         turns: 3,
         desc: 'Control which enemy attacks which teammate for 3 turns.',
-        ingredients: { 'Void Ink': 2, 'Shadow Essence': 1, 'Spell Component': 1 },
+        ingredients: { 'Void Ink': 2, 'Umbral Essence': 1, 'Spell Component': 1 },
         minPrice: 3500,
         prestige: false,
         lore: 'The void does not fight. It rearranges.'
@@ -162,7 +162,7 @@ const POTIONS = {
     'Mirror Toxin': {
         effect: 'death_reflect',
         desc: 'The next hit that would kill you instead kills the attacker at full damage.',
-        ingredients: { 'Shadow Essence': 2, 'Void Crystal': 1, 'Ancient Herb': 1 },
+        ingredients: { 'Umbral Essence': 2, 'Twilight Crystal': 1, 'Ancient Herb': 1 },
         minPrice: 5000,
         prestige: false,
         lore: 'It came back. It brought what it was carrying.'
@@ -188,16 +188,16 @@ const POTIONS = {
     'The Unravelling': {
         effect: 'strip_all',
         desc: 'Strip ALL buffs and shields from every enemy in stage instantly.',
-        ingredients: { 'Void Crystal': 2, 'Ancient Tome Fragment': 1, 'Spell Component': 2 },
+        ingredients: { 'Twilight Crystal': 2, 'Ancient Tome Fragment': 1, 'Spell Component': 2 },
         minPrice: 4500,
         prestige: false,
         lore: 'Nothing they built holds anymore.'
     },
-    'Eternity Shard Brew': {
+    'Shard of the Last Hour Brew': {
         effect: 'time_freeze',
         turns: 2,
         desc: 'Prestige only — freeze time for 2 turns, act freely while enemies are locked.',
-        ingredients: { 'the Hollow King Fragment': 1, 'Ancient Tome Fragment': 1, 'Void Crystal': 3 },
+        ingredients: { 'the Hollow King Fragment': 1, 'Ancient Tome Fragment': 1, 'Twilight Crystal': 3 },
         minPrice: 12000,
         prestige: true,
         lore: 'the Hollow King did this once. Only once.'
@@ -206,7 +206,7 @@ const POTIONS = {
         effect: 'kill_hp_gain',
         hp_percent: 0.1,
         desc: 'On each enemy kill gain 10% of their max HP permanently until run ends.',
-        ingredients: { 'Life Essence': 2, 'Shadow Essence': 2, 'Blood Root': 1 },
+        ingredients: { 'Life Essence': 2, 'Umbral Essence': 2, 'Blood Root': 1 },
         minPrice: 3500,
         prestige: false,
         lore: 'You keep taking. It keeps giving.'
@@ -215,7 +215,7 @@ const POTIONS = {
         effect: 'def_shatter',
         def_reduction: 0.8,
         desc: 'Reduces target enemy DEF by 80% for entire dungeon.',
-        ingredients: { 'Void Crystal': 1, 'Shadow Fragment': 2, 'Iron Root': 2 },
+        ingredients: { 'Twilight Crystal': 1, 'Shadow Fragment': 2, 'Iron Root': 2 },
         minPrice: 3000,
         prestige: false,
         lore: "It doesn't destroy the armour. It disagrees with its existence."

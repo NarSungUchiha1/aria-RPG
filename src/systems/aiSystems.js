@@ -229,10 +229,10 @@ DUELS:
 • Damage = (STR + weapon bonus × 0.5) - (defender stamina + weapon defense bonus) / 2.
 
 CONSUMABLES (!use <item>):
-HP: Potion 🧪 (60 base) · Herb Kit 🌿 (50) · Holy Water 💧 (70 + cleanse) · Void Elixir 🌀 (60% max HP, prestige) · Fracture Potion 💠 (full HP, prestige).
-Mana: Mana Potion 💙 (30 mana) · Void Manalisk 💙 (full mana, prestige).
+HP: Potion 🧪 (60 base) · Herb Kit 🌿 (50) · Holy Water 💧 (70 + cleanse) · Gloam Elixir 🌀 (60% max HP, prestige) · Fracture Potion 💠 (full HP, prestige).
+Mana: Mana Potion 💙 (30 mana) · Twilight Manalisk 💙 (full mana, prestige).
 Fatigue: Fatigue Potion 🔋 (35 fatigue reduction, prestige shop: 7 charges).
-Stat buffs (3 turns): Fortify Potion 🛡️ (+20 DEF) · Rage Potion 🔥 (+25 STR) · Eagle Eye 🦅 (+20 AGI) · Smoke Bomb 💨 (+30 AGI, 2 turns) · Backstab Scroll 🗡️ (+25 AGI, 2 turns) · Taunt Scroll 📢 (+20 STA, 2 turns) · War Cry ⚔️ (+20 STR) · Blood Charm 🩸 (+15 STR +20 HP) · Blessing Charm 💫 (+20 INT) · Elixir ✨ (+15 STA) · Abyss Tonic ⚫ (+50 ATK, prestige).
+Stat buffs (3 turns): Fortify Potion 🛡️ (+20 DEF) · Rage Potion 🔥 (+25 STR) · Eagle Eye 🦅 (+20 AGI) · Smoke Bomb 💨 (+30 AGI, 2 turns) · Backstab Scroll 🗡️ (+25 AGI, 2 turns) · Taunt Scroll 📢 (+20 STA, 2 turns) · War Cry ⚔️ (+20 STR) · Blood Charm 🩸 (+15 STR +20 HP) · Blessing Charm 💫 (+20 INT) · Elixir ✨ (+15 STA) · Umbra Tonic ⚫ (+50 ATK, prestige).
 Combat: Poison Vial ☠️ (enemy -15 STR, 3 turns) · Fire Scroll 🔥 (40 base damage). Both dungeon-only.
 Utility: Cleanse Potion ✨ (removes debuffs) · Revive Scroll 📜 (revive ally in dungeon) · Death Protect Potion (skip gold/XP loss on death once).
 

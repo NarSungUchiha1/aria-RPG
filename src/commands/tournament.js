@@ -62,7 +62,7 @@ module.exports = {
                     `┃★ 🥉 350,000G (×2)\n` +
                     `┃★ ⚔️ 150,000G (Top 8)\n` +
                     `┃★ 🎖️ 25,000G (All participants)\n` +
-                    `┃★ + XP and Void Crystals\n` +
+                    `┃★ + XP and Twilight Crystals\n` +
                     `┃★\n` +
                     `┃★ Register: *!tournament join*\n` +
                     `┃★\n` +

@@ -10,7 +10,7 @@ const db = require('../database/db');
 
 const MVP_REWARDS = {
     standard:    { gold: 1000, xp: 500  },
-    exceptional: { gold: 2500, xp: 1200, material: 'Void Crystal' }
+    exceptional: { gold: 2500, xp: 1200, material: 'Twilight Crystal' }
 };
 const EXCEPTIONAL_THRESHOLD = 0.40;
 

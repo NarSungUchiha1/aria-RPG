@@ -145,29 +145,29 @@ const CONSUMABLES = {
     },
 
     // ── PRESTIGE CONSUMABLES ──────────────────────────────
-    'Void Elixir': {
+    'Gloam Elixir': {
         type: 'heal_percent',
         emoji: '🌀',
         percent: 0.6,
-        label: 'Void Elixir'
+        label: 'Gloam Elixir'
     },
     'Fracture Potion': {
         type: 'heal_full',
         emoji: '💠',
         label: 'Fracture Potion'
     },
-    'Abyss Tonic': {
+    'Umbra Tonic': {
         type: 'buff',
         emoji: '⚫',
         stat: 'attack',
         baseValue: 50,
         duration: 3,
-        label: 'Abyss Tonic'
+        label: 'Umbra Tonic'
     },
-    'Void Manalisk': {
+    'Twilight Manalisk': {
         type: 'mana_full',
         emoji: '💙',
-        label: 'Void Manalisk'
+        label: 'Twilight Manalisk'
     },
 
     // ── DUNGEON COMBAT (requires active dungeon) ──────────
@@ -187,7 +187,7 @@ const CONSUMABLES = {
     },
 };
 
-const PRESTIGE_CONSUMABLES = new Set(['Void Elixir', 'Fracture Potion', 'Abyss Tonic', 'Fatigue Potion', 'Void Manalisk']);
+const PRESTIGE_CONSUMABLES = new Set(['Gloam Elixir', 'Fracture Potion', 'Umbra Tonic', 'Fatigue Potion', 'Twilight Manalisk']);
 
 module.exports = {
     name: 'use',
@@ -239,7 +239,7 @@ module.exports = {
 
             // ── APPLY effect ─────────────────────────────
 
-            // PRESTIGE — PERCENT HEAL (Void Elixir — restores 60% HP)
+            // PRESTIGE — PERCENT HEAL (Gloam Elixir — restores 60% HP)
             if (def.type === 'heal_percent') {
                 const current = Number(player.hp);
                 const max     = Number(player.max_hp);
@@ -274,7 +274,7 @@ module.exports = {
                 );
             }
 
-            // PRESTIGE — FULL MANA (Void Manalisk)
+            // PRESTIGE — FULL MANA (Twilight Manalisk)
             if (def.type === 'mana_full') {
                 const maxMana     = Number(player.max_mana) || 0;
                 const currentMana = Number(player.mana)     || 0;

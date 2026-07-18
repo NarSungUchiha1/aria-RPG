@@ -43,21 +43,21 @@ const MELT_VALUE = {
     'Godslayer': 400000, "Eternity's Edge": 400000,
     'Omniscient Scepter': 400000, 'Aegis Immortal': 400000,
     // ── PRESTIGE WEAPONS (~10% of shop price) ─────────────────────────
-    'Void Crusher': 7500, 'Fracture Cleaver': 20000,
-    'Abyss Annihilator': 75000, "the Hollow King's Fist": 300000,
-    'Void Fang': 7500, 'Fracture Edge': 20000,
-    'Abyss Phantom': 75000, "the Hollow King's Shadow": 300000,
-    'Void Codex': 7500, 'Fracture Scepter': 20000,
-    'Abyss Tome': 75000, "the Hollow King's Gospel": 300000,
-    'Void Bulwark': 7500, 'Fracture Rampart': 20000,
-    'Abyss Fortress': 75000, "the Hollow King's Seal": 300000,
-    'Void Mend': 7500, 'Fracture Chalice': 20000,
-    'Abyss Lantern': 75000, "the Hollow King's Grace": 300000,
+    'Gloam Crusher': 7500, 'Eclipse Cleaver': 20000,
+    'Umbra Annihilator': 75000, "The Hollow King's Fist": 300000,
+    'Gloamfang': 7500, 'Eclipse Edge': 20000,
+    'Umbra Phantom': 75000, "The Hollow King's Shadow": 300000,
+    'Gloam Codex': 7500, 'Eclipse Scepter': 20000,
+    'Umbra Tome': 75000, "The Hollow King's Gospel": 300000,
+    'Gloam Bulwark': 7500, 'Eclipse Rampart': 20000,
+    'Umbra Fortress': 75000, "The Hollow King's Seal": 300000,
+    'Gloam Mend': 7500, 'Eclipse Chalice': 20000,
+    'Umbra Lantern': 75000, "The Hollow King's Grace": 300000,
 }
 
 // Prestige consumables — cannot be melted
 const PRESTIGE_CONSUMABLES = new Set([
-    'Void Elixir', 'Fracture Potion', 'Abyss Tonic'
+    'Gloam Elixir', 'Fracture Potion', 'Umbra Tonic'
 ]);
 
 // Fallback by grade

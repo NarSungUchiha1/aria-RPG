@@ -25,7 +25,7 @@ const TITLES = {
     'Alchemist':         { condition: 'brew',         count: 20,   reward: 'Alchemist',         desc: 'Brewed 20 potions' },
     // Special
     'The Reckless':      { condition: 'void_madness', count: 5,    reward: 'The Reckless',      desc: 'Used Void Madness 5 times' },
-    "the Hollow King's Eye":    { condition: 'hollowking_frag',count: 3,    reward: "the Hollow King's Eye",    desc: 'Found 3 Hollow King Fragments' }
+    "The Hollow King's Eye":    { condition: 'hollowking_frag',count: 3,    reward: "The Hollow King's Eye",    desc: 'Found 3 Hollow King Fragments' }
 };
 
 async function ensureTitleTables() {

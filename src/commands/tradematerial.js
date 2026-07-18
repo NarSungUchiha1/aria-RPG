@@ -6,7 +6,7 @@ module.exports = {
         if (!msg.mentionedIds.length || !args[1] || !args[2]) return msg.reply(
             `══〘 💎 TRADE MATERIAL 〙══╮\n` +
             `┃◆ ❌ Use: !tradematerial @user <material name> <qty>\n` +
-            `┃◆ Example: !tradematerial @john Iron Shard 3\n` +
+            `┃◆ Example: !tradematerial @john Duskiron Shard 3\n` +
             `╰═══════════════════════╯`
         );
 

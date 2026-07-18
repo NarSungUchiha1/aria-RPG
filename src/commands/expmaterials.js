@@ -15,7 +15,7 @@ const MATERIAL_RARITIES = {
     'Life Essence': 'uncommon', 'Ancient Herb': 'uncommon', 'Shadow Moss': 'uncommon',
     'Shadow Fragment': 'uncommon', 'Spell Component': 'uncommon',
     // Rare
-    'Void Crystal': 'rare', 'Blood Root': 'rare', 'Shadow Essence': 'rare',
+    'Twilight Crystal': 'rare', 'Blood Root': 'rare', 'Umbral Essence': 'rare',
     'Void Ink': 'rare',
     // Legendary
     'Ancient Tome Fragment': 'legendary', 'the Hollow King Fragment': 'legendary'

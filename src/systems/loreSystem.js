@@ -201,32 +201,32 @@ const CHAPTERS = [
 
 const DUNGEON_LORE = {
     1: [
-        `The Gate smells like metal and something older. Like a room that has been sealed for centuries and finally opened.`,
-        `Hunters who came back from this one did not talk much. That is usually a good sign. Usually.`,
-        `The System logged forty seven casualties in this dungeon class last week. The week before it was thirty one. Something is changing.`,
-        `First timers always say the same thing. They say it did not feel real until it did. By then it is too late to turn back.`,
-        `The monsters inside are ranked. Measured. Manageable. That is what the System says. The System has been wrong before.`
+        `The dungeon exhales cold air that has never known daylight. Whatever waits inside was born after the sun went quiet.`,
+        `Hunters mark the entrance with a lit candle. If the flame turns blue, you do not go in. The flame is blue more often lately.`,
+        `The System logs casualties in this dungeon class every week. The numbers climb a little each month, like the dark is practicing.`,
+        `First timers always say the gloom feels solid. Like walking into water. By the third stage they stop saying anything at all.`,
+        `The beasts inside are ranked. Measured. Manageable. That is what the System says. The System was built when the sun still worked.`
     ],
     2: [
-        `Three Hunters who cleared this dungeon reported the same dream that night. A dark ocean. Something beneath it. Moving.`,
-        `The Void Shards found here are small. Unstable. The researchers say they are harmless. The researchers also said the Gates were temporary.`,
-        `Something in the dungeon is different today. The monsters are agitated in a way that does not match their rank. Pay attention.`,
-        `The seal weakens every time a dungeon opens. Every time one closes. The System does not know why. It is still calculating.`,
-        `A Hunter left a message scratched into the dungeon wall at Stage 3. It said: it knows we are here. Nobody has figured out what that means yet.`
+        `Shardfall was heard here last night — a sound like glass singing. If a Sunshard came down inside, it will still be burning.`,
+        `The walls of this one glitter faintly. Not minerals. Fragments. Something bright died in here and never stopped smoldering.`,
+        `Hunters who touched the light in the deep rooms all report the same dream. A hand. A star. A voice saying REMEMBER ME.`,
+        `The dark in this dungeon moves against the draft. It has learned to swim upstream. Do not follow it to where it is going.`,
+        `Whatever hollowed the sun left fingerprints in places like this. The Last Light pays well for anyone who maps them.`
     ],
     3: [
-        `The Leviathan does not need to send monsters. The monsters come because the void calls them. Because fear travels faster than commands.`,
-        `Every dungeon cleared today is a message. We are still here. We are still fighting. Send more.`,
-        `The sky outside the Gate looks wrong. Not dangerous wrong. Just wrong. Like someone changed something small and fundamental about the colour of things.`,
-        `The Hunters who carry Void Shards into dungeons report that the monsters hesitate before attacking them. A fraction of a second. It is enough.`,
-        `There is a theory that the Leviathan can feel every dungeon that opens. If that is true then every raid is a provocation. Good.`
+        `The Umbral Tide passed through this region twice. Both times, the dungeon doors were found open afterward. From the inside.`,
+        `The beasts here move like soldiers now. Flanks. Feints. Someone — something — in the deep gloom is teaching them.`,
+        `Dawnwatch scouts sealed this entrance last month. The seal is gone. Not broken. Gone, like it was never there.`,
+        `The Umbral Court claims territory in dungeons like this one. If you see a throne of shadow in the lower halls, bow or run.`,
+        `Three factions want what is at the bottom of this place. None of them will say what it is. All of them are recruiting.`
     ],
     4: [
-        `the Hollow King was seen near a Gate matching this dungeon's signature. Whatever he is looking for he has not found it yet.`,
-        `The monsters inside bear a mark the System cannot identify. Not a void mark. Something older. Something that belongs to him.`,
-        `He does not rush. He does not retreat. He studies. Every Hunter who survives an encounter with him says the same thing. He was watching them learn.`,
-        `There is one thing Aldric Voss could never do in life. Give up. Whatever he became it kept that much. Use it against him.`,
-        `The System flagged an anomaly near this Gate. A registrationId that should not exist anymore. He has been here. Recently.`
+        `This deep, the gloom bends toward one point on the horizon — toward the crown. Everything down here leans toward the Hollow King.`,
+        `The Shards fall thickest around dungeons like this. They are not falling. They are escaping through his fingers.`,
+        `Hunters at this depth hear it sometimes: a heartbeat under the stone, slow as centuries. He is still holding on. He is still holding on.`,
+        `The Dawnwright's order kept vaults at this depth once. The doors are melted from the inside. Whatever he became, it passed this way.`,
+        `He cannot be saved. He can only be finished. Every blade sharpened in this dungeon brings his sunset one hour closer.`
     ]
 };
 

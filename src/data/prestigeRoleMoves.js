@@ -53,7 +53,7 @@ module.exports = {
           desc: '+40% DEF for 3 turns.' },
         { name: 'Abyssal Taunt',      type: 'debuff', effect: 'attack',     value: -40, percent: true, duration: 3, cooldown: CD_RANKED, cost: 10,
           desc: '-40% enemy ATK for 3 turns.' },
-        { name: 'Void Bulwark',       type: 'shield', value: 800,                           cooldown: CD_RANKED, cost: 15 },
+        { name: 'Gloam Bulwark',       type: 'shield', value: 800,                           cooldown: CD_RANKED, cost: 15 },
         { name: 'Earth Void Shatter', type: 'damage', stat: 'strength',  multiplier: 3.8, stun: true,          cooldown: 120,       cost: 14 }
     ],
     Healer: [

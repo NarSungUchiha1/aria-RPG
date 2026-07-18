@@ -344,111 +344,111 @@ module.exports = {
     // ══════════════════════════════════════════════════════════
 
     // Berserker
-    'Void Crusher': [
+    'Gloam Crusher': [
         { name: 'Void Smash',        type: 'damage', stat: 'strength', multiplier: 1.3, cooldown: 15, cost: 20 },
         { name: 'Bone Fracture',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 30, cooldown: 60, cost: 22 },
         { name: "Berserker's Void",  type: 'buff',   effect: 'strength_up', value: 40, duration: 3, cooldown: 120, cost: 18 }
     ],
     // Assassin
-    'Void Fang': [
+    'Gloamfang': [
         { name: 'Void Pierce',       type: 'damage', stat: 'agility', multiplier: 1.3, cooldown: 15, cost: 18 },
         { name: 'Fang Strike',       type: 'damage', stat: 'agility', multiplier: 2.5, bleed: true, cooldown: 60, cost: 20 },
         { name: 'Shadow of the Void',type: 'buff',   effect: 'agility_up', value: 40, duration: 3, cooldown: 120, cost: 16 }
     ],
     // Mage
-    'Void Codex': [
+    'Gloam Codex': [
         { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 1.3, cooldown: 15, cost: 20 },
         { name: 'Codex Blast',       type: 'damage', stat: 'intelligence', multiplier: 2.5, aoe: true,   cooldown: 60, cost: 25 },
         { name: 'Mana Void',         type: 'damage', stat: 'intelligence', multiplier: 5.0,             cooldown: 120, cost: 30 }
     ],
     // Tank
-    'Void Bulwark': [
+    'Gloam Bulwark': [
         { name: 'Void Shield Wall',  type: 'buff',   effect: 'defense_up', value: 60, duration: 3, cooldown: 15, cost: 18 },
         { name: 'Bulwark Smash',     type: 'damage', stat: 'strength', multiplier: 2.5, def_reduction: 20, cooldown: 60, cost: 22 },
         { name: 'Void Absorption',   type: 'shield', value: 500,                        cooldown: 120, cost: 20 }
     ],
     // Healer
-    'Void Mend': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Gloam Mend': [] /* Healer weapon — stat bonuses only, no active moves */,
     // Tank damage
-    'Void Earthbreaker': [
+    'Gloam Earthbreaker': [
         { name: 'Seismic Slam',      type: 'damage', stat: 'stamina',   multiplier: 2.5, stun: true,    cooldown: 15, cost: 22 },
         { name: 'Void Quake',        type: 'damage', stat: 'stamina',   multiplier: 2.0, aoe: true,     cooldown: 60, cost: 28 },
         { name: 'Earthbreaker Blow', type: 'damage', stat: 'strength',  multiplier: 5.0, def_reduction: 40, cooldown: 120, cost: 30 }
     ],
 
     // ── PD TIER (stat ~1520, mult 2.7/5.3/10.5) ──────────────
-    'Fracture Cleaver': [
+    'Eclipse Cleaver': [
         { name: 'Reality Rend',      type: 'damage', stat: 'strength', multiplier: 2.7, cooldown: 10, cost: 25 },
         { name: 'Fracture Wave',     type: 'damage', stat: 'strength', multiplier: 5.3, aoe: true,   cooldown: 60, cost: 28 },
         { name: 'Cleave the Void',   type: 'damage', stat: 'strength', multiplier: 7.5, ignore_defense: 0.5, cooldown: 120, cost: 35 }
     ],
-    'Fracture Edge': [
+    'Eclipse Edge': [
         { name: 'Phase Slash',       type: 'damage', stat: 'agility', multiplier: 2.7, ignore_defense: 0.4, cooldown: 10, cost: 25 },
         { name: 'Fracture Cut',      type: 'damage', stat: 'agility', multiplier: 5.3, bleed: true, cooldown: 60, cost: 28 },
         { name: 'Phantom Edge',      type: 'damage', stat: 'agility', multiplier: 5.5,             cooldown: 120, cost: 35 }
     ],
-    'Fracture Scepter': [
+    'Eclipse Scepter': [
         { name: 'Scepter Beam',      type: 'damage', stat: 'intelligence', multiplier: 2.7, cooldown: 15, cost: 25 },
         { name: 'Fracture Pulse',    type: 'damage', stat: 'intelligence', multiplier: 5.3, aoe: true,   cooldown: 60, cost: 30 },
         { name: 'Reality Shatter',   type: 'damage', stat: 'intelligence', multiplier: 10.5, ignore_defense: 0.5, cooldown: 120, cost: 35 }
     ],
-    'Fracture Rampart': [
+    'Eclipse Rampart': [
         { name: 'Rampart Charge',    type: 'damage', stat: 'strength', multiplier: 2.7, stun: true, cooldown: 15, cost: 28 },
         { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 100, duration: 3, cooldown: 60, cost: 25 },
         { name: 'Phase Block',       type: 'shield', value: 1000,                       cooldown: 120, cost: 30 }
     ],
-    'Fracture Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
-    'Fracture Colossus': [
+    'Eclipse Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Eclipse Juggernaut': [
         { name: 'Colossus Strike',   type: 'damage', stat: 'stamina',  multiplier: 4.0, cooldown: 30, cost: 30 },
         { name: 'Fracture Slam',     type: 'damage', stat: 'stamina',  multiplier: 7.0, stun: true, aoe: true, cooldown: 60, cost: 38 },
         { name: 'Titan Force',       type: 'buff',   effect: 'strength_up', value: 120, duration: 3, cooldown: 120, cost: 25 }
     ],
 
     // ── PB TIER (stat ~3080, mult 5.9/11.6/23.0) ─────────────
-    'Abyss Annihilator': [
+    'Umbra Annihilator': [
         { name: 'Annihilation',      type: 'damage', stat: 'strength', multiplier: 5.9, cooldown: 10, cost: 30 },
         { name: 'Void Crush',        type: 'damage', stat: 'strength', multiplier: 11.6, stun: true, cooldown: 60, cost: 35 },
         { name: 'Abyss Rampage',     type: 'damage', stat: 'strength', multiplier: 23.0,            cooldown: 120, cost: 45 }
     ],
-    'Abyss Phantom': [
+    'Umbra Phantom': [
         { name: 'Phantom Kill',      type: 'damage', stat: 'agility', multiplier: 5.9, cooldown: 15, cost: 30 },
         { name: 'Invisible Strike',  type: 'damage', stat: 'agility', multiplier: 11.6, ignore_defense: 0.8, cooldown: 30, cost: 38 },
         { name: 'Void Blur',         type: 'damage', stat: 'agility', multiplier: 23.0,             cooldown: 120, cost: 48 }
     ],
-    'Abyss Tome': [
+    'Umbra Tome': [
         { name: 'Tome Incantation',  type: 'damage', stat: 'intelligence', multiplier: 5.9, cooldown: 15, cost: 30 },
         { name: 'Lost Spell',        type: 'damage', stat: 'intelligence', multiplier: 11.6,            cooldown: 30, cost: 35 },
         { name: 'Abyss Curse',       type: 'debuff', effect: 'intelligence', value: -80, duration: 3,  cooldown: 120, cost: 28 }
     ],
-    'Abyss Fortress': [
+    'Umbra Fortress': [
         { name: 'Fortress Strike',   type: 'damage', stat: 'strength', multiplier: 5.0, def_reduction: 60, cooldown: 15, cost: 30 },
         { name: 'Ancient Ward',      type: 'buff',   effect: 'defense_up', value: 200, duration: 4,       cooldown: 60, cost: 28 },
         { name: 'Impenetrable',      type: 'shield', value: 2500,                                         cooldown: 120, cost: 38 }
     ],
-    'Abyss Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Umbra Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── PS TIER (stat ~7200, mult 11.4/22.7/45.0) ────────────
-    "the Hollow King's Fist": [
+    "The Hollow King's Fist": [
         { name: 'Fist of the Hollow King',  type: 'damage', stat: 'strength', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 22.7, aoe: true, stun: true, cooldown: 60, cost: 48 },
         { name: 'The First War',     type: 'damage', stat: 'strength', multiplier: 45.0, ignore_defense: 1.0, cooldown: 120, cost: 60 }
     ],
-    "the Hollow King's Shadow": [
+    "The Hollow King's Shadow": [
         { name: 'Shadow of the Hollow King',type: 'damage', stat: 'agility', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'The First Shadow',  type: 'damage', stat: 'agility', multiplier: 22.7, bleed: true, ignore_defense: 0.6, cooldown: 60, cost: 48 },
         { name: 'Eternal Dark',      type: 'damage', stat: 'agility', multiplier: 45.0,             cooldown: 120, cost: 60 }
     ],
-    "the Hollow King's Gospel": [
+    "The Hollow King's Gospel": [
         { name: 'Gospel of Ruin',    type: 'damage', stat: 'intelligence', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'Written in Void',   type: 'damage', stat: 'intelligence', multiplier: 22.7, ignore_defense: 0.8, cooldown: 60, cost: 48 },
         { name: 'The Last Word',     type: 'damage', stat: 'intelligence', multiplier: 45.0, aoe: true, cooldown: 120, cost: 60 }
     ],
-    "the Hollow King's Seal": [
+    "The Hollow King's Seal": [
         { name: 'Seal Breaker',      type: 'damage', stat: 'strength', multiplier: 10.0, ignore_defense: 0.5, cooldown: 15, cost: 40 },
         { name: 'Original Seal',     type: 'buff',   effect: 'defense_up', value: 350, duration: 4,           cooldown: 60, cost: 35 },
         { name: 'Void Barrier',      type: 'shield', value: 6000,                                             cooldown: 120, cost: 48 }
     ],
-    "the Hollow King's Grace": [
+    "The Hollow King's Grace": [
         { name: 'Grace of the Hollow King', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 15, cost: 40 },
         { name: "Healer's Last Stand",type: 'heal',  stat: 'intelligence', multiplier: 22.7, aoe: true,   cooldown: 60, cost: 48 },
         { name: 'Infinite Mercy',    type: 'heal',   stat: 'intelligence', multiplier: 38.0, cleanse: true, aoe: true, cooldown: 120, cost: 55 }
@@ -522,7 +522,7 @@ module.exports = {
     ],
     'Umbral Colossus Gauntlet': [
         { name: 'Colossus Punch',    type: 'damage', stat: 'strength', multiplier: 7.5, stun: true, cooldown: 15, cost: 40 },
-        { name: 'Void Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 60, cost: 35 },
+        { name: 'Gloam Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 60, cost: 35 },
         { name: 'Colossus Slam',     type: 'shield', value: 3000, aoe: true,           cooldown: 120, cost: 48 }
     ],
 

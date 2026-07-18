@@ -20,7 +20,7 @@ const OUT_OF_DUNGEON_OK = new Set([
     'Eclipse Draught',     // FIX: can prep before dungeon
     'Shattered Time',      // FIX: can prep before dungeon
     'Crimson Tide',        // FIX: can prep before dungeon
-    "the Hollow King's Hunger",   // FIX: can prep before dungeon
+    "The Hollow King's Hunger",   // FIX: can prep before dungeon
 ]);
 
 module.exports = {
@@ -328,10 +328,10 @@ module.exports = {
                     break;
                 }
 
-                // ── TIME FREEZE (Eternity Shard Brew) ─────────────────────────
+                // ── TIME FREEZE (Shard of the Last Hour Brew) ─────────────────────────
                 case 'time_freeze':
                     setTurnEffect(userId, 'time_freeze', potion.turns || 2, {});
-                    effectMsg = `⏳ Eternity Shard Brew — time frozen for ${potion.turns} turns.\n┃◆ You act freely. Enemies cannot retaliate.`;
+                    effectMsg = `⏳ Shard of the Last Hour Brew — time frozen for ${potion.turns} turns.\n┃◆ You act freely. Enemies cannot retaliate.`;
                     break;
 
                 // ── KILL HP GAIN (Soul Harvest) ────────────────────────────────

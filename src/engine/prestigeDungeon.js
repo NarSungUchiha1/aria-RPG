@@ -21,7 +21,7 @@ const PRESTIGE_BOSSES = {
     PD: 'Void Warlord',
     PC: 'Abyss Monarch',
     PB: 'The Fracture God',
-    PA: "the Hollow King's Herald",
+    PA: "The Hollow King's Herald",
     PS: 'The Hollow King'
 };
 
@@ -200,7 +200,7 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
         PD: 'These creatures did not come from a Gate. They came from what was left.',
         PC: 'the Hollow King is not here yet. But his influence has been for centuries.',
         PB: 'The system cannot classify what comes next.',
-        PA: "the Hollow King's heralds do not announce. They arrive.",
+        PA: "The Hollow King's heralds do not announce. They arrive.",
         PS: 'This is the end. Or the beginning of what comes after the end.'
     };
 

@@ -49,25 +49,25 @@ const ENTRY_COSTS = {
 const DROPS = {
     Explorer: {
         common:   ['Healing Moss', 'Spell Component', 'Void Ink', 'Root Extract', 'Ancient Herb'],
-        uncommon: ['Life Essence', 'Shadow Fragment', 'Void Crystal', 'Shadow Essence'],
-        rare:     ['Blood Root', 'Ancient Tome Fragment', 'Void Ink', 'Shadow Essence'],
+        uncommon: ['Life Essence', 'Shadow Fragment', 'Twilight Crystal', 'Umbral Essence'],
+        rare:     ['Blood Root', 'Ancient Tome Fragment', 'Void Ink', 'Umbral Essence'],
         legendary:['the Hollow King Fragment', 'Ancient Tome Fragment']
     },
     Mage: {
         common:   ['Spell Component', 'Void Ink', 'Ancient Herb'],
-        uncommon: ['Void Crystal', 'Ancient Tome Fragment', 'Shadow Fragment'],
+        uncommon: ['Twilight Crystal', 'Ancient Tome Fragment', 'Shadow Fragment'],
         rare:     ['Void Ink', 'Ancient Tome Fragment'],
         legendary:['the Hollow King Fragment']
     },
     Healer: {
         common:   ['Healing Moss', 'Purified Water', 'Root Extract'],
         uncommon: ['Life Essence', 'Ancient Herb', 'Iron Root'],
-        rare:     ['Blood Root', 'Shadow Essence'],
+        rare:     ['Blood Root', 'Umbral Essence'],
         legendary:['the Hollow King Fragment']
     }
 };
 
-const PRESTIGE_BONUS_DROPS = ['Void Crystal', 'Ancient Tome Fragment', 'the Hollow King Fragment'];
+const PRESTIGE_BONUS_DROPS = ['Twilight Crystal', 'Ancient Tome Fragment', 'the Hollow King Fragment'];
 
 // Rank drop rates
 const RANK_DROP_RATES = {

@@ -7,7 +7,7 @@
 
 const db = require('../database/db');
 
-// Starter weapon per role — weaker than Void Crusher but better than S rank gear
+// Starter weapon per role — weaker than Gloam Crusher but better than S rank gear
 const STARTER_WEAPONS = {
     Berserker: {
         name: 'Void Initiate Blade',

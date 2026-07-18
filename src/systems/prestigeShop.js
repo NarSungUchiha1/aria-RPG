@@ -11,97 +11,97 @@ const db = require('../database/db');
 // ── MAX STOCK PER ITEM ───────────────────────────────────────────────────────
 const PRESTIGE_STOCK = {
     // Consumables — more available
-    'Void Elixir':      5,
+    'Gloam Elixir':      5,
     'Fatigue Potion':   7,
     'Fracture Potion':  3,
-    'Abyss Tonic':      2,
+    'Umbra Tonic':      2,
     'Prestige Bag':     2,
     // PF-PE weapons — slightly more common
-    'Void Crusher': 2, 'Void Fang': 2, 'Void Codex': 2, 'Void Bulwark': 2, 'Void Mend': 2,
+    'Gloam Crusher': 2, 'Gloamfang': 2, 'Gloam Codex': 2, 'Gloam Bulwark': 2, 'Gloam Mend': 2,
     // PD-PC weapons
-    'Fracture Cleaver': 2, 'Fracture Edge': 2, 'Fracture Scepter': 2, 'Fracture Rampart': 2, 'Fracture Chalice': 2,
+    'Eclipse Cleaver': 2, 'Eclipse Edge': 2, 'Eclipse Scepter': 2, 'Eclipse Rampart': 2, 'Eclipse Chalice': 2,
     // PB-PA weapons — rarer
-    'Abyss Annihilator': 1, 'Abyss Phantom': 1, 'Abyss Tome': 1, 'Abyss Fortress': 1, 'Abyss Lantern': 1,
+    'Umbra Annihilator': 1, 'Umbra Phantom': 1, 'Umbra Tome': 1, 'Umbra Fortress': 1, 'Umbra Lantern': 1,
     // PS weapons — only 1 ever
-    "the Hollow King's Fist": 1, "the Hollow King's Shadow": 1, "the Hollow King's Gospel": 1, "the Hollow King's Seal": 1, "the Hollow King's Grace": 1,
+    "The Hollow King's Fist": 1, "The Hollow King's Shadow": 1, "The Hollow King's Gospel": 1, "The Hollow King's Seal": 1, "The Hollow King's Grace": 1,
     // Additional Tank weapons
-    'Void Earthbreaker': 2, 'Fracture Colossus': 2,
+    'Gloam Earthbreaker': 2, 'Eclipse Juggernaut': 2,
     // Additional Healer weapon
-    'Void Manalisk': 5,
+    'Twilight Manalisk': 5,
 };
 
 const PRESTIGE_ITEMS = {
     // ── ALL ROLES ─────────────────────────────────────────────────────────────
     consumables: [
-        { name: 'Void Elixir',     price: 8000,  desc: 'Restores 60% HP. Void-infused.',                    type: 'consumable' },
+        { name: 'Gloam Elixir',     price: 8000,  desc: 'Restores 60% HP. Void-infused.',                    type: 'consumable' },
         { name: 'Fatigue Potion',  price: 12000, desc: 'Reduces fatigue by 30 points.',                      type: 'consumable' },
         { name: 'Fracture Potion', price: 15000, desc: 'Restores full HP. Rare.',                            type: 'consumable' },
-        { name: 'Abyss Tonic',     price: 25000, desc: '+50% damage for 3 turns.',                           type: 'consumable' },
-        { name: 'Void Manalisk',   price: 20000, desc: 'Instantly fills mana to maximum. Prestige only.',    type: 'consumable' },
+        { name: 'Umbra Tonic',     price: 25000, desc: '+50% damage for 3 turns.',                           type: 'consumable' },
+        { name: 'Twilight Manalisk',   price: 20000, desc: 'Instantly fills mana to maximum. Prestige only.',    type: 'consumable' },
         { name: 'Prestige Bag',    price: 50000, desc: '30 slots. Near-indestructible.',                     type: 'bag', slots: 30, durability: 500 }
     ],
 
     // ── BERSERKER ─────────────────────────────────────────────────────────────
     Berserker: [
-        { name: 'Void Crusher',      price: 75000,    minPrestige: 1, stats: { strength: 280, attack: 260 }, durability: 220,
+        { name: 'Gloam Crusher',      price: 75000,    minPrestige: 1, stats: { strength: 280, attack: 260 }, durability: 220,
           desc: 'Forged from the bones of a void titan.' },
-        { name: 'Fracture Cleaver',  price: 200000,   minPrestige: 1, stats: { strength: 550, attack: 520 }, durability: 280,
+        { name: 'Eclipse Cleaver',  price: 200000,   minPrestige: 1, stats: { strength: 550, attack: 520 }, durability: 280,
           desc: 'Every swing tears a small hole in reality.' },
-        { name: 'Abyss Annihilator', price: 750000,   minPrestige: 1, stats: { strength: 1100, attack: 1000 }, durability: 350,
+        { name: 'Umbra Annihilator', price: 750000,   minPrestige: 1, stats: { strength: 1100, attack: 1000 }, durability: 350,
           desc: 'It remembers every world it has ended.' },
-        { name: "the Hollow King's Fist",   price: 3000000,  minPrestige: 1, stats: { strength: 2200, attack: 2000, stamina: 300 }, durability: 500,
+        { name: "The Hollow King's Fist",   price: 3000000,  minPrestige: 1, stats: { strength: 2200, attack: 2000, stamina: 300 }, durability: 500,
           desc: 'Torn from the Hollow King\'s own gauntlet during the first war.' }
     ],
 
     // ── ASSASSIN ──────────────────────────────────────────────────────────────
     Assassin: [
-        { name: 'Void Fang',         price: 75000,    minPrestige: 1, stats: { agility: 280, attack: 270 }, durability: 220,
+        { name: 'Gloamfang',         price: 75000,    minPrestige: 1, stats: { agility: 280, attack: 270 }, durability: 220,
           desc: 'Leaves wounds that don\'t close for reasons nobody can explain.' },
-        { name: 'Fracture Edge',     price: 200000,   minPrestige: 1, stats: { agility: 550, attack: 540 }, durability: 280,
+        { name: 'Eclipse Edge',     price: 200000,   minPrestige: 1, stats: { agility: 550, attack: 540 }, durability: 280,
           desc: 'Phases through armour. The void passes through everything.' },
-        { name: 'Abyss Phantom',     price: 750000,   minPrestige: 1, stats: { agility: 1100, attack: 1050 }, durability: 350,
+        { name: 'Umbra Phantom',     price: 750000,   minPrestige: 1, stats: { agility: 1100, attack: 1050 }, durability: 350,
           desc: 'Invisible even when in use. The kill just happens.' },
-        { name: "the Hollow King's Shadow", price: 3000000,  minPrestige: 1, stats: { agility: 2200, attack: 2100, strength: 200 }, durability: 500,
+        { name: "The Hollow King's Shadow", price: 3000000,  minPrestige: 1, stats: { agility: 2200, attack: 2100, strength: 200 }, durability: 500,
           desc: 'This blade existed before its owner did.' }
     ],
 
     // ── MAGE ──────────────────────────────────────────────────────────────────
     Mage: [
-        { name: 'Void Codex',        price: 75000,    minPrestige: 1, stats: { intelligence: 280, attack: 260 }, durability: 220,
+        { name: 'Gloam Codex',        price: 75000,    minPrestige: 1, stats: { intelligence: 280, attack: 260 }, durability: 220,
           desc: 'Writes its own spells. The mage just channels.' },
-        { name: 'Fracture Scepter',  price: 200000,   minPrestige: 1, stats: { intelligence: 550, attack: 530 }, durability: 280,
+        { name: 'Eclipse Scepter',  price: 200000,   minPrestige: 1, stats: { intelligence: 550, attack: 530 }, durability: 280,
           desc: 'Each cast destabilises local space-time slightly.' },
-        { name: 'Abyss Tome',        price: 750000,   minPrestige: 1, stats: { intelligence: 1100, attack: 1000 }, durability: 350,
+        { name: 'Umbra Tome',        price: 750000,   minPrestige: 1, stats: { intelligence: 1100, attack: 1000 }, durability: 350,
           desc: 'Contains spells from a civilisation that no longer exists.' },
-        { name: "the Hollow King's Gospel", price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, attack: 2000, stamina: 200 }, durability: 500,
+        { name: "The Hollow King's Gospel", price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, attack: 2000, stamina: 200 }, durability: 500,
           desc: 'the Hollow King wrote this himself. It was found in the rubble.' },
     ],
 
     // ── TANK ──────────────────────────────────────────────────────────────────
     Tank: [
-        { name: 'Void Bulwark',      price: 75000,    minPrestige: 1, stats: { stamina: 280, defense: 300 }, durability: 280,
+        { name: 'Gloam Bulwark',      price: 75000,    minPrestige: 1, stats: { stamina: 280, defense: 300 }, durability: 280,
           desc: 'Absorbs void energy and converts it to protection.' },
-        { name: 'Fracture Rampart',  price: 200000,   minPrestige: 1, stats: { stamina: 550, defense: 600 }, durability: 350,
+        { name: 'Eclipse Rampart',  price: 200000,   minPrestige: 1, stats: { stamina: 550, defense: 600 }, durability: 350,
           desc: 'Hits against it feel wrong. Like punching at something that isn\'t quite there.' },
-        { name: 'Abyss Fortress',    price: 750000,   minPrestige: 1, stats: { stamina: 1100, defense: 1200 }, durability: 450,
+        { name: 'Umbra Fortress',    price: 750000,   minPrestige: 1, stats: { stamina: 1100, defense: 1200 }, durability: 450,
           desc: 'Ancient. Pre-dates the Gates. Nobody knows who made it.' },
-        { name: "the Hollow King's Seal",   price: 3000000,  minPrestige: 1, stats: { stamina: 2200, defense: 2500, strength: 200 }, durability: 600,
+        { name: "The Hollow King's Seal",   price: 3000000,  minPrestige: 1, stats: { stamina: 2200, defense: 2500, strength: 200 }, durability: 600,
           desc: 'It was the original seal. Repurposed.' },
-        { name: 'Void Earthbreaker',  price: 180000,   minPrestige: 1, stats: { stamina: 600, strength: 400, attack: 350 }, durability: 300,
+        { name: 'Gloam Earthbreaker',  price: 180000,   minPrestige: 1, stats: { stamina: 600, strength: 400, attack: 350 }, durability: 300,
           desc: 'A warhammer that channels void energy through sheer mass. The ground remembers every swing.' },
-        { name: 'Fracture Colossus',  price: 600000,   minPrestige: 1, stats: { stamina: 1200, strength: 800, attack: 700 }, durability: 380,
+        { name: 'Eclipse Juggernaut',  price: 600000,   minPrestige: 1, stats: { stamina: 1200, strength: 800, attack: 700 }, durability: 380,
           desc: 'Built for one purpose. It has never needed a second.' }
     ],
 
     // ── HEALER ────────────────────────────────────────────────────────────────
     Healer: [
-        { name: 'Void Mend',         price: 75000,    minPrestige: 1, stats: { intelligence: 280, stamina: 200 }, durability: 220,
+        { name: 'Gloam Mend',         price: 75000,    minPrestige: 1, stats: { intelligence: 280, stamina: 200 }, durability: 220,
           desc: 'Heals wounds that conventional medicine couldn\'t touch.' },
-        { name: 'Fracture Chalice',  price: 200000,   minPrestige: 1, stats: { intelligence: 550, stamina: 400 }, durability: 280,
+        { name: 'Eclipse Chalice',  price: 200000,   minPrestige: 1, stats: { intelligence: 550, stamina: 400 }, durability: 280,
           desc: 'The healing burns. But it works faster than anything else.' },
-        { name: 'Abyss Lantern',     price: 750000,   minPrestige: 1, stats: { intelligence: 1100, stamina: 800 }, durability: 350,
+        { name: 'Umbra Lantern',     price: 750000,   minPrestige: 1, stats: { intelligence: 1100, stamina: 800 }, durability: 350,
           desc: 'Carries the light of a world that no longer exists. Still warm.' },
-        { name: "the Hollow King's Grace",  price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
+        { name: "The Hollow King's Grace",  price: 3000000,  minPrestige: 1, stats: { intelligence: 2200, stamina: 1500 }, durability: 500,
           desc: 'the Hollow King had healers. This belonged to the last one.' },
     ]
 };

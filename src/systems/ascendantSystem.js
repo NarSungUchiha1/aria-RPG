@@ -303,7 +303,7 @@ const SOULBOUND_CONSTELLATIONS = [
     { name: 'The Burning Mane',    symbol: '♌', start: [7,23],  end: [8,22]  },
     { name: 'The Silent Weaver',   symbol: '♍', start: [8,23],  end: [9,22]  },
     { name: 'The Shattered Scale', symbol: '♎', start: [9,23],  end: [10,22] },
-    { name: 'The Void Fang',      symbol: '♏', start: [10,23], end: [11,21] },
+    { name: 'The Gloamfang',      symbol: '♏', start: [10,23], end: [11,21] },
     { name: 'The Last Arrow',     symbol: '♐', start: [11,22], end: [12,21] },
     { name: 'The Frozen Throne',   symbol: '♑', start: [12,22], end: [12,31] },
 ];

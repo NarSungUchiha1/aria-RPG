@@ -7,7 +7,7 @@ const MATERIAL_RARITIES = {
     'Healing Moss':'common','Purified Water':'common','Root Extract':'common','Ember Root':'common',
     'Void Water':'common','Iron Root':'common','Life Essence':'uncommon','Ancient Herb':'uncommon',
     'Shadow Moss':'uncommon','Shadow Fragment':'uncommon','Spell Component':'uncommon',
-    'Void Crystal':'rare','Blood Root':'rare','Shadow Essence':'rare','Void Ink':'rare',
+    'Twilight Crystal':'rare','Blood Root':'rare','Umbral Essence':'rare','Void Ink':'rare',
     'Ancient Tome Fragment':'legendary','the Hollow King Fragment':'legendary'
 };
 
