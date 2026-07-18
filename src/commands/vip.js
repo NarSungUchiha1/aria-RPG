@@ -1,10 +1,14 @@
-// VIP management. Owner-only grant/revoke (owner verifies payment first);
-// players can check their own status with plain !vip.
+// VIP / VVIP management. Owner-only grant/revoke (owner verifies payment
+// first); players check their own status with plain !vip.
+//   !vip grant @player   → 👑 VIP  (GH₵10)
+//   !vip vvip @player    → 💎 VVIP (GH₵25, daily supply drip)
+//   !vip revoke @player  · !vip list
 const db = require('../database/db');
+const fs = require('fs');
+const path = require('path');
 const { isOwner, normalizeId } = require('../utils/identity');
 const {
-    isVip, grantVip, revokeVip, listVips,
-    GRANT_GOLD, GRANT_XP, SUB_DAYS, PRICE_GHS, PRICE_NGN
+    TIERS, SUB_DAYS, isVip, getVip, grantVip, revokeVip, listVips
 } = require('../systems/subscriberSystem');
 const { generateVipCard } = require('../systems/vipCard');
 
@@ -20,22 +24,27 @@ function daysLeft(expiresAt) {
     return Math.max(0, Math.ceil((new Date(expiresAt) - Date.now()) / 86400000));
 }
 
+function loadAsset(name) {
+    try { return fs.readFileSync(path.join(__dirname, '..', '..', 'assets', name)); }
+    catch (e) { return null; }
+}
+
 module.exports = {
     name: 'vip',
-    aliases: ['subscriber'],
+    aliases: ['subscriber', 'vvip'],
     async execute(msg, args, { userId }) {
         const sub = (args[0] || '').toLowerCase();
 
         // ── Owner actions ─────────────────────────────────────────────
-        if (['grant', 'revoke', 'list'].includes(sub)) {
+        if (['grant', 'vvip', 'revoke', 'list'].includes(sub)) {
             if (!isOwner(userId)) return msg.reply('❌ Only the owner can manage VIP access.');
 
             if (sub === 'list') {
                 const vips = await listVips();
-                if (!vips.length) return msg.reply('👑 No active VIPs yet.');
+                if (!vips.length) return msg.reply('👑 No active subscribers yet.');
                 const lines = vips.map((v, i) =>
-                    `┃◈ ${i + 1}. ${v.nickname || v.player_id} — ${daysLeft(v.expires_at)}d left`).join('\n');
-                return msg.reply(`◆═══〘 👑 VIP LIST 〙═══◆\n${lines}\n◆═════════════════════◆`);
+                    `┃◈ ${i + 1}. ${v.tier === 'VVIP' ? '💎' : '👑'} ${v.nickname || v.player_id} — ${daysLeft(v.expires_at)}d left`).join('\n');
+                return msg.reply(`◆═══〘 👑 SUBSCRIBERS 〙═══◆\n${lines}\n◆═════════════════════◆`);
             }
 
             const target = resolveTarget(msg, args.slice(1));
@@ -45,71 +54,79 @@ module.exports = {
             if (!reg.length) return msg.reply('❌ That player is not registered.');
             const nick = reg[0].nickname;
 
-            if (sub === 'grant') {
-                const r = await grantVip(target, userId);
-                if (!r.ok) return msg.reply(`👑 *${nick}* is already an active VIP.`);
+            if (sub === 'grant' || sub === 'vvip') {
+                const tier = sub === 'vvip' ? 'VVIP' : 'VIP';
+                const r = await grantVip(target, userId, tier);
+                if (!r.ok) return msg.reply(`👑 *${nick}* already has an active ${r.tier || 'VIP'} subscription.`);
 
+                const gem = tier === 'VVIP' ? '💎' : '👑';
                 const confirmation =
-                    `◆═══〘 👑 VIP ACTIVATED 〙═══◆\n` +
+                    `◆═══〘 ${gem} ${tier} ACTIVATED 〙═══◆\n` +
                     `┃◈ Welcome to the inner circle,\n` +
                     `┃◈ *${nick}*.\n` +
-                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
-                    `┃◈ 💰 +${GRANT_GOLD.toLocaleString()} Lumens\n` +
-                    `┃◈ ⭐ +${GRANT_XP.toLocaleString()} XP\n` +
-                    `┃◈ 🧪 +6× Fatigue Potion\n` +
-                    `┃◈ 🧪 +2× Fracture Potion\n` +
-                    (r.bonusPotion ? `┃◈ 🎁 +1× ${r.bonusPotion}\n` : '') +
-                    `┃◈━━━━━━━━━━━━━━━━━━━\n` +
+                    `┃◈━━━━━━━━━━━━━\n` +
+                    `┃◈ ✨ +${r.lumens.toLocaleString()} Lumens\n` +
+                    `┃◈ ⭐ +${r.xp.toLocaleString()} XP\n` +
+                    (tier === 'VVIP'
+                        ? `┃◈ 📦 DAILY SUPPLY — every day:\n` +
+                          `┃◈ 🧪 2× Fatigue + 1× Fracture Potion\n` +
+                          `┃◈ 🎁 2 explorer potions every 2nd day\n` +
+                          `┃◈ (today's drop just landed)\n`
+                        : `┃◈ 🧪 +6× Fatigue Potion\n` +
+                          `┃◈ 🧪 +2× Fracture Potion\n` +
+                          (r.bonusPotion ? `┃◈ 🎁 +1× ${r.bonusPotion}\n` : '')) +
+                    `┃◈━━━━━━━━━━━━━\n` +
                     `┃◈ ⏳ Valid ${r.days} days\n` +
                     `┃◈ 🖼️ Photo + caption *!vipimage*\n` +
                     `┃◈    sets your card image.\n` +
                     `◆═════════════════════════◆`;
 
-                // "CONGRATULATIONS — VIP PASS unlocked" poster with the
-                // confirmation underneath; falls back to the jimp card, then text.
-                try {
-                    const fs = require('fs');
-                    const path = require('path');
-                    const congrats = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-congrats.jpg'));
-                    return await msg.reply({ image: congrats, caption: confirmation, mimetype: 'image/jpeg' });
-                } catch (e) { console.error('[VIP] congrats image missing:', e.message); }
+                // Tier poster (vvip-congrats.jpg for VVIP when provided), then
+                // the VIP congrats, then generated card, then plain text.
+                const poster = (tier === 'VVIP' && loadAsset('vvip-congrats.jpg')) || loadAsset('vip-congrats.jpg');
+                if (poster) return msg.reply({ image: poster, caption: confirmation, mimetype: 'image/jpeg' });
                 const cardImg = await generateVipCard({ nickname: nick, bonusPotion: r.bonusPotion, days: r.days });
-                if (cardImg) {
-                    return msg.reply({ image: cardImg, caption: confirmation, mimetype: 'image/jpeg' });
-                }
+                if (cardImg) return msg.reply({ image: cardImg, caption: confirmation, mimetype: 'image/jpeg' });
                 return msg.reply(confirmation);
             }
 
             const done = await revokeVip(target);
-            return msg.reply(done ? `👑 VIP revoked for *${nick}*.` : `❌ *${nick}* is not an active VIP.`);
+            return msg.reply(done ? `👑 Subscription revoked for *${nick}*.` : `❌ *${nick}* has no active subscription.`);
         }
 
         // ── Player: own status ────────────────────────────────────────
-        const { getVip } = require('../systems/subscriberSystem');
         const mine = await getVip(userId);
         if (mine) {
+            const gem = mine.tier === 'VVIP' ? '💎' : '👑';
             return msg.reply(
-                `◆═══〘 👑 VIP STATUS 〙═══◆\n` +
+                `◆═══〘 ${gem} ${mine.tier || 'VIP'} STATUS 〙═══◆\n` +
                 `┃◈ Status: *ACTIVE* ✅\n` +
                 `┃◈ ⏳ ${daysLeft(mine.expires_at)} days left\n` +
+                (mine.tier === 'VVIP' ? `┃◈ 📦 Daily supply drip: ON\n` : '') +
                 `┃◈ 🖼️ Photo + caption *!vipimage*\n` +
                 `┃◈    sets your card image.\n` +
                 `◆════════════════════════◆`
             );
         }
+
         const pitch =
-            `◆═══〘 👑 VIP 〙═══◆\n` +
-            `┃◈ 💵 GH₵${PRICE_GHS} (~₦${PRICE_NGN}) • ${SUB_DAYS} days\n` +
-            `┃◈ Everything on the pass —\n` +
-            `┃◈ plus the golden interface. 👑\n` +
-            `◆══════════════════◆`;
-        // Send the official VIP PASS poster (price + payment number on it).
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const pass = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-pass.jpg'));
-            return await msg.reply({ image: pass, caption: pitch, mimetype: 'image/jpeg' });
-        } catch (e) {}
+            `◆═══〘 👑 VIP • 💎 VVIP 〙═══◆\n` +
+            `┃◈ 👑 *VIP — GH₵${TIERS.VIP.priceGhs}* (~₦${TIERS.VIP.priceNgn})\n` +
+            `┃◈ ✨ 500k Lumens + ⭐ 500k XP\n` +
+            `┃◈ 🧪 6× Fatigue, 2× Fracture Potion\n` +
+            `┃◈ 🎁 1 explorer potion + card image\n` +
+            `┃◈━━━━━━━━━━━━━\n` +
+            `┃◈ 💎 *VVIP — GH₵${TIERS.VVIP.priceGhs}* (~₦${TIERS.VVIP.priceNgn})\n` +
+            `┃◈ ✨ 1M Lumens + ⭐ 1M XP\n` +
+            `┃◈ 📦 DAILY: 2× Fatigue + 1× Fracture\n` +
+            `┃◈ 🎁 2 explorer potions every 2nd day\n` +
+            `┃◈ 🖼️ Custom card image\n` +
+            `┃◈━━━━━━━━━━━━━\n` +
+            `┃◈ ✨ Golden interface on everything\n` +
+            `┃◈ ⏳ ${SUB_DAYS} days · Contact the owner.\n` +
+            `◆══════════════════════════◆`;
+        const pass = loadAsset('vvip-pass.jpg') || loadAsset('vip-pass.jpg');
+        if (pass) return msg.reply({ image: pass, caption: pitch, mimetype: 'image/jpeg' });
         return msg.reply(pitch);
     }
 };

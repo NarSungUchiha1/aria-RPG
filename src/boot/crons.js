@@ -258,7 +258,17 @@ function registerCrons({ getSock, isReady }) {
         } catch (e) { console.error('Faction weekly cron error:', e.message); }
     });
 
-    console.log('⏰ Cron jobs registered (13)');
+    // ==================== VVIP DAILY SUPPLY DRIP ====================
+    // 09:00 UTC daily: 2× Fatigue + 1× Fracture Potion to every active VVIP,
+    // plus 2 random explorer potions every 2nd day. last_drip guards repeats.
+    cron.schedule('0 9 * * *', async () => {
+        try {
+            const { dripVvipDaily } = require('../systems/subscriberSystem');
+            await dripVvipDaily();
+        } catch (e) { console.error('VVIP drip cron error:', e.message); }
+    });
+
+    console.log('⏰ Cron jobs registered (14)');
 }
 
 module.exports = { registerCrons };
