@@ -75,11 +75,27 @@ async function getBonusLabel(playerId) {
     return bonuses.map(b => b.label + ': ' + b.description).join(' | ');
 }
 
+// Remnant Sanctum perk: 15% chance to revive, once per dungeon. Rolls on each
+// death until it procs once; a success is marked so it can't repeat.
+const territoryRevives = new Set(); // `${dungeonId}_${playerId}` = revive used
+async function tryTerritoryRevive(playerId, dungeonId) {
+    try {
+        const key = `${dungeonId}_${playerId}`;
+        if (territoryRevives.has(key)) return false;
+        const bonuses = await getPlayerTerritoryBonuses(playerId);
+        if (!bonuses.find(b => b.type === 'xp_bonus')) return false; // Remnant hold only
+        if (Math.random() >= 0.15) return false;
+        territoryRevives.add(key);
+        return true;
+    } catch(e) { return false; }
+}
+
 module.exports = {
     getPlayerTerritoryBonuses,
     clearBonusCache,
     applyGoldBonus,
     applyXpBonus,
     getDamageBonusMultiplier,
-    getBonusLabel
+    getBonusLabel,
+    tryTerritoryRevive
 };

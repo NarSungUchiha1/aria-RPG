@@ -714,14 +714,29 @@ module.exports = {
                 reply += `${bul}────────────\n${bul} ☠️ ${player.nickname} has fallen.\n${lostMsg}${bul} Use !respawn to return.\n`;
                 try { await demoteRaider(client, userId); } catch(e) { console.error('Demote failed:', e.message); }
 
+                let deathAverted = false;
                 try {
                     const phantomResult = await triggerBlessingIfReady('on_death', userId, dungeon.id, player, dungeon, msg);
                     if (phantomResult) {
+                        deathAverted = true;
                         await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.6)) WHERE id=?', [userId]);
                         await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
                         try { await demoteRaider(client, userId); } catch(e2) {}
                     }
                 } catch(e) { console.error('Phantom shift error:', e.message); }
+
+                // Remnant Sanctum territory perk — 15% revive, once per dungeon.
+                if (!deathAverted) {
+                    try {
+                        const { tryTerritoryRevive } = require('../systems/territoryBonusSystem');
+                        if (await tryTerritoryRevive(userId, dungeon.id)) {
+                            deathAverted = true;
+                            await db.execute('UPDATE players SET hp = GREATEST(1, FLOOR(max_hp * 0.4)) WHERE id=?', [userId]);
+                            await db.execute('UPDATE dungeon_players SET is_alive=1 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                            reply += `┃◆ 🕯️ *Echo of the Fallen* — the Sanctum refuses your death! You rise at 40% HP.\n`;
+                        }
+                    } catch(e) { console.error('Territory revive error:', e.message); }
+                }
 
                 const [aliveCheck] = await db.execute(
                     'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=? AND is_alive=1',

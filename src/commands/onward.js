@@ -194,6 +194,48 @@ module.exports = {
                     }
                 } catch(e) { console.error('Resonance gain error:', e.message); }
 
+                // ── TERRITORY CONQUERED — the missing claim! ──────────────────
+                // Clearing the assault dungeon is the PvE victory path; it never
+                // claimed the territory (only the PvP war mode did).
+                if (d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_')) {
+                    try {
+                        const tid = d.dungeon_rank.replace('TERRITORY_', '');
+                        const [flags] = await db.execute('SELECT conquering_clan FROM dungeon_flags WHERE dungeon_id=?', [dungeon.id]);
+                        const winnerClan = flags[0]?.conquering_clan || null;
+                        if (winnerClan) {
+                            const { claimTerritory, TERRITORIES } = require('../systems/voidTerritories');
+                            await claimTerritory(tid, winnerClan);
+                            await db.execute(
+                                "UPDATE territory_wars SET status='completed', winner_clan=? WHERE territory_id=? AND status IN ('pending','active')",
+                                [winnerClan, tid]
+                            ).catch(() => {});
+                            try { require('./conquer').clearTerritoryLobby(dungeon.id); } catch(e) {}
+
+                            // Buffs apply immediately — clear participants' bonus cache
+                            // and award the territory-war resonance gain.
+                            const { clearBonusCache } = require('../systems/territoryBonusSystem');
+                            for (const p of participants) {
+                                clearBonusCache(p.player_id);
+                                await addVoidResonance(p.player_id, 'territory_war_win', client).catch(() => {});
+                            }
+
+                            const t = TERRITORIES[tid];
+                            const [cl] = await db.execute('SELECT name FROM clans WHERE id=?', [winnerClan]).catch(() => [[]]);
+                            await client.sendMessage(getRaidGroup(), {
+                                text:
+                                    '╔══〘 🌑 TERRITORY CONQUERED 〙══╗\n' +
+                                    '┃★\n' +
+                                    '┃★ ' + (t ? t.emoji + ' *' + t.name + '*' : tid) + '\n' +
+                                    '┃★ now belongs to *' + (cl[0]?.name || 'the conquerors') + '*.\n' +
+                                    '┃★\n' +
+                                    (t ? '┃★ 🎁 Clan bonus unlocked:\n┃★ *' + t.bonus.label + '*\n┃★ ' + t.bonus.description + '\n' : '') +
+                                    '┃★\n' +
+                                    '╚═══════════════════════════╝'
+                            }).catch(() => {});
+                        }
+                    } catch(terrErr) { console.error('Territory claim error:', terrErr.message); }
+                }
+
                 // MVP
                 try {
                     const { calculateMvp } = require('../systems/mvpSystem');

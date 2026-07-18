@@ -544,6 +544,13 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         }
     } catch(eclipseErr) {}
 
+    // Territory bonus: Wrathborne Stronghold (+25% damage) — cached lookup.
+    try {
+        const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
+        const terrMult = await getDamageBonusMultiplier(playerId);
+        if (terrMult > 1) damage = Math.floor(damage * terrMult);
+    } catch(e) {}
+
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     // Re-read only current_hp (concurrency-correct defeated check, minimal cost)
     const [updatedEnemy] = await db.execute("SELECT current_hp FROM dungeon_enemies WHERE id=?", [enemyId]);
@@ -767,6 +774,13 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             });
         }
     } catch(eclipseErr2) {}
+
+    // Territory bonus: Wrathborne Stronghold (+25% damage) — cached lookup.
+    try {
+        const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
+        const terrMult = await getDamageBonusMultiplier(playerId);
+        if (terrMult > 1) damage = Math.floor(damage * terrMult);
+    } catch(e) {}
 
     await db.execute("UPDATE dungeon_enemies SET current_hp = GREATEST(0, current_hp - ?) WHERE id=?", [damage, enemyId]);
     await addDamageContribution(dungeonId, enemyId, playerId, damage);
