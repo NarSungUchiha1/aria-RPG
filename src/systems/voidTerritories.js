@@ -9,50 +9,52 @@
 const db = require('../database/db');
 
 // ── THE THREE TERRITORIES ─────────────────────────────────────────────────────
+// THE HOLLOW SUN era. Internal ids (ASSEMBLY/WRATHBORNE/REMNANTS) unchanged —
+// only the world is new. Bonus types/values identical.
 const TERRITORIES = {
     ASSEMBLY: {
         id: 'ASSEMBLY',
-        name: 'The Assembly Hold',
-        emoji: '🏛️',
-        description: 'The old guild halls, now fractured and void-soaked. Cold corridors of power.',
-        lore: 'They tried to regulate the void. The void regulated them instead.',
+        name: 'The Dawnwatch Bastion',
+        emoji: '🌅',
+        description: 'The last fortress that still faces east. They keep watch for a dawn that stopped coming.',
+        lore: 'They swore to guard the sunrise. Now they guard its grave.',
         bonus: {
-            label: 'Tax of the Ancients',
+            label: 'Tithe of First Light',
             description: '+20% Gold from all dungeon clears',
             type: 'gold_bonus',
             value: 0.20
         },
-        guardian: 'Grand Arbiter Vayne',
+        guardian: 'Grand Warden Aurelius',
         stages: 4
     },
     WRATHBORNE: {
         id: 'WRATHBORNE',
-        name: 'The Wrathborne Stronghold',
-        emoji: '⚔️',
-        description: 'A fortress built from rage and fracture energy. The air itself is aggressive.',
-        lore: 'They took power from the void. The void took everything else.',
+        name: 'The Umbral Court',
+        emoji: '🌑',
+        description: 'A throne room carved from the dark itself. Here, night is not feared — it is worn.',
+        lore: 'When the sun hollowed, they knelt to the dark. The dark made them kings.',
         bonus: {
-            label: 'War Engine',
+            label: 'Crown of Night',
             description: '+25% damage in all dungeon combat',
             type: 'damage_bonus',
             value: 0.25
         },
-        guardian: 'The Warlord Unbound',
+        guardian: 'The Umbral Regent',
         stages: 4
     },
     REMNANTS: {
         id: 'REMNANTS',
-        name: 'The Remnant Sanctum',
+        name: 'The Last Light Sanctum',
         emoji: '🕯️',
-        description: 'The deepest fracture. Where Malachar\'s original purpose still echoes.',
-        lore: 'He was not evil. He was carrying something that was.',
+        description: 'Where the final fragment of the true sun is kept burning. The candles here never go out.',
+        lore: 'The sun did not die. It was taken. Its shards still burn — and still remember.',
         bonus: {
-            label: 'Echo of the Fallen',
+            label: 'Keeper\'s Flame',
             description: '+30% XP from all sources and 15% chance to revive once per dungeon',
             type: 'xp_bonus',
             value: 0.30
         },
-        guardian: "Malachar's Echo",
+        guardian: 'The First Sunshard',
         stages: 5
     }
 };

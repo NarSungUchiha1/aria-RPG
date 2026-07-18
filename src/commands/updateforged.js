@@ -11,10 +11,10 @@ const FORGED_WEAPON_NAMES = [
     // Legendary tier
     "Abyssal Reckoning", "Wraithblade", "Aegis of Eternity", "The Last Word", "Cradle of Life",
     // Prestige weapons
-    "Void Ravager", "Fracture Titan Blade", "Malachars Replica",
-    "Void Phantom Blade", "Fracture Reaper", "Malachars Shadow Replica",
-    "Void Grimoire", "Fracture Codex Supreme", "Malachars Gospel Replica",
-    "Void Aegis", "Fracture Fortress Shield"
+    "Gloamrend Ravager", "Eclipse Titan Blade", "Hollow Kings Replica",
+    "Gloam Phantom Blade", "Penumbra Reaper", "Hollow Kings Shadow Replica",
+    "Umbral Grimoire", "Eclipse Codex Supreme", "Hollow Kings Gospel Replica",
+    "Umbral Aegis", "Eclipse Fortress Shield"
 ];
 
 module.exports = {

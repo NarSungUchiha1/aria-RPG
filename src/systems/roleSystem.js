@@ -3,7 +3,7 @@ const roles = ["Tank","Assassin","Mage","Healer","Ranger","Berserker"];
 // item pools per role
 const roleItems = {
     Tank: ["Shield","Armor Plate","Fortify Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm"],
-    Assassin: ["Dagger","Poison Vial","Smoke Bomb","Silent Boots","Backstab Scroll","Cloak"],
+    Assassin: ["Dagger","Poison Vial","Smoke Bomb","Duskstep Boots","Backstab Scroll","Cloak"],
     Mage: ["Spell Book","Mana Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak"],
     Healer: ["Healing Staff","Revive Scroll","Herb Kit","Blessing Charm","Holy Water"],
     Ranger: ["Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion","Camouflage Cloak"],

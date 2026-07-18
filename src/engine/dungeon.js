@@ -1055,12 +1055,13 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
         });
     }
 
-    // Malachar's Echo (Chapter 6 invader) — killing it grants +25 Void Resonance.
-    if (enemy[0].name === "Malachar's Echo") {
+    // Sunshard (Hollow Sun invader) — killing it grants +25 Void Resonance.
+    // (Internal gain key 'malachar_echo_kill' kept — it's just an id.)
+    if (enemy[0].name === 'Sunshard') {
         try {
             const { addVoidResonance } = require('../systems/ascendantSystem');
             for (const r of rewards) await addVoidResonance(r.playerId, 'malachar_echo_kill', null).catch(() => {});
-            console.log(`👁️ Echo slain in dungeon ${dungeonId} — resonance granted to ${rewards.length} hunter(s).`);
+            console.log(`☄️ Sunshard slain in dungeon ${dungeonId} — resonance granted to ${rewards.length} hunter(s).`);
         } catch(e) {}
     }
 
@@ -1098,35 +1099,35 @@ async function advanceStage(dungeonId, nextStage, client = null) {
         ).catch(() => {});
     }
 
-    // ── CHAPTER 6: MALACHAR'S ECHO INVASION ──────────────────────────────────
+    // ── THE HOLLOW SUN: SUNSHARD INVASION ────────────────────────────────────
     // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
-    // The Echo is worth +25 Void Resonance on kill (see distributeEnemyRewards).
+    // The Sunshard is worth +25 Void Resonance on kill (distributeEnemyRewards).
     try {
         if (rank && !rank.startsWith('TERRITORY_') && rank !== 'MALACHAR') {
             const { getFlag } = require('../systems/gameFlags');
-            if ((await getFlag('chapter6_active')) === '1') {
+            if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
                 if (Math.random() < chance) {
-                    const ECHO_STATS = {
+                    const SHARD_STATS = {
                         F:{hp:1500,atk:35,def:20}, E:{hp:2500,atk:55,def:30}, D:{hp:4000,atk:80,def:45},
                         C:{hp:6000,atk:110,def:60}, B:{hp:9000,atk:150,def:80}, A:{hp:13000,atk:200,def:100},
                         S:{hp:20000,atk:270,def:130}
                     };
-                    const s = ECHO_STATS[rank] || ECHO_STATS.C;
+                    const s = SHARD_STATS[rank] || SHARD_STATS.C;
                     await db.execute(
-                        "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, \"Malachar's Echo\", ?, ?, ?, ?, ?, ?, 10, ?)",
+                        "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Sunshard', ?, ?, ?, ?, ?, ?, 10, ?)",
                         [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 4), Math.floor(s.hp / 5),
-                         JSON.stringify([{ name: 'Void Grasp', damage: 1.3 }, { name: 'Searching Gaze', damage: 1.0 }])]
+                         JSON.stringify([{ name: 'Burning Grasp', damage: 1.3 }, { name: 'Searching Light', damage: 1.0 }])]
                     );
                     if (client) {
-                        const { echoInvasionText } = require('../systems/chapter6lore');
-                        await client.sendMessage(getDungeonGroup(dungeonId), { text: echoInvasionText(rank) }).catch(() => {});
+                        const { sunshardInvasionText } = require('../systems/hollowSunLore');
+                        await client.sendMessage(getDungeonGroup(dungeonId), { text: sunshardInvasionText() }).catch(() => {});
                     }
-                    console.log(`👁️ Malachar's Echo invaded dungeon ${dungeonId} (stage ${nextStage}).`);
+                    console.log(`☄️ Sunshard crashed into dungeon ${dungeonId} (stage ${nextStage}).`);
                 }
             }
         }
-    } catch(e) { console.error('Echo invasion error:', e.message); }
+    } catch(e) { console.error('Sunshard invasion error:', e.message); }
 }
 
 async function addPlayerToDungeon(playerId, dungeonId) {

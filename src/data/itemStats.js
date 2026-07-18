@@ -6,19 +6,19 @@ module.exports = {
     // STR
     "Iron Greatsword":  { primaryStat: 'strength',     base: { strength: 1, attack: 1 }, increment: { strength: 1, attack: 1 } },
     "Battle Axe":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
-    "Rage Blade":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
+    "Duskrend Blade":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
     "Warhammer":        { primaryStat: 'strength',     base: { strength: 2, stamina: 1 }, increment: { strength: 1, stamina: 0 } },
     "Dragonbone Mace":  { primaryStat: 'strength',     base: { strength: 2, attack: 1 }, increment: { strength: 1, attack: 1 } },
 
     // AGI
-    "Shadow Dagger":    { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
+    "Umbral Fang":    { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Dagger":           { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Twin Fang Blades": { primaryStat: 'agility',      base: { agility: 2, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Wind Katana":      { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Nightshade Bow":   { primaryStat: 'agility',      base: { agility: 1, attack: 2 }, increment: { agility: 1, attack: 1 } },
 
     // INT
-    "Arcane Staff":     { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
+    "Gloamlight Staff":     { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Spell Book":       { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Frostbane Wand":   { primaryStat: 'intelligence', base: { intelligence: 2, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Void Scepter":     { primaryStat: 'intelligence', base: { intelligence: 2, attack: 1 }, increment: { intelligence: 1, attack: 1 } },

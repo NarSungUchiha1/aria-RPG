@@ -1,27 +1,27 @@
-// !chapter6 — owner-only. Posts the Chapter 6 "The Source" story drop to the
-// raid group and activates the era: Malachar's Echo invasions + faction war.
+// !hollowsun — owner-only. Posts THE HOLLOW SUN reboot story drop to the raid
+// group and activates the era: Sunshard invasions + faction war.
 const { isOwner } = require('../utils/identity');
 const { getRaidGroup } = require('../utils/raidContext');
-const { CHAPTER6_DROP } = require('../systems/chapter6lore');
+const { REBOOT_DROP } = require('../systems/hollowSunLore');
 const { setFlag } = require('../systems/gameFlags');
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 module.exports = {
-    name: 'chapter6',
+    name: 'hollowsun',
     async execute(msg, args, { userId, client }) {
         if (!isOwner(userId)) return msg.reply('❌ Owner only.');
         try {
             const jid = getRaidGroup();
-            for (const block of CHAPTER6_DROP) {
+            for (const block of REBOOT_DROP) {
                 await client.sendMessage(jid, { text: block });
                 await sleep(5000);
             }
-            await setFlag('chapter6_active', '1');
-            return msg.reply('📖 Chapter 6 is live — Echo invasions and faction war are ACTIVE.');
+            await setFlag('hollow_sun_active', '1');
+            return msg.reply('🌑 THE HOLLOW SUN is live — Sunshard invasions and faction war are ACTIVE.');
         } catch (e) {
-            console.error('chapter6 error:', e);
-            return msg.reply('❌ Chapter 6 drop failed: ' + e.message);
+            console.error('hollowsun error:', e);
+            return msg.reply('❌ Hollow Sun drop failed: ' + e.message);
         }
     }
 };

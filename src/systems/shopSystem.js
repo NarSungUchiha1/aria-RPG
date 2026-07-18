@@ -33,10 +33,10 @@ const roleItemPools = {
     Tank: ["Shield","Armor Plate","Tower Shield","Vanguard Helm","Golemheart Gauntlets",
            "Fortify Potion","Fatigue Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm",
            "Small Bag","Medium Bag","Large Bag"],
-    Assassin: ["Dagger","Shadow Dagger","Twin Fang Blades","Wind Katana","Nightshade Bow",
-               "Poison Vial","Fatigue Potion","Smoke Bomb","Silent Boots","Backstab Scroll","Cloak",
+    Assassin: ["Dagger","Umbral Fang","Twin Fang Blades","Wind Katana","Nightshade Bow",
+               "Poison Vial","Fatigue Potion","Smoke Bomb","Duskstep Boots","Backstab Scroll","Cloak",
                "Small Bag","Medium Bag","Large Bag"],
-    Mage: ["Spell Book","Arcane Staff","Frostbane Wand","Void Scepter","Celestial Orb",
+    Mage: ["Spell Book","Gloamlight Staff","Frostbane Wand","Void Scepter","Celestial Orb",
            "Mana Potion","Fatigue Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak",
            "Small Bag","Medium Bag","Large Bag"],
     Healer: ["Healing Staff","Celestial Orb","Blessing Charm","Holy Water","Revive Scroll",
@@ -45,15 +45,15 @@ const roleItemPools = {
     Ranger: ["Bow","Nightshade Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion",
              "Camouflage Cloak","Wind Katana",
              "Small Bag","Medium Bag","Large Bag"],
-    Berserker: ["Battle Axe","Rage Blade","Iron Greatsword","Warhammer","Dragonbone Mace",
+    Berserker: ["Battle Axe","Duskrend Blade","Iron Greatsword","Warhammer","Dragonbone Mace",
                 "Rage Potion","Fatigue Potion","War Cry Scroll","Blood Charm","Heavy Blade",
                 "Small Bag","Medium Bag","Large Bag"]
 };
 
 const rankRequirements = {
     "Tower Shield": "E", "Vanguard Helm": "D", "Golemheart Gauntlets": "C",
-    "Shadow Dagger": "E", "Twin Fang Blades": "D", "Wind Katana": "C",
-    "Nightshade Bow": "C", "Arcane Staff": "E", "Frostbane Wand": "D",
+    "Umbral Fang": "E", "Twin Fang Blades": "D", "Wind Katana": "C",
+    "Nightshade Bow": "C", "Gloamlight Staff": "E", "Frostbane Wand": "D",
     "Void Scepter": "C", "Celestial Orb": "B", "Iron Greatsword": "E",
     "Warhammer": "D", "Dragonbone Mace": "C", "Obsidian Cleaver": "C",
     "Whisperblade": "C", "Inferno Rod": "C", "Bulwark of Stone": "C",
@@ -75,7 +75,7 @@ const fixedPrices = {
     "Iron Skin": 150, "Heavy Boots": 160, "Guard Helm": 170,
     // Bags
     "Small Bag": 300, "Medium Bag": 700, "Large Bag": 1500,
-    "Silent Boots": 160, "Poison Vial": 180, "Smoke Bomb": 150,
+    "Duskstep Boots": 160, "Poison Vial": 180, "Smoke Bomb": 150,
     "Cloak": 140, "Arrow Bundle": 120, "Trap Kit": 160,
     "Camouflage Cloak": 160, "Blood Charm": 200, "Heavy Blade": 250,
     "Blessing Charm": 200, "Holy Water": 150, "Herb Kit": 130,
@@ -83,9 +83,9 @@ const fixedPrices = {
     "Ice Wand": 260, "Arcane Ring": 230, "Magic Cloak": 210,
     // Rank F weapons / armour
     "Dagger": 200, "Shield": 220, "Armor Plate": 240,
-    "Spell Book": 250, "Battle Axe": 260, "Rage Blade": 270, "Warhammer": 280,
+    "Spell Book": 250, "Battle Axe": 260, "Duskrend Blade": 270, "Warhammer": 280,
     // Rank E
-    "Shadow Dagger": 400, "Arcane Staff": 420,
+    "Umbral Fang": 400, "Gloamlight Staff": 420,
     "Iron Greatsword": 410, "Tower Shield": 430,
     // Rank D
     "Twin Fang Blades": 700, "Frostbane Wand": 720, "Vanguard Helm": 680,

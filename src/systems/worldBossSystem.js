@@ -4,12 +4,12 @@ const { getRaidGroup } = require('../engine/dungeon');
 // ── Boss Lore Pool ────────────────────────────────────────────────────────────
 const WORLD_BOSSES = [
     {
-        name: 'Malachar the Undying',
+        name: 'The Hollow King',
         rank: 'S',
         hp: 80000, atk: 120, def: 60,
         exp: 3000, gold: 6000,
         lore:
-            `Malachar was once ARIA's greatest hunter — a man who\n` +
+            `They say the Hollow King is what remains of the one who\n` +
             `┃◆    reached Rank S and then kept going, pushing beyond\n` +
             `┃◆    the system's limits. The void consumed him.\n` +
             `┃◆    He returned as something that cannot die.\n` +
@@ -18,7 +18,7 @@ const WORLD_BOSSES = [
             `The ground splits. A figure emerges from below —\n` +
             `┃◆    armour black as collapsed stars, eyes hollow.\n` +
             `┃◆    The system recognises him. It cannot stop him.\n` +
-            `┃◆    Malachar the Undying walks again.`
+            `┃◆    The Hollow King walks again.`
     },
         {
         name: 'The Void Leviathan',

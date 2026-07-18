@@ -131,7 +131,7 @@ module.exports = {
 ` +
                             `┃★                                     
 ` +
-                            `┃★   MALACHAR HAS FALLEN.              
+                            `┃★   THE HOLLOW KING HAS FALLEN.              
 ` +
                             `┃★                                     
 ` +
@@ -204,7 +204,7 @@ module.exports = {
                 try {
                     const isPS = d.dungeon_rank === 'PS';
                     const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
-                    const isMalacharEcho = d.boss_name === "Malachar's Echo";
+                    const isMalacharEcho = d.boss_name === 'The First Sunshard';
                     for (const p of participants) {
                         if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client).catch(() => {});
                         if (isPS) {

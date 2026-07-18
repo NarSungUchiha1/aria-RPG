@@ -15,14 +15,14 @@ const MELT_VALUE = {
     'Small Bag': 100, 'Medium Bag': 230, 'Large Bag': 500, 'Prestige Bag': 650,
     // ── MISC / ACCESSORIES ───────────────────────────────────────────
     'Iron Skin': 50, 'Heavy Boots': 55, 'Guard Helm': 55,
-    'Silent Boots': 55, 'Cloak': 45, 'Camouflage Cloak': 55,
+    'Duskstep Boots': 55, 'Cloak': 45, 'Camouflage Cloak': 55,
     'Magic Cloak': 70, 'Arcane Ring': 75, 'Bow': 75,
     'Healing Staff': 95, 'Ice Wand': 88,
     // ── F RANK WEAPONS ────────────────────────────────────────────────
-    'Dagger': 65, 'Battle Axe': 85, 'Rage Blade': 90, 'Warhammer': 95,
+    'Dagger': 65, 'Battle Axe': 85, 'Duskrend Blade': 90, 'Warhammer': 95,
     'Shield': 72, 'Armor Plate': 80, 'Spell Book': 85, 'Heavy Blade': 85,
     // ── E RANK ────────────────────────────────────────────────────────
-    'Shadow Dagger': 130, 'Arcane Staff': 140,
+    'Umbral Fang': 130, 'Gloamlight Staff': 140,
     'Iron Greatsword': 138, 'Tower Shield': 145,
     // ── D RANK ────────────────────────────────────────────────────────
     'Twin Fang Blades': 230, 'Frostbane Wand': 240, 'Vanguard Helm': 225,

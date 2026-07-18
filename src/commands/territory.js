@@ -14,7 +14,7 @@ module.exports = {
             let text =
                 '╔══〘 🌑 VOID TERRITORIES 〙══╗\n' +
                 '┃★\n' +
-                '┃★ The fractures Malachar left behind.\n' +
+                '┃★ The lands the Hollow Sun abandoned.\n' +
                 '┃★ Three wounds in the world.\n' +
                 '┃★ Clans fight to hold them.\n' +
                 '┃★\n' +

@@ -8,10 +8,12 @@
 const db = require('../database/db');
 const { getFlag, setFlag } = require('./gameFlags');
 
+// THE HOLLOW SUN era factions. Internal ids unchanged (they key territories,
+// member rows, and points) — names/mottos re-themed.
 const FACTIONS = {
-    ASSEMBLY:   { id: 'ASSEMBLY',   name: 'The Assembly',   emoji: '🏛️', motto: 'Order is the only thing keeping us alive.' },
-    WRATHBORNE: { id: 'WRATHBORNE', name: 'The Wrathborne', emoji: '⚔️', motto: 'We survived to conquer.' },
-    REMNANTS:   { id: 'REMNANTS',   name: 'The Remnants',   emoji: '🕯️', motto: 'He was the symptom. Find the source.' }
+    ASSEMBLY:   { id: 'ASSEMBLY',   name: 'The Dawnwatch',    emoji: '🌅', motto: 'The sun will rise because we will drag it back.' },
+    WRATHBORNE: { id: 'WRATHBORNE', name: 'The Umbral Court', emoji: '🌑', motto: 'Why mourn the sun? The dark crowns its own.' },
+    REMNANTS:   { id: 'REMNANTS',   name: 'The Last Light',   emoji: '🕯️', motto: 'The sun was taken. Find the thief.' }
 };
 
 const SWITCH_COST = 50000; // gold, only when leaving an existing faction

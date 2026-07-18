@@ -98,10 +98,10 @@ module.exports = {
             // Check if item belongs to a different role's pool
             const ROLE_ITEMS = {
                 Tank:      ['Shield', 'Armor Plate', 'Tower Shield', 'Vanguard Helm', 'Golemheart Gauntlets', 'Iron Ward', 'Frost Barrier', 'Stormwall', 'Aegis of Eternity', 'Aegis Immortal', 'Fortress Aegis', 'Bulwark of Stone', 'Aegis of the Fallen'],
-                Assassin:  ['Dagger', 'Shadow Dagger', 'Twin Fang Blades', 'Wind Katana', 'Nightshade Bow', 'Thorn Dagger', 'Shadow Fang', 'Void Edge', 'Whisperblade', 'Wraithblade', 'Eclipse Edge', "Eternity's Edge", 'Voidreaper Dagger'],
-                Mage:      ['Spell Book', 'Arcane Staff', 'Frostbane Wand', 'Void Scepter', 'Celestial Orb', 'Bone Staff', 'Venom Codex', 'Blood Grimoire', 'The Last Word', 'Inferno Rod', 'Omniscient Scepter', 'Staff of the Eternal', 'Celestial Codex'],
+                Assassin:  ['Dagger', 'Umbral Fang', 'Twin Fang Blades', 'Wind Katana', 'Nightshade Bow', 'Thorn Dagger', 'Shadow Fang', 'Void Edge', 'Whisperblade', 'Wraithblade', 'Eclipse Edge', "Eternity's Edge", 'Voidreaper Dagger'],
+                Mage:      ['Spell Book', 'Gloamlight Staff', 'Frostbane Wand', 'Void Scepter', 'Celestial Orb', 'Bone Staff', 'Venom Codex', 'Blood Grimoire', 'The Last Word', 'Inferno Rod', 'Omniscient Scepter', 'Staff of the Eternal', 'Celestial Codex'],
                 Healer:    ['Splint Mace', 'Ember Chalice', 'Soul Lantern', 'Cradle of Life', 'Soul Lantern'],
-                Berserker: ['Battle Axe', 'Rage Blade', 'Iron Greatsword', 'Warhammer', 'Dragonbone Mace', 'Bonecrusher', 'Ember Greatsword', 'Soulreaper', 'Maw of the Abyss', 'Abyssal Greatsword', "Titan's Wrath", 'Godslayer']
+                Berserker: ['Battle Axe', 'Duskrend Blade', 'Iron Greatsword', 'Warhammer', 'Dragonbone Mace', 'Bonecrusher', 'Ember Greatsword', 'Soulreaper', 'Maw of the Abyss', 'Abyssal Greatsword', "Titan's Wrath", 'Godslayer']
             };
 
             const itemRole = Object.entries(ROLE_ITEMS).find(([, items]) =>

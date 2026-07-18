@@ -29,7 +29,7 @@ module.exports = {
         { name: 'Heavy Blow',      type: 'damage', stat: 'strength', multiplier: 1.8, def_reduction: 10, cooldown: 3, cost: 5 },
         { name: 'Axe Spin',        type: 'damage', stat: 'strength', multiplier: 1.5, aoe: true,   cooldown: 5, cost: 8 }
     ],
-    'Rage Blade': [
+    'Duskrend Blade': [
         { name: 'Rending Slash',   type: 'damage', stat: 'strength', multiplier: 1.2, cooldown: 1, cost: 0 },
         { name: 'Overpower',       type: 'damage', stat: 'strength', multiplier: 1.9, cooldown: 3, cost: 5 },
         { name: 'Annihilate',      type: 'damage', stat: 'strength', multiplier: 3.0, cooldown: 5, cost: 10 }
@@ -57,12 +57,12 @@ module.exports = {
     'Healing Staff': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── E RANK ────────────────────────────────────────────────
-    'Shadow Dagger': [
+    'Umbral Fang': [
         { name: 'Shadow Strike',   type: 'damage', stat: 'agility',  multiplier: 1.4, cooldown: 1, cost: 0 },
         { name: 'Shadow Flurry',   type: 'damage', stat: 'agility',  multiplier: 1.2, hits: 3,     cooldown: 3, cost: 8 },
         { name: 'Death Mark',      type: 'debuff', effect: 'defense', value: -15, duration: 3, cooldown: 5, cost: 10 }
     ],
-    'Arcane Staff': [
+    'Gloamlight Staff': [
         { name: 'Arcane Bolt',     type: 'damage', stat: 'intelligence', multiplier: 1.4, cooldown: 1, cost: 6 },
         { name: 'Mana Surge',      type: 'buff',   effect: 'intelligence', value: 20, duration: 3, cooldown: 4, cost: 10 },
         { name: 'Arcane Explosion',type: 'damage', stat: 'intelligence', multiplier: 2.2, aoe: true, cooldown: 5, cost: 14 }
@@ -459,77 +459,77 @@ module.exports = {
     // ══════════════════════════════════════════════════════════
 
     // ── BERSERKER PRESTIGE FORGED ──────────────────────────────
-    'Void Ravager': [
+    'Gloamrend Ravager': [
         { name: 'Void Ravage',       type: 'damage', stat: 'strength', multiplier: 3.8, cooldown: 15, cost: 20 },
         { name: 'Rend Reality',      type: 'damage', stat: 'strength', multiplier: 11.2, def_reduction: 25, cooldown: 120, cost: 25 },
         { name: 'Void Rampage',      type: 'damage', stat: 'strength', multiplier: 8.5, aoe: true,  cooldown: 60, cost: 32 }
     ],
-    'Fracture Titan Blade': [
+    'Eclipse Titan Blade': [
         { name: 'Titan Cleave',      type: 'damage', stat: 'strength', multiplier: 3.5, cooldown: 15, cost: 28 },
         { name: 'Fracture Slash',    type: 'damage', stat: 'strength', multiplier: 6.0, ignore_defense: 0.5, cooldown: 60, cost: 32 },
         { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 11.0, stun: true, cooldown: 120, cost: 45 }
     ],
-    'Malachars Replica': [
+    'Hollow Kings Replica': [
         { name: 'Replica Strike',    type: 'damage', stat: 'strength', multiplier: 8.0, cooldown: 15, cost: 40 },
         { name: 'Echoing Blow',      type: 'damage', stat: 'strength', multiplier: 15.0, def_reduction: 50, cooldown: 60, cost: 48 },
         { name: 'The Replica War',   type: 'damage', stat: 'strength', multiplier: 28.0, aoe: true,  cooldown: 120, cost: 55 }
     ],
 
     // ── ASSASSIN PRESTIGE FORGED ──────────────────────────────
-    'Void Phantom Blade': [
+    'Gloam Phantom Blade': [
         { name: 'Phantom Slash',     type: 'damage', stat: 'agility', multiplier: 1.8, cooldown: 15, cost: 20 },
         { name: 'Phase Rend',        type: 'damage', stat: 'agility', multiplier: 3.2, ignore_defense: 0.4, cooldown: 60, cost: 25 },
         { name: 'Void Teleport',     type: 'damage', stat: 'agility', multiplier: 5.5, bleed: true, cooldown: 120, cost: 32 }
     ],
-    'Fracture Reaper': [
+    'Penumbra Reaper': [
         { name: 'Reaper Strike',     type: 'damage', stat: 'agility', multiplier: 3.5, cooldown: 15, cost: 28 },
         { name: 'Fracture Sever',    type: 'damage', stat: 'agility', multiplier: 6.2, ignore_defense: 0.6, cooldown: 60, cost: 32 },
         { name: 'Void Harvest',      type: 'damage', stat: 'agility', multiplier: 11.5, cooldown: 120, cost: 45 }
     ],
-    'Malachars Shadow Replica': [
+    'Hollow Kings Shadow Replica': [
         { name: 'Shadow Strike',     type: 'damage', stat: 'agility', multiplier: 8.0, cooldown: 15, cost: 40 },
         { name: 'Void Echo',         type: 'damage', stat: 'agility', multiplier: 15.5, bleed: true, cooldown: 60, cost: 48 },
         { name: 'The Replica Shadow',type: 'damage', stat: 'agility', multiplier: 29.0, ignore_defense: 0.8, cooldown: 120, cost: 55 }
     ],
 
     // ── MAGE PRESTIGE FORGED ────────────────────────────────────
-    'Void Grimoire': [
+    'Umbral Grimoire': [
         { name: 'Void Script',       type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 2, cost: 20 },
         { name: 'Arcane Tear',       type: 'damage', stat: 'intelligence', multiplier: 3.2, aoe: true,   cooldown: 4, cost: 25 },
         { name: 'Void Page',         type: 'damage', stat: 'intelligence', multiplier: 5.5, ignore_defense: 0.3, cooldown: 6, cost: 32 }
     ],
-    'Fracture Codex Supreme': [
+    'Eclipse Codex Supreme': [
         { name: 'Supreme Spell',     type: 'damage', stat: 'intelligence', multiplier: 3.5, cooldown: 3, cost: 28 },
         { name: 'Fracture Verse',    type: 'damage', stat: 'intelligence', multiplier: 6.0, aoe: true,   cooldown: 5, cost: 32 },
         { name: 'Ultimate Codex',    type: 'damage', stat: 'intelligence', multiplier: 11.0, cooldown: 7, cost: 45 }
     ],
-    'Malachars Gospel Replica': [
+    'Hollow Kings Gospel Replica': [
         { name: 'Gospel Incant',     type: 'damage', stat: 'intelligence', multiplier: 8.0, cooldown: 3, cost: 40 },
         { name: 'Void Sermon',       type: 'damage', stat: 'intelligence', multiplier: 15.0, aoe: true,   cooldown: 5, cost: 48 },
         { name: 'The Replica Gospel',type: 'damage', stat: 'intelligence', multiplier: 27.5, ignore_defense: 0.7, cooldown: 8, cost: 55 }
     ],
 
     // ── TANK PRESTIGE FORGED ────────────────────────────────────
-    'Void Aegis': [
+    'Umbral Aegis': [
         { name: 'Void Guard',        type: 'buff',   effect: 'defense_up', value: 70, duration: 3, cooldown: 45, cost: 20 },
         { name: 'Void Bash',         type: 'damage', stat: 'stamina', multiplier: 1.8, stun: true, cooldown: 60, cost: 22 },
         { name: 'Void Wall',         type: 'shield', value: 700,                        cooldown: 120, cost: 28 }
     ],
-    'Fracture Fortress Shield': [
+    'Eclipse Fortress Shield': [
         { name: 'Fortress Strike',   type: 'damage', stat: 'stamina', multiplier: 3.5, stun: true, cooldown: 15, cost: 28 },
         { name: 'Fracture Guard',    type: 'buff',   effect: 'defense_up', value: 120, duration: 3, cooldown: 60, cost: 30 },
         { name: 'Fortress Collapse', type: 'shield', value: 1500,                      cooldown: 120, cost: 38 }
     ],
-    'Void Colossus Gauntlet': [
+    'Umbral Colossus Gauntlet': [
         { name: 'Colossus Punch',    type: 'damage', stat: 'strength', multiplier: 7.5, stun: true, cooldown: 15, cost: 40 },
         { name: 'Void Bulwark',      type: 'buff',   effect: 'defense_up', value: 180, duration: 4, cooldown: 60, cost: 35 },
         { name: 'Colossus Slam',     type: 'shield', value: 3000, aoe: true,           cooldown: 120, cost: 48 }
     ],
 
     // ── HEALER PRESTIGE FORGED ──────────────────────────────────
-    'Void Sanctuary Staff': [] /* Healer weapon — stat bonuses only, no active moves */,
-    'Fracture Life Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
-    'Malachars Grace Replica': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Gloamlight Sanctuary Staff': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Eclipse Life Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
+    'Hollow Kings Grace Replica': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── THE THREE — MALACHAR BOUND WEAPONS ───────────────────────────────────
     'Ruin': [

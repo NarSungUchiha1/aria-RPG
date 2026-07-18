@@ -12,8 +12,8 @@
  *   +5  per prestige dungeon clear
  *   +3  per PS boss kill
  *   +15 per territory war win
- *   +20 per Remnant Sanctum clear
- *   +25 for killing Malachar's Echo
+ *   +20 per Last Light Sanctum clear
+ *   +25 for slaying a Sunshard
  *
  * At 100 resonance → Ascendant triggers automatically.
  */
@@ -272,7 +272,7 @@ async function triggerAscendant(playerId, client = null) {
                     '┃★   *' + p.nickname + '*\n' +
                     '┃★   has broken through.\n' +
                     '┃★\n' +
-                    '┃★   Whatever Malachar left behind\n' +
+                    '┃★   Whatever hollowed the sun\n' +
                     '┃★   — they carry it now.\n' +
                     '┃★   And it has made them something\n' +
                     '┃★   the void itself will fear.\n' +

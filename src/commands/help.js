@@ -137,8 +137,8 @@ module.exports = {
 ┃◆ !spawnwanderer → Force spawn Wanderer [Exp GC]
 ┃◆ !begin / !clear / !closedungeon
 ┃◆ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
-┃◆ !chapter5 → Launch Chapter 5 sequence
-┃◆ !givemalacharweapon → Give bound weapons
+┃◆ !hollowsun → Launch the Hollow Sun era
+┃◆ !chapter6 → (removed)
 ┃◆ !give @user gold/xp/item <value>
 ┃◆ !setrole @user <role>
 ┃◆ !event / !event end
@@ -269,8 +269,8 @@ module.exports = {
 ┃★ !begin / !clear / !closedungeon
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
 ┃★ !leviathanphase → Force Leviathan to final phase
-┃★ !chapter5 → Launch Chapter 5 sequence
-┃★ !givemalacharweapon → Give bound weapons
+┃★ !hollowsun → Launch the Hollow Sun era
+┃★ !chapter6 → (removed)
 ┃★ !give @user gold/xp/item <value>  |  !payxp @user <amount>
 ┃★ !setrole @user <role>
 ┃★ !event / !event end
@@ -398,8 +398,8 @@ module.exports = {
 ┃★ !closedungeon → Force-close dungeon
 ┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
 ┃★ !leviathanphase → Force Leviathan to final phase
-┃★ !chapter5 → Launch Chapter 5 sequence
-┃★ !givemalacharweapon → Give bound weapons
+┃★ !hollowsun → Launch the Hollow Sun era
+┃★ !chapter6 → (removed)
 ┃★ !give @user gold/xp/item <value>
 ┃★ !gift @user <item>  |  !payxp @user <amount>
 ┃★ !setrole @user <role>
@@ -543,8 +543,8 @@ module.exports = {
 ┃  ◆ !spawnleviathan → Spawn the Void Leviathan
 ┃  ◆ !spawnmalachar → Spawn Malachar raid
 ┃  ◆ !leviathanphase → Force Leviathan to final phase
-┃  ◆ !chapter5 → Launch Chapter 5 sequence
-┃  ◆ !givemalacharweapon → Give bound weapons
+┃  ◆ !hollowsun → Launch the Hollow Sun era
+┃  ◆ !chapter6 → (removed)
 ┃  ◆ !give @user gold/xp/item <value> → Grant resources
 ┃  ◆ !gift @user <item> → Quick item gift
 ┃  ◆ !payxp @user <amount> → Grant XP directly
