@@ -6,7 +6,7 @@ module.exports = {
     async execute(msg, args, { isAdmin, client }) {
         if (!isAdmin) return msg.reply("❌ Admin only.");
 
-        const validRanks = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+        const validRanks = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'HOLLOWKING']; // HOLLOWKING = world-boss raid (admin-staged era finale)
 
         // If rank given, validate it. If not, use weighted selection.
         let rank;

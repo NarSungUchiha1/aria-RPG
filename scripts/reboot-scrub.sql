@@ -61,6 +61,8 @@ DELETE FROM tournament_players;
 DELETE FROM tournament_matches;
 DELETE FROM duo_gauntlet_matches;
 DELETE FROM events;
+DELETE FROM world_boss;
+DELETE FROM world_boss_contributions;
 DELETE FROM bounties;
 
 -- ── Economy / markets ─────────────────────────────────────────────────────
