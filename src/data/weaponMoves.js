@@ -531,21 +531,4 @@ module.exports = {
     'Eclipse Life Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
     'Hollow Kings Grace Replica': [] /* Healer weapon — stat bonuses only, no active moves */,
 
-    // ── THE THREE — UNIQUE RELIC BOUND WEAPONS ───────────────────────────────────
-    'Ruin': [
-        { name: 'Void Cleave',    type: 'damage', stat: 'strength', multiplier: 18.0, cooldown: 1, cost: 0 },
-        { name: 'Fracture Strike',type: 'damage', stat: 'strength', multiplier: 35.0, hits: 2, ignore_defense: 0.6, cooldown: 3, cost: 0 },
-        { name: 'The Last Rage',  type: 'damage', stat: 'strength', multiplier: 80.0, aoe: true, ignore_defense: 1.0, drain_self: 0.15, cooldown: 6, cost: 0 }
-    ],
-    'Stillpoint': [
-        { name: 'Void Fang',      type: 'damage', stat: 'strength', multiplier: 16.0, cooldown: 1, cost: 0 },
-        { name: 'Tear Reality',   type: 'damage', stat: 'strength', multiplier: 30.0, def_reduction: 60, cooldown: 3, cost: 0 },
-        { name: 'The Vortex',     type: 'damage', stat: 'strength', multiplier: 65.0, hits: 3, ignore_defense: 0.8, cooldown: 6, cost: 0 }
-    ],
-    'No More Words': [
-        { name: 'Stand Firm',     type: 'shield',  value: 8000, cooldown: 1, cost: 0 },
-        { name: 'No Excuses',     type: 'damage',  stat: 'stamina', multiplier: 28.0, taunt: true, cooldown: 3, cost: 0 },
-        { name: 'The Weight of It', type: 'damage', stat: 'stamina', multiplier: 60.0, aoe: true, self_heal: 0.40, ignore_defense: 0.5, cooldown: 6, cost: 0 }
-    ],
-
 };

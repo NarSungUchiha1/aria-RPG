@@ -67,7 +67,7 @@ DELETE FROM bounties;
 DELETE FROM shop_stock;
 DELETE FROM potion_market;
 DELETE FROM explorer_listings;
-DELETE FROM weaponStats;
+-- (weaponStats + bound-weapon columns were old-era relic artifacts — dropped below)
 
 -- ── Monetization / referrals (total scrub per owner decision) ────────────
 DELETE FROM vip_subscribers;
@@ -106,3 +106,8 @@ DROP TABLE IF EXISTS malachar_kills;
 -- Safety net ONLY if you ever run this migration WITHOUT the full scrub above:
 -- UPDATE dungeon SET dungeon_rank='HOLLOWKING' WHERE dungeon_rank='MALACHAR';
 -- UPDATE quests  SET objective_type='worldboss_clear' WHERE objective_type='malachar_clear';
+
+-- Relic system fully erased from the code — drop its DB artifacts too:
+DROP TABLE IF EXISTS weaponStats;
+ALTER TABLE inventory DROP COLUMN bound_to;   -- errors harmlessly if absent
+ALTER TABLE inventory DROP COLUMN is_unique;  -- errors harmlessly if absent
