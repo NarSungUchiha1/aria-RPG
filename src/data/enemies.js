@@ -9,6 +9,35 @@
  * The Hollow King.
  */
 module.exports = {
+    // ══ STORY-MODE CHAPTER BOSSES (admin-staged raids; killing one advances the story) ══
+    VESPERION: {   // Chapter 1 finale — a D–C group's first great hunt
+        miniBosses: [
+            { name: 'Duskspawn Alpha',     hp: 1400, atk: 70,  def: 26, evasion: 12, exp: 150, gold: 130, moves: [{ name: 'Pack Howl',     damage: 1.6 }] },
+            { name: 'Vesper Acolyte',      hp: 1600, atk: 78,  def: 30, evasion: 10, exp: 170, gold: 150, moves: [{ name: 'Dusk Chant',    damage: 1.7 }] },
+            { name: 'Firstborn Whelp',     hp: 1900, atk: 85,  def: 34, evasion: 14, exp: 200, gold: 170, moves: [{ name: 'Newborn Fang',  damage: 1.8 }] }
+        ],
+        boss: { name: 'Vesperion, the Firstborn Dusk', hp: 25000, atk: 95, def: 40, evasion: 12, exp: 3000, gold: 3000,
+                moves: [{ name: 'First Night',  damage: 2.6 }, { name: 'Womb of Gloom', damage: 2.0 }, { name: 'Teething',  damage: 3.2 }] }
+    },
+    CINDERMAW: {   // Chapter 2 finale — the beast that swallowed a Sunshard
+        miniBosses: [
+            { name: 'Cinder Whelp',        hp: 3200, atk: 130, def: 48, evasion: 12, exp: 300, gold: 250, moves: [{ name: 'Spark Bite',    damage: 2.0 }] },
+            { name: 'Ashen Zealot',        hp: 3600, atk: 140, def: 55, evasion: 10, exp: 340, gold: 280, moves: [{ name: 'Ember Prayer',  damage: 2.1 }] },
+            { name: 'Molten Husk',         hp: 4200, atk: 150, def: 64, evasion: 8,  exp: 380, gold: 320, moves: [{ name: 'Slag Fist',     damage: 2.2 }] }
+        ],
+        boss: { name: 'Cindermaw, the Swallowed Star', hp: 60000, atk: 170, def: 70, evasion: 10, exp: 8000, gold: 8000,
+                moves: [{ name: 'Starlight Belch', damage: 3.0 }, { name: 'Molten Core',  damage: 2.4 }, { name: 'Swallow Whole', damage: 3.8 }] }
+    },
+    UMBRYSS: {     // Chapter 3 finale — the lord who commands the Umbral Tide
+        miniBosses: [
+            { name: 'Tidebound Knight',    hp: 6500, atk: 210, def: 85,  evasion: 14, exp: 500, gold: 420, moves: [{ name: 'Undertow Cut',  damage: 2.6 }] },
+            { name: 'Herald of High Dark', hp: 7200, atk: 225, def: 95,  evasion: 12, exp: 560, gold: 460, moves: [{ name: 'Rising Gloom',  damage: 2.8 }] },
+            { name: 'Drowned Lantern',     hp: 8000, atk: 240, def: 105, evasion: 16, exp: 620, gold: 520, moves: [{ name: 'Snuffed Light', damage: 3.0 }] }
+        ],
+        boss: { name: 'Umbryss, Lord of the Tide', hp: 150000, atk: 260, def: 110, evasion: 14, exp: 20000, gold: 20000,
+                moves: [{ name: 'High Tide',   damage: 3.4 }, { name: 'The Long Pull', damage: 2.8 }, { name: 'Drown the Dawn', damage: 4.2 }] }
+    },
+
     HOLLOWKING: {
         miniBosses: [
             { name: "Hollowed Shade",    hp: 8000,  atk: 180, def: 60,  evasion: 14, exp: 800,  gold: 600,  moves: [{ name: 'Gloom Pulse',        damage: 1.8 }] },

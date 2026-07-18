@@ -149,8 +149,9 @@ module.exports = {
                     });
                 }
 
-                const rewardGold = d.dungeon_rank === 'HOLLOWKING' ? 500000 : Math.floor(Math.random() * 20) + 90;
-                const rewardXp   = d.dungeon_rank === 'HOLLOWKING' ? 200000 : Math.floor(Math.random() * 15) + 82;
+                const STORY_REWARDS = { HOLLOWKING: [500000, 200000], VESPERION: [25000, 10000], CINDERMAW: [60000, 25000], UMBRYSS: [150000, 60000] };
+                const rewardGold = STORY_REWARDS[d.dungeon_rank]?.[0] ?? (Math.floor(Math.random() * 20) + 90);
+                const rewardXp   = STORY_REWARDS[d.dungeon_rank]?.[1] ?? (Math.floor(Math.random() * 15) + 82);
 
                 const { applyGoldBonus, applyXpBonus } = require('../systems/territoryBonusSystem');
                 const { addFactionPoints, championXpBonus } = require('../systems/factionSystem');
@@ -257,6 +258,22 @@ module.exports = {
                         }
                     } catch(terrErr) { console.error('Territory claim error:', terrErr.message); }
                 }
+                // ── STORY MODE: chapter boss slain → epilogue + next chapter ──
+                try {
+                    const STORY_NEXT = { VESPERION: 2, CINDERMAW: 3, UMBRYSS: 4 };
+                    const nextCh = STORY_NEXT[d.dungeon_rank];
+                    if (nextCh) {
+                        const { setChapter, getCurrentChapter } = require('../systems/loreSystem');
+                        const { CHAPTER_EPILOGUE } = require('../systems/storyEvents');
+                        const cur = await getCurrentChapter();
+                        if (cur < nextCh) {
+                            await setChapter(nextCh);
+                            const epilogue = CHAPTER_EPILOGUE[nextCh - 1];
+                            if (epilogue) await client.sendMessage(getRaidGroup(), { text: epilogue }).catch(() => {});
+                            console.log('📖 Story advanced to chapter ' + nextCh + ' (boss ' + d.dungeon_rank + ' slain).');
+                        }
+                    }
+                } catch(storyErr) { console.error('Story advance error:', storyErr.message); }
 
                 // MVP
                 try {

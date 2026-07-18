@@ -263,28 +263,13 @@ function getRandomDungeonLore(chapterNum) {
 
 // Auto-advance story based on total dungeon clears across all players
 async function checkStoryProgress(client, raidGroup) {
+    // STORY MODE: chapters no longer auto-advance on clear counts.
+    // Clears fire the chapter's EVENT SERIES (announcements, invasions,
+    // and finally the boss unlock). Killing the chapter boss advances the
+    // story — see onward.js. Engine + content: src/systems/storyEvents.js
     try {
-        const currentChapter = await getCurrentChapter();
-        const thresholds = { 1: 50, 2: 150, 3: 300, 4: 500 }; // clears needed per chapter
-        const threshold = thresholds[currentChapter];
-        if (!threshold) return; // already at max chapter
-
-        const db = require('../database/db');
-        const [rows] = await db.execute('SELECT COUNT(*) as cnt FROM dungeon WHERE is_active=0 AND locked=1');
-        const totalClears = rows[0]?.cnt || 0;
-
-        if (totalClears >= threshold) {
-            const next = currentChapter + 1;
-            await setChapter(next);
-            const chapter = CHAPTERS.find(c => c.id === next);
-            if (chapter && client && raidGroup) {
-                for (const line of chapter.story.slice(0, 3)) { // only first 3 lines to avoid spam
-                    if (!line) continue;
-                    await client.sendMessage(raidGroup, { text: line });
-                    await new Promise(r => setTimeout(r, 3000));
-                }
-            }
-        }
+        const { runStoryMilestones } = require('./storyEvents');
+        await runStoryMilestones(client, raidGroup);
     } catch(e) {}
 }
 

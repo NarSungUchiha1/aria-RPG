@@ -141,14 +141,14 @@ async function spawnDungeon(rank, client = null) {
         }
 
         const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
-        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, HOLLOWKING:6 }[rank] || 3;
+        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, HOLLOWKING:6, VESPERION:5, CINDERMAW:5, UMBRYSS:6 }[rank] || 3;
 
         // ── DUNGEON MODIFIERS — ~30% of spawns roll one ──────────────────────
         // GOLDEN: gold rewards ×3 · CURSED: enemies +50%, rewards ×2 ·
         // FRACTURED: the Hollow King's Echo invasion chance doubled (Chapter 6+)
         await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
         let modifier = null;
-        if (rank !== 'HOLLOWKING' && Math.random() < 0.30) {
+        if (!['HOLLOWKING','VESPERION','CINDERMAW','UMBRYSS'].includes(rank) && Math.random() < 0.30) {
             modifier = ['GOLDEN', 'CURSED', 'FRACTURED'][Math.floor(Math.random() * 3)];
         }
 
@@ -1103,7 +1103,7 @@ async function advanceStage(dungeonId, nextStage, client = null) {
     // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
     // The Sunshard is worth +25 Void Resonance on kill (distributeEnemyRewards).
     try {
-        if (rank && !rank.startsWith('TERRITORY_') && rank !== 'HOLLOWKING') {
+        if (rank && !rank.startsWith('TERRITORY_') && !['HOLLOWKING','VESPERION','CINDERMAW','UMBRYSS'].includes(rank)) {
             const { getFlag } = require('../systems/gameFlags');
             if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
@@ -1128,6 +1128,38 @@ async function advanceStage(dungeonId, nextStage, client = null) {
             }
         }
     } catch(e) { console.error('Sunshard invasion error:', e.message); }
+
+    // ── CHAPTER 1 EVENT: DUSKSPAWN INVASIONS (F–D dungeons) ──────────────────
+    // Active between "The Blue Flame" and the Vesperion unlock; chance rises
+    // after "The Whelps". Content/gates: src/systems/storyEvents.js
+    try {
+        if (['F', 'E', 'D'].includes(rank)) {
+            const { duskspawnActive, duskspawnChance } = require('../systems/storyEvents');
+            if (await duskspawnActive() && Math.random() < await duskspawnChance()) {
+                const SPAWN_STATS = { F: { hp: 700, atk: 26, def: 10 }, E: { hp: 1100, atk: 42, def: 16 }, D: { hp: 1700, atk: 62, def: 24 } };
+                const s = SPAWN_STATS[rank];
+                await db.execute(
+                    "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Duskspawn', ?, ?, ?, ?, ?, ?, 12, ?)",
+                    [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 5), Math.floor(s.hp / 4),
+                     JSON.stringify([{ name: 'Newborn Fang', damage: 1.4 }, { name: 'Hungry Dark', damage: 1.1 }])]
+                );
+                if (client) {
+                    await client.sendMessage(getDungeonGroup(dungeonId), {
+                        text:
+                            '╔══〘 🐾 DUSKSPAWN 〙══╗\n' +
+                            '┃★ The candle at the entrance\n' +
+                            '┃★ just turned blue.\n' +
+                            '┃★ Something young slipped in\n' +
+                            '┃★ with you. It is hungry.\n' +
+                            '┃★ ⚔️ Kill the *Duskspawn* —\n' +
+                            '┃★ bonus Lumens on its corpse.\n' +
+                            '╚═══════════════════════╝'
+                    }).catch(() => {});
+                }
+                console.log(`🐾 Duskspawn invaded dungeon ${dungeonId} (rank ${rank}).`);
+            }
+        }
+    } catch(e) { console.error('Duskspawn invasion error:', e.message); }
 }
 
 async function addPlayerToDungeon(playerId, dungeonId) {

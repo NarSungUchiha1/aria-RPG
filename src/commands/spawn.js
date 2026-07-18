@@ -6,7 +6,10 @@ module.exports = {
     async execute(msg, args, { isAdmin, client }) {
         if (!isAdmin) return msg.reply("❌ Admin only.");
 
-        const validRanks = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'HOLLOWKING']; // HOLLOWKING = world-boss raid (admin-staged era finale)
+        const validRanks = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'VESPERION', 'CINDERMAW', 'UMBRYSS', 'HOLLOWKING'];
+        // Story-mode chapter bosses: only summonable once the community's clears
+        // unlock them (storyboss_N_ready flag set by checkStoryProgress).
+        const STORY_RANKS = { VESPERION: 1, CINDERMAW: 2, UMBRYSS: 3, HOLLOWKING: 4 };
 
         // If rank given, validate it. If not, use weighted selection.
         let rank;
