@@ -68,7 +68,7 @@ async function beginDungeon(dungeonId, client) {
         const isPrestige =
             dungeonData.dungeon_rank?.startsWith('P');
 
-        const isMalachar =
+        const isHollowKing =
             dungeonData.dungeon_rank === 'MALACHAR';
 
         if (isPrestige) {
@@ -164,7 +164,7 @@ async function beginDungeon(dungeonId, client) {
 
         // ── IMPORTANT FIX ─────────────────────────────
         // DO NOT START TIMERS FOR MALACHAR
-        if (!isMalachar) {
+        if (!isHollowKing) {
 
             await startDungeonTimers(
                 dungeonId,
@@ -179,7 +179,7 @@ async function beginDungeon(dungeonId, client) {
 
         let timerText = '';
 
-        if (isMalachar) {
+        if (isHollowKing) {
 
             timerText =
 `┃◆ ♾️ No stage timer
@@ -360,7 +360,7 @@ module.exports = {
                 );
             }
 
-            const isMalachar =
+            const isHollowKing =
                 dungeon.dungeon_rank === 'MALACHAR';
 
             const [flags] = await db.execute(
@@ -372,10 +372,10 @@ module.exports = {
                 dungeon.dungeon_rank?.startsWith('TERRITORY_');
 
             const isUnlimited =
-                isMalachar || isTerritoryDungeon || flags[0]?.unlimited_entry === 1;
+                isHollowKing || isTerritoryDungeon || flags[0]?.unlimited_entry === 1;
 
             const noRankCheck =
-                isMalachar || isTerritoryDungeon || flags[0]?.no_rank_check === 1;
+                isHollowKing || isTerritoryDungeon || flags[0]?.no_rank_check === 1;
 
             const isPrestigeDungeon =
                 dungeon.dungeon_rank?.startsWith('P');
@@ -404,7 +404,7 @@ module.exports = {
             if (
                 !noRankCheck &&
                 !isPrestigeDungeon &&
-                !isMalachar &&
+                !isHollowKing &&
                 !isTerritoryDungeon &&
                 isPrestigePlayer
             ) {
@@ -418,7 +418,7 @@ module.exports = {
             }
 
             // ── Entry wealth requirement (display only, no deduction) ──
-            if (!isMalachar && !isTerritoryDungeon && !noRankCheck) {
+            if (!isHollowKing && !isTerritoryDungeon && !noRankCheck) {
                 const ENTRY_REQS = {
                     // Normal ranks — only PA and PS require wealth
                     F:0, E:0, D:0, C:0, B:0, A:0, S:0,

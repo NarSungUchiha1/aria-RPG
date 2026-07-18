@@ -16,7 +16,7 @@ const OVERALL_LIMIT_MS = 25 * 60 * 1000;  // 25 min → collapse
 const HP_STAGE_WARN_MS  = 5 * 60 * 1000;  // 5 min → warning
 const HP_STAGE_LIMIT_MS = 7 * 60 * 1000;  // 7 min → stage fail
 
-// Malachar has NO timers
+// the Hollow King has NO timers
 // ─────────────────────────────────────────────────────────
 
 function clearDungeonTimers(dungeonId) {
@@ -37,10 +37,10 @@ function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) 
     clearDungeonTimers(dungeonId);
 
     const isHP = HIGH_PRESTIGE.has(dungeonRank);
-    const isMalachar = dungeonRank === 'MALACHAR';
+    const isHollowKing = dungeonRank === 'MALACHAR';
 
     // ── MALACHAR: NO TIMERS ──────────────────────────────
-    if (isMalachar) {
+    if (isHollowKing) {
         timers.set(dungeonId, {
             stageTimeout: null,
             stageWarning: null,
@@ -127,10 +127,10 @@ function resetStageTimer(dungeonId, client, targetChat, onFail, dungeonRank) {
     if (!entry) return;
 
     const isHP = HIGH_PRESTIGE.has(dungeonRank);
-    const isMalachar = dungeonRank === 'MALACHAR';
+    const isHollowKing = dungeonRank === 'MALACHAR';
 
     // ── MALACHAR NEVER RESETS TIMERS ────────────────────
-    if (isMalachar) return;
+    if (isHollowKing) return;
 
     clearTimeout(entry.stageTimeout);
     clearTimeout(entry.stageWarning);

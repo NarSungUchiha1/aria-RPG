@@ -234,7 +234,7 @@ ECONOMY:
 
 CLANS:
 • !createclan · !clan · !clanlist. Passive blessings activate in dungeons.
-• Notable blessings: Eclipse (damage boost) · Titan's Roar (next hit 400% damage) · Malachar's Will (prestige-only, next 3 hits 1000% damage).
+• Notable blessings: Eclipse (damage boost) · Titan's Roar (next hit 400% damage) · the Hollow King's Will (prestige-only, next 3 hits 1000% damage).
 
 QUESTS: !quest (view) · !claim <id> (collect rewards).
 CASINO: !casino — 7 games, risk gold for rewards.

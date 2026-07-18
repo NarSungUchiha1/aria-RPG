@@ -541,7 +541,7 @@ module.exports = {
 ┃  ◆ !closedungeon → Force-close dungeon
 ┃  ◆ !spawnboss → Spawn a world boss
 ┃  ◆ !spawnleviathan → Spawn the Void Leviathan
-┃  ◆ !spawnmalachar → Spawn Malachar raid
+┃  ◆ !spawnmalachar → Spawn the Hollow King raid
 ┃  ◆ !leviathanphase → Force Leviathan to final phase
 ┃  ◆ !hollowsun → Launch the Hollow Sun era
 ┃  ◆ !chapter6 → (removed)
@@ -552,7 +552,7 @@ module.exports = {
 ┃  ◆ !event → Start a Void Fracture event
 ┃  ◆ !event end → End event + leaderboard
 ┃  ◆ !chapter → View/advance story chapter
-┃  ◆ !chapter4 → Trigger chapter 4 sequence
+
 ┃  ◆ !announce <msg> → Broadcast to GC
 ┃  ◆ !restock → Refill shop stock
 ┃  ◆ !promote / !demote @user → Bot admin

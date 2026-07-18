@@ -106,14 +106,14 @@ module.exports = {
                     [dungeon.id]
                 );
 
-                // Record Malachar kills for clan creation requirement
+                // Record the Hollow King kills for clan creation requirement
                 if (d.dungeon_rank === 'MALACHAR') {
                     for (const p of participants) {
                         recordMalacharKill(p.player_id).catch(() => {});
                     }
                 }
 
-                // Malachar clear announcement
+                // the Hollow King clear announcement
                 if (d.dungeon_rank === 'MALACHAR') {
                     await client.sendMessage(getRaidGroup(), {
                         text:

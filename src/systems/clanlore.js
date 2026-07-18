@@ -6,7 +6,7 @@ const CLAN_LORE = `
 ┃                                      
 ╠══════════════════════════════════════╣
 ┃                                      
-┃  Malachar is not dead.               
+┃  the Hollow King is not dead.               
 ┃                                      
 ┃  The void war continues.             
 ┃  The Gates are still broken.         
@@ -71,7 +71,7 @@ const CLAN_LORE = `
 ┃  training — it comes from who        
 ┃  you stand beside.                   
 ┃                                      
-┃  Malachar is still out there.        
+┃  the Hollow King is still out there.        
 ┃  The void is still open.             
 ┃  But for the first time since        
 ┃  the Gates fell —                    

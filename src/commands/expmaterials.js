@@ -18,7 +18,7 @@ const MATERIAL_RARITIES = {
     'Void Crystal': 'rare', 'Blood Root': 'rare', 'Shadow Essence': 'rare',
     'Void Ink': 'rare',
     // Legendary
-    'Ancient Tome Fragment': 'legendary', 'Malachar Fragment': 'legendary'
+    'Ancient Tome Fragment': 'legendary', 'the Hollow King Fragment': 'legendary'
 };
 
 module.exports = {

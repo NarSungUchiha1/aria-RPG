@@ -1,6 +1,6 @@
 /**
  * MALACHAR WEAPONS — The Three Who Stood
- * Unique weapons bound to the three hunters who killed Malachar.
+ * Unique weapons bound to the three hunters who killed the Hollow King.
  * Cannot be traded, dropped, crafted, or duplicated.
  * Each weapon carries the memory of what happened in that dungeon.
  *
@@ -65,7 +65,7 @@ const MALACHAR_WEAPONS = {
         item_type:   'weapon',
         unique:      true,
         bound:       true,
-        lore:        'In the eye of everything — the chaos, the void, Malachar\'s last breath — there was a single moment of complete calm. VØƦTEX found it. This is what he brought back.',
+        lore:        'In the eye of everything — the chaos, the void, the Hollow King\'s last breath — there was a single moment of complete calm. VØƦTEX found it. This is what he brought back.',
         stat_bonus:  { strength: 1000, agility: 600 },
         moves: [
             {
@@ -103,7 +103,7 @@ const MALACHAR_WEAPONS = {
 
     // ── SEKIRO ────────────────────────────────────────────────────────────────
     // He blamed everything. The system. The weapon. His teammates.
-    // Then Malachar nearly killed him and something changed.
+    // Then the Hollow King nearly killed him and something changed.
     // The shield he carries now is the version of himself that stopped making excuses.
     'No More Words': {
         owner_id:    '200957459742874',
@@ -112,7 +112,7 @@ const MALACHAR_WEAPONS = {
         item_type:   'weapon',
         unique:      true,
         bound:       true,
-        lore:        ' He blamed everything. The system. The weapon doing 60 damage. His teammates.Then Malachar nearly killed him and something changed.The shield he carries now is the version of himself that stopped making excuses.',
+        lore:        ' He blamed everything. The system. The weapon doing 60 damage. His teammates.Then the Hollow King nearly killed him and something changed.The shield he carries now is the version of himself that stopped making excuses.',
         stat_bonus:  { stamina: 1500, strength: 500 },
         moves: [
             {

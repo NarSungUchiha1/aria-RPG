@@ -3,9 +3,9 @@
  * Applies passive bonuses to clan members based on territories held.
  *
  * Bonuses:
- *   Assembly Hold    → +20% Gold from dungeon clears
- *   Wrathborne Hold  → +25% damage in dungeon combat
- *   Remnant Sanctum  → +30% XP from all sources
+ *   Dawnwatch Bastion  → +20% Gold from dungeon clears
+ *   Umbral Court       → +25% damage in dungeon combat
+ *   Last Light Sanctum → +30% XP from all sources
  */
 
 const db = require('../database/db');
@@ -75,7 +75,7 @@ async function getBonusLabel(playerId) {
     return bonuses.map(b => b.label + ': ' + b.description).join(' | ');
 }
 
-// Remnant Sanctum perk: 15% chance to revive, once per dungeon. Rolls on each
+// Last Light Sanctum perk: 15% chance to revive, once per dungeon. Rolls on each
 // death until it procs once; a success is marked so it can't repeat.
 const territoryRevives = new Set(); // `${dungeonId}_${playerId}` = revive used
 async function tryTerritoryRevive(playerId, dungeonId) {
@@ -83,7 +83,7 @@ async function tryTerritoryRevive(playerId, dungeonId) {
         const key = `${dungeonId}_${playerId}`;
         if (territoryRevives.has(key)) return false;
         const bonuses = await getPlayerTerritoryBonuses(playerId);
-        if (!bonuses.find(b => b.type === 'xp_bonus')) return false; // Remnant hold only
+        if (!bonuses.find(b => b.type === 'xp_bonus')) return false; // Last Light hold only
         if (Math.random() >= 0.15) return false;
         territoryRevives.add(key);
         return true;

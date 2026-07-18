@@ -44,15 +44,15 @@ const MELT_VALUE = {
     'Omniscient Scepter': 400000, 'Aegis Immortal': 400000,
     // ── PRESTIGE WEAPONS (~10% of shop price) ─────────────────────────
     'Void Crusher': 7500, 'Fracture Cleaver': 20000,
-    'Abyss Annihilator': 75000, "Malachar's Fist": 300000,
+    'Abyss Annihilator': 75000, "the Hollow King's Fist": 300000,
     'Void Fang': 7500, 'Fracture Edge': 20000,
-    'Abyss Phantom': 75000, "Malachar's Shadow": 300000,
+    'Abyss Phantom': 75000, "the Hollow King's Shadow": 300000,
     'Void Codex': 7500, 'Fracture Scepter': 20000,
-    'Abyss Tome': 75000, "Malachar's Gospel": 300000,
+    'Abyss Tome': 75000, "the Hollow King's Gospel": 300000,
     'Void Bulwark': 7500, 'Fracture Rampart': 20000,
-    'Abyss Fortress': 75000, "Malachar's Seal": 300000,
+    'Abyss Fortress': 75000, "the Hollow King's Seal": 300000,
     'Void Mend': 7500, 'Fracture Chalice': 20000,
-    'Abyss Lantern': 75000, "Malachar's Grace": 300000,
+    'Abyss Lantern': 75000, "the Hollow King's Grace": 300000,
 }
 
 // Prestige consumables — cannot be melted

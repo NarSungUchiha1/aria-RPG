@@ -8,7 +8,7 @@ const MATERIAL_RARITIES = {
     'Void Water':'common','Iron Root':'common','Life Essence':'uncommon','Ancient Herb':'uncommon',
     'Shadow Moss':'uncommon','Shadow Fragment':'uncommon','Spell Component':'uncommon',
     'Void Crystal':'rare','Blood Root':'rare','Shadow Essence':'rare','Void Ink':'rare',
-    'Ancient Tome Fragment':'legendary','Malachar Fragment':'legendary'
+    'Ancient Tome Fragment':'legendary','the Hollow King Fragment':'legendary'
 };
 
 async function canBrew(userId, ingredients) {

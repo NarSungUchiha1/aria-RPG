@@ -20,7 +20,7 @@ const OUT_OF_DUNGEON_OK = new Set([
     'Eclipse Draught',     // FIX: can prep before dungeon
     'Shattered Time',      // FIX: can prep before dungeon
     'Crimson Tide',        // FIX: can prep before dungeon
-    "Malachar's Hunger",   // FIX: can prep before dungeon
+    "the Hollow King's Hunger",   // FIX: can prep before dungeon
 ]);
 
 module.exports = {
@@ -181,10 +181,10 @@ module.exports = {
                     effectMsg = `👻 Phantom Draught — ${potion.turns} turns. Each attack has ${Math.floor((potion.chance||0.4)*100)}% chance to hit TWICE.`;
                     break;
 
-                // ── HP STEAL (Malachar's Hunger) ───────────────────────────────
+                // ── HP STEAL (the Hollow King's Hunger) ───────────────────────────────
                 case 'hp_steal_first':
                     setEffect(userId, dungeonId, potionName, 'hp_steal_first', { percent: potion.steal_percent || 0.3, overflow: true });
-                    effectMsg = `🍖 Malachar's Hunger — steal ${Math.floor((potion.steal_percent||0.3)*100)}% of each enemy's current HP on first hit per stage.\n┃◆ ⚠️ Overflow damage reflects back at you.`;
+                    effectMsg = `🍖 the Hollow King's Hunger — steal ${Math.floor((potion.steal_percent||0.3)*100)}% of each enemy's current HP on first hit per stage.\n┃◆ ⚠️ Overflow damage reflects back at you.`;
                     break;
 
                 // ── CLAN BOOST (Void Resonance) ────────────────────────────────

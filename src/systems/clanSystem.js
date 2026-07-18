@@ -11,7 +11,7 @@ const CLAN_BLESSINGS = {
     7:  { name: "Heaven's Fall",    emoji: '☄️', condition: 'Every 5th skill used',                         effect: 'Celestial strike — 450% INT damage to ALL enemies. Ignores defense.',        trigger: 'every_5_skills',          multiplier: 4.5,  stat: 'intelligence', aoe: true, ignore_defense: true },
     8:  { name: "Abyssal Hunger",   emoji: '🕳️', condition: 'After a healer heals you in a dungeon',        effect: '200% of healing dealt as damage to a random enemy.',                        trigger: 'on_healed',               heal_multiplier: 2.0 },
     9:  { name: "Eclipse",          emoji: '🌒', condition: 'When dungeon reaches the final stage',          effect: 'All enemies lose 40% HP instantly. +30% damage for rest of dungeon.',       trigger: 'final_stage',             hp_drain: 0.4,    damage_boost: 0.3 },
-    10: { name: "Malachar's Will",  emoji: '👁️', condition: 'Prestige only — all teammates below 50% HP',   effect: 'Next 3 attacks deal 1000% damage. Cannot miss or be evaded.',               trigger: 'all_allies_below_50',     multiplier: 10.0, charges: 3, prestige_only: true },
+    10: { name: "the Hollow King's Will",  emoji: '👁️', condition: 'Prestige only — all teammates below 50% HP',   effect: 'Next 3 attacks deal 1000% damage. Cannot miss or be evaded.',               trigger: 'all_allies_below_50',     multiplier: 10.0, charges: 3, prestige_only: true },
 };
 
 // ── CLAN CREATION REQUIREMENTS ────────────────────────────────────────────────

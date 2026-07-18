@@ -21,8 +21,8 @@ const PRESTIGE_BOSSES = {
     PD: 'Void Warlord',
     PC: 'Abyss Monarch',
     PB: 'The Fracture God',
-    PA: "Malachar's Herald",
-    PS: 'Malachar'
+    PA: "the Hollow King's Herald",
+    PS: 'The Hollow King'
 };
 
 const MAX_STAGES = { PF: 3, PE: 4, PD: 5, PC: 6, PB: 7, PA: 8, PS: 10 };
@@ -198,9 +198,9 @@ async function spawnPrestigeDungeon(prestigeRank, client, RAID_GROUP) {
         PF: 'The void left something behind when the Leviathan fell.',
         PE: 'The Fracture deepens. The ground between worlds grows thin.',
         PD: 'These creatures did not come from a Gate. They came from what was left.',
-        PC: 'Malachar is not here yet. But his influence has been for centuries.',
+        PC: 'the Hollow King is not here yet. But his influence has been for centuries.',
         PB: 'The system cannot classify what comes next.',
-        PA: "Malachar's heralds do not announce. They arrive.",
+        PA: "the Hollow King's heralds do not announce. They arrive.",
         PS: 'This is the end. Or the beginning of what comes after the end.'
     };
 

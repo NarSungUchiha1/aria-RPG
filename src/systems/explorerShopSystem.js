@@ -15,7 +15,7 @@ const SHOP_ITEMS = [
     { id: 7,  name: 'Void Anchor',          emoji: '⚓', desc: 'Return from next rift at full HP regardless of wounds.',          price: 3500,  effect: 'no_wound',          value: 1,    uses: 1, lore: 'Keeps you tethered to yourself when the void tries to pull pieces away.' },
     { id: 8,  name: 'Deep Rift Map',        emoji: '🗺️', desc: '+20% survival rate in prestige rifts only. 2 uses.',             price: 8000,  effect: 'prestige_survival', value: 0.20, uses: 2, lore: 'Someone mapped the deep rifts. They did not come back to sell it in person.' },
     { id: 9,  name: 'Rift Extender',        emoji: '⏳', desc: 'Extends your return window from 2 hours to 4 hours.',             price: 1500,  effect: 'extend_timeout',    value: 1,    uses: 1, lore: 'Time inside the void does not move the same way. This corrects for that.' },
-    { id: 10, name: 'Prestige Rift Pass',   emoji: '✦',  desc: 'Prestige only — guaranteed Malachar Fragment on next rift.',      price: 15000, effect: 'fragment_guarantee',value: 1,    uses: 1, prestige: true, lore: 'The fragments respond to this. Nobody is sure why they respond at all.' }
+    { id: 10, name: 'Prestige Rift Pass',   emoji: '✦',  desc: 'Prestige only — guaranteed the Hollow King Fragment on next rift.',      price: 15000, effect: 'fragment_guarantee',value: 1,    uses: 1, prestige: true, lore: 'The fragments respond to this. Nobody is sure why they respond at all.' }
 ];
 
 async function ensureShopTables() {

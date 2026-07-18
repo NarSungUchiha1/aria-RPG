@@ -23,7 +23,7 @@ const PRIZE_POOL = {
     champion:      { gold: 1500000, xp: 1500000, materials: { 'Void Crystal': 50, 'Ancient Tome Fragment': 10 }, weapon: 'Void Crown' },
     runner_up:     { gold: 750000,  xp: 750000,  materials: { 'Void Crystal': 30, 'Ancient Tome Fragment': 5  }, weapon: 'Fracture Sovereign' },
     semi_finalist: { gold: 350000,  xp: 350000,  materials: { 'Void Crystal': 15 }, weapon: null },
-    top_8:         { gold: 150000,  xp: 150000,  materials: { 'Void Crystal': 5, 'Malachar Fragment': 3 }, weapon: null },
+    top_8:         { gold: 150000,  xp: 150000,  materials: { 'Void Crystal': 5, 'the Hollow King Fragment': 3 }, weapon: null },
     participant:   { gold: 25000,   xp: 25000,   materials: { 'Void Dust': 5     }, weapon: null },
 };
 

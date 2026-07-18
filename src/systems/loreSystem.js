@@ -222,7 +222,7 @@ const DUNGEON_LORE = {
         `There is a theory that the Leviathan can feel every dungeon that opens. If that is true then every raid is a provocation. Good.`
     ],
     4: [
-        `Malachar was seen near a Gate matching this dungeon's signature. Whatever he is looking for he has not found it yet.`,
+        `the Hollow King was seen near a Gate matching this dungeon's signature. Whatever he is looking for he has not found it yet.`,
         `The monsters inside bear a mark the System cannot identify. Not a void mark. Something older. Something that belongs to him.`,
         `He does not rush. He does not retreat. He studies. Every Hunter who survives an encounter with him says the same thing. He was watching them learn.`,
         `There is one thing Aldric Voss could never do in life. Give up. Whatever he became it kept that much. Use it against him.`,

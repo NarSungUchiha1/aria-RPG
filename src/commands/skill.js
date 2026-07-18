@@ -223,7 +223,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 ┃★ The bloodline does not ask.
 ┃★ It takes.
 ┃★ 
-┃★ Malachar channels through you.
+┃★ the Hollow King channels through you.
 ┃★ Next 3 attacks — 1000% damage.
 ┃★ Nothing evades. Nothing blocks.
 ╚═══════════════════════════╝`;
@@ -495,7 +495,7 @@ module.exports = {
             } catch(e) {}
             reply += `┃◆ 💥 Damage: ${result.damage}\n`;
 
-            // Malachar's Hunger — steal HP on first hit per stage
+            // the Hollow King's Hunger — steal HP on first hit per stage
             try {
                 const hungerFx2 = getEffectByName ? getEffectByName(userId, 'hp_steal_first', dungeon?.id) : null;
                 if (hungerFx2 && targetEnemy?.id && result.enemyHp > 0) {
@@ -601,7 +601,7 @@ module.exports = {
 
             // ── MALACHAR PHASE TRANSITIONS ──────────────────────────────────
             // Uses malacharPhase system — ATK always scaled from base, never compounds
-            if (dungeon.dungeon_rank === 'MALACHAR' && targetEnemy?.name === 'Malachar' && result.enemyHp > 0) {
+            if (dungeon.dungeon_rank === 'MALACHAR' && targetEnemy?.name === 'The Hollow King' && result.enemyHp > 0) {
                 try {
                 } catch(phaseErr) { console.error('[MalacharPhase]', phaseErr.message); }
             }
@@ -725,7 +725,7 @@ module.exports = {
                     }
                 } catch(e) { console.error('Phantom shift error:', e.message); }
 
-                // Remnant Sanctum territory perk — 15% revive, once per dungeon.
+                // Last Light Sanctum territory perk — 15% revive, once per dungeon.
                 if (!deathAverted) {
                     try {
                         const { tryTerritoryRevive } = require('../systems/territoryBonusSystem');

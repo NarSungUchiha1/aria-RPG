@@ -145,7 +145,7 @@ async function spawnDungeon(rank, client = null) {
 
         // ── DUNGEON MODIFIERS — ~30% of spawns roll one ──────────────────────
         // GOLDEN: gold rewards ×3 · CURSED: enemies +50%, rewards ×2 ·
-        // FRACTURED: Malachar's Echo invasion chance doubled (Chapter 6+)
+        // FRACTURED: the Hollow King's Echo invasion chance doubled (Chapter 6+)
         await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
         let modifier = null;
         if (rank !== 'MALACHAR' && Math.random() < 0.30) {
@@ -171,7 +171,7 @@ async function spawnDungeon(rank, client = null) {
                 const MOD_TEXT = {
                     GOLDEN:    '╔══〘 ✨ GOLDEN DUNGEON 〙══╗\n┃★ The walls drip with gold.\n┃★ 💰 *ALL GOLD REWARDS ×3!*\n╚═══════════════════════╝',
                     CURSED:    '╔══〘 💀 CURSED DUNGEON 〙══╗\n┃★ Something is wrong in there.\n┃★ ⚠️ Enemies are *+50% stronger*\n┃★ 🎁 but rewards are *DOUBLED.*\n╚═══════════════════════╝',
-                    FRACTURED: '╔══〘 👁️ FRACTURED DUNGEON 〙══╗\n┃★ The void is thin here.\n┃★ ⚠️ *Malachar\'s Echo* is twice\n┃★ as likely to come through...\n╚═══════════════════════╝'
+                    FRACTURED: '╔══〘 👁️ FRACTURED DUNGEON 〙══╗\n┃★ The void is thin here.\n┃★ ⚠️ *the Hollow King\'s Echo* is twice\n┃★ as likely to come through...\n╚═══════════════════════╝'
                 };
                 await client.sendMessage(spawnGroup, { text: MOD_TEXT[modifier] }).catch(() => {});
             }
@@ -542,7 +542,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
     if (evasionCheck(p, e)) { damage = Math.floor(damage * 0.5); evaded = true; }
 
     // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
-    // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    // Titan's Roar / the Hollow King's Will — next_hit_mult consumed on the next outgoing attack
     let bStateShared = null; // fetched once, reused by the invincible check below
     try {
         const bState = await getPlayerBlessingState(playerId, dungeonId);
@@ -561,7 +561,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
         }
     } catch(eclipseErr) {}
 
-    // Territory bonus: Wrathborne Stronghold (+25% damage) — cached lookup.
+    // Territory bonus: Umbral Court (+25% damage) — cached lookup.
     try {
         const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
         const terrMult = await getDamageBonusMultiplier(playerId);
@@ -615,7 +615,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
                 retaliation = 0; retaliationMessage = '';
             }
 
-            // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            // Titan's Roar / the Hollow King's Will — invincible charges block all incoming damage
             // (reuses the blessing state fetched above — `invincible` isn't touched
             // by the next_hit_mult update, so the earlier read is still accurate)
             try {
@@ -668,7 +668,7 @@ async function playerAttack(playerId, dungeonId, enemyId, weaponBonus) {
             } catch(_) {}
             const pickedA = usedMovesA[Math.floor(Math.random() * usedMovesA.length)];
             retaliation = Math.floor(retaliation * (pickedA.damage || 1.0));
-            if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
+            if (e.name !== 'The Hollow King') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
             retaliationMessage = `⚡ ${e.name} uses *${pickedA.name}*!`;
             if (defenseBlocked > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
             if (shieldAbsorbed > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;
@@ -773,7 +773,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
     let damage = totalDamage;
 
     // Eclipse clan blessing — permanent damage_boost for rest of dungeon after final stage trigger
-    // Titan's Roar / Malachar's Will — next_hit_mult consumed on the next outgoing attack
+    // Titan's Roar / the Hollow King's Will — next_hit_mult consumed on the next outgoing attack
     let bStateShared = null; // fetched once, reused by the invincible check below
     try {
         const bState2 = await getPlayerBlessingState(playerId, dungeonId);
@@ -792,7 +792,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
         }
     } catch(eclipseErr2) {}
 
-    // Territory bonus: Wrathborne Stronghold (+25% damage) — cached lookup.
+    // Territory bonus: Umbral Court (+25% damage) — cached lookup.
     try {
         const { getDamageBonusMultiplier } = require('../systems/territoryBonusSystem');
         const terrMult = await getDamageBonusMultiplier(playerId);
@@ -851,7 +851,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
                 retaliation = 0; retaliationMessage = '';
             }
 
-            // Titan's Roar / Malachar's Will — invincible charges block all incoming damage
+            // Titan's Roar / the Hollow King's Will — invincible charges block all incoming damage
             // (reuses the blessing state fetched above — `invincible` isn't touched
             // by the next_hit_mult update, so the earlier read is still accurate)
             try {
@@ -904,7 +904,7 @@ async function playerSkill(playerId, dungeonId, enemyId, move, player, equippedI
             } catch(_) {}
             const pickedMove2 = usedMoves2[Math.floor(Math.random() * usedMoves2.length)];
             retaliation = Math.floor(retaliation * (pickedMove2.damage || 1.0));
-            if (e.name !== 'Malachar') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
+            if (e.name !== 'The Hollow King') retaliation = Math.min(retaliation, Math.floor((Number(e.atk) || 0) * 2));
             retaliationMessage = `⚡ ${e.name} uses *${pickedMove2.name}*!`;
             if (defenseBlocked > 0) retaliationMessage += ` 🛡️ Blocked ${defenseBlocked}.`;
             if (shieldAbsorbed > 0) retaliationMessage += ` 🛡️ Shield absorbed ${shieldAbsorbed}.`;

@@ -59,11 +59,11 @@ const POTIONS = {
         prestige: false,
         lore: 'Your strikes exist between moments now.'
     },
-    "Malachar's Hunger": {
+    "the Hollow King's Hunger": {
         effect: 'hp_steal_first',
         steal_percent: 0.3,
         desc: 'Prestige only — steal 30% of every enemy current HP on your first hit each stage.',
-        ingredients: { 'Malachar Fragment': 1, 'Void Crystal': 2, 'Blood Root': 2 },
+        ingredients: { 'the Hollow King Fragment': 1, 'Void Crystal': 2, 'Blood Root': 2 },
         minPrice: 8000,
         prestige: true,
         lore: 'He learned to take before the world learned to give.'
@@ -117,7 +117,7 @@ const POTIONS = {
         damage_amp: 0.5,
         turns: 5,
         desc: 'Prestige only — you and all enemies take 50% more damage for 5 turns.',
-        ingredients: { 'Malachar Fragment': 1, 'Blood Root': 2, 'Shadow Fragment': 2 },
+        ingredients: { 'the Hollow King Fragment': 1, 'Blood Root': 2, 'Shadow Fragment': 2 },
         minPrice: 4500,
         prestige: true,
         lore: 'Chaos, bottled. Drink carefully.'
@@ -197,10 +197,10 @@ const POTIONS = {
         effect: 'time_freeze',
         turns: 2,
         desc: 'Prestige only — freeze time for 2 turns, act freely while enemies are locked.',
-        ingredients: { 'Malachar Fragment': 1, 'Ancient Tome Fragment': 1, 'Void Crystal': 3 },
+        ingredients: { 'the Hollow King Fragment': 1, 'Ancient Tome Fragment': 1, 'Void Crystal': 3 },
         minPrice: 12000,
         prestige: true,
-        lore: 'Malachar did this once. Only once.'
+        lore: 'the Hollow King did this once. Only once.'
     },
     'Soul Harvest': {
         effect: 'kill_hp_gain',
@@ -224,7 +224,7 @@ const POTIONS = {
         effect: 'death_stack',
         per_death_mult: 1.0,
         desc: 'Prestige only — every death in dungeon so far adds 100% to your next hit. Unlimited stack.',
-        ingredients: { 'Malachar Fragment': 2, 'Blood Root': 3, 'Void Ink': 2 },
+        ingredients: { 'the Hollow King Fragment': 2, 'Blood Root': 3, 'Void Ink': 2 },
         minPrice: 15000,
         prestige: true,
         lore: 'The void counted. Now you collect.'

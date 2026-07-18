@@ -74,6 +74,6 @@ module.exports = {
         { name: 'Void Extraction',  type: 'buff',   effect: 'agility_up',      value: 50, percent: true, duration: 2, cooldown: CD_RANKED, cost: 18,
           desc: '+50% AGI — desperate escape through a micro-rift.' },
         { name: 'Malacars Path',    type: 'buff',   effect: 'intelligence_up', value: 55, percent: true, duration: 3, cooldown: CD_RANKED, cost: 20,
-          desc: '+55% INT — walk the path Malachar walked.' }
+          desc: '+55% INT — walk the path the Hollow King walked.' }
     ]
 };

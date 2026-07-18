@@ -51,23 +51,23 @@ const DROPS = {
         common:   ['Healing Moss', 'Spell Component', 'Void Ink', 'Root Extract', 'Ancient Herb'],
         uncommon: ['Life Essence', 'Shadow Fragment', 'Void Crystal', 'Shadow Essence'],
         rare:     ['Blood Root', 'Ancient Tome Fragment', 'Void Ink', 'Shadow Essence'],
-        legendary:['Malachar Fragment', 'Ancient Tome Fragment']
+        legendary:['the Hollow King Fragment', 'Ancient Tome Fragment']
     },
     Mage: {
         common:   ['Spell Component', 'Void Ink', 'Ancient Herb'],
         uncommon: ['Void Crystal', 'Ancient Tome Fragment', 'Shadow Fragment'],
         rare:     ['Void Ink', 'Ancient Tome Fragment'],
-        legendary:['Malachar Fragment']
+        legendary:['the Hollow King Fragment']
     },
     Healer: {
         common:   ['Healing Moss', 'Purified Water', 'Root Extract'],
         uncommon: ['Life Essence', 'Ancient Herb', 'Iron Root'],
         rare:     ['Blood Root', 'Shadow Essence'],
-        legendary:['Malachar Fragment']
+        legendary:['the Hollow King Fragment']
     }
 };
 
-const PRESTIGE_BONUS_DROPS = ['Void Crystal', 'Ancient Tome Fragment', 'Malachar Fragment'];
+const PRESTIGE_BONUS_DROPS = ['Void Crystal', 'Ancient Tome Fragment', 'the Hollow King Fragment'];
 
 // Rank drop rates
 const RANK_DROP_RATES = {
@@ -354,7 +354,7 @@ async function returnFromRift(playerId) {
         drops[item]  = (drops[item] || 0) + 1;
     }
     // Fragment guarantee
-    if (fragmentGuarantee) drops['Malachar Fragment'] = (drops['Malachar Fragment'] || 0) + 1;
+    if (fragmentGuarantee) drops['the Hollow King Fragment'] = (drops['the Hollow King Fragment'] || 0) + 1;
     // Deep Void — bonus rare/legendary rolls
     if (depthTier >= 3) {
         const bonusRarity = Math.random() < 0.4 ? 'rare' : 'uncommon';

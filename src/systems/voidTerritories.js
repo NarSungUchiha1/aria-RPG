@@ -1,6 +1,6 @@
 /**
  * VOID TERRITORIES SYSTEM
- * Three territories left behind when Malachar fell.
+ * Three territories left behind when the Hollow King fell.
  * Clans can claim, hold, and lose territories.
  * Holding a territory gives the entire clan a passive bonus.
  * Losing a territory to another clan triggers a Territory War.

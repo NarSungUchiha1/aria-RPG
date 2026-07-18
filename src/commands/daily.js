@@ -6,7 +6,7 @@ const DAILY_XP   = 2000;
 const NARRATIVES = [
     'The void remembers those who serve it. The system has deposited your allowance.',
     'Every hunter who walks the void path receives sustenance. The abyss provides.',
-    'Malachar\'s absence leaves resources unclaimed. The system redistributes them to you.',
+    'the Hollow King\'s absence leaves resources unclaimed. The system redistributes them to you.',
     'The fractures bleed energy. As a Void Hunter you are entitled to collect it.',
     'The old world\'s gates have fallen. What remains belongs to those still standing.',
     'The system logs your continued survival. Compensation has been issued accordingly.',

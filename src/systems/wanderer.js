@@ -14,19 +14,19 @@ const WANDERER_TRADES = [
     { give: { 'Spell Component': 3, 'Void Ink': 2 },          receive: 'Ancient Tome Fragment', receiveQty: 1,    receiveGold: 0,    desc: 'Spell components for a tome fragment.' },
     { give: { 'Shadow Fragment': 4, 'Shadow Essence': 1 },    receive: 'Shadow Essence',        receiveQty: 3,    receiveGold: 0,    desc: 'Shadow fragments refined into essence.' },
     { give: { 'Life Essence': 3, 'Ancient Herb': 3 },         receive: 'Blood Root',            receiveQty: 2,    receiveGold: 0,    desc: 'Life essence traded for blood root.' },
-    { give: { 'Void Crystal': 2, 'Ancient Herb': 2 },         receive: 'Malachar Fragment',     receiveQty: 1,    receiveGold: 0,    desc: 'Two void crystals. A fragment of something older.' },
+    { give: { 'Void Crystal': 2, 'Ancient Herb': 2 },         receive: 'the Hollow King Fragment',     receiveQty: 1,    receiveGold: 0,    desc: 'Two void crystals. A fragment of something older.' },
     { give: { 'Blood Root': 3, 'Shadow Essence': 2 },         receive: 'Ancient Tome Fragment', receiveQty: 2,    receiveGold: 0,    desc: 'He does not say where he got these.' },
     { give: { 'Healing Moss': 8, 'Life Essence': 4 },         receive: 'Void Crystal',          receiveQty: 3,    receiveGold: 0,    desc: 'A bulk offer. The Wanderer is generous today.' },
-    { give: { 'Void Ink': 3, 'Spell Component': 3 },          receive: 'Malachar Fragment',     receiveQty: 1,    receiveGold: 0,    desc: 'He looks at you for a long time before agreeing.' },
+    { give: { 'Void Ink': 3, 'Spell Component': 3 },          receive: 'the Hollow King Fragment',     receiveQty: 1,    receiveGold: 0,    desc: 'He looks at you for a long time before agreeing.' },
     // Materials → gold trades
     { give: { 'Ancient Tome Fragment': 2, 'Void Crystal': 2 }, receive: null,                   receiveQty: 0,    receiveGold: 5000, desc: 'He counts the fragments. Pays in gold.' },
-    { give: { 'Malachar Fragment': 1 },                        receive: null,                   receiveQty: 0,    receiveGold: 8000, desc: 'He handles it carefully. Very carefully.' },
+    { give: { 'the Hollow King Fragment': 1 },                        receive: null,                   receiveQty: 0,    receiveGold: 8000, desc: 'He handles it carefully. Very carefully.' },
     { give: { 'Shadow Essence': 4, 'Blood Root': 3 },         receive: null,                   receiveQty: 0,    receiveGold: 4000, desc: 'Rare extracts. He knows their value.' },
     // Bulk trades
     { give: { 'Root Extract': 10, 'Ancient Herb': 10 },       receive: 'Life Essence',          receiveQty: 5,    receiveGold: 0,    desc: 'Bulk herbs converted to essence.' },
     { give: { 'Void Ink': 5, 'Healing Moss': 5 },             receive: 'Spell Component',       receiveQty: 8,    receiveGold: 0,    desc: 'Refined supplies.' },
     // Special rare trades
-    { give: { 'Malachar Fragment': 2, 'Shadow Essence': 3 },  receive: 'Void Crystal',          receiveQty: 5,    receiveGold: 2000, desc: 'The rarest of exchanges. He owes you now.' },
+    { give: { 'the Hollow King Fragment': 2, 'Shadow Essence': 3 },  receive: 'Void Crystal',          receiveQty: 5,    receiveGold: 2000, desc: 'The rarest of exchanges. He owes you now.' },
 ];
 
 const WANDERER_APPEARANCES = [

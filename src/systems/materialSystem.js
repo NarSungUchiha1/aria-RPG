@@ -39,7 +39,7 @@ const MATERIALS = {
     'Abyss Tear':        { rarity: 'rare',      dropWeight: 6,  dungeonRanks: ['PB','PA','PS'],                  emoji: '💧' },
     'Fracture Rune':     { rarity: 'rare',      dropWeight: 5,  dungeonRanks: ['PB','PA','PS'],                  emoji: '🔮' },
     'Void Genesis':      { rarity: 'legendary', dropWeight: 2,  dungeonRanks: ['PA','PS'],                      emoji: '⚡' },
-    'Malachars Tear':    { rarity: 'legendary', dropWeight: 1,  dungeonRanks: ['PA','PS'],                      emoji: '👁️' },
+    'Tear of the Hollow Sun':    { rarity: 'legendary', dropWeight: 1,  dungeonRanks: ['PA','PS'],                      emoji: '👁️' },
     'Fracture Absolute': { rarity: 'legendary', dropWeight: 1,  dungeonRanks: ['PS'],                           emoji: '🌌' },
 };
 
@@ -237,7 +237,7 @@ const RECIPES = [
       stats: { intelligence: 950, attack: 920, stamina: 100 }, durability: 290,
       description: 'Contains the last spells of a dead civilisation.' },
     { name: 'Hollow Kings Gospel Replica', role: 'Mage', rarity: 'legendary', prestige: true,
-      materials: { 'Malachars Tear': 1, 'Fracture Rune': 2, 'Void Genesis': 1 },
+      materials: { 'Tear of the Hollow Sun': 1, 'Fracture Rune': 2, 'Void Genesis': 1 },
       stats: { intelligence: 1800, attack: 1700, stamina: 150 }, durability: 370,
       description: 'Not the original. Still terrifying.' },
     // TANK PRESTIGE
@@ -263,7 +263,7 @@ const RECIPES = [
       stats: { intelligence: 950, stamina: 700 }, durability: 300,
       description: 'The liquid inside is not water. It does not matter what it is.' },
     { name: 'Hollow Kings Grace Replica', role: 'Healer', rarity: 'legendary', prestige: true,
-      materials: { 'Malachars Tear': 1, 'Void Soul': 2, 'Void Genesis': 1 },
+      materials: { 'Tear of the Hollow Sun': 1, 'Void Soul': 2, 'Void Genesis': 1 },
       stats: { intelligence: 1800, stamina: 1200 }, durability: 380,
       description: 'The last healer who carried this never needed to use it twice.' },
 ];

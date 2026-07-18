@@ -4,7 +4,7 @@ const { getInventoryItem } = require('../utils/inventoryHelper');
 const WEAPON_ROLES = {
     // Berserker
     'Void Crusher':'Berserker', 'Fracture Cleaver':'Berserker', 'Abyss Annihilator':'Berserker',
-    "Malachar's Fist":'Berserker', 'Bonecrusher':'Berserker', 'Ember Greatsword':'Berserker',
+    "the Hollow King's Fist":'Berserker', 'Bonecrusher':'Berserker', 'Ember Greatsword':'Berserker',
     'Soulreaper':'Berserker', 'Abyssal Reckoning':'Berserker', 'Gloamrend Ravager':'Berserker',
     'Eclipse Titan Blade':'Berserker', 'Hollow Kings Replica':'Berserker',
     'Battle Axe':'Berserker', 'Duskrend Blade':'Berserker', 'Iron Greatsword':'Berserker',
@@ -12,7 +12,7 @@ const WEAPON_ROLES = {
     "Titan's Wrath":'Berserker', 'Godslayer':'Berserker',
     // Assassin
     'Void Fang':'Assassin', 'Fracture Edge':'Assassin', 'Abyss Phantom':'Assassin',
-    "Malachar's Shadow":'Assassin', 'Thorn Dagger':'Assassin', 'Shadow Fang':'Assassin',
+    "the Hollow King's Shadow":'Assassin', 'Thorn Dagger':'Assassin', 'Shadow Fang':'Assassin',
     'Void Edge':'Assassin', 'Wraithblade':'Assassin', 'Gloam Phantom Blade':'Assassin',
     'Penumbra Reaper':'Assassin', 'Hollow Kings Shadow Replica':'Assassin',
     'Dagger':'Assassin', 'Umbral Fang':'Assassin', 'Twin Fang Blades':'Assassin',
@@ -20,7 +20,7 @@ const WEAPON_ROLES = {
     'Voidreaper Dagger':'Assassin', 'Eclipse Edge':'Assassin', "Eternity's Edge":'Assassin',
     // Mage
     'Void Codex':'Mage', 'Fracture Scepter':'Mage', 'Abyss Tome':'Mage',
-    "Malachar's Gospel":'Mage', 'Bone Staff':'Mage', 'Venom Codex':'Mage',
+    "the Hollow King's Gospel":'Mage', 'Bone Staff':'Mage', 'Venom Codex':'Mage',
     'Blood Grimoire':'Mage', 'The Last Word':'Mage', 'Umbral Grimoire':'Mage',
     'Eclipse Codex Supreme':'Mage', 'Hollow Kings Gospel Replica':'Mage',
     'Spell Book':'Mage', 'Gloamlight Staff':'Mage', 'Frostbane Wand':'Mage',
@@ -29,7 +29,7 @@ const WEAPON_ROLES = {
     'Celestial Codex':'Mage', 'Omniscient Scepter':'Mage',
     // Tank
     'Void Bulwark':'Tank', 'Fracture Rampart':'Tank', 'Abyss Fortress':'Tank',
-    "Malachar's Seal":'Tank', 'Iron Ward':'Tank', 'Frost Barrier':'Tank',
+    "the Hollow King's Seal":'Tank', 'Iron Ward':'Tank', 'Frost Barrier':'Tank',
     'Stormwall':'Tank', 'Aegis of Eternity':'Tank', 'Void Earthbreaker':'Tank',
     'Fracture Colossus':'Tank', 'Umbral Aegis':'Tank', 'Eclipse Fortress Shield':'Tank',
     'Umbral Colossus Gauntlet':'Tank',
@@ -39,7 +39,7 @@ const WEAPON_ROLES = {
     'Fortress Aegis':'Tank', 'Aegis Immortal':'Tank',
     // Healer
     'Void Mend':'Healer', 'Fracture Chalice':'Healer', 'Abyss Lantern':'Healer',
-    "Malachar's Grace":'Healer', 'Splint Mace':'Healer', 'Ember Chalice':'Healer',
+    "the Hollow King's Grace":'Healer', 'Splint Mace':'Healer', 'Ember Chalice':'Healer',
     'Soul Lantern':'Healer', 'Cradle of Life':'Healer', 'Gloamlight Sanctuary Staff':'Healer',
     'Eclipse Life Chalice':'Healer', 'Hollow Kings Grace Replica':'Healer',
     'Healing Staff':'Healer', 'Sacred Staff':'Healer', 'Divine Staff':'Healer',

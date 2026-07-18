@@ -562,7 +562,7 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         if (allLow) {
             updateDuelBlessingState(player.id, { damage_boost: 10.0, skill_count: 3, blessing_used: 1 });
             blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
-┃◆ ${player.nickname} channels Malachar.
+┃◆ ${player.nickname} channels the Hollow King.
 ┃◆ Next 3 attacks deal 1000% damage.
 ┃◆ Cannot be evaded.
 ╚═══════════════════════════╝`;
@@ -1356,7 +1356,7 @@ async function handlePvPSkill(attackerId, move, targetIds) {
             } catch(e) {}
             let dmg = calculateMoveDamage(attackerWithFatigue, move, defForCalc, items);
 
-    // Apply damage_boost from Titan's Roar (#4) or Malachar's Will (#10)
+    // Apply damage_boost from Titan's Roar (#4) or the Hollow King's Will (#10)
     const atkBlessState = getDuelBlessingState(attackerId);
     const pvpBoost = Number(atkBlessState.damage_boost || 0);
     if (pvpBoost >= 1) {

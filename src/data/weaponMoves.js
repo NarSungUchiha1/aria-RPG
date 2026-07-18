@@ -9,7 +9,7 @@
  *  PF tier (Void):      stat 650  → mult 1.3 / 2.5 / 5.0
  *  PD tier (Fracture):  stat 1520 → mult 2.7 / 5.3 / 10.5
  *  PB tier (Abyss):     stat 3080 → mult 5.9 / 11.6 / 23.0
- *  PS tier (Malachar):  stat 7200 → mult 11.4 / 22.7 / 45.0
+ *  PS tier (the Hollow King):  stat 7200 → mult 11.4 / 22.7 / 45.0
  */
 
 module.exports = {
@@ -428,28 +428,28 @@ module.exports = {
     'Abyss Lantern': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── PS TIER (stat ~7200, mult 11.4/22.7/45.0) ────────────
-    "Malachar's Fist": [
-        { name: 'Fist of Malachar',  type: 'damage', stat: 'strength', multiplier: 11.4, cooldown: 15, cost: 40 },
+    "the Hollow King's Fist": [
+        { name: 'Fist of the Hollow King',  type: 'damage', stat: 'strength', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'World Breaker',     type: 'damage', stat: 'strength', multiplier: 22.7, aoe: true, stun: true, cooldown: 60, cost: 48 },
         { name: 'The First War',     type: 'damage', stat: 'strength', multiplier: 45.0, ignore_defense: 1.0, cooldown: 120, cost: 60 }
     ],
-    "Malachar's Shadow": [
-        { name: 'Shadow of Malachar',type: 'damage', stat: 'agility', multiplier: 11.4, cooldown: 15, cost: 40 },
+    "the Hollow King's Shadow": [
+        { name: 'Shadow of the Hollow King',type: 'damage', stat: 'agility', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'The First Shadow',  type: 'damage', stat: 'agility', multiplier: 22.7, bleed: true, ignore_defense: 0.6, cooldown: 60, cost: 48 },
         { name: 'Eternal Dark',      type: 'damage', stat: 'agility', multiplier: 45.0,             cooldown: 120, cost: 60 }
     ],
-    "Malachar's Gospel": [
+    "the Hollow King's Gospel": [
         { name: 'Gospel of Ruin',    type: 'damage', stat: 'intelligence', multiplier: 11.4, cooldown: 15, cost: 40 },
         { name: 'Written in Void',   type: 'damage', stat: 'intelligence', multiplier: 22.7, ignore_defense: 0.8, cooldown: 60, cost: 48 },
         { name: 'The Last Word',     type: 'damage', stat: 'intelligence', multiplier: 45.0, aoe: true, cooldown: 120, cost: 60 }
     ],
-    "Malachar's Seal": [
+    "the Hollow King's Seal": [
         { name: 'Seal Breaker',      type: 'damage', stat: 'strength', multiplier: 10.0, ignore_defense: 0.5, cooldown: 15, cost: 40 },
         { name: 'Original Seal',     type: 'buff',   effect: 'defense_up', value: 350, duration: 4,           cooldown: 60, cost: 35 },
         { name: 'Void Barrier',      type: 'shield', value: 6000,                                             cooldown: 120, cost: 48 }
     ],
-    "Malachar's Grace": [
-        { name: 'Grace of Malachar', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 15, cost: 40 },
+    "the Hollow King's Grace": [
+        { name: 'Grace of the Hollow King', type: 'heal',   stat: 'intelligence', multiplier: 12.0, cooldown: 15, cost: 40 },
         { name: "Healer's Last Stand",type: 'heal',  stat: 'intelligence', multiplier: 22.7, aoe: true,   cooldown: 60, cost: 48 },
         { name: 'Infinite Mercy',    type: 'heal',   stat: 'intelligence', multiplier: 38.0, cleanse: true, aoe: true, cooldown: 120, cost: 55 }
     ],

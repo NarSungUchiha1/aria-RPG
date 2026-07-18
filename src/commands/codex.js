@@ -32,7 +32,7 @@ const CODEX_ENTRIES = [
             `S rank hunters die in the last one.`
     },
     {
-        id: 4, title: 'Malachar — What is Known',
+        id: 4, title: 'the Hollow King — What is Known',
         unlock_condition: 'reach_rank_B',
         text:
             `He has existed longer than the dungeons.\n` +
@@ -61,13 +61,13 @@ const CODEX_ENTRIES = [
             `They are infections. Willing ones.`
     },
     {
-        id: 7, title: "Malachar's Herald",
+        id: 7, title: "the Hollow King's Herald",
         unlock_condition: 'reach_rank_PS',
         text:
             `The Herald does not speak.\n` +
             `It was seen at the edge of the known dungeon network.\n` +
             `Not attacking. Looking.\n` +
-            `Malachar lost something when the Gates fell.\n` +
+            `the Hollow King lost something when the Gates fell.\n` +
             `The Herald is here to find it.`
     },
     {
@@ -75,7 +75,7 @@ const CODEX_ENTRIES = [
         unlock_condition: 'malachar_fragment',
         text:
             `The fragments are not debris.\n` +
-            `They are pieces of something Malachar chose to leave behind.\n` +
+            `They are pieces of something the Hollow King chose to leave behind.\n` +
             `He does not forget things accidentally.\n` +
             `He left them for someone specific.\n` +
             `He has been waiting to see if they would find them.`
@@ -93,7 +93,7 @@ const CODEX_ENTRIES = [
         id: 10, title: 'What Comes Next',
         unlock_condition: 'reach_rank_PS',
         text:
-            `Malachar is not retreating.\n` +
+            `the Hollow King is not retreating.\n` +
             `He is preparing.\n` +
             `The hunters who crossed over carry pieces of his plan.\n` +
             `They do not know this.\n` +
