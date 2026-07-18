@@ -337,7 +337,7 @@ module.exports = {
 ┃★ !clan → View your clan & blessing
 ┃★ !createclan → Forge a clan
 ┃★    Requires: Prestige + Rank A + 50 clears +
-┃★              1 PS clear + 25,000 Gold
+┃★              1 PS clear + 25,000 Lumens
 ┃★ !clan join <name> → Join  |  !leaveclan → Leave
 ┃★ !clan accept @user → Accept member (officer+)
 ┃★ !clan assign @u <quest> → Assign quest (officer+)

@@ -71,7 +71,7 @@ module.exports = {
                     `┃◆ ${remaining} more to go\n` +
                     `┃◆\n` +
                     `┃◆ 🎁 REWARD:\n` +
-                    `┃◆ 💰 ${Number(q.reward_gold).toLocaleString()} Gold\n` +
+                    `┃◆ 💰 ${Number(q.reward_gold).toLocaleString()} Lumens\n` +
                     `┃◆ ⭐ ${Number(q.reward_xp).toLocaleString()} XP\n` +
                     `┃◆\n`;
             }

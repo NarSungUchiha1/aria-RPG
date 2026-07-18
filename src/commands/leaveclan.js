@@ -87,7 +87,7 @@ module.exports = {
                 `┃◆\n` +
                 `┃◆ *${nick}* has left *${clan.name}*.\n` +
                 `┃◆\n` +
-                `┃◆ 💰 -${penalty.toLocaleString()} Gold (20%)\n` +
+                `┃◆ 💰 -${penalty.toLocaleString()} Lumens (20%)\n` +
                 `┃◆ 🔮 Blessing stripped\n` +
                 `┃◆ ⏳ Can rejoin a clan in 30 days\n` +
                 `┃◆\n` +

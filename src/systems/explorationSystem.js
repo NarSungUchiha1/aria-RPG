@@ -222,7 +222,7 @@ async function enterRift(playerId, rank, role, isPrestige) {
     await ensureExplorationTable();
     const cost = ENTRY_COSTS[rank] || 500;
     const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [playerId]);
-    if ((gold[0]?.gold || 0) < cost) return { ok: false, reason: `Need ${cost.toLocaleString()}G to enter the rift.` };
+    if ((gold[0]?.gold || 0) < cost) return { ok: false, reason: `Need ${cost.toLocaleString()}L to enter the rift.` };
 
     await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [cost, playerId]);
 

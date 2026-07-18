@@ -159,7 +159,7 @@ module.exports = {
                             `┃◆ 📌 ${blessing.condition}\n` +
                             `┃◆ ⚡ ${blessing.effect}\n` +
                             `┃◆\n` +
-                            `┃◆ 🎁 +2,000 Gold  +1,000 XP\n` +
+                            `┃◆ 🎁 +2,000 Lumens  +1,000 XP\n` +
                             `╚═══════════════════════════╝`
                     });
                 } catch(e) {}
@@ -316,7 +316,7 @@ module.exports = {
                             `┃◆ ${description}\n` +
                             `┃◆\n` +
                             `┃◆ Objective: ${objective.replace(/_/g,' ')} ×${targetCount}\n` +
-                            `┃◆ Reward: 💰 ${rewardGold.toLocaleString()} Gold  ⭐ ${rewardXp.toLocaleString()} XP\n` +
+                            `┃◆ Reward: 💰 ${rewardGold.toLocaleString()} Lumens  ⭐ ${rewardXp.toLocaleString()} XP\n` +
                             `┃◆\n` +
                             `┃◆ !myquest — check your progress\n` +
                             `╚═══════════════════════════╝`
@@ -327,7 +327,7 @@ module.exports = {
                     `╔══〘 📜 QUEST ASSIGNED 〙══╗\n` +
                     `┃◆ *${title}* assigned to *${assignee[0]?.nickname}*.\n` +
                     `┃◆ Objective: ${objective.replace(/_/g,' ')} ×${targetCount}\n` +
-                    `┃◆ Reward: 💰 ${rewardGold.toLocaleString()}G  ⭐ ${rewardXp.toLocaleString()}XP\n` +
+                    `┃◆ Reward: 💰 ${rewardGold.toLocaleString()}L  ⭐ ${rewardXp.toLocaleString()}XP\n` +
                     `╚═══════════════════════════╝`
                 );
             }

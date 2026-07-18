@@ -13,7 +13,7 @@ module.exports = {
                 `══〘 💀 RESPAWN 〙══╮\n┃◆ ⚡ You are already alive.\n╰═══════════════════════╯`
             );
 
-            // Gold penalty 35% (min 500G)
+            // Lumens penalty 35% (min 500G)
             const [goldRow] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const goldLoss = Math.max(500, Math.floor((goldRow[0]?.gold || 0) * 0.35));
             await db.execute("UPDATE currency SET gold = GREATEST(0, gold - ?) WHERE player_id=?", [goldLoss, userId]);
@@ -56,7 +56,7 @@ module.exports = {
                 `══〘 💀 RESPAWN 〙══╮\n` +
                 `┃◆ ✅ Revived at 30% HP.\n` +
                 `┃◆────────────\n` +
-                `┃◆ 💰 Gold lost: ${goldLoss.toLocaleString()}\n` +
+                `┃◆ 💰 Lumens lost: ${goldLoss.toLocaleString()}\n` +
                 `┃◆ ⭐ XP lost:   ${xpLoss.toLocaleString()}\n`;
 
             if (brokenItems.length) reply += `┃◆ 💔 Broken: ${brokenItems.join(', ')}\n`;

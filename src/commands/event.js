@@ -288,9 +288,9 @@ module.exports = {
                 `┃◆ ⏳ Event ends in ${EVENT_HOURS} hours\n` +
                 `┃◆ \n` +
                 `┃◆ ━━ 🏆 REWARDS ━━\n` +
-                `┃◆ 🥇 10,000 Gold • 5,000 XP • Title\n` +
-                `┃◆ 🥈  6,000 Gold • 3,000 XP • Title\n` +
-                `┃◆ 🥉  3,000 Gold • 1,500 XP • Title\n` +
+                `┃◆ 🥇 10,000 Lumens • 5,000 XP • Title\n` +
+                `┃◆ 🥈  6,000 Lumens • 3,000 XP • Title\n` +
+                `┃◆ 🥉  3,000 Lumens • 1,500 XP • Title\n` +
                 `┃◆ \n` +
                 `┃◆ The void does not wait.\n` +
                 `┃◆ Use !enter. Start hunting.\n` +

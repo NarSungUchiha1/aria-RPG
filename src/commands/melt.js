@@ -110,7 +110,7 @@ module.exports = {
                     const grade = w.grade || 'F';
                     const val   = MELT_VALUE[w.item_name] ?? MELT_BY_GRADE[grade] ?? 80;
                     const eq    = w.equipped ? ' ⚠️' : '';
-                    text += `┃★ #${w.inventoryNum}. *${w.item_name}* → ${val.toLocaleString()}G${eq}\n`;
+                    text += `┃★ #${w.inventoryNum}. *${w.item_name}* → ${val.toLocaleString()}L${eq}\n`;
                 });
                 text +=
                     `┃★ \n` +
@@ -151,8 +151,8 @@ module.exports = {
                 `╔══〘 ✦ MELTED 〙══╗\n` +
                 `┃★ *${weapon.item_name}* dissolved.\n` +
                 `┃★────────────\n` +
-                `┃★ 💰 +${goldGain.toLocaleString()} Gold\n` +
-                `┃★ Balance: ${(goldRow[0]?.gold || 0).toLocaleString()}G\n` +
+                `┃★ 💰 +${goldGain.toLocaleString()} Lumens\n` +
+                `┃★ Balance: ${(goldRow[0]?.gold || 0).toLocaleString()}L\n` +
                 `╚═══════════════════════════╝`
             );
         } catch (err) {

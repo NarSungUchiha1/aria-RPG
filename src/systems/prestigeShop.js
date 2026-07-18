@@ -187,7 +187,7 @@ async function buyPrestigeItem(playerId, itemName, role, prestigeLevel) {
     // Check gold
     const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [playerId]);
     const playerGold = gold[0]?.gold || 0;
-    if (playerGold < item.price) return { ok: false, reason: `Need ${item.price.toLocaleString()} Gold. You have ${playerGold.toLocaleString()}.` };
+    if (playerGold < item.price) return { ok: false, reason: `Need ${item.price.toLocaleString()} Lumens. You have ${playerGold.toLocaleString()}.` };
 
     await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, playerId]);
     await decreasePrestigeStock(item.name);

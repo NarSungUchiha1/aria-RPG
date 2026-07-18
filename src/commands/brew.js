@@ -63,7 +63,7 @@ module.exports = {
                         `┃◆ ${status} *${i+1}. ${name}*${prestige}\n` +
                         `┃◆    ${pot.desc}\n` +
                         `┃◆    📦 ${ingList}\n` +
-                        `┃◆    💰 Min: ${pot.minPrice.toLocaleString()}G\n` +
+                        `┃◆    💰 Min: ${pot.minPrice.toLocaleString()}L\n` +
                         `┃◆\n`;
                 }
 

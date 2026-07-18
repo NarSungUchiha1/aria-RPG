@@ -101,7 +101,7 @@ module.exports = {
                     `┃◆ *${listing.nickname}* has been hired!\n` +
                     `┃◆ Hired by: *${hirer[0].nickname}*\n` +
                     `┃◆ \n` +
-                    `┃◆ 💰 Fee: ${listing.price_gold} Gold\n` +
+                    `┃◆ 💰 Fee: ${listing.price_gold} Lumens\n` +
                     `┃◆    (split between party on clear)\n` +
                     `┃◆ \n` +
                     `┃◆ 💚 ${listing.description || 'Ready to heal.'}\n` +
@@ -117,7 +117,7 @@ module.exports = {
                     `┃◆ *${hirer[0].nickname}* hired you\n` +
                     `┃◆ for dungeon Rank ${dungeon.dungeon_rank}!\n` +
                     `┃◆ \n` +
-                    `┃◆ 💰 Fee: ${listing.price_gold} Gold\n` +
+                    `┃◆ 💰 Fee: ${listing.price_gold} Lumens\n` +
                     `┃◆    Paid on successful clear.\n` +
                     `┃◆ \n` +
                     `┃◆ Join the raid group now.\n` +
@@ -128,7 +128,7 @@ module.exports = {
             return msg.reply(
                 `══〘 💚 HEALER HIRED 〙══╮\n` +
                 `┃◆ ✅ *${listing.nickname}* hired!\n` +
-                `┃◆ 💰 Fee: ${listing.price_gold} Gold on clear.\n` +
+                `┃◆ 💰 Fee: ${listing.price_gold} Lumens on clear.\n` +
                 `┃◆ They have been notified.\n` +
                 `╰═══════════════════════╯`
             );

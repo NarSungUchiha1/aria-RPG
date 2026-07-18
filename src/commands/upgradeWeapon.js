@@ -60,8 +60,8 @@ module.exports = {
             if (gold < cost) return msg.reply(
                 `══〘 ⬆️ UPGRADE WEAPON 〙══╮\n` +
                 `┃◆ ❌ Not enough gold.\n` +
-                `┃◆ Need: ${cost} Gold\n` +
-                `┃◆ Have: ${gold} Gold\n` +
+                `┃◆ Need: ${cost} Lumens\n` +
+                `┃◆ Have: ${gold} Lumens\n` +
                 `╰═══════════════════════╯`
             );
 
@@ -111,7 +111,7 @@ module.exports = {
             return msg.reply(
                 `══〘 ⬆️ WEAPON UPGRADE 〙══╮\n` +
                 `┃◆ ${item.item_name} (${currentGrade} → ${nextGrade})\n` +
-                `┃◆ 💰 Cost: ${cost} Gold\n` +
+                `┃◆ 💰 Cost: ${cost} Lumens\n` +
                 `┃◆────────────\n` +
                 (newBonuses.strength     ? `┃◆ 💪 STR: +${oldBonuses.strength}     → +${newBonuses.strength}\n`     : '') +
                 (newBonuses.agility      ? `┃◆ ⚡ AGI: +${oldBonuses.agility}      → +${newBonuses.agility}\n`      : '') +

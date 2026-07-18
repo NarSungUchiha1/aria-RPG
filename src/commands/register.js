@@ -74,7 +74,7 @@ module.exports = {
                 `┃◆ 🧠 INT: ${stats.intelligence}\n` +
                 `┃◆ 🛡️ STA: ${stats.stamina}\n` +
                 `┃◆ ❤️ HP:  ${stats.hp}/${stats.max_hp}\n` +
-                `┃◆ 💰 Gold: 500 (starter)${bonusGold > 0 ? ` +${bonusGold} (referral bonus!)` : ''}\n` +
+                `┃◆ 💰 Lumens: 500 (starter)${bonusGold > 0 ? ` +${bonusGold} (referral bonus!)` : ''}\n` +
                 `┃◆━━━━━━━━━━━━\n` +
                 `┃◆ ⚡ Status: AWAKENED\n` +
                 `╰═══════════════════════╯`,

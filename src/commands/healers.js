@@ -27,7 +27,7 @@ module.exports = {
             listings.forEach((h, i) => {
                 text +=
                     `┃◆ ${i + 1}. *${h.nickname}*\n` +
-                    `┃◆    💰 ${h.price_gold} Gold  ⭐ ${h.price_xp} XP\n` +
+                    `┃◆    💰 ${h.price_gold} Lumens  ⭐ ${h.price_xp} XP\n` +
                     `┃◆    📋 ${h.description}\n` +
                     `┃◆────────────\n`;
             });

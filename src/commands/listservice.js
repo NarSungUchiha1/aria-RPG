@@ -40,7 +40,7 @@ module.exports = {
                 '══〘 💚 HEALER LISTED 〙══╮\n' +
                 '┃◆ ✅ *' + nickname + '*\n' +
                 '┃◆ 📋 ' + desc + '\n' +
-                '┃◆ 💰 ' + gold.toLocaleString() + ' Gold  ⭐ ' + xp.toLocaleString() + ' XP\n' +
+                '┃◆ 💰 ' + gold.toLocaleString() + ' Lumens  ⭐ ' + xp.toLocaleString() + ' XP\n' +
                 '┃◆ Players hire you with !healers\n' +
                 '╰═══════════════════════╯'
             );

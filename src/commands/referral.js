@@ -130,7 +130,7 @@ module.exports = {
                 `┃◆ after joining to claim rewards.\n` +
                 `┃◆────────────\n` +
                 `┃◆ ⭐ You get: +${REFERRAL_XP_REFERRER} XP per referral\n` +
-                `┃◆ 💰 They get: +${REFERRAL_GOLD_NEW} Gold on register\n` +
+                `┃◆ 💰 They get: +${REFERRAL_GOLD_NEW} Lumens on register\n` +
                 `┃◆────────────\n` +
                 `┃◆ 📊 Your referrals: ${refs[0].cnt}\n` +
                 `┃◆ ⭐ Total XP earned: ${refs[0].total_xp}\n` +

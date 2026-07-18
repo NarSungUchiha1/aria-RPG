@@ -61,7 +61,7 @@ module.exports = {
                 return msg.reply(
                     `══〘 ⚔️ ACCEPT 〙══╮\n` +
                     `┃◆ ❌ Challenger no longer has enough gold.\n` +
-                    `┃◆ Bet: ${betAmount} Gold\n` +
+                    `┃◆ Bet: ${betAmount} Lumens\n` +
                     `╰═══════════════════════╯`
                 );
             }
@@ -69,7 +69,7 @@ module.exports = {
                 return msg.reply(
                     `══〘 ⚔️ ACCEPT 〙══╮\n` +
                     `┃◆ ❌ You don't have enough gold.\n` +
-                    `┃◆ Bet: ${betAmount} Gold\n` +
+                    `┃◆ Bet: ${betAmount} Lumens\n` +
                     `╰═══════════════════════╯`
                 );
             }

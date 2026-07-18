@@ -105,7 +105,7 @@ module.exports = {
                             `┃◆ *${p.nickname}* wants to trade:\n` +
                             `┃◆\n` +
                             `┃◆ 📦 *${material}* ×${qty}\n` +
-                            `┃◆ 💰 Price: ${price.toLocaleString()}G\n` +
+                            `┃◆ 💰 Price: ${price.toLocaleString()}L\n` +
                             `┃◆\n` +
                             `┃◆ !materialtrade accept ${offerId}\n` +
                             `┃◆ !materialtrade decline ${offerId}\n` +
@@ -118,7 +118,7 @@ module.exports = {
                     `╔══〘 🔄 OFFER SENT 〙══╗\n` +
                     `┃◆ Offer #${offerId} sent to ${target[0].nickname}\n` +
                     `┃◆ 📦 ${material} ×${qty}\n` +
-                    `┃◆ 💰 ${price.toLocaleString()}G\n` +
+                    `┃◆ 💰 ${price.toLocaleString()}L\n` +
                     `┃◆ ⏳ Expires in 10 minutes\n` +
                     `╚═══════════════════════════╝`
                 );
@@ -139,7 +139,7 @@ module.exports = {
                 if (offer.price > 0) {
                     const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
                     if ((gold[0]?.gold || 0) < offer.price) return msg.reply(
-                        `❌ Need ${offer.price.toLocaleString()}G. You have ${(gold[0]?.gold||0).toLocaleString()}G.`
+                        `❌ Need ${offer.price.toLocaleString()}L. You have ${(gold[0]?.gold||0).toLocaleString()}L.`
                     );
                 }
 
@@ -178,7 +178,7 @@ module.exports = {
                             `╔══〘 🔄 TRADE ACCEPTED 〙══╗\n` +
                             `┃◆ ${p.nickname} accepted your offer!\n` +
                             `┃◆ 📦 ${offer.material} ×${offer.quantity} transferred\n` +
-                            `┃◆ 💰 +${offer.price.toLocaleString()}G received\n` +
+                            `┃◆ 💰 +${offer.price.toLocaleString()}L received\n` +
                             `╚═══════════════════════════╝`
                     });
                 } catch(e) {}
@@ -188,7 +188,7 @@ module.exports = {
                     `┃◆\n` +
                     `┃◆ ✅ Trade with ${sellerNick[0]?.nickname} done!\n` +
                     `┃◆ 📦 +${offer.material} ×${offer.quantity}\n` +
-                    `┃◆ 💰 -${offer.price.toLocaleString()}G\n` +
+                    `┃◆ 💰 -${offer.price.toLocaleString()}L\n` +
                     `╚═══════════════════════════╝`
                 );
             }
@@ -216,7 +216,7 @@ module.exports = {
                     const dir = o.fromId === userId ? '→ outgoing' : '← incoming';
                     const [nick] = await db.execute("SELECT nickname FROM players WHERE id=?", [o.fromId === userId ? o.toId : o.fromId]);
                     text += `┃◆ #${id} ${dir} ${nick[0]?.nickname}\n`;
-                    text += `┃◆   📦 ${o.material} ×${o.quantity}  💰 ${o.price.toLocaleString()}G\n┃◆\n`;
+                    text += `┃◆   📦 ${o.material} ×${o.quantity}  💰 ${o.price.toLocaleString()}L\n┃◆\n`;
                 }
                 text += `╚═══════════════════════════╝`;
                 return msg.reply(text);

@@ -50,7 +50,7 @@ module.exports = {
             let text = `══〘 🛒 ARIA SHOP 〙══╮\n`;
             text += `┃◆ 👤 ${player.nickname.toUpperCase()}\n`;
             text += `┃◆ 🎭 ${player.role}  •  Rank: ${player.rank}\n`;
-            text += `┃◆ 💰 Gold: ${gold}\n`;
+            text += `┃◆ 💰 Lumens: ${gold}\n`;
             text += `┃◆ ⏳ Restocks in: ${restockTime}\n`;
             text += `┃◆━━━━━━━━━━━━\n`;
 

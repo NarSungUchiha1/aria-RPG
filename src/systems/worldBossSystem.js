@@ -263,7 +263,7 @@ async function distributeWorldBossRewards(bossId) {
         announcement +=
             `┃◆ ${medal} ${r.nickname}\n` +
             `┃◆    💥 ${r.damage.toLocaleString()} dmg\n` +
-            `┃◆    💰 +${r.gold} Gold  ⭐ +${r.exp} XP\n`;
+            `┃◆    💰 +${r.gold} Lumens  ⭐ +${r.exp} XP\n`;
     });
 
     announcement +=

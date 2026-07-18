@@ -229,7 +229,7 @@ Combat: Poison Vial ☠️ (enemy -15 STR, 3 turns) · Fire Scroll 🔥 (40 base
 Utility: Cleanse Potion ✨ (removes debuffs) · Revive Scroll 📜 (revive ally in dungeon) · Death Protect Potion (skip gold/XP loss on death once).
 
 ECONOMY:
-• Gold from dungeons and quests. !shop · !prestigeshop · !inventory · !equip · !melt.
+• Lumens from dungeons and quests. !shop · !prestigeshop · !inventory · !equip · !melt.
 • !trade · !pay · !transfer — blocked if either player is in a dungeon (unless same dungeon). !give — fully blocked during dungeons.
 
 CLANS:
@@ -364,7 +364,7 @@ async function getPlayerContext(userId) {
         if (p.clan_name) hints.push(`member of clan "${p.clan_name}"`);
         if (p.pvp_losses > p.pvp_wins && p.pvp_losses > 5) hints.push(`more losses than wins — be encouraging, not harsh`);
 
-        const ctx = `${p.nickname} | ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''} | HP ${p.hp}/${p.max_hp} | Fatigue ${p.fatigue}/100 | Gold ${p.gold?.toLocaleString()} | XP ${x?.xp?.toLocaleString?.() || p.xp} | PvP ${p.pvp_wins}W-${p.pvp_losses}L | Clan: ${p.clan_name || 'None'} | Title: ${p.title || 'None'}`;
+        const ctx = `${p.nickname} | ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''} | HP ${p.hp}/${p.max_hp} | Fatigue ${p.fatigue}/100 | Lumens ${p.gold?.toLocaleString()} | XP ${x?.xp?.toLocaleString?.() || p.xp} | PvP ${p.pvp_wins}W-${p.pvp_losses}L | Clan: ${p.clan_name || 'None'} | Title: ${p.title || 'None'}`;
 
         return { ctx, nickname: p.nickname, personalityHint: hints.join(', ') };
     } catch { return { ctx: null, nickname: null, personalityHint: '' }; }
@@ -557,7 +557,7 @@ Master now says: ${question}`;
 ` +
                     `│ STR ${pp.strength} · AGI ${pp.agility} · INT ${pp.intelligence} · STA ${pp.stamina}
 ` +
-                    `│ Gold ${gold} · XP ${xp}
+                    `│ Lumens ${gold} · XP ${xp}
 ` +
                     `│ PvP ${pp.pvp_wins}W / ${pp.pvp_losses}L
 ` +
@@ -619,14 +619,14 @@ ${recent.map(r => JSON.stringify(r)).join('\n')}`);
         // Leaderboard
         if (/(leaderboard|top|best|strongest|richest|ranking)/.test(q)) {
             const order = /gold|rich/.test(q) ? 'c.gold' : /pvp|win/.test(q) ? 'p.pvp_wins' : 'x.xp';
-            const type  = /gold|rich/.test(q) ? 'Gold' : /pvp|win/.test(q) ? 'PvP Wins' : 'XP';
+            const type  = /gold|rich/.test(q) ? 'Lumens' : /pvp|win/.test(q) ? 'PvP Wins' : 'XP';
             const [rows] = await db.execute(
                 `SELECT p.nickname, p.rank, p.prestige_level, p.pvp_wins, p.pvp_losses, c.gold, x.xp
                  FROM players p LEFT JOIN currency c ON c.player_id = p.id
                  LEFT JOIN xp x ON x.player_id = p.id ORDER BY ${order} DESC LIMIT 10`
             );
             const board = rows.map((r,i) =>
-                `${i+1}. ${r.nickname} [${r.rank}${r.prestige_level > 0 ? '⭐' : ''}] — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W/${r.pvp_losses}L`
+                `${i+1}. ${r.nickname} [${r.rank}${r.prestige_level > 0 ? '⭐' : ''}] — XP: ${Number(r.xp||0).toLocaleString()} | Lumens: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W/${r.pvp_losses}L`
             ).join('\n');
             fetched.push(`Leaderboard (by ${type}):
 ${board}`);

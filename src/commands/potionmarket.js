@@ -91,7 +91,7 @@ module.exports = {
 ┃◆ ${i+1}. ${l.potion_name}
 ┃◆ ${pot?.desc || ''}
 ┃◆
-┃◆ 💰 ${l.price.toLocaleString()}G
+┃◆ 💰 ${l.price.toLocaleString()}L
 ┃◆ 📦 x${l.stock}
 ┃◆ 🧪 ${l.nickname}
 ┃◆\n`;
@@ -152,7 +152,7 @@ module.exports = {
 
                 if (price < minPrice) {
                     return msg.reply(
-                        `❌ Minimum price: ${minPrice.toLocaleString()}G`
+                        `❌ Minimum price: ${minPrice.toLocaleString()}L`
                     );
                 }
 
@@ -192,7 +192,7 @@ module.exports = {
                 return msg.reply(
 `╔══〘 🧪 LISTED 〙══╗
 ┃◆ ${potName}
-┃◆ 💰 ${price.toLocaleString()}G
+┃◆ 💰 ${price.toLocaleString()}L
 ┃◆
 ┃◆ Visible in the Void Market.
 ╚═══════════════════════════╝`
@@ -221,7 +221,7 @@ module.exports = {
 ┃◆
 `;
                 myListings.forEach((l, i) => {
-                    text += `┃◆ ${i+1}. ${l.potion_name} — 💰 ${l.price.toLocaleString()}G
+                    text += `┃◆ ${i+1}. ${l.potion_name} — 💰 ${l.price.toLocaleString()}L
 `;
                 });
                 text += `┃◆

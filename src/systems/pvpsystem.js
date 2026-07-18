@@ -647,7 +647,7 @@ async function startPartyAssembly(challengerId, enemyIds, bet, chat, assemblyKey
         return `┃◆    • ${p?.nick || id} [${p?.rank || '?'}]`;
     }).join('\n');
 
-    const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Gold per side
+    const betLine = bet > 0 ? `┃◆ 💰 Bet: ${bet} Lumens per side
 ┃◆ 
 ` : '';
 
@@ -915,7 +915,7 @@ async function startPvPDuel(teamAIds, teamBIds, betAmount, client, msg, chatOver
     await startTurnTimer(duelKey, firstTurn, firstOpponent || opponentTeam[0], chat, 1);
 
     const betLine = betAmount > 0
-        ? `┃◆ 💰 Bet: ${betAmount} Gold each — Pot: ${betAmount * 2} Gold
+        ? `┃◆ 💰 Bet: ${betAmount} Lumens each — Pot: ${betAmount * 2} Lumens
 `
         : ``;
 
@@ -1120,7 +1120,7 @@ ${titleLines.join('\n')}
     let betLine = '';
     if (duelData.bet > 0) {
         await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [duelData.bet * 2, winnerId]);
-        betLine = `┃◆ 💰 Prize: ${duelData.bet * 2} Gold claimed
+        betLine = `┃◆ 💰 Prize: ${duelData.bet * 2} Lumens claimed
 `;
     }
 

@@ -145,7 +145,7 @@ module.exports = {
             );
 
             const betLine = betAmount > 0
-                ? `┃◆ 💰 Bet: *${betAmount} Gold* each  —  Pot: *${betAmount * 2} Gold*\n`
+                ? `┃◆ 💰 Bet: *${betAmount} Lumens* each  —  Pot: *${betAmount * 2} Lumens*\n`
                 : ``;
 
             // ── SOLO CHALLENGE ────────────────────────────────────────────────

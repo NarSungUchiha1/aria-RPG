@@ -61,8 +61,8 @@ module.exports = {
                     `┃★ ITEM: ${result.item.name}\n` +
                     `┃★ 〝${result.item.desc}〞\n` +
                     `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-                    `┃★ COST:    -${result.item.price.toLocaleString()}G\n` +
-                    `┃★ BALANCE: ${remaining.toLocaleString()}G\n` +
+                    `┃★ COST:    -${result.item.price.toLocaleString()}L\n` +
+                    `┃★ BALANCE: ${remaining.toLocaleString()}L\n` +
                     `╚════════════════════════════╝`
                 );
             }
@@ -76,7 +76,7 @@ module.exports = {
                 `┃★ CLEARANCE: PRESTIGE ${p.prestige_level}  ${stars}\n` +
                 `┃★ HUNTER: ${p.nickname.toUpperCase()} [${p.role.toUpperCase()}]\n` +
                 `┃★ RANK: ${p.rank}\n` +
-                `┃★ BALANCE: ${playerGold.toLocaleString()}G\n` +
+                `┃★ BALANCE: ${playerGold.toLocaleString()}L\n` +
                 `┃★ RESTOCK: ${getRestockTime()}\n` +
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃★ WEAPONS — VOID CLASS\n` +
@@ -92,7 +92,7 @@ module.exports = {
                 text +=
                     `┃★ ${num}. ${w.name}${locked}\n` +
                     `┃★     ${statLine}  DUR:${w.durability}\n` +
-                    `┃★     COST: ${w.price.toLocaleString()}G  ${stock}\n` +
+                    `┃★     COST: ${w.price.toLocaleString()}L  ${stock}\n` +
                     `┃★\n`;
                 itemNum++;
             });
@@ -105,7 +105,7 @@ module.exports = {
                 text +=
                     `┃★ ${num}. ${c.name}\n` +
                     `┃★   ${c.desc}\n` +
-                    `┃★   COST: ${c.price.toLocaleString()}G  ${stock}\n` +
+                    `┃★   COST: ${c.price.toLocaleString()}L  ${stock}\n` +
                     `┃★\n`;
                 itemNum++;
             });

@@ -133,7 +133,7 @@ module.exports = {
                 `┃◆ \n` +
                 `┃◆ ━━ PENALTIES ━━\n` +
                 `┃◆ ${rankLossText}\n` +
-                `┃◆ 💰 Gold lost: ${goldLost.toLocaleString()} (50%)\n` +
+                `┃◆ 💰 Lumens lost: ${goldLost.toLocaleString()} (50%)\n` +
                 `┃◆ 🗑️ ALL equipment deleted:\n` +
                 `${equipLines}\n` +
                 `┃◆ 📊 New stats (${newRole} @ ${penaltyRank}):\n` +

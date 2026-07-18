@@ -133,7 +133,7 @@ function registerCrons({ getSock, isReady }) {
                     `┃◆ This hunter has proven themselves\n` +
                     `┃◆ too dangerous to ignore.\n` +
                     `┃◆\n` +
-                    `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}G\n` +
+                    `┃◆ 💰 Reward: ${target.reward_gold?.toLocaleString()}L\n` +
                     `┃◆ ⭐ Reward: ${target.reward_xp?.toLocaleString()} XP\n` +
                     `┃◆\n` +
                     `┃◆ Duel them. Beat them.\n` +

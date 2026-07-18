@@ -41,7 +41,7 @@ module.exports = {
             `${loreText}` +
             `${movesText}` +
             `┃◆ ━━━━━━━━━━━━━━━━\n` +
-            `┃◆ 💰 ${Number(boss.gold_reward).toLocaleString()} Gold\n` +
+            `┃◆ 💰 ${Number(boss.gold_reward).toLocaleString()} Lumens\n` +
             `┃◆ ⭐ ${Number(boss.exp_reward).toLocaleString()} XP on defeat\n` +
             `┃◆ \n` +
             `┃◆ Use !attackboss to fight\n` +

@@ -444,7 +444,7 @@ module.exports = {
                             `╔══〘 🏰 ENTRY REQUIREMENT 〙══╗\n` +
                             `┃◆\n` +
                             `┃◆ Rank *${dungeon.dungeon_rank}* dungeon requires:\n` +
-                            `┃◆ 💰 ${reqGold.toLocaleString()} Gold  ${gold >= reqGold ? '✅' : '❌ (' + gold.toLocaleString() + ')'}\n` +
+                            `┃◆ 💰 ${reqGold.toLocaleString()} Lumens  ${gold >= reqGold ? '✅' : '❌ (' + gold.toLocaleString() + ')'}\n` +
                             `┃◆ ⭐ ${reqXp.toLocaleString()} XP    ${xp  >= reqXp  ? '✅' : '❌ (' + xp.toLocaleString()  + ')'}\n` +
                             `┃◆\n` +
                             `┃◆ Keep grinding — you'll get there.\n` +

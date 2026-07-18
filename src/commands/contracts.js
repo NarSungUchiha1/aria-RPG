@@ -33,7 +33,7 @@ module.exports = {
                 const date = new Date(c.created_at).toLocaleDateString();
                 text +=
                     `┃◆ ${i + 1}. *${c.client_nick}*\n` +
-                    `┃◆    💰 ${c.gold_paid} Gold  ⭐ ${c.xp_paid} XP\n` +
+                    `┃◆    💰 ${c.gold_paid} Lumens  ⭐ ${c.xp_paid} XP\n` +
                     `┃◆    ${status}  •  ${date}\n` +
                     `┃◆────────────\n`;
             });

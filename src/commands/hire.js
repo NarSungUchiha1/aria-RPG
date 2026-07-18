@@ -39,7 +39,7 @@ module.exports = {
             const [money] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold = money[0]?.gold || 0;
             if (gold < listing.price_gold) return msg.reply(
-                `══〘 💚 HIRE 〙══╮\n┃◆ ❌ Not enough gold.\n┃◆ Need: ${listing.price_gold} Gold\n┃◆ Have: ${gold} Gold\n╰═══════════════════════╯`
+                `══〘 💚 HIRE 〙══╮\n┃◆ ❌ Not enough gold.\n┃◆ Need: ${listing.price_gold} Lumens\n┃◆ Have: ${gold} Lumens\n╰═══════════════════════╯`
             );
 
             // Validate XP
@@ -80,7 +80,7 @@ module.exports = {
                     `┃◆ 👤 Client: *${clientNick}*\n` +
                     `┃◆ ❤️ Their HP: ${clientPlayer[0].hp}/${clientPlayer[0].max_hp}\n` +
                     `┃◆ \n` +
-                    `┃◆ 💰 +${listing.price_gold} Gold received\n` +
+                    `┃◆ 💰 +${listing.price_gold} Lumens received\n` +
                     `┃◆ ⭐ +${listing.price_xp} XP received\n` +
                     `┃◆ \n` +
                     `┃◆ Head to them and heal:\n` +
@@ -93,7 +93,7 @@ module.exports = {
             return msg.reply(
                 `══〘 💚 HIRED 〙══╮\n` +
                 `┃◆ ✅ *${healerNick}* notified!\n` +
-                `┃◆ 💰 -${listing.price_gold} Gold\n` +
+                `┃◆ 💰 -${listing.price_gold} Lumens\n` +
                 `┃◆ ⭐ -${listing.price_xp} XP\n` +
                 `┃◆ They will come to you.\n` +
                 `╰═══════════════════════╯`

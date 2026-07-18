@@ -123,7 +123,7 @@ module.exports = {
                             `┃★ ⚔️ *${pack.weapon.name}*\n` +
                             `┃★   〝${pack.weapon.desc}〞\n` +
                             `┃★ \n` +
-                            `┃★ 💰 ${pack.gold.toLocaleString()} Gold\n` +
+                            `┃★ 💰 ${pack.gold.toLocaleString()} Lumens\n` +
                             `┃★ ⭐ ${pack.xp.toLocaleString()} XP\n` +
                             `┃★ \n` +
                             `┃★ !prestigeshop — your armory\n` +
@@ -181,7 +181,7 @@ module.exports = {
                     `\n┃◈ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃◈ ✨ SP: ${p.sp || 0}\n` +
                     `┃◈━━━━━━━━━━━━━\n` +
-                    `┃◈ 💰 Gold: ${gold.toLocaleString()}\n` +
+                    `┃◈ 💰 Lumens: ${gold.toLocaleString()}\n` +
                     `┃◈ ⭐ XP: ${xp.toLocaleString()}\n` +
                     `◆═══════════════════◆`;
             } else if (prestigeLvl > 0) {
@@ -209,7 +209,7 @@ module.exports = {
                     `\n┃★ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃★ ✨ SP: ${p.sp || 0}\n` +
                     `┃★────────────\n` +
-                    `┃★ 💰 Gold: ${gold.toLocaleString()}\n` +
+                    `┃★ 💰 Lumens: ${gold.toLocaleString()}\n` +
                     `┃★ ⭐ XP: ${xp.toLocaleString()}\n` +
                     `╰═══════════════════════╯`;
             } else {
@@ -231,7 +231,7 @@ module.exports = {
                     manaLine +
                     `\n┃◆ ⚡ Awakened: ${p.awakened ? 'YES' : 'NO'}\n` +
                     `┃◆ ✨ SP: ${p.sp || 0}\n` +
-                    `┃◆ 💰 Gold: ${gold}\n` +
+                    `┃◆ 💰 Lumens: ${gold}\n` +
                     `┃◆ ⭐ XP: ${xp}\n` +
                     `╰═══════════════════════╯`;
             }

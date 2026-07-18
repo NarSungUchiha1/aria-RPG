@@ -7,7 +7,7 @@ module.exports = {
     // Combat
     ['Into the Void',          'Enter any dungeon.',                         'dungeon_enter',   1,   500,  300],
     ['Stage Clearer',          'Clear 2 dungeon stages.',                    'stage_clear',     2,   800,  500],
-    ['Blood & Gold',           'Clear any dungeon.',                         'dungeon_clear',   1,   700,  600],
+    ['Blood & Lumens',           'Clear any dungeon.',                         'dungeon_clear',   1,   700,  600],
     ['Repeat Raider',          'Clear 3 stages total.',                      'stage_clear',     3,  1000,  700],
     ['Stage Grinder',          'Clear 5 stages.',                            'stage_clear',     5,  1500, 1000],
     ['Dungeon Victor',         'Clear a dungeon without dying.',              'dungeon_survive', 1,  1200,  800],
@@ -39,7 +39,7 @@ module.exports = {
     ['Boss Hunter',            'Kill a dungeon boss.',                       'boss_kill',       1,  1000,  700],
     ['Void Touched',           'Complete 2 dungeons.',                       'dungeon_clear',   2,  1400,  900],
     ['Chain Clearer',          'Clear 2 dungeons without dying.',            'dungeon_survive', 2,  1600, 1100],
-    ['Gold Hungry',            'Earn 500 gold from dungeons.',               'gold_earned',     1,   400,  300],
+    ['Lumens Hungry',            'Earn 500 gold from dungeons.',               'gold_earned',     1,   400,  300],
     ['XP Grind',               'Earn 500 XP.',                              'xp_earned',       1,   400,  300],
     // Prestige-flavor
     ['Void Champion',          'Clear a prestige dungeon stage.',            'prestige_stage',  1,  2000, 1200],

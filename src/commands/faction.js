@@ -17,7 +17,7 @@ module.exports = {
                     if (r.reason === 'already_in')
                         return msg.reply('❌ You are already sworn to that faction.');
                     if (r.reason === 'cant_afford')
-                        return msg.reply(`❌ Switching sides costs *${r.cost.toLocaleString()}G*. Betrayal isn't cheap.`);
+                        return msg.reply(`❌ Switching sides costs *${r.cost.toLocaleString()}L*. Betrayal isn't cheap.`);
                     return msg.reply('❌ Could not join.');
                 }
                 const f = r.faction;
@@ -30,7 +30,7 @@ module.exports = {
                     `┃★ Dungeon clears: +10 pts\n` +
                     `┃★ Duel wins: +5 pts\n` +
                     `┃★ Weekly champions get +10% XP.\n` +
-                    (r.switched ? `┃★ (−${SWITCH_COST.toLocaleString()}G paid for switching)\n` : '') +
+                    (r.switched ? `┃★ (−${SWITCH_COST.toLocaleString()}L paid for switching)\n` : '') +
                     `╚═══════════════════════════╝`
                 );
             }

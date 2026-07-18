@@ -24,7 +24,7 @@ module.exports = {
             if (!sub) {
                 const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
                 const myGold = gold[0]?.gold || 0;
-                let text = `╔══〘 🏪 ADVENTURER OUTPOST 〙══╗\n┃◆\n┃◆ 💰 Your gold: ${myGold.toLocaleString()}G\n┃◆\n`;
+                let text = `╔══〘 🏪 ADVENTURER OUTPOST 〙══╗\n┃◆\n┃◆ 💰 Your gold: ${myGold.toLocaleString()}L\n┃◆\n`;
                 SHOP_ITEMS.forEach((item, i) => {
                     if (item.prestige && !p.prestige_level) return;
                     const canAfford = myGold >= item.price ? '✅' : '❌';
@@ -33,7 +33,7 @@ module.exports = {
                         `┃◆ ${item.emoji} *${i+1}. ${item.name}*${item.prestige ? ' ✦' : ''}\n` +
                         `┃◆ ${item.desc}\n` +
                         `┃◆ 〝${item.lore}〞\n` +
-                        `┃◆ ${canAfford} ${item.price.toLocaleString()}G  📦 ${item.uses} use${item.uses > 1 ? 's' : ''}\n┃◆\n`;
+                        `┃◆ ${canAfford} ${item.price.toLocaleString()}L  📦 ${item.uses} use${item.uses > 1 ? 's' : ''}\n┃◆\n`;
                 });
                 text += `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n┃◆ !shop buy <number>\n┃◆ !shop inv — your items\n╚═══════════════════════════╝`;
                 return msg.reply(text);
@@ -59,14 +59,14 @@ module.exports = {
                 const item = available[num - 1];
                 if (!item) return msg.reply("❌ Invalid number.");
                 const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
-                if ((gold[0]?.gold || 0) < item.price) return msg.reply(`❌ Need ${item.price.toLocaleString()}G.`);
+                if ((gold[0]?.gold || 0) < item.price) return msg.reply(`❌ Need ${item.price.toLocaleString()}L.`);
                 await db.execute("UPDATE currency SET gold = gold - ? WHERE player_id=?", [item.price, userId]);
                 await db.execute(
                     "INSERT INTO explorer_inventory (player_id, item_id, item_name, uses_left) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE uses_left = uses_left + ?",
                     [userId, item.id, item.name, item.uses, item.uses]
                 );
                 return msg.reply(
-                    `╔══〘 🏪 PURCHASED 〙══╗\n┃◆\n┃◆ ${item.emoji} *${item.name}*\n┃◆ ${item.desc}\n┃◆\n┃◆ 〝${item.lore}〞\n┃◆\n┃◆ 💰 Paid: ${item.price.toLocaleString()}G\n┃◆ Active on your next !explore\n╚═══════════════════════════╝`
+                    `╔══〘 🏪 PURCHASED 〙══╗\n┃◆\n┃◆ ${item.emoji} *${item.name}*\n┃◆ ${item.desc}\n┃◆\n┃◆ 〝${item.lore}〞\n┃◆\n┃◆ 💰 Paid: ${item.price.toLocaleString()}L\n┃◆ Active on your next !explore\n╚═══════════════════════════╝`
                 );
             }
         } catch (err) {

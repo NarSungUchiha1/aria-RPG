@@ -186,7 +186,7 @@ async function calculateMvp(key, participantIds, context = 'dungeon') {
     if (mvp.role === 'Tank' && mvp.damageTaken > 0) details.push(`${mvp.damageTaken.toLocaleString()} tanked`);
     if (mvp.kills > 0) details.push(`${mvp.kills} KO${mvp.kills > 1 ? 's' : ''}`);
 
-    let rewardLine = `+${rewards.gold.toLocaleString()}G  +${rewards.xp.toLocaleString()}XP`;
+    let rewardLine = `+${rewards.gold.toLocaleString()}L  +${rewards.xp.toLocaleString()}XP`;
     if (isExceptional && rewards.material) rewardLine += `  +1 ${rewards.material}`;
 
     // Build full leaderboard

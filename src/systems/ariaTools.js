@@ -46,7 +46,7 @@ const TOOLS = {
             return `${p.nickname} | ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''}\n` +
                    `HP: ${p.hp}/${p.max_hp} | Fatigue: ${p.fatigue}/100 | SP: ${p.sp}\n` +
                    `STR: ${p.strength} | AGI: ${p.agility} | INT: ${p.intelligence} | STA: ${p.stamina}\n` +
-                   `Gold: ${Number(p.gold||0).toLocaleString()} | XP: ${Number(p.xp||0).toLocaleString()}\n` +
+                   `Lumens: ${Number(p.gold||0).toLocaleString()} | XP: ${Number(p.xp||0).toLocaleString()}\n` +
                    `PvP: ${p.pvp_wins}W / ${p.pvp_losses}L | Clan: ${p.clan || 'None'} | Title: ${p.title || 'None'}`;
         }
     },
@@ -102,7 +102,7 @@ const TOOLS = {
                 ORDER BY ${orderBy} DESC LIMIT 10`
             );
             return `Top 10 by ${type}:\n` + rows.map((r, i) =>
-                `${i+1}. ${r.nickname} [${r.rank}]${r.prestige_level > 0 ? '⭐' : ''} — XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W`
+                `${i+1}. ${r.nickname} [${r.rank}]${r.prestige_level > 0 ? '⭐' : ''} — XP: ${Number(r.xp||0).toLocaleString()} | Lumens: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W`
             ).join('\n');
         }
     },

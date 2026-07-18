@@ -206,7 +206,7 @@ async function checkCreationRequirements(playerId) {
     const [gold] = await db.execute("SELECT gold FROM currency WHERE player_id=?", [playerId]);
     const playerGold = Number(gold[0]?.gold || 0);
     if (playerGold < CREATION_REQUIREMENTS.minGold) {
-        fails.push(`❌ Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you have ${playerGold.toLocaleString()})`);
+        fails.push(`❌ Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Lumens (you have ${playerGold.toLocaleString()})`);
     }
 
     return { pass: fails.length === 0, fails, playerGold, clearCount, psClears, p };

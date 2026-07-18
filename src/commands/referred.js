@@ -79,7 +79,7 @@ module.exports = {
                 if (m) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [m.gold, referrerId]).catch(() => {});
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [m.xp, referrerId]).catch(() => {});
-                    milestoneMsg = `┃◆ 🏆 MILESTONE: ${m.label}!\n┃◆ +${m.gold.toLocaleString()}G +${m.xp.toLocaleString()}XP bonus!\n`;
+                    milestoneMsg = `┃◆ 🏆 MILESTONE: ${m.label}!\n┃◆ +${m.gold.toLocaleString()}L +${m.xp.toLocaleString()}XP bonus!\n`;
                 }
             } catch(e) {}
 
@@ -101,8 +101,8 @@ module.exports = {
                     `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
                     `┃◆ @${userId} used *${referrer[0].nickname}*'s code!\n` +
                     `┃◆ \n` +
-                    `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP +${REFERRAL_GOLD_REFERRER.toLocaleString()}G\n` +
-                    `┃◆ 💰 @${userId} +${REFERRAL_GOLD_NEW} Gold\n` +
+                    `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP +${REFERRAL_GOLD_REFERRER.toLocaleString()}L\n` +
+                    `┃◆ 💰 @${userId} +${REFERRAL_GOLD_NEW} Lumens\n` +
                     milestoneMsg +
                     `┃◆ \n` +
                     `╰═══════════════════════╯`,
@@ -115,7 +115,7 @@ module.exports = {
                 `┃◆ Invited by: *${referrer[0].nickname}*\n` +
                 `┃◆ \n` +
                 `┃◆ ⭐ They got +${REFERRAL_XP_REFERRER} XP\n` +
-                `┃◆ 💰 You got +${REFERRAL_GOLD_NEW} Gold\n` +
+                `┃◆ 💰 You got +${REFERRAL_GOLD_NEW} Lumens\n` +
                 `┃◆ \n` +
                 `╰═══════════════════════╯`
             );

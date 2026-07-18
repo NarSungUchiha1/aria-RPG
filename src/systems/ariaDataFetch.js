@@ -68,7 +68,7 @@ async function fetchPlayerData(identifier) {
         return `${p.nickname} — ${p.role} | Rank ${p.rank}${p.prestige_level > 0 ? ` (Prestige ${p.prestige_level})` : ''} | ` +
                `HP ${p.hp}/${p.max_hp} | Fatigue ${p.fatigue}/100 | ` +
                `STR ${p.strength} AGI ${p.agility} INT ${p.intelligence} STA ${p.stamina} | ` +
-               `Gold ${Number(p.gold||0).toLocaleString()} | XP ${Number(p.xp||0).toLocaleString()} | ` +
+               `Lumens ${Number(p.gold||0).toLocaleString()} | XP ${Number(p.xp||0).toLocaleString()} | ` +
                `PvP ${p.pvp_wins}W-${p.pvp_losses}L | Clan: ${p.clan_name || 'None'} | Title: ${p.title || 'None'}`;
     } catch { return null; }
 }
@@ -113,7 +113,7 @@ async function fetchLeaderboard(type = 'xp') {
         );
         return rows.map((r, i) =>
             `${i+1}. ${r.nickname} [${r.rank}]${r.prestige_level > 0 ? '⭐' : ''} — ` +
-            `XP: ${Number(r.xp||0).toLocaleString()} | Gold: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W`
+            `XP: ${Number(r.xp||0).toLocaleString()} | Lumens: ${Number(r.gold||0).toLocaleString()} | PvP: ${r.pvp_wins}W`
         ).join('\n');
     } catch { return null; }
 }

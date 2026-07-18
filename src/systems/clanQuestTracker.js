@@ -102,7 +102,7 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
                                 '┃◆ You have proven yourself.\n' +
                                 '┃◆\n' +
                                 '┃◆ 🎁 REWARDS CLAIMED\n' +
-                                '┃◆ 💰 +' + Number(quest.reward_gold).toLocaleString() + ' Gold\n' +
+                                '┃◆ 💰 +' + Number(quest.reward_gold).toLocaleString() + ' Lumens\n' +
                                 '┃◆ ⭐ +' + Number(quest.reward_xp).toLocaleString() + ' XP\n' +
                                 '┃◆\n' +
                                 '┃◆ Ask your master for the next trial.\n' +

@@ -23,7 +23,7 @@ module.exports = {
         const targetId = mentioned[0].replace(/@c\.us/g, "").split("@")[0];
         const amount   = parseInt(args[1]);
 
-        // Gold transfers between players in the SAME active dungeon are allowed.
+        // Lumens transfers between players in the SAME active dungeon are allowed.
         // Paying someone outside the dungeon, or in a different dungeon, is blocked.
         const [sPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [userId]);
         const [tPayD] = await db.execute("SELECT dp.dungeon_id FROM dungeon_players dp JOIN dungeon d ON d.id=dp.dungeon_id WHERE dp.player_id=? AND dp.is_alive=1 AND d.is_active=1", [targetId]);
@@ -85,7 +85,7 @@ module.exports = {
             return msg.reply(
                 `══〘 💰 GOLD SENT 〙══╮\n` +
                 `┃◆ To:     ${target[0].nickname}\n` +
-                `┃◆ Amount: ${amount} Gold\n` +
+                `┃◆ Amount: ${amount} Lumens\n` +
                 `┃◆ ✅ Transfer successful.\n` +
                 `╰═══════════════════════╯`
             );

@@ -292,7 +292,7 @@ async function distributePrizes(tournamentId, client, raidGroup) {
         }
 
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 || i === 3 ? '🥉' : i < 8 ? '⚔️' : '🎖️';
-        text += `┃★ ${medal} *${p.nickname}* — ${prize.gold.toLocaleString()}G + ${prize.xp.toLocaleString()} XP`;
+        text += `┃★ ${medal} *${p.nickname}* — ${prize.gold.toLocaleString()}L + ${prize.xp.toLocaleString()} XP`;
         if (prize.weapon) text += ` + ${prize.weapon}`;
         text += `\n`;
     }

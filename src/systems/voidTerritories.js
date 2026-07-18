@@ -20,7 +20,7 @@ const TERRITORIES = {
         lore: 'They swore to guard the sunrise. Now they guard its grave.',
         bonus: {
             label: 'Tithe of First Light',
-            description: '+20% Gold from all dungeon clears',
+            description: '+20% Lumens from all dungeon clears',
             type: 'gold_bonus',
             value: 0.20
         },

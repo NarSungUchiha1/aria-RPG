@@ -64,12 +64,12 @@ module.exports = {
                 const prestige = ['PF','PE','PD','PC','PB','PA','PS'];
                 let text = `╔══〘 🌀 CHOOSE YOUR RIFT 〙══╗\n┃◆\n┃◆ NORMAL RIFTS:\n`;
                 normal.forEach(r => {
-                    text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||500).toLocaleString()}G  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
+                    text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||500).toLocaleString()}L  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
                 });
                 if (isPrestige) {
                     text += `┃◆\n┃◆ ✦ VOID RIFTS (Prestige):\n`;
                     prestige.forEach(r => {
-                        text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||5000).toLocaleString()}G  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
+                        text += `┃◆   !explore ${r} — ${(ENTRY_COSTS[r]||5000).toLocaleString()}L  ⚠️ ${SURV_DISPLAY[r]}% survival\n`;
                     });
                 }
                 text += `┃◆\n┃◆ Higher rank = better drops\n┃◆ Higher rank = lower survival\n╚═══════════════════════════╝`;
@@ -102,7 +102,7 @@ module.exports = {
                 `┃◆▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
                 `┃◆ Explorer: ${p.nickname}\n` +
                 `┃◆ Rift Tier: ${rank}${isPrestige ? ' ✦ Void Rift' : ''}\n` +
-                `┃◆ Entry Cost: ${cost.toLocaleString()}G\n` +
+                `┃◆ Entry Cost: ${cost.toLocaleString()}L\n` +
                 `┃◆ ⚠️ Survival Chance: ${survivalPct}%\n` +
                 `┃◆\n` +
                 `┃◆ ⏳ Return in ${result.readyIn}\n` +

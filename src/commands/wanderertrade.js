@@ -48,7 +48,7 @@ module.exports = {
             // Give gold reward
             if (trade.receiveGold && trade.receiveGold > 0) {
                 await db.execute('UPDATE currency SET gold = gold + ? WHERE player_id=?', [trade.receiveGold, userId]);
-                rewardText += `┃◆ 💰 ${trade.receiveGold.toLocaleString()} Gold\n`;
+                rewardText += `┃◆ 💰 ${trade.receiveGold.toLocaleString()} Lumens\n`;
             }
 
             wanderer.accepted.add(userId);

@@ -76,7 +76,7 @@ async function updateBountyProgress(playerId, objective, target = null, amount =
                         `┃◆ *${b.title}*\n` +
                         `┃◆ Claimed by: *${nick}*\n` +
                         `┃◆\n` +
-                        `┃◆ 💰 +${b.reward_gold.toLocaleString()}G\n` +
+                        `┃◆ 💰 +${b.reward_gold.toLocaleString()}L\n` +
                         `┃◆ ⭐ +${b.reward_xp.toLocaleString()}XP\n` +
                         (b.reward_item ? `┃◆ 🎁 +${b.reward_item}\n` : '') +
                         `╚═══════════════════════════╝`

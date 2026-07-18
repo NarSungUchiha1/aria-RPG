@@ -131,7 +131,7 @@ module.exports = {
                     `══〘 🧪 TESTER 〙══╮\n` +
                     `┃◆ Already on demo account.\n` +
                     `┃◆ *${d[0]?.nickname}* [${d[0]?.rank}] ${d[0]?.role}\n` +
-                    `┃◆ Gold: ${Number(d[0]?.gold||0).toLocaleString()}\n` +
+                    `┃◆ Lumens: ${Number(d[0]?.gold||0).toLocaleString()}\n` +
                     `┃◆ !tester logout to switch back.\n` +
                     `╰═══════════════════════╯`
                 );
@@ -152,7 +152,7 @@ module.exports = {
                 `┃◆\n` +
                 `┃◆ Demo: *${demo[0]?.nickname}*\n` +
                 `┃◆ Role: ${demo[0]?.role} | Rank: ${demo[0]?.rank}\n` +
-                `┃◆ Gold: 100,000\n` +
+                `┃◆ Lumens: 100,000\n` +
                 `┃◆\n` +
                 `┃◆ All commands use this account.\n` +
                 `┃◆\n` +
@@ -199,7 +199,7 @@ module.exports = {
                         `┃◆ *${d[0].nickname}* [${d[0].rank}] ${d[0].role}\n` +
                         `┃◆ HP: ${d[0].hp}/${d[0].max_hp}\n` +
                         `┃◆ STR:${d[0].strength} AGI:${d[0].agility} INT:${d[0].intelligence} STA:${d[0].stamina}\n` +
-                        `┃◆ Gold: ${Number(d[0].gold||0).toLocaleString()}\n`;
+                        `┃◆ Lumens: ${Number(d[0].gold||0).toLocaleString()}\n`;
                 }
             }
             return msg.reply(
@@ -293,7 +293,7 @@ module.exports = {
             );
             return msg.reply(
                 `══〘 🧪 TESTER 〙══╮\n` +
-                `┃◆ ✅ Gold set to ${amount.toLocaleString()}\n` +
+                `┃◆ ✅ Lumens set to ${amount.toLocaleString()}\n` +
                 `╰═══════════════════════╯`
             );
         }

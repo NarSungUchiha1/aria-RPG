@@ -91,10 +91,10 @@ module.exports = {
                 `┃★ 〝${narrative}〞\n` +
                 `┃★ \n` +
                 `┃★▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬\n` +
-                `┃★ 💰 +${DAILY_GOLD.toLocaleString()} Gold\n` +
+                `┃★ 💰 +${DAILY_GOLD.toLocaleString()} Lumens\n` +
                 `┃★ ⭐ +${DAILY_XP.toLocaleString()} XP\n` +
                 `┃★ \n` +
-                `┃★ Balance: ${(goldRow[0]?.gold || 0).toLocaleString()}G\n` +
+                `┃★ Balance: ${(goldRow[0]?.gold || 0).toLocaleString()}L\n` +
                 `┃★ Next: 24h from now\n` +
                 `╚════════════════════════════╝`
             );

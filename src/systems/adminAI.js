@@ -43,11 +43,11 @@ async function execAction(action, params, sock, jid, blockedSet) {
     const a = action.toLowerCase();
     if (a.includes('gold') && a.includes('give')) {
         await db.execute("UPDATE currency SET gold=gold+? WHERE player_id=?", [amount, p.id]);
-        return `Done! Gave ${Number(amount).toLocaleString()} gold to *${p.nickname}* 💰`;
+        return `Done! Gave ${Number(amount).toLocaleString()} Lumens to *${p.nickname}* 💰`;
     }
     if (a.includes('gold') && a.includes('take')) {
         await db.execute("UPDATE currency SET gold=GREATEST(0,gold-?) WHERE player_id=?", [amount, p.id]);
-        return `Took ${amount} gold from *${p.nickname}*.`;
+        return `Took ${amount} Lumens from *${p.nickname}*.`;
     }
     if (a.includes('xp')) {
         await db.execute("UPDATE xp SET xp=xp+? WHERE player_id=?", [amount, p.id]);
@@ -112,7 +112,7 @@ async function execAction(action, params, sock, jid, blockedSet) {
     }
     if (a.includes('set_gold') || (a.includes('set') && a.includes('gold'))) {
         await db.execute("UPDATE currency SET gold=? WHERE player_id=?", [amount, p.id]);
-        return `*${p.nickname}*'s gold set to ${Number(amount).toLocaleString()} 💰`;
+        return `*${p.nickname}*'s Lumens set to ${Number(amount).toLocaleString()} 💰`;
     }
     if (a.includes('set_hp') || (a.includes('set') && a.includes('hp'))) {
         await db.execute("UPDATE players SET hp=?, max_hp=? WHERE id=?", [amount, amount, p.id]);
@@ -204,7 +204,7 @@ async function handleAdminCommand(sock, jid, msg, userId, instruction, callGemin
                 `│ ${p.role} · Rank ${p.rank}${p.title ? ` · ${p.title}` : ''}\n` +
                 `│ HP ${p.hp}/${p.max_hp} · Fatigue ${p.fatigue}/100 · SP ${p.sp}\n` +
                 `│ STR ${p.strength} · AGI ${p.agility} · INT ${p.intelligence} · STA ${p.stamina}\n` +
-                `│ Gold ${gold} · XP ${xp}\n` +
+                `│ Lumens ${gold} · XP ${xp}\n` +
                 `│ PvP ${p.pvp_wins}W / ${p.pvp_losses}L\n` +
                 `╰─ Clan: ${cln[0]?.name || 'None'}`;
         }

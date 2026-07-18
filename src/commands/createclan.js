@@ -41,7 +41,7 @@ module.exports = {
                         `┃◆ ${(RANK_ORDER.indexOf(check.p?.rank) >= RANK_ORDER.indexOf('A') || check.p?.rank?.startsWith('P')) ? '✅' : '❌'} Rank A or higher\n` +
                         `┃◆ ${Number(check.clearCount) >= CREATION_REQUIREMENTS.minDungeons ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minDungeons} dungeon clears (${check.clearCount || 0} done)\n` +
                         `┃◆ ${Number(check.psClears||0) >= 1 ? '✅' : '❌'} 1 PS dungeon cleared (${check.psClears || 0} done)\n` +
-                        `┃◆ ${Number(check.playerGold) >= CREATION_REQUIREMENTS.minGold ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold (you: ${Number(check.playerGold||0).toLocaleString()})\n` +
+                        `┃◆ ${Number(check.playerGold) >= CREATION_REQUIREMENTS.minGold ? '✅' : '❌'} ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Lumens (you: ${Number(check.playerGold||0).toLocaleString()})\n` +
                         `┃◆\n` +
                         `┃◆ You do not yet qualify.\n` +
                         `┃◆ Return when you are ready.\n` +
@@ -52,7 +52,7 @@ module.exports = {
                 // Show blessing selection menu
                 let text =
                     `══〘 🏰 CREATE CLAN 〙══╮\n` +
-                    `┃◆ Cost: ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Gold\n` +
+                    `┃◆ Cost: ${CREATION_REQUIREMENTS.minGold.toLocaleString()} Lumens\n` +
                     `┃◆────────────\n` +
                     `┃◆ Choose your clan blessing:\n` +
                     `┃◆────────────\n`;
@@ -150,7 +150,7 @@ module.exports = {
             const [goldRow] = await db.execute('SELECT gold FROM currency WHERE player_id=?', [userId]);
             const gold = Number(goldRow[0]?.gold || 0);
             if (gold < CREATION_REQUIREMENTS.minGold) return msg.reply(
-                `❌ Not enough gold. Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()}G, have ${gold.toLocaleString()}G.`
+                `❌ Not enough gold. Need ${CREATION_REQUIREMENTS.minGold.toLocaleString()}L, have ${gold.toLocaleString()}L.`
             );
 
             // Deduct gold and create clan

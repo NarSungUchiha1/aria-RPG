@@ -70,7 +70,7 @@ module.exports = {
                 return msg.reply(
                     `══〘 🛒 BUY 〙══╮\n` +
                     `┃◆ ✅ ${item.name} purchased!\n` +
-                    `┃◆ 💰 -${item.price} Gold\n` +
+                    `┃◆ 💰 -${item.price} Lumens\n` +
                     `┃◆ 📦 ${bagData.slots} slots • ${bagData.durability} durability\n` +
                     `┃◆ Use !equip to equip it.\n` +
                     `╰═══════════════════════╯`
@@ -123,7 +123,7 @@ module.exports = {
 
             return msg.reply(`══〘 ✅ PURCHASE SUCCESS 〙══╮
 ┃◆ ${item.name}
-┃◆ 💰 -${item.price} Gold
+┃◆ 💰 -${item.price} Lumens
 ┃◆━━━━━━━━━━━━
 ┃◆ Added to inventory
 ╰═══════════════════════╯`);

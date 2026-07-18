@@ -3,7 +3,7 @@
  * Applies passive bonuses to clan members based on territories held.
  *
  * Bonuses:
- *   Dawnwatch Bastion  → +20% Gold from dungeon clears
+ *   Dawnwatch Bastion  → +20% Lumens from dungeon clears
  *   Umbral Court       → +25% damage in dungeon combat
  *   Last Light Sanctum → +30% XP from all sources
  */

@@ -31,14 +31,14 @@ module.exports = {
             const [money]      = await db.execute("SELECT gold FROM currency WHERE player_id=?", [userId]);
             const gold         = money[0]?.gold || 0;
             if (gold < totalCost) return msg.reply(
-                `══〘 🔧 REPAIR 〙══╮\n┃◆ ❌ Not enough gold.\n┃◆ Need: ${totalCost} Gold\n┃◆ Have: ${gold} Gold\n╰═══════════════════════╯`
+                `══〘 🔧 REPAIR 〙══╮\n┃◆ ❌ Not enough gold.\n┃◆ Need: ${totalCost} Lumens\n┃◆ Have: ${gold} Lumens\n╰═══════════════════════╯`
             );
             await db.execute("UPDATE currency SET gold=gold-? WHERE player_id=?", [totalCost, userId]);
             await db.execute("UPDATE inventory SET durability=max_durability WHERE id=?", [item.id]);
             return msg.reply(
                 `══〘 🔧 REPAIR 〙══╮\n` +
                 `┃◆ ✅ ${item.item_name} [${grade}] repaired!\n` +
-                `┃◆ 💰 Cost: ${totalCost} Gold\n` +
+                `┃◆ 💰 Cost: ${totalCost} Lumens\n` +
                 `┃◆ 🔧 Durability: ${currentDur} → ${maxDur}\n` +
                 `╰═══════════════════════╯`
             );

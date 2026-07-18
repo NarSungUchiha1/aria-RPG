@@ -33,7 +33,7 @@ module.exports = {
                 `┃◆ 📜 ${q.title}\n` +
                 `┃◆────────────\n` +
                 `┃◆ ⭐ +${q.reward_xp} XP\n` +
-                `┃◆ 💰 +${q.reward_gold} Gold\n`;
+                `┃◆ 💰 +${q.reward_gold} Lumens\n`;
 
             if (q.reward_sp)    text += `┃◆ ✨ +${q.reward_sp} SP\n`;
             if (q.reward_title) text += `┃◆ 🎖️ Title: "${q.reward_title}"\n`;

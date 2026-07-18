@@ -159,7 +159,7 @@ module.exports = {
                     `┃◆ *${claimerNick}* has taken down\n` +
                     `┃◆ the Most Wanted *${bounty.target_nick}*!\n` +
                     `┃◆\n` +
-                    `┃◆ 💰 +${bounty.reward_gold.toLocaleString()} Gold\n` +
+                    `┃◆ 💰 +${bounty.reward_gold.toLocaleString()} Lumens\n` +
                     `┃◆ ⭐ +${bounty.reward_xp.toLocaleString()} XP\n` +
                     `┃◆\n` +
                     `┃◆ The hunt is over. For now.\n` +
@@ -168,7 +168,7 @@ module.exports = {
 
             return msg.reply(
                 `╔══〘 🎯 BOUNTY CLAIMED 〙══╗\n` +
-                `┃◆ 💰 +${bounty.reward_gold.toLocaleString()} Gold\n` +
+                `┃◆ 💰 +${bounty.reward_gold.toLocaleString()} Lumens\n` +
                 `┃◆ ⭐ +${bounty.reward_xp.toLocaleString()} XP\n` +
                 `╚═══════════════════════════╝`
             );
@@ -217,7 +217,7 @@ module.exports = {
             `┃◆ 🎯 *${bounty.target_nick}* [${bounty.target_rank}]\n` +
             `┃◆\n` +
             `┃◆ Reward for taking them down:\n` +
-            `┃◆ 💰 ${bounty.reward_gold.toLocaleString()} Gold\n` +
+            `┃◆ 💰 ${bounty.reward_gold.toLocaleString()} Lumens\n` +
             `┃◆ ⭐ ${bounty.reward_xp.toLocaleString()} XP\n` +
             `┃◆\n` +
             `┃◆ Hunters taken down: ${claimCount}\n` +

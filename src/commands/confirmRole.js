@@ -85,7 +85,7 @@ module.exports = {
                 `┃◆ \n` +
                 `┃◆ ━━ APPLIED PENALTIES ━━\n` +
                 `┃◆ 🏅 Rank: ${rankLossText}\n` +
-                `┃◆ 💰 Gold lost: ${goldLost.toLocaleString()}\n` +
+                `┃◆ 💰 Lumens lost: ${goldLost.toLocaleString()}\n` +
                 `┃◆ 🗑️ All equipment cleared\n` +
                 `┃◆ ✨ SP reset to 0\n` +
                 `┃◆ \n` +

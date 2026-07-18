@@ -185,7 +185,7 @@ module.exports = {
             `┃◆\n` +
             `┃◆ 🏆 *!casinolb* — leaderboard\n` +
             `┃◆\n` +
-            `┃◆ Min: ${MIN_BET.toLocaleString()}G  Max: ${MAX_BET.toLocaleString()}G\n` +
+            `┃◆ Min: ${MIN_BET.toLocaleString()}L  Max: ${MAX_BET.toLocaleString()}L\n` +
             `┃◆ Limit: ${DAILY_LIMIT} tries per game per day\n` +
             `╚═══════════════════════════╝`
         );
@@ -228,9 +228,9 @@ module.exports = {
 
         // ── !dice ─────────────────────────────────────────────────────────────
         if (cmd === 'dice') {
-            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}G and ${MAX_BET.toLocaleString()}G.`);
+            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}L and ${MAX_BET.toLocaleString()}L.`);
             const gold = await checkGold(userId);
-            if (gold < bet) return msg.reply(`❌ Not enough gold. You have ${gold.toLocaleString()}G.`);
+            if (gold < bet) return msg.reply(`❌ Not enough gold. You have ${gold.toLocaleString()}L.`);
             if (!await useTry(userId, 'dice')) return msg.reply(limitMsg());
 
             const you   = Math.ceil(Math.random()*6) + Math.ceil(Math.random()*6);
@@ -245,9 +245,9 @@ module.exports = {
                 `┃◆ *${nick}* rolled: *${you}*\n` +
                 `┃◆ House rolled:  *${house}*\n` +
                 `┃◆\n` +
-                (tie ? `┃◆ 🤝 Tie — house wins. -${bet.toLocaleString()}G\n` :
-                 won ? `┃◆ ✅ You win! +${bet.toLocaleString()}G\n` :
-                       `┃◆ ❌ House wins. -${bet.toLocaleString()}G\n`) +
+                (tie ? `┃◆ 🤝 Tie — house wins. -${bet.toLocaleString()}L\n` :
+                 won ? `┃◆ ✅ You win! +${bet.toLocaleString()}L\n` :
+                       `┃◆ ❌ House wins. -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'dice')}\n` +
                 `╚═══════════════════════════╝`
             );
@@ -255,7 +255,7 @@ module.exports = {
 
         // ── !slots ────────────────────────────────────────────────────────────
         if (cmd === 'slots') {
-            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}G and ${MAX_BET.toLocaleString()}G.`);
+            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}L and ${MAX_BET.toLocaleString()}L.`);
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold.`);
             if (!await useTry(userId, 'slots')) return msg.reply(limitMsg());
@@ -271,9 +271,9 @@ module.exports = {
                 `┃◆\n` +
                 `┃◆  ${reels[0]} │ ${reels[1]} │ ${reels[2]}\n` +
                 `┃◆\n` +
-                (isJP       ? `┃◆ 💎 JACKPOT! +${(payout-bet).toLocaleString()}G profit!\n` :
-                 payout > 0 ? `┃◆ ✅ +${(payout-bet).toLocaleString()}G profit\n` :
-                              `┃◆ ❌ No match. -${bet.toLocaleString()}G\n`) +
+                (isJP       ? `┃◆ 💎 JACKPOT! +${(payout-bet).toLocaleString()}L profit!\n` :
+                 payout > 0 ? `┃◆ ✅ +${(payout-bet).toLocaleString()}L profit\n` :
+                              `┃◆ ❌ No match. -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'slots')}\n` +
                 `╚═══════════════════════════╝`
             );
@@ -281,7 +281,7 @@ module.exports = {
 
         // ── !coinflip ─────────────────────────────────────────────────────────
         if (cmd === 'coinflip') {
-            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}G and ${MAX_BET.toLocaleString()}G.`);
+            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}L and ${MAX_BET.toLocaleString()}L.`);
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold.`);
             if (!await useTry(userId, 'coinflip')) return msg.reply(limitMsg());
@@ -297,7 +297,7 @@ module.exports = {
                 `┃◆ You chose: *${guess}*\n` +
                 `┃◆ Result:    *${result}*\n` +
                 `┃◆\n` +
-                (won ? `┃◆ ✅ +${bet.toLocaleString()}G\n` : `┃◆ ❌ -${bet.toLocaleString()}G\n`) +
+                (won ? `┃◆ ✅ +${bet.toLocaleString()}L\n` : `┃◆ ❌ -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'coinflip')}\n` +
                 `╚═══════════════════════════╝`
             );
@@ -332,7 +332,7 @@ module.exports = {
                     `┃◆ Your hand: ${hand.join(' ')} = 21\n` +
                     `┃◆\n` +
                     `┃◆ 🎉 BLACKJACK — 2.5× payout!\n` +
-                    `┃◆ +${payout.toLocaleString()}G\n` +
+                    `┃◆ +${payout.toLocaleString()}L\n` +
                     `╚═══════════════════════════╝`
                 );
             }
@@ -343,7 +343,7 @@ module.exports = {
                 `┃◆ Your hand:    ${hand.join(' ')} = ${total}\n` +
                 `┃◆ Dealer shows: ${dealerHand[0]} 🂠\n` +
                 `┃◆ Cards: ${hand.length}/5\n` +
-                `┃◆ Bet: ${bet.toLocaleString()}G\n` +
+                `┃◆ Bet: ${bet.toLocaleString()}L\n` +
                 `┃◆\n` +
                 `┃◆ !hit — draw  !stand — hold\n` +
                 `╚═══════════════════════════╝`
@@ -375,7 +375,7 @@ module.exports = {
                     `┃◆ Drew: *${newCard}*\n` +
                     `┃◆ Your hand: ${game.hand.join(' ')} = ${total}\n` +
                     `┃◆\n` +
-                    `┃◆ ❌ Bust! -${game.bet.toLocaleString()}G\n` +
+                    `┃◆ ❌ Bust! -${game.bet.toLocaleString()}L\n` +
                     `╚═══════════════════════════╝`
                 );
             }
@@ -398,8 +398,8 @@ module.exports = {
                     `┃◆ Dealer:   ${game.dealerHand.join(' ')} = ${dTotal}${bust ? ' BUST' : ''}\n` +
                     `┃◆\n` +
                     (tie  ? `┃◆ 🤝 Tie — bet returned.\n` :
-                     won  ? `┃◆ ✅ You win! +${game.bet.toLocaleString()}G\n` :
-                            `┃◆ ❌ Dealer wins. -${game.bet.toLocaleString()}G\n`) +
+                     won  ? `┃◆ ✅ You win! +${game.bet.toLocaleString()}L\n` :
+                            `┃◆ ❌ Dealer wins. -${game.bet.toLocaleString()}L\n`) +
                     `╚═══════════════════════════╝`
                 );
             }
@@ -443,8 +443,8 @@ module.exports = {
                 `┃◆ Dealer:   ${game.dealerHand.join(' ')} = ${dealerTotal}${bust ? ' BUST' : ''}\n` +
                 `┃◆\n` +
                 (tie  ? `┃◆ 🤝 Tie — bet returned.\n` :
-                 won  ? `┃◆ ✅ You win! +${game.bet.toLocaleString()}G\n` :
-                        `┃◆ ❌ Dealer wins. -${game.bet.toLocaleString()}G\n`) +
+                 won  ? `┃◆ ✅ You win! +${game.bet.toLocaleString()}L\n` :
+                        `┃◆ ❌ Dealer wins. -${game.bet.toLocaleString()}L\n`) +
                 `╚═══════════════════════════╝`
             );
         }
@@ -453,7 +453,7 @@ module.exports = {
         if (cmd === 'roulette') {
             const choice = args[1]?.toLowerCase();
             if (!choice) return msg.reply('❌ !roulette <bet> <red/black/odd/even/0-36>');
-            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}G and ${MAX_BET.toLocaleString()}G.`);
+            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}L and ${MAX_BET.toLocaleString()}L.`);
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold.`);
             if (!await useTry(userId, 'roulette')) return msg.reply(limitMsg());
@@ -482,7 +482,7 @@ module.exports = {
                 `┃◆ Ball lands: ${color} *${spin}*\n` +
                 `┃◆ Your bet:   *${choice}*\n` +
                 `┃◆\n` +
-                (won ? `┃◆ ✅ +${(payout-bet).toLocaleString()}G\n` : `┃◆ ❌ -${bet.toLocaleString()}G\n`) +
+                (won ? `┃◆ ✅ +${(payout-bet).toLocaleString()}L\n` : `┃◆ ❌ -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'roulette')}\n` +
                 `╚═══════════════════════════╝`
             );
@@ -490,7 +490,7 @@ module.exports = {
 
         // ── !war ──────────────────────────────────────────────────────────────
         if (cmd === 'war') {
-            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}G and ${MAX_BET.toLocaleString()}G.`);
+            if (!betValid(bet)) return msg.reply(`❌ Bet must be between ${MIN_BET.toLocaleString()}L and ${MAX_BET.toLocaleString()}L.`);
             const gold = await checkGold(userId);
             if (gold < bet) return msg.reply(`❌ Not enough gold.`);
             if (!await useTry(userId, 'war')) return msg.reply(limitMsg());
@@ -508,8 +508,8 @@ module.exports = {
                 `┃◆ Dealer card: *${dealerCard}* (${dv})\n` +
                 `┃◆\n` +
                 (tie  ? `┃◆ 🤝 Tie — bet returned.\n` :
-                 won  ? `┃◆ ✅ +${bet.toLocaleString()}G\n` :
-                        `┃◆ ❌ -${bet.toLocaleString()}G\n`) +
+                 won  ? `┃◆ ✅ +${bet.toLocaleString()}L\n` :
+                        `┃◆ ❌ -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'war')}\n` +
                 `╚═══════════════════════════╝`
             );
@@ -538,8 +538,8 @@ module.exports = {
                 `┃◆ Next card:   *${second}* (${sv})\n` +
                 `┃◆\n` +
                 (tie  ? `┃◆ 🤝 Same card — bet returned.\n` :
-                 won  ? `┃◆ ✅ +${profit.toLocaleString()}G\n` :
-                        `┃◆ ❌ -${bet.toLocaleString()}G\n`) +
+                 won  ? `┃◆ ✅ +${profit.toLocaleString()}L\n` :
+                        `┃◆ ❌ -${bet.toLocaleString()}L\n`) +
                 `┃◆ Tries left today: ${await triesLeft(userId,'highlow')}\n` +
                 `╚═══════════════════════════╝`
             );

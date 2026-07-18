@@ -72,7 +72,7 @@ module.exports = {
                     ? `┃★ The path of the ordinary\n` +
                       `┃★ is no longer yours.\n` +
                       `┃★ \n` +
-                      `┃★ Gold stripped. XP stripped.\n` +
+                      `┃★ Lumens stripped. XP stripped.\n` +
                       `┃★ Rank reset to ☆ F.\n` +
                       `┃★ \n` +
                       `┃★ But something has changed.\n` +
@@ -82,7 +82,7 @@ module.exports = {
                       `┃★ ✅ Blacksmith access granted\n` +
                       `┃★ ✅ Prestige shop available\n`
                     : `┃★ Further. Harder. Stronger.\n` +
-                      `┃★ Gold stripped. XP stripped.\n` +
+                      `┃★ Lumens stripped. XP stripped.\n` +
                       `┃★ Rank reset to ☆ F.\n` +
                       `┃★ \n` +
                       `┃★ ✅ Prestige ${result.newLevel} achieved\n`

@@ -54,7 +54,7 @@ module.exports = {
                     `┃◈ Welcome to the inner circle,\n` +
                     `┃◈ *${nick}*.\n` +
                     `┃◈━━━━━━━━━━━━━━━━━━━\n` +
-                    `┃◈ 💰 +${GRANT_GOLD.toLocaleString()} Gold\n` +
+                    `┃◈ 💰 +${GRANT_GOLD.toLocaleString()} Lumens\n` +
                     `┃◈ ⭐ +${GRANT_XP.toLocaleString()} XP\n` +
                     `┃◈ 🧪 +6× Fatigue Potion\n` +
                     `┃◈ 🧪 +2× Fracture Potion\n` +
