@@ -18,7 +18,7 @@ const { initStage } = require('../systems/contributionSystem');
 const { updateQuestProgress } = require('../systems/questSystem');
 const { trySpawnPrestigeDungeon } = require('../engine/prestigeDungeon');
 const { tickShields } = require('../systems/activeBuffs');
-const { recordMalacharKill } = require('../systems/clanQuestTracker');
+const { recordWorldBossKill } = require('../systems/clanQuestTracker');
 const { addVoidResonance, recordPsDungeonClear } = require('../systems/ascendantSystem');
 
 const getRaidGroup = () => process.env.RAID_GROUP_JID || '120363213735662100@g.us';
@@ -107,14 +107,14 @@ module.exports = {
                 );
 
                 // Record the Hollow King kills for clan creation requirement
-                if (d.dungeon_rank === 'MALACHAR') {
+                if (d.dungeon_rank === 'HOLLOWKING') {
                     for (const p of participants) {
-                        recordMalacharKill(p.player_id).catch(() => {});
+                        recordWorldBossKill(p.player_id).catch(() => {});
                     }
                 }
 
                 // the Hollow King clear announcement
-                if (d.dungeon_rank === 'MALACHAR') {
+                if (d.dungeon_rank === 'HOLLOWKING') {
                     await client.sendMessage(getRaidGroup(), {
                         text:
                             `╔══════════════════════════════════════╗
@@ -149,8 +149,8 @@ module.exports = {
                     });
                 }
 
-                const rewardGold = d.dungeon_rank === 'MALACHAR' ? 500000 : Math.floor(Math.random() * 20) + 90;
-                const rewardXp   = d.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
+                const rewardGold = d.dungeon_rank === 'HOLLOWKING' ? 500000 : Math.floor(Math.random() * 20) + 90;
+                const rewardXp   = d.dungeon_rank === 'HOLLOWKING' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
                 const { applyGoldBonus, applyXpBonus } = require('../systems/territoryBonusSystem');
                 const { addFactionPoints, championXpBonus } = require('../systems/factionSystem');
@@ -193,8 +193,8 @@ module.exports = {
                             if (d.dungeon_rank === 'S') {
                                 await updateQuestProgress(p.player_id, 'srank_clear', 1, client);
                             }
-                            if (d.dungeon_rank === 'MALACHAR') {
-                                await updateQuestProgress(p.player_id, 'malachar_clear', 1, client);
+                            if (d.dungeon_rank === 'HOLLOWKING') {
+                                await updateQuestProgress(p.player_id, 'worldboss_clear', 1, client);
                             }
                         } catch (e) {}
                     })();
@@ -204,7 +204,7 @@ module.exports = {
                 try {
                     const isPS = d.dungeon_rank === 'PS';
                     const isRemnants = d.dungeon_rank === 'TERRITORY_REMNANTS';
-                    const isMalacharEcho = d.boss_name === 'The First Sunshard';
+                    const isFirstSunshard = d.boss_name === 'The First Sunshard';
                     for (const p of participants) {
                         if (isPrestige) await addVoidResonance(p.player_id, 'prestige_dungeon_clear', client).catch(() => {});
                         if (isPS) {
@@ -212,7 +212,7 @@ module.exports = {
                             await updateQuestProgress(p.player_id, 'prestige_clear', 1, client).catch(() => {});
                         }
                         if (isRemnants) await addVoidResonance(p.player_id, 'remnant_sanctum_clear', client).catch(() => {});
-                        if (isMalacharEcho) await addVoidResonance(p.player_id, 'malachar_echo_kill', client).catch(() => {});
+                        if (isFirstSunshard) await addVoidResonance(p.player_id, 'sunshard_kill', client).catch(() => {});
                     }
                 } catch(e) { console.error('Resonance gain error:', e.message); }
 
@@ -424,7 +424,7 @@ module.exports = {
 
             await resetStageTimer(dungeon.id, client, targetChat, failCallback, d.dungeon_rank);
 
-            // ── MALACHAR GRAND ENTRY + PHASE INIT ────────────────────────────
+            // ── HOLLOW KING GRAND ENTRY + PHASE INIT ────────────────────────────
             const next = d.stage + 1;
             // FIX: Wrap advanceStage in try/catch and ALWAYS reset stage_cleared on failure
             try {
@@ -435,9 +435,9 @@ module.exports = {
                 return msg.reply('══〘 🧭 ONWARD 〙══╮\n┃◆ ❌ Failed to advance stage. Try again.\n╰═══════════════════════╯');
             }
 
-            const isMalacharFinal = d.dungeon_rank === 'MALACHAR' && next === maxStage;
+            const isHollowKingFinal = d.dungeon_rank === 'HOLLOWKING' && next === maxStage;
 
-            if (isMalacharFinal) {
+            if (isHollowKingFinal) {
 
                 await client.sendMessage(getRaidGroup(), {
                     text:

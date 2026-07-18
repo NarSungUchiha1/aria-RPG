@@ -141,14 +141,14 @@ async function spawnDungeon(rank, client = null) {
         }
 
         const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
-        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, MALACHAR:6 }[rank] || 3;
+        const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, HOLLOWKING:6 }[rank] || 3;
 
         // ── DUNGEON MODIFIERS — ~30% of spawns roll one ──────────────────────
         // GOLDEN: gold rewards ×3 · CURSED: enemies +50%, rewards ×2 ·
         // FRACTURED: the Hollow King's Echo invasion chance doubled (Chapter 6+)
         await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
         let modifier = null;
-        if (rank !== 'MALACHAR' && Math.random() < 0.30) {
+        if (rank !== 'HOLLOWKING' && Math.random() < 0.30) {
             modifier = ['GOLDEN', 'CURSED', 'FRACTURED'][Math.floor(Math.random() * 3)];
         }
 
@@ -1056,11 +1056,11 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     }
 
     // Sunshard (Hollow Sun invader) — killing it grants +25 Void Resonance.
-    // (Internal gain key 'malachar_echo_kill' kept — it's just an id.)
+    // (Internal gain key 'sunshard_kill' kept — it's just an id.)
     if (enemy[0].name === 'Sunshard') {
         try {
             const { addVoidResonance } = require('../systems/ascendantSystem');
-            for (const r of rewards) await addVoidResonance(r.playerId, 'malachar_echo_kill', null).catch(() => {});
+            for (const r of rewards) await addVoidResonance(r.playerId, 'sunshard_kill', null).catch(() => {});
             console.log(`☄️ Sunshard slain in dungeon ${dungeonId} — resonance granted to ${rewards.length} hunter(s).`);
         } catch(e) {}
     }
@@ -1103,7 +1103,7 @@ async function advanceStage(dungeonId, nextStage, client = null) {
     // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
     // The Sunshard is worth +25 Void Resonance on kill (distributeEnemyRewards).
     try {
-        if (rank && !rank.startsWith('TERRITORY_') && rank !== 'MALACHAR') {
+        if (rank && !rank.startsWith('TERRITORY_') && rank !== 'HOLLOWKING') {
             const { getFlag } = require('../systems/gameFlags');
             if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;

@@ -531,7 +531,7 @@ module.exports = {
     'Eclipse Life Chalice': [] /* Healer weapon — stat bonuses only, no active moves */,
     'Hollow Kings Grace Replica': [] /* Healer weapon — stat bonuses only, no active moves */,
 
-    // ── THE THREE — MALACHAR BOUND WEAPONS ───────────────────────────────────
+    // ── THE THREE — UNIQUE RELIC BOUND WEAPONS ───────────────────────────────────
     'Ruin': [
         { name: 'Void Cleave',    type: 'damage', stat: 'strength', multiplier: 18.0, cooldown: 1, cost: 0 },
         { name: 'Fracture Strike',type: 'damage', stat: 'strength', multiplier: 35.0, hits: 2, ignore_defense: 0.6, cooldown: 3, cost: 0 },

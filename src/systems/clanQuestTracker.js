@@ -134,10 +134,10 @@ async function updateClanQuestProgress(playerId, eventType, amount = 1, client =
     }
 }
 
-async function recordMalacharKill(playerId) {
+async function recordWorldBossKill(playerId) {
     await db.execute(
-        'INSERT IGNORE INTO malachar_kills (player_id) VALUES (?)', [playerId]
+        'INSERT IGNORE INTO worldboss_kills (player_id) VALUES (?)', [playerId]
     ).catch(function() {});
 }
 
-module.exports = { updateClanQuestProgress, recordMalacharKill };
+module.exports = { updateClanQuestProgress, recordWorldBossKill };

@@ -68,7 +68,7 @@ async function ensureClanTables() {
     `).catch(() => {});
 
     await db.execute(`
-        CREATE TABLE IF NOT EXISTS malachar_kills (
+        CREATE TABLE IF NOT EXISTS worldboss_kills (
             player_id  VARCHAR(60) PRIMARY KEY,
             killed_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )

@@ -29,7 +29,7 @@ const VOID_RESONANCE_GAINS = {
     territory_war_win:      15,
     ps_boss_kill:           3,
     remnant_sanctum_clear:  20,
-    malachar_echo_kill:     25
+    sunshard_kill:     25
 };
 
 async function ensureAscendantTables() {

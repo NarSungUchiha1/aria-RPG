@@ -27,6 +27,10 @@ module.exports = {
 ┃◆ !stats → Combat record & history
 ┃◆ !moveset → Your skill set
 ┃◆ !daily → Claim daily gold & XP bonus
+┃◆ !faction → Faction war standings
+┃◆ !faction join <name> → Pick your side
+┃◆ !vip → 👑 VIP Pass — perks & price
+┃◆ !referral top → Top recruiters
 ┃◆
 ┃◆  🌀 VOID RIFT SYSTEM  [Exploration GC]
 ┃◆ !explore → List rifts & survival rates
@@ -126,7 +130,7 @@ module.exports = {
 ┃◆  🌍 WORLD BOSS & EVENTS
 ┃◆ !worldboss → Active world boss [GC]
 ┃◆ !attackboss → Attack world boss [GC]
-┃◆ !referral → Invite link (+20 XP per referral)
+┃◆ !referral → Your invite code (both sides earn!)
 ┃◆`;
 
             if (isAdmin) {
@@ -136,7 +140,7 @@ module.exports = {
 ┃◆ !spawn [rank]  |  !spawnprestige [rank]
 ┃◆ !spawnwanderer → Force spawn Wanderer [Exp GC]
 ┃◆ !begin / !clear / !closedungeon
-┃◆ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
+┃◆ !spawnboss  |  !spawnprestige  |  !spawnwanderer
 ┃◆ !hollowsun → Launch the Hollow Sun era
 ┃◆ !chapter6 → (removed)
 ┃◆ !give @user gold/xp/item <value>
@@ -161,6 +165,10 @@ module.exports = {
 ┃★ !stats → Combat record & history
 ┃★ !moveset → Your void skill set
 ┃★ !daily → Claim daily bonus
+┃★ !faction → Faction war standings
+┃★ !faction join <name> → Pick your side
+┃★ !vip → 👑 VIP Pass — perks & price
+┃★ !referral top → Top recruiters
 ┃★ !resonance → Void resonance (path to Ascendant)
 ┃★
 ┃★  🌀 VOID RIFT SYSTEM  [Exploration GC]
@@ -257,7 +265,7 @@ module.exports = {
 ┃★  🌍 WORLD BOSS & EVENTS
 ┃★ !worldboss → Active world boss [GC]
 ┃★ !attackboss → Attack [GC]
-┃★ !referral → Invite link (+20 XP per referral)
+┃★ !referral → Your invite code (both sides earn!)
 ┃★`;
 
             if (isAdmin) {
@@ -267,7 +275,7 @@ module.exports = {
 ┃★ !spawn [rank]  |  !spawnprestige [rank]
 ┃★ !spawnwanderer → Force spawn Wanderer [Exp GC]
 ┃★ !begin / !clear / !closedungeon
-┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
+┃★ !spawnboss  |  !spawnprestige  |  !spawnwanderer
 ┃★ !leviathanphase → Force Leviathan to final phase
 ┃★ !hollowsun → Launch the Hollow Sun era
 ┃★ !chapter6 → (removed)
@@ -293,6 +301,10 @@ module.exports = {
 ┃★ !stats → Combat record & PvP history
 ┃★ !moveset → Your void skill set
 ┃★ !daily → Claim daily gold & XP bonus
+┃★ !faction → Faction war standings
+┃★ !faction join <name> → Pick your side
+┃★ !vip → 👑 VIP Pass — perks & price
+┃★ !referral top → Top recruiters
 ┃★ !resonance → Void resonance (path to Ascendant)
 ┃★
 ┃★  🌀 PRESTIGE DUNGEONS
@@ -384,7 +396,7 @@ module.exports = {
 ┃★  🌍 WORLD BOSS & EVENTS
 ┃★ !worldboss → Active world boss [GC]
 ┃★ !attackboss → Attack world boss [GC]
-┃★ !referral → Invite link (+20 XP per referral)
+┃★ !referral → Your invite code (both sides earn!)
 ┃★`;
 
             if (isAdmin) {
@@ -396,7 +408,7 @@ module.exports = {
 ┃★ !begin → Force-start dungeon [GC]
 ┃★ !clear → Force-clear stage [GC]
 ┃★ !closedungeon → Force-close dungeon
-┃★ !spawnboss  |  !spawnleviathan  |  !spawnmalachar
+┃★ !spawnboss  |  !spawnprestige  |  !spawnwanderer
 ┃★ !leviathanphase → Force Leviathan to final phase
 ┃★ !hollowsun → Launch the Hollow Sun era
 ┃★ !chapter6 → (removed)
@@ -428,6 +440,8 @@ module.exports = {
 ┃  ◆ !me → View stats, rank & equipment
 ┃  ◆ !stats → Combat record & PvP history
 ┃  ◆ !daily → Claim daily gold & XP bonus
+┃  ◆ !faction → Faction war standings
+┃  ◆ !vip → 👑 VIP Pass — perks & price
 ┃
 ┃  🏰 DUNGEON SYSTEM
 ┃  ◆ !enter → DM the bot to join a dungeon
@@ -526,7 +540,7 @@ module.exports = {
 ┃  🌍 WORLD BOSS & EVENTS
 ┃  ◆ !worldboss → View active world boss [GC]
 ┃  ◆ !attackboss → Attack the world boss [GC]
-┃  ◆ !referral → Invite link (+20 XP per referral)
+┃  ◆ !referral → Your invite code (both sides earn!)
 ┃`;
 
         if (isAdmin) {
@@ -541,7 +555,7 @@ module.exports = {
 ┃  ◆ !closedungeon → Force-close dungeon
 ┃  ◆ !spawnboss → Spawn a world boss
 ┃  ◆ !spawnleviathan → Spawn the Void Leviathan
-┃  ◆ !spawnmalachar → Spawn the Hollow King raid
+
 ┃  ◆ !leviathanphase → Force Leviathan to final phase
 ┃  ◆ !hollowsun → Launch the Hollow Sun era
 ┃  ◆ !chapter6 → (removed)

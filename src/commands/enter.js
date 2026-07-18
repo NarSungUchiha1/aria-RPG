@@ -69,7 +69,7 @@ async function beginDungeon(dungeonId, client) {
             dungeonData.dungeon_rank?.startsWith('P');
 
         const isHollowKing =
-            dungeonData.dungeon_rank === 'MALACHAR';
+            dungeonData.dungeon_rank === 'HOLLOWKING';
 
         if (isPrestige) {
 
@@ -163,7 +163,7 @@ async function beginDungeon(dungeonId, client) {
         };
 
         // ── IMPORTANT FIX ─────────────────────────────
-        // DO NOT START TIMERS FOR MALACHAR
+        // DO NOT START TIMERS FOR THE WORLD BOSS (HOLLOWKING)
         if (!isHollowKing) {
 
             await startDungeonTimers(
@@ -361,7 +361,7 @@ module.exports = {
             }
 
             const isHollowKing =
-                dungeon.dungeon_rank === 'MALACHAR';
+                dungeon.dungeon_rank === 'HOLLOWKING';
 
             const [flags] = await db.execute(
                 "SELECT unlimited_entry, no_rank_check FROM dungeon_flags WHERE dungeon_id=?",

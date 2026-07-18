@@ -37,9 +37,9 @@ function startDungeonTimers(dungeonId, client, targetChat, onFail, dungeonRank) 
     clearDungeonTimers(dungeonId);
 
     const isHP = HIGH_PRESTIGE.has(dungeonRank);
-    const isHollowKing = dungeonRank === 'MALACHAR';
+    const isHollowKing = dungeonRank === 'HOLLOWKING';
 
-    // ── MALACHAR: NO TIMERS ──────────────────────────────
+    // ── HOLLOWKING: NO TIMERS ──────────────────────────────
     if (isHollowKing) {
         timers.set(dungeonId, {
             stageTimeout: null,
@@ -127,9 +127,9 @@ function resetStageTimer(dungeonId, client, targetChat, onFail, dungeonRank) {
     if (!entry) return;
 
     const isHP = HIGH_PRESTIGE.has(dungeonRank);
-    const isHollowKing = dungeonRank === 'MALACHAR';
+    const isHollowKing = dungeonRank === 'HOLLOWKING';
 
-    // ── MALACHAR NEVER RESETS TIMERS ────────────────────
+    // ── WORLD BOSS NEVER RESETS TIMERS ────────────────────
     if (isHollowKing) return;
 
     clearTimeout(entry.stageTimeout);

@@ -72,7 +72,7 @@ const CODEX_ENTRIES = [
     },
     {
         id: 8, title: 'The Fragments',
-        unlock_condition: 'malachar_fragment',
+        unlock_condition: 'hollowking_fragment',
         text:
             `The fragments are not debris.\n` +
             `They are pieces of something the Hollow King chose to leave behind.\n` +

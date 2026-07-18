@@ -91,3 +91,18 @@ DELETE FROM game_flags;
 --   SELECT COUNT(*) FROM players;         -- 0
 --   SELECT COUNT(*) FROM wa_sessions;     -- MUST be > 0 (session preserved!)
 -- ═══════════════════════════════════════════════════════════════════════════
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- IDENTIFIER MIGRATION (added with the total identifier purge)
+-- The code now uses new internal names; align the DB:
+--   malachar_kills  →  worldboss_kills   (clan-creation requirement counter)
+-- The new table auto-creates on boot; the old one just needs to go.
+-- (dungeon_rank='MALACHAR' rows and quests objective_type='malachar_clear'
+--  rows are already removed by the wipes above; the code writes the new ids
+--  'HOLLOWKING' / 'worldboss_clear' from now on.)
+-- ═══════════════════════════════════════════════════════════════════════════
+DROP TABLE IF EXISTS malachar_kills;
+
+-- Safety net ONLY if you ever run this migration WITHOUT the full scrub above:
+-- UPDATE dungeon SET dungeon_rank='HOLLOWKING' WHERE dungeon_rank='MALACHAR';
+-- UPDATE quests  SET objective_type='worldboss_clear' WHERE objective_type='malachar_clear';

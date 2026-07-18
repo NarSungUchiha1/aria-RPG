@@ -219,7 +219,7 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 
         if (trigger === 'all_allies_below_50') {
             await updateBlessingState(playerId, dungeonId, { charges: blessing.charges || 3, next_hit_mult: blessing.multiplier || 10.0, blessing_used: 1 });
-            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
+            blessingMsg = `╔══〘 👁️ THE HOLLOW KING'S WILL 〙══╗
 ┃★ The bloodline does not ask.
 ┃★ It takes.
 ┃★ 
@@ -599,11 +599,11 @@ module.exports = {
                 reply += `┃◆ 🛡️ ${defenseMsg}\n`;
             }
 
-            // ── MALACHAR PHASE TRANSITIONS ──────────────────────────────────
-            // Uses malacharPhase system — ATK always scaled from base, never compounds
-            if (dungeon.dungeon_rank === 'MALACHAR' && targetEnemy?.name === 'The Hollow King' && result.enemyHp > 0) {
+            // ── HOLLOW KING PHASE TRANSITIONS ──────────────────────────────────
+            // Uses the world-boss phase system — ATK always scaled from base, never compounds
+            if (dungeon.dungeon_rank === 'HOLLOWKING' && targetEnemy?.name === 'The Hollow King' && result.enemyHp > 0) {
                 try {
-                } catch(phaseErr) { console.error('[MalacharPhase]', phaseErr.message); }
+                } catch(phaseErr) { console.error('[HollowKingPhase]', phaseErr.message); }
             }
 
             if (result.defeated) {

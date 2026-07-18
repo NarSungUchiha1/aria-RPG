@@ -1,6 +1,6 @@
 const db = require('../database/db');
 const { getInventoryItem } = require('../utils/inventoryHelper');
-const { MALACHAR_WEAPONS, WEAPON_BY_OWNER } = require('../data/malacharWeapons');
+const { UNIQUE_RELICS, WEAPON_BY_OWNER } = require('../data/uniqueRelics');
 
 module.exports = {
     name: 'inspect',
@@ -31,7 +31,7 @@ module.exports = {
             if (item.defense_bonus)      bonuses.push(`🛡️ DEF +${item.defense_bonus}`);
 
             // Check if this is one of the three bound weapons
-            const boundWeapon = MALACHAR_WEAPONS[item.item_name];
+            const boundWeapon = UNIQUE_RELICS[item.item_name];
 
             if (boundWeapon) {
                 const b = boundWeapon.stat_bonus || {};

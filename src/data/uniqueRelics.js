@@ -1,5 +1,5 @@
 /**
- * MALACHAR WEAPONS — The Three Who Stood
+ * UNIQUE RELICS — The Three Who Stood (legacy era-one bound weapons)
  * Unique weapons bound to the three hunters who killed the Hollow King.
  * Cannot be traded, dropped, crafted, or duplicated.
  * Each weapon carries the memory of what happened in that dungeon.
@@ -9,7 +9,7 @@
  * Sekiro   (200957459742874) — Tank
  */
 
-const MALACHAR_WEAPONS = {
+const UNIQUE_RELICS = {
 
     // ── HAJUN ─────────────────────────────────────────────────────────────────
     'Ruin': {
@@ -151,8 +151,8 @@ const MALACHAR_WEAPONS = {
 
 // Easy lookup by owner ID
 const WEAPON_BY_OWNER = {};
-for (const [weaponName, data] of Object.entries(MALACHAR_WEAPONS)) {
+for (const [weaponName, data] of Object.entries(UNIQUE_RELICS)) {
     WEAPON_BY_OWNER[data.owner_id] = { ...data, name: weaponName };
 }
 
-module.exports = { MALACHAR_WEAPONS, WEAPON_BY_OWNER };
+module.exports = { UNIQUE_RELICS, WEAPON_BY_OWNER };

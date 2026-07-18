@@ -561,7 +561,7 @@ async function triggerBlessingIfReadyInDuel(trigger, player, data, extraData = {
         const allLow = allies.length > 0 && allies.every(id => data.hp[id] > 0 && data.hp[id] <= Math.floor(data.maxHp[id] * 0.5));
         if (allLow) {
             updateDuelBlessingState(player.id, { damage_boost: 10.0, skill_count: 3, blessing_used: 1 });
-            blessingMsg = `╔══〘 👁️ MALACHAR'S WILL 〙══╗
+            blessingMsg = `╔══〘 👁️ THE HOLLOW KING'S WILL 〙══╗
 ┃◆ ${player.nickname} channels the Hollow King.
 ┃◆ Next 3 attacks deal 1000% damage.
 ┃◆ Cannot be evaded.

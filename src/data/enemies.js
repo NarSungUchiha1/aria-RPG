@@ -4,12 +4,12 @@
  * dark grew teeth. Stats are identical to the previous era (balance preserved);
  * only the world changed.
  *
- * NOTE: the 'MALACHAR' key is an INTERNAL rank id used across the engine —
+ * NOTE: the 'HOLLOWKING' key is an INTERNAL rank id used across the engine —
  * players only ever see boss/mob names. The world boss of this era is
  * The Hollow King.
  */
 module.exports = {
-    MALACHAR: {
+    HOLLOWKING: {
         miniBosses: [
             { name: "Hollowed Shade",    hp: 8000,  atk: 180, def: 60,  evasion: 14, exp: 800,  gold: 600,  moves: [{ name: 'Gloom Pulse',        damage: 1.8 }] },
             { name: "Sunless Warden",    hp: 10000, atk: 200, def: 80,  evasion: 12, exp: 1000, gold: 800,  moves: [{ name: 'Umbral Binding',     damage: 2.0 }] },
