@@ -79,6 +79,9 @@ async function witnessMessage(userId, nickname, text, groupJid = null, groupName
 }
 
 async function witnessDuelResult(winnerId, winnerNick, loserId, loserNick, type) {
+    // Faction war: duel wins score +5 for the winner's faction.
+    try { require('./factionSystem').addFactionPoints(winnerId, 5).catch(() => {}); } catch(e) {}
+
     const content = type === 'party'
         ? `${winnerNick}'s team defeated ${loserNick}'s team in a party duel.`
         : `${winnerNick} defeated ${loserNick} in a solo duel.`;

@@ -153,7 +153,22 @@ module.exports = {
                 const rewardXp   = d.dungeon_rank === 'MALACHAR' ? 200000 : Math.floor(Math.random() * 15) + 82;
 
                 const { applyGoldBonus, applyXpBonus } = require('../systems/territoryBonusSystem');
+                const { addFactionPoints, championXpBonus } = require('../systems/factionSystem');
                 const isPrestige = d.dungeon_rank && d.dungeon_rank.startsWith('P');
+
+                // Newcomer ramp: players registered <3 days ago earn DOUBLE XP.
+                let newbieIds = new Set();
+                try {
+                    if (participants.length) {
+                        const ids = participants.map(p => p.player_id);
+                        const [nb] = await db.execute(
+                            `SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(',')}) AND created_at > DATE_SUB(NOW(), INTERVAL 3 DAY)`,
+                            ids
+                        );
+                        newbieIds = new Set(nb.map(r => r.id));
+                    }
+                } catch(e) {}
+
                 for (const p of participants) {
                     await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [rewardGold, p.player_id]);
                     await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?",           [rewardXp,   p.player_id]);
@@ -162,6 +177,13 @@ module.exports = {
                     // Apply territory bonuses on top
                     await applyGoldBonus(p.player_id, rewardGold).catch(() => {});
                     await applyXpBonus(p.player_id, rewardXp).catch(() => {});
+                    // Faction war: +10 pts per clear; champion faction gets +10% XP
+                    addFactionPoints(p.player_id, 10).catch(() => {});
+                    championXpBonus(p.player_id, rewardXp).catch(() => {});
+                    // Newcomer double XP (first 3 days)
+                    if (newbieIds.has(p.player_id)) {
+                        await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [rewardXp, p.player_id]).catch(() => {});
+                    }
                     (async () => {
                         try {
                             await updateQuestProgress(p.player_id, 'dungeon_clear',   1, client);
@@ -406,7 +428,7 @@ module.exports = {
             const next = d.stage + 1;
             // FIX: Wrap advanceStage in try/catch and ALWAYS reset stage_cleared on failure
             try {
-                await advanceStage(dungeon.id, next);
+                await advanceStage(dungeon.id, next, client);
             } catch(advErr) {
                 console.error('advanceStage failed — resetting stage_cleared:', advErr.message);
                 await db.execute('UPDATE dungeon SET stage_cleared=0 WHERE id=?', [dungeon.id]);

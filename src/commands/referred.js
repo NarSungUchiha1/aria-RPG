@@ -54,11 +54,34 @@ module.exports = {
                 [referrerId, userId, REFERRAL_XP_REFERRER]
             );
 
-            // ✅ Give XP to referrer immediately
+            // ✅ Give XP + GOLD to referrer immediately (both sides win)
+            const REFERRAL_GOLD_REFERRER = 25000;
             await db.execute(
                 "UPDATE xp SET xp = xp + ? WHERE player_id=?",
                 [REFERRAL_XP_REFERRER, referrerId]
             );
+            await db.execute(
+                "UPDATE currency SET gold = gold + ? WHERE player_id=?",
+                [REFERRAL_GOLD_REFERRER, referrerId]
+            ).catch(() => {});
+
+            // ✅ Milestone rewards at 5 / 10 / 20 total referrals
+            let milestoneMsg = '';
+            try {
+                const [cnt] = await db.execute("SELECT COUNT(*) as c FROM referrals WHERE referrer_id=?", [referrerId]);
+                const total = cnt[0]?.c || 0;
+                const MILESTONES = {
+                    5:  { gold: 100000,  xp: 50000,  label: '5 recruits'  },
+                    10: { gold: 250000,  xp: 100000, label: '10 recruits' },
+                    20: { gold: 500000,  xp: 250000, label: '20 recruits' }
+                };
+                const m = MILESTONES[total];
+                if (m) {
+                    await db.execute("UPDATE currency SET gold = gold + ? WHERE player_id=?", [m.gold, referrerId]).catch(() => {});
+                    await db.execute("UPDATE xp SET xp = xp + ? WHERE player_id=?", [m.xp, referrerId]).catch(() => {});
+                    milestoneMsg = `┃◆ 🏆 MILESTONE: ${m.label}!\n┃◆ +${m.gold.toLocaleString()}G +${m.xp.toLocaleString()}XP bonus!\n`;
+                }
+            } catch(e) {}
 
             // ✅ Give gold bonus to new player (if registered) or store pending
             const [newPlayer] = await db.execute("SELECT id FROM players WHERE id=?", [userId]);
@@ -78,8 +101,9 @@ module.exports = {
                     `══〘 🔗 REFERRAL REWARD 〙══╮\n` +
                     `┃◆ @${userId} used *${referrer[0].nickname}*'s code!\n` +
                     `┃◆ \n` +
-                    `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP\n` +
+                    `┃◆ ⭐ ${referrer[0].nickname} +${REFERRAL_XP_REFERRER} XP +${REFERRAL_GOLD_REFERRER.toLocaleString()}G\n` +
                     `┃◆ 💰 @${userId} +${REFERRAL_GOLD_NEW} Gold\n` +
+                    milestoneMsg +
                     `┃◆ \n` +
                     `╰═══════════════════════╯`,
                 mentions: [`${userId}@s.whatsapp.net`, `${referrerId}@s.whatsapp.net`]

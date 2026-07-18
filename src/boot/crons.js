@@ -245,7 +245,20 @@ function registerCrons({ getSock, isReady }) {
         } catch (e) { console.error('VIP ad cron error:', e.message); }
     });
 
-    console.log('⏰ Cron jobs registered (12)');
+    // ==================== FACTION WAR — WEEKLY RESULT ====================
+    // Sunday 19:00 UTC: crown the week's champion faction, announce, set the
+    // +10% XP champion buff for the coming week.
+    cron.schedule('0 19 * * 0', async () => {
+        const sock = getSock();
+        if (!isReady() || !sock) return;
+        try {
+            const { resolveWeeklyFactionWar } = require('../systems/factionSystem');
+            const AD_JID = process.env.RAID_GROUP_JID || '120363213735662100@g.us';
+            await resolveWeeklyFactionWar(sock, AD_JID);
+        } catch (e) { console.error('Faction weekly cron error:', e.message); }
+    });
+
+    console.log('⏰ Cron jobs registered (13)');
 }
 
 module.exports = { registerCrons };

@@ -143,14 +143,23 @@ async function spawnDungeon(rank, client = null) {
         const boss     = enemiesData[rank]?.boss?.name || "Unknown Boss";
         const maxStage = { F:3, E:4, D:5, C:6, B:7, A:8, S:10, MALACHAR:6 }[rank] || 3;
 
+        // ── DUNGEON MODIFIERS — ~30% of spawns roll one ──────────────────────
+        // GOLDEN: gold rewards ×3 · CURSED: enemies +50%, rewards ×2 ·
+        // FRACTURED: Malachar's Echo invasion chance doubled (Chapter 6+)
+        await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
+        let modifier = null;
+        if (rank !== 'MALACHAR' && Math.random() < 0.30) {
+            modifier = ['GOLDEN', 'CURSED', 'FRACTURED'][Math.floor(Math.random() * 3)];
+        }
+
         const [result] = await db.execute(
-            `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked, group_jid)
-             VALUES (?, 1, ?, ?, 1, 0, 0, 0, ?)`,
-            [rank, maxStage, boss, getRaidGroup()]
+            `INSERT INTO dungeon (dungeon_rank, stage, max_stage, boss_name, is_active, stage_cleared, in_combat, locked, group_jid, modifier)
+             VALUES (?, 1, ?, ?, 1, 0, 0, 0, ?, ?)`,
+            [rank, maxStage, boss, getRaidGroup(), modifier]
         );
 
         const dungeonId = result.insertId;
-        console.log(`🏰 Dungeon ${rank} spawned (id: ${dungeonId}).`);
+        console.log(`🏰 Dungeon ${rank} spawned (id: ${dungeonId})${modifier ? ` [${modifier}]` : ''}.`);
 
         // Capture current group at spawn time (real group OR test group)
         const spawnGroup = getRaidGroup();
@@ -158,10 +167,18 @@ async function spawnDungeon(rank, client = null) {
 
         if (client) {
             await sendDungeonAnnouncement(client, rank, boss, maxStage, spawnGroup);
+            if (modifier) {
+                const MOD_TEXT = {
+                    GOLDEN:    '╔══〘 ✨ GOLDEN DUNGEON 〙══╗\n┃★ The walls drip with gold.\n┃★ 💰 *ALL GOLD REWARDS ×3!*\n╚═══════════════════════╝',
+                    CURSED:    '╔══〘 💀 CURSED DUNGEON 〙══╗\n┃★ Something is wrong in there.\n┃★ ⚠️ Enemies are *+50% stronger*\n┃★ 🎁 but rewards are *DOUBLED.*\n╚═══════════════════════╝',
+                    FRACTURED: '╔══〘 👁️ FRACTURED DUNGEON 〙══╗\n┃★ The void is thin here.\n┃★ ⚠️ *Malachar\'s Echo* is twice\n┃★ as likely to come through...\n╚═══════════════════════╝'
+                };
+                await client.sendMessage(spawnGroup, { text: MOD_TEXT[modifier] }).catch(() => {});
+            }
             startLobbyTimer(dungeonId, client);
         }
 
-        return { id: dungeonId, rank, maxStage, boss };
+        return { id: dungeonId, rank, maxStage, boss, modifier };
     } finally {
         await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1 AND group_jid=?", [getRaidGroup()]).catch(() => {});
     }
@@ -963,8 +980,17 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
     const [enemy] = await db.execute("SELECT exp, gold, name, max_hp FROM dungeon_enemies WHERE id=?", [enemyId]);
     if (!enemy.length) return { contributors: [] };
 
-    const totalExp  = Number(enemy[0].exp);
-    const totalGold = Number(enemy[0].gold);
+    // Dungeon modifier multipliers: GOLDEN = gold ×3, CURSED = gold+xp ×2.
+    let goldMult = 1, expMult = 1;
+    try {
+        const [dg] = await db.execute("SELECT modifier FROM dungeon WHERE id=?", [dungeonId]);
+        const mod = dg[0]?.modifier;
+        if (mod === 'GOLDEN') goldMult = 3;
+        else if (mod === 'CURSED') { goldMult = 2; expMult = 2; }
+    } catch(e) {}
+
+    const totalExp  = Number(enemy[0].exp)  * expMult;
+    const totalGold = Number(enemy[0].gold) * goldMult;
     const isBoss    = Number(enemy[0].exp) >= 2000;
 
     const [contributors] = await db.execute(
@@ -1029,6 +1055,15 @@ async function distributeEnemyRewards(dungeonId, enemyId) {
         });
     }
 
+    // Malachar's Echo (Chapter 6 invader) — killing it grants +25 Void Resonance.
+    if (enemy[0].name === "Malachar's Echo") {
+        try {
+            const { addVoidResonance } = require('../systems/ascendantSystem');
+            for (const r of rewards) await addVoidResonance(r.playerId, 'malachar_echo_kill', null).catch(() => {});
+            console.log(`👁️ Echo slain in dungeon ${dungeonId} — resonance granted to ${rewards.length} hunter(s).`);
+        } catch(e) {}
+    }
+
     await db.execute("DELETE FROM dungeon_damage WHERE dungeon_id=? AND enemy_id=?", [dungeonId, enemyId]);
     return { enemyName: enemy[0].name, contributors: rewards };
 }
@@ -1042,17 +1077,56 @@ async function addDamageContribution(dungeonId, enemyId, playerId, damage) {
     );
 }
 
-async function advanceStage(dungeonId, nextStage) {
+async function advanceStage(dungeonId, nextStage, client = null) {
     await db.execute("UPDATE dungeon SET stage=?, stage_cleared=0 WHERE id=?", [nextStage, dungeonId]);
     await db.execute("DELETE FROM dungeon_enemies WHERE dungeon_id=? AND current_hp <= 0", [dungeonId]);
-    const [dungeon] = await db.execute("SELECT dungeon_rank FROM dungeon WHERE id=?", [dungeonId]);
+    const [dungeon] = await db.execute("SELECT dungeon_rank, modifier FROM dungeon WHERE id=?", [dungeonId]).catch(() => [[{}]]);
     const rank = dungeon[0]?.dungeon_rank;
+    const modifier = dungeon[0]?.modifier || null;
     if (rank && rank.startsWith('P')) {
         const { spawnPrestigeEnemies } = require('./prestigeDungeon');
         await spawnPrestigeEnemies(dungeonId, rank, nextStage);
     } else {
         await spawnStageEnemies(dungeonId, rank, nextStage);
     }
+
+    // ── CURSED modifier: freshly spawned enemies hit/soak +50% ───────────────
+    if (modifier === 'CURSED') {
+        await db.execute(
+            "UPDATE dungeon_enemies SET max_hp=FLOOR(max_hp*1.5), current_hp=FLOOR(current_hp*1.5), atk=FLOOR(atk*1.5), def=FLOOR(def*1.5) WHERE dungeon_id=? AND current_hp > 0",
+            [dungeonId]
+        ).catch(() => {});
+    }
+
+    // ── CHAPTER 6: MALACHAR'S ECHO INVASION ──────────────────────────────────
+    // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
+    // The Echo is worth +25 Void Resonance on kill (see distributeEnemyRewards).
+    try {
+        if (rank && !rank.startsWith('TERRITORY_') && rank !== 'MALACHAR') {
+            const { getFlag } = require('../systems/gameFlags');
+            if ((await getFlag('chapter6_active')) === '1') {
+                const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
+                if (Math.random() < chance) {
+                    const ECHO_STATS = {
+                        F:{hp:1500,atk:35,def:20}, E:{hp:2500,atk:55,def:30}, D:{hp:4000,atk:80,def:45},
+                        C:{hp:6000,atk:110,def:60}, B:{hp:9000,atk:150,def:80}, A:{hp:13000,atk:200,def:100},
+                        S:{hp:20000,atk:270,def:130}
+                    };
+                    const s = ECHO_STATS[rank] || ECHO_STATS.C;
+                    await db.execute(
+                        "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, \"Malachar's Echo\", ?, ?, ?, ?, ?, ?, 10, ?)",
+                        [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 4), Math.floor(s.hp / 5),
+                         JSON.stringify([{ name: 'Void Grasp', damage: 1.3 }, { name: 'Searching Gaze', damage: 1.0 }])]
+                    );
+                    if (client) {
+                        const { echoInvasionText } = require('../systems/chapter6lore');
+                        await client.sendMessage(getDungeonGroup(dungeonId), { text: echoInvasionText(rank) }).catch(() => {});
+                    }
+                    console.log(`👁️ Malachar's Echo invaded dungeon ${dungeonId} (stage ${nextStage}).`);
+                }
+            }
+        }
+    } catch(e) { console.error('Echo invasion error:', e.message); }
 }
 
 async function addPlayerToDungeon(playerId, dungeonId) {

@@ -75,6 +75,22 @@ module.exports = {
         await ensureTable();
 
         try {
+            // !referral top — recruiter leaderboard
+            if ((args[0] || '').toLowerCase() === 'top') {
+                const [top] = await db.execute(
+                    `SELECT r.referrer_id, COUNT(*) as cnt, p.nickname
+                     FROM referrals r LEFT JOIN players p ON p.id = r.referrer_id
+                     GROUP BY r.referrer_id, p.nickname ORDER BY cnt DESC LIMIT 10`
+                );
+                if (!top.length) return msg.reply(`══〘 🔗 TOP RECRUITERS 〙══╮\n┃◆ Nobody has recruited yet.\n┃◆ !referral to get your code.\n╰═══════════════════════╯`);
+                const medals = ['🥇','🥈','🥉'];
+                const lines = top.map((r, i) =>
+                    `┃◆ ${medals[i] || `${i + 1}.`} ${r.nickname || r.referrer_id} — ${r.cnt} recruit${r.cnt === 1 ? '' : 's'}`).join('\n');
+                return msg.reply(
+                    `══〘 🔗 TOP RECRUITERS 〙══╮\n${lines}\n┃◆────────────\n┃◆ Milestones at 5 / 10 / 20! 🏆\n╰═══════════════════════╯`
+                );
+            }
+
             const [player] = await db.execute(
                 "SELECT nickname FROM players WHERE id=?", [userId]
             );
