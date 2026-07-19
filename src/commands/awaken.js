@@ -32,8 +32,9 @@ module.exports = {
             }
 
             const player = rows[0];
+            // (no getContact/mentions here — profilePictureUrl stalls for LID
+            // users and the contact OBJECT crashed the send as a mention)
             if (player.awakened) {
-                const contact = await msg.getContact();
                 return msg.reply(
                     `╭══〘 🌌 SYSTEM STATUS 〙══╮\n` +
                     `┃◆ 👤 ${player.nickname}\n` +
@@ -41,13 +42,11 @@ module.exports = {
                     `┃◆━━━━━━━━━━━━\n` +
                     `┃◆ ⚡ Status: ALREADY AWAKENED\n` +
                     `┃◆ 🧭 Use !me to view stats\n` +
-                    `╰══════════════════════╯`,
-                    undefined, { mentions: [contact] }
+                    `╰══════════════════════╯`
                 );
             }
 
             await db.execute("UPDATE players SET awakened=1 WHERE id=?", [userId]);
-            const contact = await msg.getContact();
             return msg.reply(
                 `╭══〘 🌌 AWAKENING COMPLETE 〙══╮\n` +
                 `┃◆ 👤 ${player.nickname}\n` +
@@ -55,8 +54,7 @@ module.exports = {
                 `┃◆ ⚡ Status: AWAKENED\n` +
                 `┃◆ 🧬 Your soul has synced with the system\n` +
                 `┃◆ 🧭 Use !me to view stats\n` +
-                `╰══════════════════════╯`,
-                undefined, { mentions: [contact] }
+                `╰══════════════════════╯`
             );
         } catch (err) {
             console.error(err);

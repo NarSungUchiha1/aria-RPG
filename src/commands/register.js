@@ -63,7 +63,9 @@ module.exports = {
             } catch (e) {}
 
             awakenedSessions.delete(userId);
-            const contact = await msg.getContact();
+            // NOTE: no getContact() here — profilePictureUrl stalls for LID users
+            // (the 60s slot timeout), and passing the contact OBJECT as a mention
+            // crashed the send ("Received an instance of Object").
             return msg.reply(
                 `══〘 🌌 AWAKENING COMPLETE 〙══╮\n` +
                 `┃◆ ${rankBadge('F')} *${nickname.toUpperCase()}*\n` +
@@ -77,8 +79,7 @@ module.exports = {
                 `┃◆ 💰 Lumens: 500 (starter)${bonusGold > 0 ? ` +${bonusGold} (referral bonus!)` : ''}\n` +
                 `┃◆━━━━━━━━━━━━\n` +
                 `┃◆ ⚡ Status: AWAKENED\n` +
-                `╰═══════════════════════╯`,
-                undefined, { mentions: [contact] }
+                `╰═══════════════════════╯`
             );
         } catch (err) {
             if (err.code === 'ER_DUP_ENTRY') return msg.reply(
