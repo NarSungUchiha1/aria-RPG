@@ -206,22 +206,19 @@ function registerCrons({ getSock, isReady }) {
         } catch(e) { console.error('Prestige cron spawn error:', e.message); }
     });
 
-    // ==================== VIP PASS AD (raid downtime) ====================
-    // Posts the VIP PASS poster to the announcement group every 10–15 min
-    // WHILE NO RAID IS RUNNING. Target group via VIP_AD_GC_JID (defaults to
-    // the raid group); disable entirely with VIP_AD_OFF=1.
-    let lastVipAd = 0;
-    let nextVipAdGap = 10 * 60 * 1000 + Math.floor(Math.random() * 5 * 60 * 1000);
+    // ==================== VIP/VVIP PASS AD (3× daily) ====================
+    // Posts the combined VIP+VVIP poster 3 times a day (09:30 / 14:30 / 19:30
+    // UTC), skipping any slot where a raid is live. Target via VIP_AD_GC_JID
+    // (defaults to the raid group); disable entirely with VIP_AD_OFF=1.
     let vipAdImage = null; // lazy-loaded once
-    cron.schedule('*/5 * * * *', async () => {
+    cron.schedule('30 9,14,19 * * *', async () => {
         const sock = getSock();
         if (!isReady() || !sock) return;
         if (process.env.VIP_AD_OFF === '1') return;
-        if (Date.now() - lastVipAd < nextVipAdGap) return;
         try {
-            // Downtime only — any live dungeon means players are busy.
+            // Skip this slot if players are mid-raid.
             const [active] = await db.execute("SELECT id FROM dungeon WHERE is_active=1 LIMIT 1");
-            if (active.length) return;
+            if (active.length) { console.log('👑 VIP ad slot skipped — raid active.'); return; }
 
             if (!vipAdImage) {
                 const fs = require('fs');
@@ -229,19 +226,17 @@ function registerCrons({ getSock, isReady }) {
                 vipAdImage = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'vip-pass.jpg'));
             }
             const AD_JID = process.env.VIP_AD_GC_JID || process.env.RAID_GROUP_JID || '120363213735662100@g.us';
-            const { PRICE_GHS, PRICE_NGN, SUB_DAYS } = require('../systems/subscriberSystem');
+            const { TIERS, SUB_DAYS } = require('../systems/subscriberSystem');
             await sock.sendMessage(AD_JID, {
                 image: vipAdImage,
                 caption:
-                    `◆═══〘 👑 ARIA VIP PASS 〙═══◆\n` +
-                    `┃◈ 💵 GH₵${PRICE_GHS} (~₦${PRICE_NGN}) • ${SUB_DAYS} days\n` +
-                    `┃◈ Type *!vip* for details.\n` +
+                    `◆═══〘 👑 VIP • 💎 VVIP 〙═══◆\n` +
+                    `┃◈ 👑 VIP — GH₵${TIERS.VIP.priceGhs} • 💎 VVIP — GH₵${TIERS.VVIP.priceGhs}\n` +
+                    `┃◈ ⏳ ${SUB_DAYS} days • Type *!vip* for details.\n` +
                     `◆═══════════════════════◆`,
                 mimetype: 'image/jpeg'
             });
-            lastVipAd = Date.now();
-            nextVipAdGap = 10 * 60 * 1000 + Math.floor(Math.random() * 5 * 60 * 1000);
-            console.log('👑 VIP ad posted (no raid active).');
+            console.log('👑 VIP/VVIP ad posted.');
         } catch (e) { console.error('VIP ad cron error:', e.message); }
     });
 
