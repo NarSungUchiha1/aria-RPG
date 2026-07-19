@@ -17,10 +17,10 @@ const MELT_VALUE = {
     'Iron Skin': 50, 'Heavy Boots': 55, 'Guard Helm': 55,
     'Duskstep Boots': 55, 'Cloak': 45, 'Camouflage Cloak': 55,
     'Magic Cloak': 70, 'Arcane Ring': 75, 'Bow': 75,
-    'Healing Staff': 95, 'Ice Wand': 88,
+    'Ember Staff': 95, 'Ice Wand': 88,
     // ── F RANK WEAPONS ────────────────────────────────────────────────
-    'Dagger': 65, 'Battle Axe': 85, 'Duskrend Blade': 90, 'Gloamhammer': 95,
-    'Shield': 72, 'Armor Plate': 80, 'Spell Book': 85, 'Heavy Blade': 85,
+    'Duskfang Dagger': 65, 'Gloam Axe': 85, 'Duskrend Blade': 90, 'Gloamhammer': 95,
+    'Duskward Shield': 72, 'Vigil Plating': 80, 'Gloam Primer': 85, 'Duskheavy Blade': 85,
     // ── E RANK ────────────────────────────────────────────────────────
     'Umbral Fang': 130, 'Gloamlight Staff': 140,
     'Duskiron Greatsword': 138, 'Duskwatch Tower': 145,

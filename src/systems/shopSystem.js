@@ -30,23 +30,23 @@ function shuffleArray(array, randFn) {
 }
 
 const roleItemPools = {
-    Tank: ["Shield","Armor Plate","Duskwatch Tower","Vigil Helm","Duskstone Gauntlets",
+    Tank: ["Duskward Shield","Vigil Plating","Duskwatch Tower","Vigil Helm","Duskstone Gauntlets",
            "Fortify Potion","Fatigue Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm",
            "Small Bag","Medium Bag","Large Bag"],
-    Assassin: ["Dagger","Umbral Fang","Twin Gloamfangs","Duskwind Katana","Nightgloam Bow",
+    Assassin: ["Duskfang Dagger","Umbral Fang","Twin Gloamfangs","Duskwind Katana","Nightgloam Bow",
                "Poison Vial","Fatigue Potion","Smoke Bomb","Duskstep Boots","Backstab Scroll","Cloak",
                "Small Bag","Medium Bag","Large Bag"],
-    Mage: ["Spell Book","Gloamlight Staff","Gloamfrost Wand","Umbral Scepter","Eclipse Orb",
+    Mage: ["Gloam Primer","Gloamlight Staff","Gloamfrost Wand","Umbral Scepter","Eclipse Orb",
            "Mana Potion","Fatigue Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak",
            "Small Bag","Medium Bag","Large Bag"],
-    Healer: ["Healing Staff","Eclipse Orb","Blessing Charm","Holy Water","Revive Scroll",
+    Healer: ["Ember Staff","Eclipse Orb","Blessing Charm","Holy Water","Revive Scroll",
              "Herb Kit","Divine Protection","Cleanse Potion","Mana Potion","Fatigue Potion",
              "Small Bag","Medium Bag","Large Bag"],
     Ranger: ["Bow","Nightgloam Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion",
              "Camouflage Cloak","Duskwind Katana",
              "Small Bag","Medium Bag","Large Bag"],
-    Berserker: ["Battle Axe","Duskrend Blade","Duskiron Greatsword","Gloamhammer","Duskbone Mace",
-                "Rage Potion","Fatigue Potion","War Cry Scroll","Blood Charm","Heavy Blade",
+    Berserker: ["Gloam Axe","Duskrend Blade","Duskiron Greatsword","Gloamhammer","Duskbone Mace",
+                "Rage Potion","Fatigue Potion","War Cry Scroll","Blood Charm","Duskheavy Blade",
                 "Small Bag","Medium Bag","Large Bag"]
 };
 
@@ -77,13 +77,13 @@ const fixedPrices = {
     "Small Bag": 300, "Medium Bag": 700, "Large Bag": 1500,
     "Duskstep Boots": 160, "Poison Vial": 180, "Smoke Bomb": 150,
     "Cloak": 140, "Arrow Bundle": 120, "Trap Kit": 160,
-    "Camouflage Cloak": 160, "Blood Charm": 200, "Heavy Blade": 250,
+    "Camouflage Cloak": 160, "Blood Charm": 200, "Duskheavy Blade": 250,
     "Blessing Charm": 200, "Holy Water": 150, "Herb Kit": 130,
-    "Divine Protection": 220, "Bow": 220, "Healing Staff": 280,
+    "Divine Protection": 220, "Bow": 220, "Ember Staff": 280,
     "Ice Wand": 260, "Arcane Ring": 230, "Magic Cloak": 210,
     // Rank F weapons / armour
-    "Dagger": 200, "Shield": 220, "Armor Plate": 240,
-    "Spell Book": 250, "Battle Axe": 260, "Duskrend Blade": 270, "Gloamhammer": 280,
+    "Duskfang Dagger": 200, "Duskward Shield": 220, "Vigil Plating": 240,
+    "Gloam Primer": 250, "Gloam Axe": 260, "Duskrend Blade": 270, "Gloamhammer": 280,
     // Rank E
     "Umbral Fang": 400, "Gloamlight Staff": 420,
     "Duskiron Greatsword": 410, "Duskwatch Tower": 430,

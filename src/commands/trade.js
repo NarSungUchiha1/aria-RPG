@@ -97,11 +97,11 @@ module.exports = {
             // ✅ Cross-role item trading requires Rank A
             // Check if item belongs to a different role's pool
             const ROLE_ITEMS = {
-                Tank:      ['Shield', 'Armor Plate', 'Duskwatch Tower', 'Vigil Helm', 'Duskstone Gauntlets', 'Iron Ward', 'Frost Barrier', 'Stormwall', 'Aegis of Eternity', 'Aegis Everdark', 'Duskwall Aegis', 'Bulwark of Dusk', 'Aegis of the Hollow'],
-                Assassin:  ['Dagger', 'Umbral Fang', 'Twin Gloamfangs', 'Duskwind Katana', 'Nightgloam Bow', 'Thorn Dagger', 'Shadow Fang', 'Void Edge', 'Gloamwhisper', 'Wraithblade', 'Eclipse Edge', "Last Hour's Edge", 'Gloamreaper Dagger'],
-                Mage:      ['Spell Book', 'Gloamlight Staff', 'Gloamfrost Wand', 'Umbral Scepter', 'Eclipse Orb', 'Bone Staff', 'Venom Codex', 'Blood Grimoire', 'The Last Word', 'Cinderrod', 'Umbral Oracle Scepter', 'Staff of the Long Dusk', 'Twilight Codex'],
-                Healer:    ['Splint Mace', 'Ember Chalice', 'Soul Lantern', 'Cradle of Life', 'Soul Lantern'],
-                Berserker: ['Battle Axe', 'Duskrend Blade', 'Duskiron Greatsword', 'Gloamhammer', 'Duskbone Mace', 'Bonecrusher', 'Ember Greatsword', 'Soulreaper', 'Maw of the Abyss', 'Umbral Greatsword', "Umbra Titan's Wrath", 'Sunslayer']
+                Tank:      ['Duskward Shield', 'Vigil Plating', 'Duskwatch Tower', 'Vigil Helm', 'Duskstone Gauntlets', 'Duskiron Ward', 'Gloamfrost Barrier', 'Nightwall', 'Aegis of Everdark', 'Aegis Everdark', 'Duskwall Aegis', 'Bulwark of Dusk', 'Aegis of the Hollow'],
+                Assassin:  ['Duskfang Dagger', 'Umbral Fang', 'Twin Gloamfangs', 'Duskwind Katana', 'Nightgloam Bow', 'Duskthorn Dagger', 'Umbra Fang', 'Gloam Edge', 'Gloamwhisper', 'Wraithblade', 'Eclipse Edge', "Last Hour's Edge", 'Gloamreaper Dagger'],
+                Mage:      ['Gloam Primer', 'Gloamlight Staff', 'Gloamfrost Wand', 'Umbral Scepter', 'Eclipse Orb', 'Gravebone Staff', 'Venom Codex', 'Duskblood Grimoire', 'The Last Word', 'Cinderrod', 'Umbral Oracle Scepter', 'Staff of the Long Dusk', 'Twilight Codex'],
+                Healer:    ['Gloam Mace', 'Cinder Chalice', 'Wraith Lantern', 'Cradle of Dawn', 'Wraith Lantern'],
+                Berserker: ['Gloam Axe', 'Duskrend Blade', 'Duskiron Greatsword', 'Gloamhammer', 'Duskbone Mace', 'Gravebone Crusher', 'Cinder Greatsword', 'Wraithreaper', 'Maw of Umbra', 'Umbral Greatsword', "Umbra Titan's Wrath", 'Sunslayer']
             };
 
             const itemRole = Object.entries(ROLE_ITEMS).find(([, items]) =>

@@ -5,28 +5,28 @@ module.exports = {
 
     // STR
     "Duskiron Greatsword":  { primaryStat: 'strength',     base: { strength: 1, attack: 1 }, increment: { strength: 1, attack: 1 } },
-    "Battle Axe":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
+    "Gloam Axe":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
     "Duskrend Blade":       { primaryStat: 'strength',     base: { strength: 1, attack: 2 }, increment: { strength: 1, attack: 1 } },
     "Gloamhammer":        { primaryStat: 'strength',     base: { strength: 2, stamina: 1 }, increment: { strength: 1, stamina: 0 } },
     "Duskbone Mace":  { primaryStat: 'strength',     base: { strength: 2, attack: 1 }, increment: { strength: 1, attack: 1 } },
 
     // AGI
     "Umbral Fang":    { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
-    "Dagger":           { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
+    "Duskfang Dagger":           { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Twin Gloamfangs": { primaryStat: 'agility',      base: { agility: 2, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Duskwind Katana":      { primaryStat: 'agility',      base: { agility: 1, attack: 1 }, increment: { agility: 1, attack: 1 } },
     "Nightgloam Bow":   { primaryStat: 'agility',      base: { agility: 1, attack: 2 }, increment: { agility: 1, attack: 1 } },
 
     // INT
     "Gloamlight Staff":     { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
-    "Spell Book":       { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
+    "Gloam Primer":       { primaryStat: 'intelligence', base: { intelligence: 1, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Gloamfrost Wand":   { primaryStat: 'intelligence', base: { intelligence: 2, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Umbral Scepter":     { primaryStat: 'intelligence', base: { intelligence: 2, attack: 1 }, increment: { intelligence: 1, attack: 1 } },
     "Eclipse Orb":    { primaryStat: 'intelligence', base: { intelligence: 1, healing: 1 }, increment: { intelligence: 1, healing: 1 } },
 
     // STA
-    "Shield":               { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
-    "Armor Plate":          { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
+    "Duskward Shield":               { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
+    "Vigil Plating":          { primaryStat: 'stamina', base: { stamina: 5, defense: 3, attack: 2 }, increment: { stamina: 2, defense: 1, attack: 1 } },
     "Duskwatch Tower":         { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
     "Vigil Helm":        { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
     "Duskstone Gauntlets": { primaryStat: 'stamina', base: { stamina: 8, defense: 4, attack: 3 }, increment: { stamina: 3, defense: 1, attack: 1 } },
