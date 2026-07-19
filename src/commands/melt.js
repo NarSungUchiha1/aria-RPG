@@ -19,29 +19,29 @@ const MELT_VALUE = {
     'Magic Cloak': 70, 'Arcane Ring': 75, 'Bow': 75,
     'Healing Staff': 95, 'Ice Wand': 88,
     // ── F RANK WEAPONS ────────────────────────────────────────────────
-    'Dagger': 65, 'Battle Axe': 85, 'Duskrend Blade': 90, 'Warhammer': 95,
+    'Dagger': 65, 'Battle Axe': 85, 'Duskrend Blade': 90, 'Gloamhammer': 95,
     'Shield': 72, 'Armor Plate': 80, 'Spell Book': 85, 'Heavy Blade': 85,
     // ── E RANK ────────────────────────────────────────────────────────
     'Umbral Fang': 130, 'Gloamlight Staff': 140,
-    'Iron Greatsword': 138, 'Tower Shield': 145,
+    'Duskiron Greatsword': 138, 'Duskwatch Tower': 145,
     // ── D RANK ────────────────────────────────────────────────────────
-    'Twin Fang Blades': 230, 'Frostbane Wand': 240, 'Vanguard Helm': 225,
+    'Twin Gloamfangs': 230, 'Gloamfrost Wand': 240, 'Vigil Helm': 225,
     // ── C RANK ────────────────────────────────────────────────────────
-    'Wind Katana': 400, 'Nightshade Bow': 400, 'Void Scepter': 430,
-    'Golemheart Gauntlets': 370, 'Dragonbone Mace': 420,
+    'Duskwind Katana': 400, 'Nightgloam Bow': 400, 'Umbral Scepter': 430,
+    'Duskstone Gauntlets': 370, 'Duskbone Mace': 420,
     // ── C RANK SPECIAL (expensive shop weapons) ───────────────────────
-    'Obsidian Cleaver': 50000, 'Whisperblade': 50000,
-    'Inferno Rod': 50000, 'Bulwark of Stone': 50000,
+    'Nightglass Cleaver': 50000, 'Gloamwhisper': 50000,
+    'Cinderrod': 50000, 'Bulwark of Dusk': 50000,
     // ── B RANK ────────────────────────────────────────────────────────
-    'Celestial Orb': 80000, 'Abyssal Greatsword': 100000,
-    'Voidreaper Dagger': 100000, 'Staff of the Eternal': 100000,
-    'Aegis of the Fallen': 100000,
+    'Eclipse Orb': 80000, 'Umbral Greatsword': 100000,
+    'Gloamreaper Dagger': 100000, 'Staff of the Long Dusk': 100000,
+    'Aegis of the Hollow': 100000,
     // ── A RANK ────────────────────────────────────────────────────────
-    "Titan's Wrath": 200000, 'Eclipse Edge': 200000,
-    'Celestial Codex': 200000, 'Fortress Aegis': 200000,
+    "Umbra Titan's Wrath": 200000, 'Eclipse Edge': 200000,
+    'Twilight Codex': 200000, 'Duskwall Aegis': 200000,
     // ── S RANK ────────────────────────────────────────────────────────
-    'Godslayer': 400000, "Eternity's Edge": 400000,
-    'Omniscient Scepter': 400000, 'Aegis Immortal': 400000,
+    'Sunslayer': 400000, "Last Hour's Edge": 400000,
+    'Umbral Oracle Scepter': 400000, 'Aegis Everdark': 400000,
     // ── PRESTIGE WEAPONS (~10% of shop price) ─────────────────────────
     'Gloam Crusher': 7500, 'Eclipse Cleaver': 20000,
     'Umbra Annihilator': 75000, "The Hollow King's Fist": 300000,

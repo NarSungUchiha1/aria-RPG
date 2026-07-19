@@ -67,103 +67,103 @@ module.exports = {
         { name: 'Mana Surge',      type: 'buff',   effect: 'intelligence', value: 20, duration: 3, cooldown: 4, cost: 10 },
         { name: 'Arcane Explosion',type: 'damage', stat: 'intelligence', multiplier: 2.2, aoe: true, cooldown: 5, cost: 14 }
     ],
-    'Iron Greatsword': [
+    'Duskiron Greatsword': [
         { name: 'Iron Strike',     type: 'damage', stat: 'strength', multiplier: 1.5, cooldown: 1, cost: 0 },
         { name: 'Shatter Blow',    type: 'damage', stat: 'strength', multiplier: 2.0, def_reduction: 15, cooldown: 3, cost: 8 },
         { name: 'Titan Cleave',    type: 'damage', stat: 'strength', multiplier: 3.0, aoe: true,   cooldown: 5, cost: 12 }
     ],
-    'Tower Shield': [
+    'Duskwatch Tower': [
         { name: 'Shield Bash',     type: 'damage', stat: 'stamina',  multiplier: 1.4, cooldown: 1, cost: 0 },
         { name: 'Fortify',         type: 'buff',   effect: 'defense', value: 30, duration: 3, cooldown: 4, cost: 10 },
         { name: 'Grand Barrier',   type: 'shield', value: 150,                         cooldown: 5, cost: 12 }
     ],
 
     // ── D RANK ────────────────────────────────────────────────
-    'Twin Fang Blades': [
+    'Twin Gloamfangs': [
         { name: 'Fang Slash',      type: 'damage', stat: 'agility',  multiplier: 1.6, cooldown: 1, cost: 0 },
         { name: 'Twin Fang',       type: 'damage', stat: 'agility',  multiplier: 1.4, hits: 2,     cooldown: 2, cost: 10 },
         { name: 'Venom Fang',      type: 'damage', stat: 'agility',  multiplier: 2.5, bleed: true, cooldown: 5, cost: 15 }
     ],
-    'Frostbane Wand': [
+    'Gloamfrost Wand': [
         { name: 'Frost Bolt',      type: 'damage', stat: 'intelligence', multiplier: 1.6, cooldown: 1, cost: 8 },
         { name: 'Ice Lance',       type: 'damage', stat: 'intelligence', multiplier: 2.2, freeze: true, cooldown: 3, cost: 12 },
         { name: 'Blizzard',        type: 'damage', stat: 'intelligence', multiplier: 2.0, aoe: true,   cooldown: 5, cost: 16 }
     ],
-    'Vanguard Helm': [
+    'Vigil Helm': [
         { name: 'Helm Crush',      type: 'damage', stat: 'stamina',  multiplier: 1.5, cooldown: 1, cost: 0 },
         { name: "Vanguard's Stand",type: 'buff',   effect: 'defense', value: 35, duration: 3, cooldown: 4, cost: 10 },
         { name: 'Impervious',      type: 'shield', value: 200,                         cooldown: 5, cost: 14 }
     ],
 
     // ── C RANK ────────────────────────────────────────────────
-    'Wind Katana': [
+    'Duskwind Katana': [
         { name: 'Wind Slash',      type: 'damage', stat: 'agility',  multiplier: 1.8, cooldown: 1, cost: 0 },
         { name: 'Gale Strike',     type: 'damage', stat: 'agility',  multiplier: 2.5, ignore_defense: 0.3, cooldown: 3, cost: 12 },
         { name: 'Storm Blade',     type: 'damage', stat: 'agility',  multiplier: 4.0, cooldown: 5, cost: 18 }
     ],
-    'Nightshade Bow': [
+    'Nightgloam Bow': [
         { name: 'Shadow Arrow',    type: 'damage', stat: 'agility',  multiplier: 1.8, cooldown: 1, cost: 0 },
         { name: 'Poison Arrow',    type: 'damage', stat: 'agility',  multiplier: 2.0, bleed: true, cooldown: 3, cost: 12 },
         { name: 'Rain of Arrows',  type: 'damage', stat: 'agility',  multiplier: 1.5, aoe: true, hits: 2, cooldown: 5, cost: 18 }
     ],
-    'Void Scepter': [
+    'Umbral Scepter': [
         { name: 'Void Bolt',       type: 'damage', stat: 'intelligence', multiplier: 1.8, cooldown: 1, cost: 10 },
         { name: 'Arcane Surge',    type: 'damage', stat: 'intelligence', multiplier: 2.5, cooldown: 3, cost: 14 },
         { name: 'Celestial Wrath', type: 'damage', stat: 'intelligence', multiplier: 3.5, aoe: true,   cooldown: 5, cost: 20 }
     ],
-    'Golemheart Gauntlets': [
+    'Duskstone Gauntlets': [
         { name: 'Golem Punch',     type: 'damage', stat: 'stamina',  multiplier: 1.7, cooldown: 1, cost: 0 },
         { name: 'Stone Wall',      type: 'buff',   effect: 'defense', value: 50, duration: 3, cooldown: 4, cost: 12 },
         { name: 'Earthshatter',    type: 'damage', stat: 'stamina',  multiplier: 3.0, stun: true, cooldown: 5, cost: 16 }
     ],
-    'Dragonbone Mace': [
+    'Duskbone Mace': [
         { name: 'Dragon Smash',    type: 'damage', stat: 'strength', multiplier: 1.8, cooldown: 1, cost: 0 },
         { name: 'Bone Crush',      type: 'damage', stat: 'strength', multiplier: 2.6, def_reduction: 20, cooldown: 3, cost: 14 },
         { name: 'Dragon Roar',     type: 'debuff', effect: 'attack', value: -25, duration: 3, cooldown: 5, cost: 16 }
     ],
-    'Obsidian Cleaver': [
+    'Nightglass Cleaver': [
         { name: 'Obsidian Slash',  type: 'damage', stat: 'strength', multiplier: 2.0, cooldown: 1, cost: 0 },
         { name: 'Dark Cleave',     type: 'damage', stat: 'strength', multiplier: 3.0, cooldown: 3, cost: 14 },
         { name: 'Shadow Rend',     type: 'damage', stat: 'strength', multiplier: 4.5, ignore_defense: 0.4, cooldown: 5, cost: 20 }
     ],
-    'Whisperblade': [
+    'Gloamwhisper': [
         { name: 'Silent Cut',      type: 'damage', stat: 'agility',  multiplier: 2.0, cooldown: 1, cost: 0 },
         { name: 'Whisper Strike',  type: 'damage', stat: 'agility',  multiplier: 3.0, ignore_defense: 0.5, cooldown: 3, cost: 14 },
         { name: 'Death Whisper',   type: 'damage', stat: 'agility',  multiplier: 5.0, cooldown: 5, cost: 22 }
     ],
-    'Inferno Rod': [
+    'Cinderrod': [
         { name: 'Inferno Bolt',    type: 'damage', stat: 'intelligence', multiplier: 2.0, cooldown: 1, cost: 12 },
         { name: 'Flame Burst',     type: 'damage', stat: 'intelligence', multiplier: 2.8, aoe: true,   cooldown: 3, cost: 16 },
         { name: 'Inferno',         type: 'damage', stat: 'intelligence', multiplier: 4.5, cooldown: 5, cost: 22 }
     ],
-    'Bulwark of Stone': [
+    'Bulwark of Dusk': [
         { name: 'Stone Slam',      type: 'damage', stat: 'stamina',  multiplier: 1.8, cooldown: 15, cost: 0 },
         { name: 'Granite Shield',  type: 'shield', value: 400,                         cooldown: 120, cost: 14 },
         { name: 'Mountain Crush',  type: 'damage', stat: 'stamina',  multiplier: 3.2, stun: true, cooldown: 150, cost: 18 }
     ],
 
     // ── B RANK ────────────────────────────────────────────────
-    'Celestial Orb': [
+    'Eclipse Orb': [
         { name: 'Celestial Bolt',  type: 'damage', stat: 'intelligence', multiplier: 2.2, cooldown: 1, cost: 12 },
         { name: 'Arcane Surge',    type: 'damage', stat: 'intelligence', multiplier: 3.2, cooldown: 3, cost: 16 },
         { name: 'Star Fall',       type: 'damage', stat: 'intelligence', multiplier: 5.0, aoe: true,   cooldown: 5, cost: 22 }
     ],
-    'Abyssal Greatsword': [
+    'Umbral Greatsword': [
         { name: 'Abyss Slash',     type: 'damage', stat: 'strength', multiplier: 2.3, cooldown: 15, cost: 0 },
         { name: 'Abyssal Rend',    type: 'damage', stat: 'strength', multiplier: 3.5, def_reduction: 30, cooldown: 60, cost: 16 },
         { name: 'Void Cleave',     type: 'damage', stat: 'strength', multiplier: 5.5, cooldown: 120, cost: 22 }
     ],
-    'Voidreaper Dagger': [
+    'Gloamreaper Dagger': [
         { name: 'Reaper Slash',    type: 'damage', stat: 'agility',  multiplier: 2.3, cooldown: 15, cost: 0 },
         { name: "Reaper's Mark",   type: 'debuff', effect: 'defense', value: -35, duration: 3, cooldown: 60, cost: 16 },
         { name: 'Void Drain',      type: 'damage', stat: 'agility',  multiplier: 4.5, ignore_defense: 0.5, cooldown: 120, cost: 22 }
     ],
-    'Staff of the Eternal': [
+    'Staff of the Long Dusk': [
         { name: 'Eternal Bolt',    type: 'damage', stat: 'intelligence', multiplier: 2.2, cooldown: 1, cost: 12 },
         { name: 'Timeless Surge',  type: 'buff',   effect: 'intelligence', value: 60, duration: 3, cooldown: 4, cost: 18 },
         { name: 'Eternity Blast',  type: 'damage', stat: 'intelligence', multiplier: 5.5, cooldown: 5, cost: 24 }
     ],
-    'Aegis of the Fallen': [
+    'Aegis of the Hollow': [
         { name: 'Fallen Strike',   type: 'damage', stat: 'stamina',  multiplier: 2.1, cooldown: 1, cost: 0 },
         { name: 'Aegis Guard',     type: 'shield', value: 600,                         cooldown: 4, cost: 16 },
         { name: 'Fallen Titan',    type: 'damage', stat: 'stamina',  multiplier: 4.0, stun: true, cooldown: 5, cost: 20 }
@@ -175,7 +175,7 @@ module.exports = {
     'Cradle of Life': [] /* Healer weapon — stat bonuses only, no active moves */,
 
     // ── A RANK ────────────────────────────────────────────────
-    "Titan's Wrath": [
+    "Umbra Titan's Wrath": [
         { name: 'Titan Strike',    type: 'damage', stat: 'strength', multiplier: 2.8, cooldown: 1, cost: 0 },
         { name: 'Wrath Slam',      type: 'damage', stat: 'strength', multiplier: 4.2, stun: true, cooldown: 3, cost: 20 },
         { name: 'Titan Rampage',   type: 'damage', stat: 'strength', multiplier: 7.0, aoe: true,  cooldown: 5, cost: 28 }
@@ -185,34 +185,34 @@ module.exports = {
         { name: 'Shadow Eclipse',  type: 'damage', stat: 'agility',  multiplier: 4.5, ignore_defense: 0.5, cooldown: 3, cost: 22 },
         { name: 'Total Eclipse',   type: 'damage', stat: 'agility',  multiplier: 7.5, cooldown: 5, cost: 30 }
     ],
-    'Celestial Codex': [
+    'Twilight Codex': [
         { name: 'Codex Bolt',      type: 'damage', stat: 'intelligence', multiplier: 2.8, cooldown: 1, cost: 15 },
         { name: 'Celestial Wrath', type: 'damage', stat: 'intelligence', multiplier: 4.5, aoe: true,   cooldown: 3, cost: 22 },
         { name: 'Heavens Fall',    type: 'damage', stat: 'intelligence', multiplier: 7.5, cooldown: 5, cost: 30 }
     ],
-    'Fortress Aegis': [
+    'Duskwall Aegis': [
         { name: 'Aegis Slam',      type: 'damage', stat: 'stamina',  multiplier: 2.6, cooldown: 1, cost: 0 },
         { name: 'Fortress Wall',   type: 'buff',   effect: 'defense', value: 100, duration: 3, cooldown: 4, cost: 22 },
         { name: 'Aegis Crush',     type: 'damage', stat: 'stamina',  multiplier: 6.0, stun: true, cooldown: 5, cost: 28 }
     ],
 
     // ── S RANK ────────────────────────────────────────────────
-    'Godslayer': [
+    'Sunslayer': [
         { name: 'God Strike',      type: 'damage', stat: 'strength', multiplier: 3.5, cooldown: 1, cost: 0 },
         { name: 'Slayer\'s Wrath', type: 'damage', stat: 'strength', multiplier: 5.5, ignore_defense: 0.5, cooldown: 3, cost: 25 },
         { name: 'Divine Execution',type: 'damage', stat: 'strength', multiplier: 10.0, cooldown: 5, cost: 35 }
     ],
-    "Eternity's Edge": [
+    "Last Hour's Edge": [
         { name: 'Eternity Slash',  type: 'damage', stat: 'agility',  multiplier: 3.5, cooldown: 1, cost: 0 },
         { name: 'Time Rend',       type: 'damage', stat: 'agility',  multiplier: 5.5, ignore_defense: 0.6, cooldown: 3, cost: 25 },
         { name: 'Eternal Void',    type: 'damage', stat: 'agility',  multiplier: 10.0, cooldown: 5, cost: 35 }
     ],
-    'Omniscient Scepter': [
+    'Umbral Oracle Scepter': [
         { name: 'Omniscient Bolt', type: 'damage', stat: 'intelligence', multiplier: 3.5, cooldown: 1, cost: 20 },
         { name: 'All-Seeing Eye',  type: 'damage', stat: 'intelligence', multiplier: 5.5, aoe: true,   cooldown: 3, cost: 28 },
         { name: 'Omniscience',     type: 'damage', stat: 'intelligence', multiplier: 10.0, cooldown: 5, cost: 38 }
     ],
-    'Aegis Immortal': [
+    'Aegis Everdark': [
         { name: 'Immortal Slam',   type: 'damage', stat: 'stamina',  multiplier: 3.2, cooldown: 1, cost: 0 },
         { name: 'Immortal Guard',  type: 'shield', value: 2000,                        cooldown: 3, cost: 22 },
         { name: 'Immortal Crush',  type: 'damage', stat: 'stamina',  multiplier: 8.0, stun: true, cooldown: 5, cost: 32 }
@@ -220,7 +220,7 @@ module.exports = {
 
 
     // ── FORGED — COMMON ──────────────────────────────────────
-    'Warhammer': [
+    'Gloamhammer': [
         { name: 'Crushing Blow',   type: 'damage', stat: 'strength', multiplier: 1.5, def_reduction: 15, cooldown: 2, cost: 10 },
         { name: 'Seismic Slam',    type: 'damage', stat: 'strength', multiplier: 1.8, aoe: true, stun: true, cooldown: 4, cost: 16 },
         { name: 'Momentum',        type: 'buff',   effect: 'strength_up', value: 20, duration: 2, cooldown: 4, cost: 10 }

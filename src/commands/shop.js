@@ -57,7 +57,7 @@ module.exports = {
             shopItems.forEach(item => {
                 text += `┃◆ ${item.id}. ${item.name} [${item.grade || 'F'}] [${item.stock}/${item.restockedAmount}]\n`;
                 text += `┃   ➤ ${item.emoji} +${item.value} ${item.stat.toUpperCase()}\n`;
-                text += `┃   ➤ 💰 ${item.price} GOLD\n`;
+                text += `┃   ➤ 💰 ${item.price} LUMEN\n`;
                 if (item.moves) text += `┃   ➤ 🗡️ Moves: ${item.moves}\n`;
                 text += `┃────────────\n`;
             });

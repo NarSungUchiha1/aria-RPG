@@ -30,37 +30,37 @@ function shuffleArray(array, randFn) {
 }
 
 const roleItemPools = {
-    Tank: ["Shield","Armor Plate","Tower Shield","Vanguard Helm","Golemheart Gauntlets",
+    Tank: ["Shield","Armor Plate","Duskwatch Tower","Vigil Helm","Duskstone Gauntlets",
            "Fortify Potion","Fatigue Potion","Taunt Scroll","Iron Skin","Heavy Boots","Guard Helm",
            "Small Bag","Medium Bag","Large Bag"],
-    Assassin: ["Dagger","Umbral Fang","Twin Fang Blades","Wind Katana","Nightshade Bow",
+    Assassin: ["Dagger","Umbral Fang","Twin Gloamfangs","Duskwind Katana","Nightgloam Bow",
                "Poison Vial","Fatigue Potion","Smoke Bomb","Duskstep Boots","Backstab Scroll","Cloak",
                "Small Bag","Medium Bag","Large Bag"],
-    Mage: ["Spell Book","Gloamlight Staff","Frostbane Wand","Void Scepter","Celestial Orb",
+    Mage: ["Spell Book","Gloamlight Staff","Gloamfrost Wand","Umbral Scepter","Eclipse Orb",
            "Mana Potion","Fatigue Potion","Fire Scroll","Ice Wand","Arcane Ring","Magic Cloak",
            "Small Bag","Medium Bag","Large Bag"],
-    Healer: ["Healing Staff","Celestial Orb","Blessing Charm","Holy Water","Revive Scroll",
+    Healer: ["Healing Staff","Eclipse Orb","Blessing Charm","Holy Water","Revive Scroll",
              "Herb Kit","Divine Protection","Cleanse Potion","Mana Potion","Fatigue Potion",
              "Small Bag","Medium Bag","Large Bag"],
-    Ranger: ["Bow","Nightshade Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion",
-             "Camouflage Cloak","Wind Katana",
+    Ranger: ["Bow","Nightgloam Bow","Arrow Bundle","Trap Kit","Eagle Eye Potion",
+             "Camouflage Cloak","Duskwind Katana",
              "Small Bag","Medium Bag","Large Bag"],
-    Berserker: ["Battle Axe","Duskrend Blade","Iron Greatsword","Warhammer","Dragonbone Mace",
+    Berserker: ["Battle Axe","Duskrend Blade","Duskiron Greatsword","Gloamhammer","Duskbone Mace",
                 "Rage Potion","Fatigue Potion","War Cry Scroll","Blood Charm","Heavy Blade",
                 "Small Bag","Medium Bag","Large Bag"]
 };
 
 const rankRequirements = {
-    "Tower Shield": "E", "Vanguard Helm": "D", "Golemheart Gauntlets": "C",
-    "Umbral Fang": "E", "Twin Fang Blades": "D", "Wind Katana": "C",
-    "Nightshade Bow": "C", "Gloamlight Staff": "E", "Frostbane Wand": "D",
-    "Void Scepter": "C", "Celestial Orb": "B", "Iron Greatsword": "E",
-    "Warhammer": "D", "Dragonbone Mace": "C", "Obsidian Cleaver": "C",
-    "Whisperblade": "C", "Inferno Rod": "C", "Bulwark of Stone": "C",
-    "Abyssal Greatsword": "B", "Voidreaper Dagger": "B", "Staff of the Eternal": "B",
-    "Aegis of the Fallen": "B", "Titan's Wrath": "A", "Eclipse Edge": "A",
-    "Celestial Codex": "A", "Fortress Aegis": "A", "Godslayer": "S",
-    "Eternity's Edge": "S", "Omniscient Scepter": "S", "Aegis Immortal": "S"
+    "Duskwatch Tower": "E", "Vigil Helm": "D", "Duskstone Gauntlets": "C",
+    "Umbral Fang": "E", "Twin Gloamfangs": "D", "Duskwind Katana": "C",
+    "Nightgloam Bow": "C", "Gloamlight Staff": "E", "Gloamfrost Wand": "D",
+    "Umbral Scepter": "C", "Eclipse Orb": "B", "Duskiron Greatsword": "E",
+    "Gloamhammer": "D", "Duskbone Mace": "C", "Nightglass Cleaver": "C",
+    "Gloamwhisper": "C", "Cinderrod": "C", "Bulwark of Dusk": "C",
+    "Umbral Greatsword": "B", "Gloamreaper Dagger": "B", "Staff of the Long Dusk": "B",
+    "Aegis of the Hollow": "B", "Umbra Titan's Wrath": "A", "Eclipse Edge": "A",
+    "Twilight Codex": "A", "Duskwall Aegis": "A", "Sunslayer": "S",
+    "Last Hour's Edge": "S", "Umbral Oracle Scepter": "S", "Aegis Everdark": "S"
 };
 
 // ✅ Fixed price table — prices never change between purchases or sessions
@@ -83,27 +83,27 @@ const fixedPrices = {
     "Ice Wand": 260, "Arcane Ring": 230, "Magic Cloak": 210,
     // Rank F weapons / armour
     "Dagger": 200, "Shield": 220, "Armor Plate": 240,
-    "Spell Book": 250, "Battle Axe": 260, "Duskrend Blade": 270, "Warhammer": 280,
+    "Spell Book": 250, "Battle Axe": 260, "Duskrend Blade": 270, "Gloamhammer": 280,
     // Rank E
     "Umbral Fang": 400, "Gloamlight Staff": 420,
-    "Iron Greatsword": 410, "Tower Shield": 430,
+    "Duskiron Greatsword": 410, "Duskwatch Tower": 430,
     // Rank D
-    "Twin Fang Blades": 700, "Frostbane Wand": 720, "Vanguard Helm": 680,
+    "Twin Gloamfangs": 700, "Gloamfrost Wand": 720, "Vigil Helm": 680,
     // Rank C
-    "Wind Katana": 1200, "Nightshade Bow": 1200, "Void Scepter": 1300,
-    "Golemheart Gauntlets": 1100, "Dragonbone Mace": 1250,
-    "Obsidian Cleaver": 1000000, "Whisperblade": 1000000,
-    "Inferno Rod": 1000000, "Bulwark of Stone": 1000000,
+    "Duskwind Katana": 1200, "Nightgloam Bow": 1200, "Umbral Scepter": 1300,
+    "Duskstone Gauntlets": 1100, "Duskbone Mace": 1250,
+    "Nightglass Cleaver": 1000000, "Gloamwhisper": 1000000,
+    "Cinderrod": 1000000, "Bulwark of Dusk": 1000000,
     // Rank B
-    "Celestial Orb": 2000000, "Abyssal Greatsword": 2500000,
-    "Voidreaper Dagger": 2500000, "Staff of the Eternal": 2500000,
-    "Aegis of the Fallen": 2500000,
+    "Eclipse Orb": 2000000, "Umbral Greatsword": 2500000,
+    "Gloamreaper Dagger": 2500000, "Staff of the Long Dusk": 2500000,
+    "Aegis of the Hollow": 2500000,
     // Rank A
-    "Titan's Wrath": 5000000, "Eclipse Edge": 5000000,
-    "Celestial Codex": 5000000, "Fortress Aegis": 5000000,
+    "Umbra Titan's Wrath": 5000000, "Eclipse Edge": 5000000,
+    "Twilight Codex": 5000000, "Duskwall Aegis": 5000000,
     // Rank S
-    "Godslayer": 10000000, "Eternity's Edge": 10000000,
-    "Omniscient Scepter": 10000000, "Aegis Immortal": 10000000,
+    "Sunslayer": 10000000, "Last Hour's Edge": 10000000,
+    "Umbral Oracle Scepter": 10000000, "Aegis Everdark": 10000000,
 };
 
 function getItemPrice(itemName) {
@@ -147,22 +147,22 @@ function isItemAllowedForRank(itemName, playerRank) {
 }
 
 const specialWeapons = [
-    { name: "Obsidian Cleaver",     minRank: 'C' },
-    { name: "Whisperblade",         minRank: 'C' },
-    { name: "Inferno Rod",          minRank: 'C' },
-    { name: "Bulwark of Stone",     minRank: 'C' },
-    { name: "Abyssal Greatsword",   minRank: 'B' },
-    { name: "Voidreaper Dagger",    minRank: 'B' },
-    { name: "Staff of the Eternal", minRank: 'B' },
-    { name: "Aegis of the Fallen",  minRank: 'B' },
-    { name: "Titan's Wrath",        minRank: 'A' },
+    { name: "Nightglass Cleaver",     minRank: 'C' },
+    { name: "Gloamwhisper",         minRank: 'C' },
+    { name: "Cinderrod",          minRank: 'C' },
+    { name: "Bulwark of Dusk",     minRank: 'C' },
+    { name: "Umbral Greatsword",   minRank: 'B' },
+    { name: "Gloamreaper Dagger",    minRank: 'B' },
+    { name: "Staff of the Long Dusk", minRank: 'B' },
+    { name: "Aegis of the Hollow",  minRank: 'B' },
+    { name: "Umbra Titan's Wrath",        minRank: 'A' },
     { name: "Eclipse Edge",         minRank: 'A' },
-    { name: "Celestial Codex",      minRank: 'A' },
-    { name: "Fortress Aegis",       minRank: 'A' },
-    { name: "Godslayer",            minRank: 'S' },
-    { name: "Eternity's Edge",      minRank: 'S' },
-    { name: "Omniscient Scepter",   minRank: 'S' },
-    { name: "Aegis Immortal",       minRank: 'S' }
+    { name: "Twilight Codex",      minRank: 'A' },
+    { name: "Duskwall Aegis",       minRank: 'A' },
+    { name: "Sunslayer",            minRank: 'S' },
+    { name: "Last Hour's Edge",      minRank: 'S' },
+    { name: "Umbral Oracle Scepter",   minRank: 'S' },
+    { name: "Aegis Everdark",       minRank: 'S' }
 ];
 
 function getSpecialItemForRank(playerRank, randFn = Math.random) {

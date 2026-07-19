@@ -97,11 +97,11 @@ module.exports = {
             // ✅ Cross-role item trading requires Rank A
             // Check if item belongs to a different role's pool
             const ROLE_ITEMS = {
-                Tank:      ['Shield', 'Armor Plate', 'Tower Shield', 'Vanguard Helm', 'Golemheart Gauntlets', 'Iron Ward', 'Frost Barrier', 'Stormwall', 'Aegis of Eternity', 'Aegis Immortal', 'Fortress Aegis', 'Bulwark of Stone', 'Aegis of the Fallen'],
-                Assassin:  ['Dagger', 'Umbral Fang', 'Twin Fang Blades', 'Wind Katana', 'Nightshade Bow', 'Thorn Dagger', 'Shadow Fang', 'Void Edge', 'Whisperblade', 'Wraithblade', 'Eclipse Edge', "Eternity's Edge", 'Voidreaper Dagger'],
-                Mage:      ['Spell Book', 'Gloamlight Staff', 'Frostbane Wand', 'Void Scepter', 'Celestial Orb', 'Bone Staff', 'Venom Codex', 'Blood Grimoire', 'The Last Word', 'Inferno Rod', 'Omniscient Scepter', 'Staff of the Eternal', 'Celestial Codex'],
+                Tank:      ['Shield', 'Armor Plate', 'Duskwatch Tower', 'Vigil Helm', 'Duskstone Gauntlets', 'Iron Ward', 'Frost Barrier', 'Stormwall', 'Aegis of Eternity', 'Aegis Everdark', 'Duskwall Aegis', 'Bulwark of Dusk', 'Aegis of the Hollow'],
+                Assassin:  ['Dagger', 'Umbral Fang', 'Twin Gloamfangs', 'Duskwind Katana', 'Nightgloam Bow', 'Thorn Dagger', 'Shadow Fang', 'Void Edge', 'Gloamwhisper', 'Wraithblade', 'Eclipse Edge', "Last Hour's Edge", 'Gloamreaper Dagger'],
+                Mage:      ['Spell Book', 'Gloamlight Staff', 'Gloamfrost Wand', 'Umbral Scepter', 'Eclipse Orb', 'Bone Staff', 'Venom Codex', 'Blood Grimoire', 'The Last Word', 'Cinderrod', 'Umbral Oracle Scepter', 'Staff of the Long Dusk', 'Twilight Codex'],
                 Healer:    ['Splint Mace', 'Ember Chalice', 'Soul Lantern', 'Cradle of Life', 'Soul Lantern'],
-                Berserker: ['Battle Axe', 'Duskrend Blade', 'Iron Greatsword', 'Warhammer', 'Dragonbone Mace', 'Bonecrusher', 'Ember Greatsword', 'Soulreaper', 'Maw of the Abyss', 'Abyssal Greatsword', "Titan's Wrath", 'Godslayer']
+                Berserker: ['Battle Axe', 'Duskrend Blade', 'Duskiron Greatsword', 'Gloamhammer', 'Duskbone Mace', 'Bonecrusher', 'Ember Greatsword', 'Soulreaper', 'Maw of the Abyss', 'Umbral Greatsword', "Umbra Titan's Wrath", 'Sunslayer']
             };
 
             const itemRole = Object.entries(ROLE_ITEMS).find(([, items]) =>
