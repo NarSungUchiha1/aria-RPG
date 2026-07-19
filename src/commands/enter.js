@@ -12,8 +12,11 @@ const {
     getDungeonEnemyRevealText,
     isDungeonLockedDB,
     autoStartTimers,
+    announceDungeonModifier,
     getRaidGroup
 } = require('../engine/dungeon');
+
+const PRE_START_WARN_MS = 20 * 1000; // modifier flavor fires 20s before auto-start
 
 const {
     startDungeonTimers,
@@ -90,6 +93,16 @@ async function beginDungeon(dungeonId, client) {
                 dungeonData.dungeon_rank,
                 dungeonData.stage
             );
+        }
+
+        // CURSED modifier: stage-1 enemies also hit/soak +50% (advanceStage
+        // already buffs stages 2+; this makes the "+50% stronger" warning true
+        // from the very first fight).
+        if (dungeonData.modifier === 'CURSED') {
+            await db.execute(
+                "UPDATE dungeon_enemies SET max_hp=FLOOR(max_hp*1.5), current_hp=FLOOR(current_hp*1.5), atk=FLOOR(atk*1.5), def=FLOOR(def*1.5) WHERE dungeon_id=? AND current_hp > 0",
+                [dungeonId]
+            ).catch(() => {});
         }
 
         console.log(
@@ -662,6 +675,8 @@ count = count + 1`,
                     !autoStartTimers.has(dungeon.id)
                 ) {
 
+                    const AUTO_MS = AUTO_START_MINUTES * 60 * 1000;
+
                     const autoTimer =
                         setTimeout(() => {
 
@@ -670,11 +685,20 @@ count = count + 1`,
                                 client
                             );
 
-                        }, AUTO_START_MINUTES * 60 * 1000);
+                        }, AUTO_MS);
 
                     autoStartTimers.set(
                         dungeon.id,
                         autoTimer
+                    );
+
+                    // Modifier flavor ("enemies are stronger", etc.) 20s before
+                    // auto-start. Self-guards on DB state, so if the raid starts
+                    // early or is cancelled it posts nothing. (Untracked on
+                    // purpose — the DB check makes a stale fire a harmless no-op.)
+                    setTimeout(
+                        () => { announceDungeonModifier(dungeon.id, client); },
+                        Math.max(0, AUTO_MS - PRE_START_WARN_MS)
                     );
                 }
 

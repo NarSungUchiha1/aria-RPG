@@ -167,14 +167,10 @@ async function spawnDungeon(rank, client = null) {
 
         if (client) {
             await sendDungeonAnnouncement(client, rank, boss, maxStage, spawnGroup);
-            if (modifier) {
-                const MOD_TEXT = {
-                    GOLDEN:    '╔══〘 ✨ GOLDEN DUNGEON 〙══╗\n┃★ The walls drip with gold.\n┃★ 💰 *ALL GOLD REWARDS ×3!*\n╚═══════════════════════╝',
-                    CURSED:    '╔══〘 💀 CURSED DUNGEON 〙══╗\n┃★ Something is wrong in there.\n┃★ ⚠️ Enemies are *+50% stronger*\n┃★ 🎁 but rewards are *DOUBLED.*\n╚═══════════════════════╝',
-                    FRACTURED: '╔══〘 👁️ FRACTURED DUNGEON 〙══╗\n┃★ The void is thin here.\n┃★ ⚠️ *the Hollow King\'s Echo* is twice\n┃★ as likely to come through...\n╚═══════════════════════╝'
-                };
-                await client.sendMessage(spawnGroup, { text: MOD_TEXT[modifier] }).catch(() => {});
-            }
+            // Modifier flavor ("enemies are stronger", etc.) is NO LONGER posted
+            // at spawn — it now fires 20s before the dungeon auto-starts (see the
+            // auto-start block in enter.js), so raiders get the warning right as
+            // the fight is about to lock in.
             startLobbyTimer(dungeonId, client);
         }
 
@@ -182,6 +178,28 @@ async function spawnDungeon(rank, client = null) {
     } finally {
         await db.execute("DELETE FROM dungeon_spawn_lock WHERE id=1 AND group_jid=?", [getRaidGroup()]).catch(() => {});
     }
+}
+
+// Modifier flavor text, posted 20s before auto-start (see enter.js).
+const MOD_TEXT = {
+    GOLDEN:    '╔══〘 ✨ GOLDEN DUNGEON 〙══╗\n┃★ The walls drip with gold.\n┃★ 💰 *ALL LUMEN REWARDS ×3!*\n╚═══════════════════════╝',
+    CURSED:    '╔══〘 💀 CURSED DUNGEON 〙══╗\n┃★ Something is wrong in there.\n┃★ ⚠️ Enemies are *+50% stronger*\n┃★ 🎁 but rewards are *DOUBLED.*\n╚═══════════════════════╝',
+    FRACTURED: '╔══〘 👁️ FRACTURED DUNGEON 〙══╗\n┃★ The dark is thin here.\n┃★ ⚠️ A *Sunshard* is twice as\n┃★ likely to crash in...\n╚═══════════════════════╝'
+};
+
+// Posts the modifier warning IF the dungeon is still in its lobby (active,
+// unlocked) and actually has a modifier. Self-guards so a cancelled or
+// already-started dungeon posts nothing. Called ~20s before auto-start.
+async function announceDungeonModifier(dungeonId, client) {
+    try {
+        if (!client) return;
+        const [rows] = await db.execute("SELECT modifier, is_active, locked FROM dungeon WHERE id=?", [dungeonId]);
+        const d = rows[0];
+        if (!d || !d.modifier || Number(d.is_active) !== 1 || Number(d.locked) !== 0) return;
+        if (!MOD_TEXT[d.modifier]) return;
+        await client.sendMessage(getDungeonGroup(dungeonId), { text: MOD_TEXT[d.modifier] }).catch(() => {});
+        console.log(`⚠️ Modifier warning posted for dungeon ${dungeonId} [${d.modifier}] (pre-start).`);
+    } catch (e) { console.error('announceDungeonModifier error:', e.message); }
 }
 
 function startLobbyTimer(dungeonId, client) {
@@ -1370,6 +1388,7 @@ module.exports = {
     demoteRaider,
     demoteAllRaiders,
     autoStartTimers,
+    announceDungeonModifier,
     clearLobbyTimer,
     dungeonLocks,
     clearDungeonTimers,
