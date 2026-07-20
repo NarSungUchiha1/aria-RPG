@@ -20,6 +20,15 @@ const RANK_SCALE = {
     PF: 2.0, PE: 2.1, PD: 2.2, PC: 2.3, PB: 2.4, PA: 2.5, PS: 2.6
 };
 
+// Every mirror starts at 15k HP and grows with the original's CURRENT stats —
+// the stronger the hunter, the deadlier the thing wearing their face.
+const REFLECTION_BASE_HP = 15000;
+const HP_PER_STAT        = 15;
+
+// Break your mirror within 5 minutes or it kills you.
+const REFLECTION_TIME_LIMIT_MS = 5 * 60 * 1000;
+const deadlineTimers = new Map(); // dungeonId -> timeout
+
 let _tableReady = false;
 async function ensureReflectionTable() {
     if (_tableReady) return;
@@ -63,9 +72,11 @@ async function spawnReflections(dungeonId, rank) {
     const scale = scaleFor(rank);
     const spawned = [];
     for (const p of players) {
-        // Mirror HP from the player's own max_hp, buffed — a real slugfest,
-        // not a one-shot. ATK derives from their best offensive stat.
-        const hp  = Math.max(200, Math.floor(Number(p.max_hp || 500) * scale * 1.6));
+        // 15k floor + the original's CURRENT stats, then rank-scaled: a weak
+        // hunter meets a 15k wall, a monster meets a monster.
+        const statPower = (Number(p.strength) || 0) + (Number(p.agility) || 0)
+                        + (Number(p.intelligence) || 0) + (Number(p.stamina) || 0);
+        const hp  = Math.floor((REFLECTION_BASE_HP + statPower * HP_PER_STAT) * scale);
         const atk = Math.max(10, Math.floor(Math.max(
             Number(p.strength) || 0, Number(p.agility) || 0, Number(p.intelligence) || 0
         ) * scale * 0.45));
@@ -110,6 +121,18 @@ async function getReflectionByName(dungeonId, nameArg) {
     const exact = rows.find(r => String(r.nickname || '').toLowerCase() === q);
     if (exact) return exact;
     return rows.find(r => String(r.nickname || '').toLowerCase().includes(q)) || null;
+}
+
+// True if a Sunshard invasion happened on this dungeon at all (living OR
+// already-broken mirrors). Used to relax the normal "clear the stage first"
+// rule so whoever breaks their mirror can push on.
+async function invasionActive(dungeonId) {
+    await ensureReflectionTable();
+    const [rows] = await db.execute(
+        'SELECT COUNT(*) as cnt FROM dungeon_reflections WHERE dungeon_id=?',
+        [dungeonId]
+    ).catch(() => [[{ cnt: 0 }]]);
+    return (rows[0]?.cnt || 0) > 0;
 }
 
 // How many reflections are still standing in this dungeon.
@@ -193,15 +216,76 @@ async function reflectionTurnRow(refl, playerMoves) {
     return { text: `🪞 Your reflection used *${mv?.name || 'Mirror Strike'}* — ${dmg.toLocaleString()} damage!`, damage: dmg };
 }
 
+/**
+ * The 5-minute clock. Any hunter whose mirror is still standing when it runs
+ * out is killed by it. Broken mirrors are safe — the timer only takes those
+ * who couldn't finish.
+ */
+async function resolveReflectionDeadline(dungeonId, client) {
+    try {
+        await ensureReflectionTable();
+        const [alive] = await db.execute(
+            'SELECT player_id, nickname FROM dungeon_reflections WHERE dungeon_id=? AND defeated=0',
+            [dungeonId]
+        ).catch(() => [[]]);
+        if (!alive.length) return 0;
+
+        for (const r of alive) {
+            await db.execute('UPDATE players SET hp = 0 WHERE id=?', [r.player_id]).catch(() => {});
+            await db.execute(
+                'UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?',
+                [r.player_id, dungeonId]
+            ).catch(() => {});
+        }
+        // The mirrors won — clear them so the stage isn't left gated.
+        await db.execute('UPDATE dungeon_reflections SET defeated=1 WHERE dungeon_id=? AND defeated=0', [dungeonId]).catch(() => {});
+
+        if (client) {
+            const { getDungeonGroup } = require('../engine/dungeon');
+            await client.sendMessage(getDungeonGroup(dungeonId), {
+                text:
+                    '╔══〘 ☄️ THE LIGHT GOES OUT 〙══╗\n' +
+                    '┃★\n' +
+                    '┃★ Five minutes. That was all\n' +
+                    '┃★ the shard was ever going to give.\n' +
+                    '┃★\n' +
+                    alive.map(r => `┃★ ☠️ *${r.nickname}* was taken by their reflection.`).join('\n') + '\n' +
+                    '┃★\n' +
+                    '┃★ Use !respawn.\n' +
+                    '╚═══════════════════════════╝'
+            }).catch(() => {});
+        }
+        console.log(`☠️ Reflection deadline: ${alive.length} hunter(s) killed in dungeon ${dungeonId}.`);
+        return alive.length;
+    } catch (e) { console.error('[Reflection] deadline error:', e.message); return 0; }
+}
+
+function scheduleReflectionDeadline(dungeonId, client) {
+    clearReflectionDeadline(dungeonId);
+    const t = setTimeout(() => {
+        deadlineTimers.delete(dungeonId);
+        resolveReflectionDeadline(dungeonId, client);
+    }, REFLECTION_TIME_LIMIT_MS);
+    deadlineTimers.set(dungeonId, t);
+}
+
+function clearReflectionDeadline(dungeonId) {
+    const t = deadlineTimers.get(dungeonId);
+    if (t) { clearTimeout(t); deadlineTimers.delete(dungeonId); }
+}
+
 // Clear all reflections for a dungeon (on close/clear).
 async function clearReflections(dungeonId) {
     await ensureReflectionTable();
+    clearReflectionDeadline(dungeonId);
     await db.execute('DELETE FROM dungeon_reflections WHERE dungeon_id=?', [dungeonId]).catch(() => {});
 }
 
 module.exports = {
+    REFLECTION_TIME_LIMIT_MS,
     ensureReflectionTable, spawnReflections, getReflection, getReflectionByName,
-    hasLivingReflection, livingReflectionCount,
+    hasLivingReflection, livingReflectionCount, invasionActive,
     damageReflection, damageReflectionRow, reflectionTurn, reflectionTurnRow,
+    scheduleReflectionDeadline, clearReflectionDeadline, resolveReflectionDeadline,
     clearReflections
 };

@@ -74,9 +74,14 @@ module.exports = {
             // You cannot leave a stage while your own reflection still stands.
             // This is per-player on purpose: whoever breaks their mirror first
             // can push ahead alone, splitting the party mid-dungeon.
+            let invasionBypass = false;
             try {
-                const { getReflection, livingReflectionCount } = require('../systems/reflectionSystem');
+                const { getReflection, livingReflectionCount, invasionActive } = require('../systems/reflectionSystem');
                 const myRefl = await getReflection(userId, dungeon.id);
+                // During a Sunshard invasion YOUR MIRROR is the stage gate —
+                // not the leftover mobs. Break it and you may push on, clear
+                // ahead, and let the others catch up to your progress.
+                invasionBypass = !myRefl && await invasionActive(dungeon.id);
                 if (myRefl) {
                     return msg.reply(
                         `╔══〘 🪞 BLOCKED 〙══╗\n` +
@@ -108,6 +113,14 @@ module.exports = {
             // FIX: Cross-check enemies in DB — stage_cleared flag can desync.
             // If enemies still exist, the stage is NOT actually cleared regardless of flag.
             const liveEnemies = await getCurrentEnemies(dungeon.id);
+
+            // Invasion bypass: the mirror was the gate, so leftover mobs don't
+            // hold the leader. Sweep them so the next stage doesn't stack on top.
+            if (invasionBypass && liveEnemies.length > 0) {
+                await db.execute('DELETE FROM dungeon_enemies WHERE dungeon_id=?', [dungeon.id]).catch(() => {});
+                await db.execute('UPDATE dungeon SET stage_cleared=1 WHERE id=?', [dungeon.id]).catch(() => {});
+                liveEnemies.length = 0;
+            }
 
             if (liveEnemies.length > 0) {
                 // There are still enemies — if stage_cleared is incorrectly set, fix it

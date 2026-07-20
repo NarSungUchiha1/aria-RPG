@@ -1129,8 +1129,10 @@ async function advanceStage(dungeonId, nextStage, client = null) {
             if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
                 if (Math.random() < chance) {
-                    const { spawnReflections } = require('../systems/reflectionSystem');
+                    const { spawnReflections, scheduleReflectionDeadline } = require('../systems/reflectionSystem');
                     const spawned = await spawnReflections(dungeonId, rank);
+                    // 5-minute clock: whoever hasn't broken their mirror dies.
+                    if (spawned.length) scheduleReflectionDeadline(dungeonId, client);
                     if (spawned.length && client) {
                         const { sunshardInvasionText } = require('../systems/hollowSunLore');
                         await client.sendMessage(getDungeonGroup(dungeonId), { text: sunshardInvasionText() }).catch(() => {});
@@ -1148,6 +1150,9 @@ async function advanceStage(dungeonId, nextStage, client = null) {
                                 '┃★ ⚔️ !skill <move> — fight your own\n' +
                                 '┃★ 🤝 !skill <move> <name> — help an ally\n' +
                                 '┃★ (it will strike back at YOU)\n' +
+                                '┃★\n' +
+                                '┃★ ⏳ *5 MINUTES.* Any mirror still\n' +
+                                '┃★ standing KILLS its original.\n' +
                                 '┃★ Break yours to move on. *+25 Resonance*\n' +
                                 '╚═══════════════════════════╝'
                         }).catch(() => {});
