@@ -138,6 +138,11 @@ module.exports = {
 
             const maxStage = d.max_stage;
 
+            // Declared out here because the rewards block and the close block
+            // below are two separate `if (d.stage >= maxStage)` statements —
+            // the close block needs to know who actually cleared.
+            let participants = [];
+
             // ── DUNGEON CLEARED ──────────────────────────────────────────────
             if (d.stage >= maxStage) {
                 const [aliveRows] = await db.execute(
@@ -156,7 +161,7 @@ module.exports = {
                 const firstClear = !(caRow[0]?.clear_announced);
                 if (firstClear) await db.execute('UPDATE dungeon SET clear_announced=1 WHERE id=?', [dungeon.id]).catch(() => {});
 
-                let participants = aliveRows;
+                participants = aliveRows;
                 let leftBehind = [];
                 try {
                     const [trapped] = await db.execute(
