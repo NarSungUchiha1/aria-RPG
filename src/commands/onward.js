@@ -8,6 +8,7 @@ const {
     getDungeonStatusText,
     getCurrentEnemies,
     demoteAllRaiders,
+    demoteRaider,
     getDungeonGroup
 } = require('../engine/dungeon');
 const { handleShardDrop } = require('./event');
@@ -146,6 +147,15 @@ module.exports = {
                 // Anyone still trapped in their mirror when the boss falls never
                 // escaped their trial — they don't share the clear. Rushing ahead
                 // and finishing solo genuinely leaves them with nothing.
+                // The dungeon can now be completed more than once (stragglers
+                // finish after the leader walks out), so world-level effects —
+                // announcements, territory claim, story advance, MVP — must
+                // fire only on the FIRST completion.
+                await db.execute('ALTER TABLE dungeon ADD COLUMN clear_announced TINYINT DEFAULT 0').catch(() => {});
+                const [caRow] = await db.execute('SELECT clear_announced FROM dungeon WHERE id=?', [dungeon.id]).catch(() => [[]]);
+                const firstClear = !(caRow[0]?.clear_announced);
+                if (firstClear) await db.execute('UPDATE dungeon SET clear_announced=1 WHERE id=?', [dungeon.id]).catch(() => {});
+
                 let participants = aliveRows;
                 let leftBehind = [];
                 try {
@@ -167,8 +177,8 @@ module.exports = {
                     }
                 }
 
-                // the Hollow King clear announcement
-                if (d.dungeon_rank === 'HOLLOWKING') {
+                // the Hollow King clear announcement (first completion only)
+                if (firstClear && d.dungeon_rank === 'HOLLOWKING') {
                     await client.sendMessage(getRaidGroup(), {
                         text:
                             `╔══════════════════════════════════════╗
@@ -274,7 +284,7 @@ module.exports = {
                 // ── TERRITORY CONQUERED — the missing claim! ──────────────────
                 // Clearing the assault dungeon is the PvE victory path; it never
                 // claimed the territory (only the PvP war mode did).
-                if (d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_')) {
+                if (firstClear && d.dungeon_rank && d.dungeon_rank.startsWith('TERRITORY_')) {
                     try {
                         const tid = d.dungeon_rank.replace('TERRITORY_', '');
                         const [flags] = await db.execute('SELECT conquering_clan FROM dungeon_flags WHERE dungeon_id=?', [dungeon.id]);
@@ -313,7 +323,7 @@ module.exports = {
                     } catch(terrErr) { console.error('Territory claim error:', terrErr.message); }
                 }
                 // Called out publicly — the cost of being outrun by your party.
-                if (leftBehind.length) {
+                if (firstClear && leftBehind.length) {
                     await client.sendMessage(getRaidGroup(), {
                         text:
                             '╔══〘 🪞 LEFT BEHIND 〙══╗\n' +
@@ -341,8 +351,8 @@ module.exports = {
                     }
                 } catch(storyErr) { console.error('Story advance error:', storyErr.message); }
 
-                // MVP
-                try {
+                // MVP (first completion only)
+                if (firstClear) try {
                     const { calculateMvp } = require('../systems/mvpSystem');
                     // FIX: normalize IDs — strip WhatsApp suffix so they match what recordDamage stored
                     const playerIds = participants.map(p =>
@@ -399,10 +409,38 @@ module.exports = {
                     [dungeon.id]
                 ).catch(() => {});
 
-                // Demote all raiders BEFORE deleting dungeon_players rows
-                await demoteAllRaiders(client, dungeon.id).catch(() => {});
+                // Whoever cleared EXITS individually — demoted out of the raid
+                // and pulled from the roster. The dungeon itself keeps running
+                // for anyone still inside (e.g. trapped in their mirror), and
+                // only closes when the last hunter is out or dead.
+                for (const p of participants) {
+                    try { await demoteRaider(client, p.player_id); } catch(e) {}
+                }
+                if (participants.length) {
+                    const ids = participants.map(p => p.player_id);
+                    await db.execute(
+                        `DELETE FROM dungeon_players WHERE dungeon_id=? AND player_id IN (${ids.map(() => '?').join(',')})`,
+                        [dungeon.id, ...ids]
+                    ).catch(() => {});
+                }
 
-                // Close dungeon
+                const [remain] = await db.execute(
+                    'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=?',
+                    [dungeon.id]
+                ).catch(() => [[{ cnt: 0 }]]);
+                if ((remain[0]?.cnt || 0) > 0) {
+                    return msg.reply(
+                        `╔══〘 ✅ YOU CLEARED IT 〙══╗\n` +
+                        `┃◆ You walk out with the spoils.\n` +
+                        `┃◆\n` +
+                        `┃◆ ⏳ ${remain[0].cnt} hunter(s) still inside.\n` +
+                        `┃◆ The dungeon stays open for them.\n` +
+                        `╚═══════════════════════════╝`
+                    );
+                }
+
+                // Last one out — close it for good.
+                await demoteAllRaiders(client, dungeon.id).catch(() => {});
                 await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                 await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [dungeon.id]);
                 try { await require('../systems/reflectionSystem').clearReflections(dungeon.id); } catch(e) {}

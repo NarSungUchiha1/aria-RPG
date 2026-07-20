@@ -265,6 +265,12 @@ async function resolveReflectionDeadline(dungeonId, client) {
             }).catch(() => {});
         }
         console.log(`☠️ Reflection deadline: ${alive.length} hunter(s) killed in dungeon ${dungeonId}.`);
+        // If the mirrors just took the last hunters standing, the dungeon is
+        // empty — close it out rather than leaving it open forever.
+        try {
+            const { checkAndCloseEmptyDungeon } = require('../engine/dungeon');
+            await checkAndCloseEmptyDungeon(dungeonId, client);
+        } catch (e) {}
         return alive.length;
     } catch (e) { console.error('[Reflection] deadline error:', e.message); return 0; }
 }
