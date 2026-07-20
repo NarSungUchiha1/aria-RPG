@@ -1117,35 +1117,43 @@ async function advanceStage(dungeonId, nextStage, client = null) {
         ).catch(() => {});
     }
 
-    // ── THE HOLLOW SUN: SUNSHARD INVASION ────────────────────────────────────
+    // ── THE HOLLOW SUN: SUNSHARD CRASH → REFLECTION DUELS ────────────────────
     // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
-    // The Sunshard is worth +25 Void Resonance on kill (distributeEnemyRewards).
+    // The shard's light throws every hunter's reflection back at them: each
+    // player must beat THEIR OWN mirror (which uses their moveset) before they
+    // can advance. Beating yours grants +25 Void Resonance. Because the gate is
+    // per-player, the party splits — whoever finishes first can push ahead.
     try {
         if (rank && !rank.startsWith('TERRITORY_') && !['HOLLOWKING','VESPERION','CINDERMAW','UMBRYSS'].includes(rank)) {
             const { getFlag } = require('../systems/gameFlags');
             if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
                 if (Math.random() < chance) {
-                    const SHARD_STATS = {
-                        F:{hp:1500,atk:35,def:20}, E:{hp:2500,atk:55,def:30}, D:{hp:4000,atk:80,def:45},
-                        C:{hp:6000,atk:110,def:60}, B:{hp:9000,atk:150,def:80}, A:{hp:13000,atk:200,def:100},
-                        S:{hp:20000,atk:270,def:130}
-                    };
-                    const s = SHARD_STATS[rank] || SHARD_STATS.C;
-                    await db.execute(
-                        "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Sunshard', ?, ?, ?, ?, ?, ?, 10, ?)",
-                        [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 4), Math.floor(s.hp / 5),
-                         JSON.stringify([{ name: 'Burning Grasp', damage: 1.3 }, { name: 'Searching Light', damage: 1.0 }])]
-                    );
-                    if (client) {
+                    const { spawnReflections } = require('../systems/reflectionSystem');
+                    const spawned = await spawnReflections(dungeonId, rank);
+                    if (spawned.length && client) {
                         const { sunshardInvasionText } = require('../systems/hollowSunLore');
                         await client.sendMessage(getDungeonGroup(dungeonId), { text: sunshardInvasionText() }).catch(() => {});
+                        await client.sendMessage(getDungeonGroup(dungeonId), {
+                            text:
+                                '╔══〘 🪞 REFLECTIONS 〙══╗\n' +
+                                '┃★ The shard\'s light throws you back\n' +
+                                '┃★ at yourselves.\n' +
+                                '┃★\n' +
+                                spawned.map(s => `┃★ 🪞 *${s.nickname}* vs their reflection — ${s.hp.toLocaleString()} HP`).join('\n') + '\n' +
+                                '┃★\n' +
+                                '┃★ It knows every move you know.\n' +
+                                '┃★ It can heal. It can shield.\n' +
+                                '┃★ ⚔️ !skill <move> — no one can help you.\n' +
+                                '┃★ Beat yours to move on. *+25 Resonance*\n' +
+                                '╚═══════════════════════════╝'
+                        }).catch(() => {});
                     }
-                    console.log(`☄️ Sunshard crashed into dungeon ${dungeonId} (stage ${nextStage}).`);
+                    console.log(`🪞 Sunshard crashed into dungeon ${dungeonId} — ${spawned.length} reflection(s) spawned.`);
                 }
             }
         }
-    } catch(e) { console.error('Sunshard invasion error:', e.message); }
+    } catch(e) { console.error('Sunshard reflection error:', e.message); }
 
     // ── CHAPTER 1 EVENT: DUSKSPAWN INVASIONS (F–D dungeons) ──────────────────
     // Active between "The Blue Flame" and the Vesperion unlock; chance rises
@@ -1219,6 +1227,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
             clearTimeout(autoStartTimers.get(dungeonId));
             autoStartTimers.delete(dungeonId);
         }
+        try { await require('../systems/reflectionSystem').clearReflections(dungeonId); } catch(e) {}
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         const [dRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
         if (client && !dRank[0]?.dungeon_rank?.startsWith('P')) {

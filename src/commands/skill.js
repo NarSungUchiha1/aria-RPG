@@ -438,6 +438,66 @@ module.exports = {
             );
             if (!inDungeon.length) return msg.reply("❌ You are not inside the dungeon.");
 
+            // ── SUNSHARD REFLECTION DUEL ─────────────────────────────────────
+            // While your reflection stands you are locked in with it: your
+            // attacks hit only IT, it hits only you, and it fights with your
+            // own moveset (it heals and shields itself). Beat it to move on.
+            {
+                const { getReflection, damageReflection, reflectionTurn } = require('../systems/reflectionSystem');
+                const refl = await getReflection(userId, dungeon.id);
+                if (refl) {
+                    // Damage uses the normal formula against a mirror of your own defence.
+                    const mirrorDef = Math.floor((Number(player.stamina) || 0) * 0.5);
+                    const dmg = calculateMoveDamage(player, move, { def: mirrorDef, name: 'Reflection' }, items);
+                    const hit = await damageReflection(userId, dungeon.id, dmg);
+                    const actualCdR = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
+
+                    let out =
+                        `╔══〘 🪞 REFLECTION DUEL 〙══╗\n` +
+                        `┃◆ ${player.nickname} used *${move.name}*\n` +
+                        `┃◆ 💥 ${dmg.toLocaleString()} damage` +
+                        (hit?.absorbed ? ` (${hit.absorbed.toLocaleString()} absorbed)` : '') + `\n`;
+
+                    if (hit?.defeated) {
+                        // Mirror broken — resonance reward + free to advance.
+                        try {
+                            const { addVoidResonance } = require('../systems/ascendantSystem');
+                            await addVoidResonance(userId, 'sunshard_kill', client).catch(() => {});
+                        } catch(e) {}
+                        const { livingReflectionCount } = require('../systems/reflectionSystem');
+                        const left = await livingReflectionCount(dungeon.id);
+                        out +=
+                            `┃◆\n` +
+                            `┃◆ 🪞 *YOUR REFLECTION SHATTERS.*\n` +
+                            `┃◆ ✨ +25 Void Resonance\n` +
+                            `┃◆ You may !onward.\n` +
+                            (left > 0 ? `┃◆ ⏳ ${left} hunter(s) still duelling.\n` : `┃◆ ✅ All reflections broken.\n`) +
+                            `╚═══════════════════════════╝`;
+                        return msg.reply(out);
+                    }
+
+                    // Reflection's turn — it uses YOUR moves.
+                    const turn = await reflectionTurn(userId, dungeon.id, moves);
+                    out += `┃◆ 🪞 Mirror HP: ${hit?.hp?.toLocaleString() || '?'}/${hit?.maxHp?.toLocaleString() || '?'}\n┃◆────────────\n`;
+                    if (turn) {
+                        out += `┃◆ ${turn.text}\n`;
+                        if (turn.damage > 0) {
+                            await db.execute('UPDATE players SET hp = GREATEST(0, hp - ?) WHERE id=?', [turn.damage, userId]);
+                            const [hpRow] = await db.execute('SELECT hp, max_hp FROM players WHERE id=?', [userId]);
+                            const nowHp = hpRow[0]?.hp ?? 0;
+                            out += `┃◆ ❤️ Your HP: ${nowHp.toLocaleString()}/${(hpRow[0]?.max_hp || 0).toLocaleString()}\n`;
+                            if (nowHp <= 0) {
+                                await db.execute('UPDATE dungeon_players SET is_alive=0 WHERE player_id=? AND dungeon_id=?', [userId, dungeon.id]);
+                                try { await demoteRaider(client, userId); } catch(e) {}
+                                out += `┃◆ ☠️ Your reflection has killed you.\n┃◆ Use !respawn.\n`;
+                            }
+                        }
+                    }
+                    out += `┃◆ Cooldown: ${actualCdR}s\n╚═══════════════════════════╝`;
+                    return msg.reply(out);
+                }
+            }
+
             const enemies = await getCurrentEnemies(dungeon.id);
             if (enemies.length === 0) return msg.reply("✅ No enemies. Use !onward.");
 

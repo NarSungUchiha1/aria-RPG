@@ -72,6 +72,40 @@ module.exports = {
 
             // FIX: Cross-check enemies in DB — stage_cleared flag can desync.
             // If enemies still exist, the stage is NOT actually cleared regardless of flag.
+            // ── SUNSHARD REFLECTION GATE ─────────────────────────────────────
+            // You cannot leave a stage while your own reflection still stands.
+            // This is per-player on purpose: whoever breaks their mirror first
+            // can push ahead alone, splitting the party mid-dungeon.
+            try {
+                const { getReflection, livingReflectionCount } = require('../systems/reflectionSystem');
+                const myRefl = await getReflection(userId, dungeon.id);
+                if (myRefl) {
+                    return msg.reply(
+                        `╔══〘 🪞 BLOCKED 〙══╗\n` +
+                        `┃◆ Your reflection still stands.\n` +
+                        `┃◆ 🪞 ${myRefl.current_hp.toLocaleString()}/${myRefl.max_hp.toLocaleString()} HP\n` +
+                        `┃◆\n` +
+                        `┃◆ There is no way past yourself.\n` +
+                        `┃◆ ⚔️ !skill <move> to fight it.\n` +
+                        `╚═══════════════════════════╝`
+                    );
+                }
+                // Mirror broken but others are still duelling → you go on ALONE.
+                const stillDuelling = await livingReflectionCount(dungeon.id);
+                if (stillDuelling > 0) {
+                    const [meRow] = await db.execute('SELECT nickname FROM players WHERE id=?', [userId]).catch(() => [[]]);
+                    const meNick = meRow[0]?.nickname || 'A hunter';
+                    await client.sendMessage(getRaidGroup(), {
+                        text:
+                            `╔══〘 🪞 PUSHING AHEAD 〙══╗\n` +
+                            `┃◆ *${meNick}* broke their mirror\n` +
+                            `┃◆ and pressed on without the others.\n` +
+                            `┃◆ ⏳ ${stillDuelling} still trapped with themselves.\n` +
+                            `╚═══════════════════════════╝`
+                    }).catch(() => {});
+                }
+            } catch(reflErr) { console.error('Reflection gate error:', reflErr.message); }
+
             const liveEnemies = await getCurrentEnemies(dungeon.id);
 
             if (liveEnemies.length > 0) {
@@ -339,6 +373,7 @@ module.exports = {
                 // Close dungeon
                 await db.execute('UPDATE dungeon SET is_active=0, locked=0 WHERE id=?', [dungeon.id]);
                 await db.execute('DELETE FROM dungeon_players WHERE dungeon_id=?', [dungeon.id]);
+                try { await require('../systems/reflectionSystem').clearReflections(dungeon.id); } catch(e) {}
 
                 const { clearDungeonTimers } = require('../engine/dungeonTimer');
                 clearDungeonTimers(dungeon.id);
