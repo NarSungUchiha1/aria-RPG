@@ -32,8 +32,23 @@ function loadAsset(name) {
 module.exports = {
     name: 'vip',
     aliases: ['subscriber', 'vvip'],
-    async execute(msg, args, { userId }) {
-        const sub = (args[0] || '').toLowerCase();
+    async execute(msg, args, { userId, cmdName }) {
+        let sub = (args[0] || '').toLowerCase();
+        // Invoked as !vvip → this is a VVIP action regardless of arg order:
+        //   !vvip @player        (sub is the mention → treat as grant)
+        //   !vvip grant @player  (sub 'grant' → must still be VVIP, not VIP)
+        const viaVvipAlias = String(cmdName || '').toLowerCase() === 'vvip';
+        // Bare "!vvip" (no target) is a player asking about the tier — let it
+        // fall through to the status/pitch path instead of the owner-only wall.
+        const hasTarget = ((msg.mentionedIds || []).length > 0) || args.some(a => /\d{6,}/.test(a));
+        let targetArgs;
+        if (viaVvipAlias && hasTarget && sub !== 'revoke' && sub !== 'list') {
+            if (sub === 'grant' || sub === 'vvip') args.shift(); // drop the redundant word
+            sub = 'vvip';
+            targetArgs = args;          // whatever remains is the target
+        } else {
+            targetArgs = args.slice(1); // classic: !vip <sub> <target>
+        }
 
         // ── Owner actions ─────────────────────────────────────────────
         if (['grant', 'vvip', 'revoke', 'list'].includes(sub)) {
@@ -47,7 +62,7 @@ module.exports = {
                 return msg.reply(`◆═══〘 👑 SUBSCRIBERS 〙═══◆\n${lines}\n◆═════════════════════◆`);
             }
 
-            const target = resolveTarget(msg, args.slice(1));
+            const target = resolveTarget(msg, targetArgs);
             if (!target) return msg.reply(`❌ Tag the player or give their number.\nUse: !vip ${sub} @player`);
 
             const [reg] = await db.execute('SELECT nickname FROM players WHERE id=? LIMIT 1', [target]);
