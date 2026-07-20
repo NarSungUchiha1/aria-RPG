@@ -1,7 +1,12 @@
 const db = require('../database/db');
 
+// One-time per process: after the first successful setup+seed, ensureTables()
+// short-circuits so it's cheap to call from the hot quest paths.
+let _questTablesReady = false;
+
 // ── TABLE SETUP ──────────────────────────────────────────────────────────────
 async function ensureTables() {
+    if (_questTablesReady) return;
     await db.execute(`
         CREATE TABLE IF NOT EXISTS quests (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -40,7 +45,7 @@ async function ensureTables() {
 
     // ── Seed quests from questData.js ──────────────────────────────────────────
     const [count] = await db.execute('SELECT COUNT(*) as cnt FROM quests').catch(() => [[{ cnt: 1 }]]);
-    if (count[0].cnt >= 50) return; // already seeded
+    if (count[0].cnt >= 50) { _questTablesReady = true; return; } // already seeded
 
     const questData = require('../data/questData');
 
@@ -65,6 +70,7 @@ async function ensureTables() {
             [title, desc, 'party', objType, objCount, gold, xp, sp]
         ).catch(() => {});
     }
+    _questTablesReady = true;
 }
 
 // ── PROGRESS BAR ─────────────────────────────────────────────────────────────
@@ -123,6 +129,11 @@ async function getPlayerQuests(playerId) {
 
 // ── ASSIGN DAILY QUESTS ──────────────────────────────────────────────────────
 async function assignDailyQuests(playerId) {
+    // Ensure the quests table is seeded — otherwise, after a fresh DB/scrub,
+    // dungeon clears fire updateQuestProgress before anyone opens !quest, and
+    // with no seeded quests nothing gets assigned or recorded. (Cheap: short-
+    // circuits after the first successful seed this process.)
+    await ensureTables().catch(() => {});
     const today = new Date().toISOString().split('T')[0];
 
     // Check for TODAY's daily quests specifically — not party/achievement

@@ -1097,9 +1097,25 @@ async function startBot() {
                             if (messageContent.caption) messageContent.caption = applyVipStyle(messageContent.caption);
                         }
                     } catch(e) {}
-                    const sendOpts = isDM ? {} : { quoted: msg };
+                    // Never touch a null/reconnecting socket — that threw
+                    // "Cannot read properties of null (reading 'sendMessage')"
+                    // and hung the command slot when a 440 hit mid-reply.
+                    if (!sock || !isReady) {
+                        console.log(`[SEND SKIP] socket down — dropped reply to ${jid}`);
+                        return;
+                    }
+                    // Media replies skip the quoted context: quoting in a group
+                    // forces a group-metadata fetch that fails on Baileys 7
+                    // ("missing <group> node") and stalls image sends like !vip.
+                    const isMedia = messageContent && (messageContent.image || messageContent.video || messageContent.document || messageContent.sticker);
+                    const sendOpts = (isDM || isMedia) ? {} : { quoted: msg };
                     try {
-                        return await sock.sendMessage(jid, messageContent, sendOpts);
+                        // Cap the send so a flaky connection / metadata stall can't
+                        // tie up the command slot for the whole 60s timeout.
+                        return await Promise.race([
+                            sock.sendMessage(jid, messageContent, sendOpts),
+                            new Promise((_, rej) => setTimeout(() => rej(new Error('send timeout 20s')), 20000))
+                        ]);
                     } catch(e) {
                         console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
                     }

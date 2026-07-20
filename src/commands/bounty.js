@@ -108,6 +108,30 @@ module.exports = {
         await ensureTables();
         const sub = args[0]?.toLowerCase();
 
+        // ── !bounty spawn (owner) — force this week's bounty for testing ─────
+        if (sub === 'spawn') {
+            const { isOwner } = require('../utils/identity');
+            if (!isOwner(userId)) return msg.reply('❌ Owner only.');
+            const target = await selectWeeklyTarget();
+            if (!target) return msg.reply(
+                `══〘 🎯 BOUNTY 〙══╮\n` +
+                `┃◆ ❌ No eligible target — nobody has\n` +
+                `┃◆ won a PvP duel yet (needs pvp_wins > 0).\n` +
+                `┃◆ Have players duel first, then spawn.\n` +
+                `╰═══════════════════════╯`
+            );
+            await client.sendMessage(RAID_GROUP, {
+                text:
+                    `╔══〘 🎯 MOST WANTED 〙══╗\n` +
+                    `┃◆ 🎯 *${target.nickname}* [${target.rank}]\n` +
+                    `┃◆ 💰 ${Number(target.reward_gold).toLocaleString()} Lumens\n` +
+                    `┃◆ ⭐ ${Number(target.reward_xp).toLocaleString()} XP\n` +
+                    `┃◆ Duel & beat them, then !bounty claim.\n` +
+                    `╚═══════════════════════════╝`
+            }).catch(() => {});
+            return msg.reply(`🎯 Bounty spawned: *${target.nickname}* (reward ${Number(target.reward_gold).toLocaleString()}L).`);
+        }
+
         // ── !bounty claim ──────────────────────────────────────────────────
         if (sub === 'claim') {
             const bounty = await getActiveBounty();
