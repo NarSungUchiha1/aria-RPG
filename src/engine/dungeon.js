@@ -1118,13 +1118,15 @@ async function advanceStage(dungeonId, nextStage, client = null) {
     }
 
     // ── THE HOLLOW SUN: SUNSHARD INVASION ────────────────────
-    // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
+    // D-rank and above only — the mirror's 15k HP floor and 5-minute clock are
+    // unsurvivable for F/E hunters. 8% per stage (16% in FRACTURED dungeons).
     // The shard's light throws every hunter's reflection back at them: each
     // player must beat THEIR OWN mirror (which uses their moveset) before they
     // can advance. Beating yours grants +25 Void Resonance. Because the gate is
     // per-player, the party splits — whoever finishes first can push ahead.
+    const SHARD_RANKS = ['D','C','B','A','S','PF','PE','PD','PC','PB','PA','PS'];
     try {
-        if (rank && !rank.startsWith('TERRITORY_') && !['HOLLOWKING','VESPERION','CINDERMAW','UMBRYSS'].includes(rank)) {
+        if (SHARD_RANKS.includes(rank)) {
             const { getFlag } = require('../systems/gameFlags');
             if ((await getFlag('hollow_sun_active')) === '1') {
                 const chance = modifier === 'FRACTURED' ? 0.16 : 0.08;
