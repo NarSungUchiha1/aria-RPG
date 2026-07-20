@@ -69,9 +69,18 @@ async function spawnReflections(dungeonId, rank) {
     );
     if (!players.length) return [];
 
+    // Anyone still locked in an unfinished mirror is skipped — a second shard
+    // must never heal a straggler's mirror back to full and restart their clock.
+    const [busy] = await db.execute(
+        'SELECT player_id FROM dungeon_reflections WHERE dungeon_id=? AND defeated=0',
+        [dungeonId]
+    ).catch(() => [[]]);
+    const stillFighting = new Set(busy.map(b => String(b.player_id)));
+
     const scale = scaleFor(rank);
     const spawned = [];
     for (const p of players) {
+        if (stillFighting.has(String(p.player_id))) continue;
         // 15k floor + the original's CURRENT stats, then rank-scaled: a weak
         // hunter meets a 15k wall, a monster meets a monster.
         const statPower = (Number(p.strength) || 0) + (Number(p.agility) || 0)

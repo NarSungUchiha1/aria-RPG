@@ -139,10 +139,26 @@ module.exports = {
 
             // ── DUNGEON CLEARED ──────────────────────────────────────────────
             if (d.stage >= maxStage) {
-                const [participants] = await db.execute(
+                const [aliveRows] = await db.execute(
                     "SELECT player_id FROM dungeon_players WHERE dungeon_id=? AND is_alive=1",
                     [dungeon.id]
                 );
+                // Anyone still trapped in their mirror when the boss falls never
+                // escaped their trial — they don't share the clear. Rushing ahead
+                // and finishing solo genuinely leaves them with nothing.
+                let participants = aliveRows;
+                let leftBehind = [];
+                try {
+                    const [trapped] = await db.execute(
+                        'SELECT player_id, nickname FROM dungeon_reflections WHERE dungeon_id=? AND defeated=0',
+                        [dungeon.id]
+                    ).catch(() => [[]]);
+                    if (trapped.length) {
+                        const trappedIds = new Set(trapped.map(t => String(t.player_id)));
+                        participants = aliveRows.filter(p => !trappedIds.has(String(p.player_id)));
+                        leftBehind = trapped;
+                    }
+                } catch(e) {}
 
                 // Record the Hollow King kills for clan creation requirement
                 if (d.dungeon_rank === 'HOLLOWKING') {
@@ -296,6 +312,18 @@ module.exports = {
                         }
                     } catch(terrErr) { console.error('Territory claim error:', terrErr.message); }
                 }
+                // Called out publicly — the cost of being outrun by your party.
+                if (leftBehind.length) {
+                    await client.sendMessage(getRaidGroup(), {
+                        text:
+                            '╔══〘 🪞 LEFT BEHIND 〙══╗\n' +
+                            '┃◆ The dungeon fell without them.\n' +
+                            leftBehind.map(t => `┃◆ 🪞 *${t.nickname}* never broke their mirror.`).join('\n') + '\n' +
+                            '┃◆ No clear. No rewards.\n' +
+                            '╚═══════════════════════════╝'
+                    }).catch(() => {});
+                }
+
                 // ── STORY MODE: chapter boss slain → epilogue + next chapter ──
                 try {
                     const STORY_NEXT = { VESPERION: 2, CINDERMAW: 3, UMBRYSS: 4 };
