@@ -70,9 +70,7 @@ module.exports = {
             }
             const d = freshDungeon[0];
 
-            // FIX: Cross-check enemies in DB — stage_cleared flag can desync.
-            // If enemies still exist, the stage is NOT actually cleared regardless of flag.
-            // ── SUNSHARD REFLECTION GATE ─────────────────────────────────────
+            // ── SUNSHARD INVASION GATE ─────────────────────────────────────
             // You cannot leave a stage while your own reflection still stands.
             // This is per-player on purpose: whoever breaks their mirror first
             // can push ahead alone, splitting the party mid-dungeon.
@@ -106,6 +104,8 @@ module.exports = {
                 }
             } catch(reflErr) { console.error('Reflection gate error:', reflErr.message); }
 
+            // FIX: Cross-check enemies in DB — stage_cleared flag can desync.
+            // If enemies still exist, the stage is NOT actually cleared regardless of flag.
             const liveEnemies = await getCurrentEnemies(dungeon.id);
 
             if (liveEnemies.length > 0) {

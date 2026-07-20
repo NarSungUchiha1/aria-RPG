@@ -438,7 +438,7 @@ module.exports = {
             );
             if (!inDungeon.length) return msg.reply("❌ You are not inside the dungeon.");
 
-            // ── SUNSHARD REFLECTION DUEL ─────────────────────────────────────
+            // ── SUNSHARD INVASION ─────────────────────────────────────
             // While your reflection stands you are locked in with it: your
             // attacks hit only IT, it hits only you, and it fights with your
             // own moveset (it heals and shields itself). Beat it to move on.
@@ -453,7 +453,7 @@ module.exports = {
                     const actualCdR = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
 
                     let out =
-                        `╔══〘 🪞 REFLECTION DUEL 〙══╗\n` +
+                        `╔══〘 ☄️ SUNSHARD INVASION 〙══╗\n` +
                         `┃◆ ${player.nickname} used *${move.name}*\n` +
                         `┃◆ 💥 ${dmg.toLocaleString()} damage` +
                         (hit?.absorbed ? ` (${hit.absorbed.toLocaleString()} absorbed)` : '') + `\n`;

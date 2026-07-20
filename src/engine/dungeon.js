@@ -1117,7 +1117,7 @@ async function advanceStage(dungeonId, nextStage, client = null) {
         ).catch(() => {});
     }
 
-    // ── THE HOLLOW SUN: SUNSHARD CRASH → REFLECTION DUELS ────────────────────
+    // ── THE HOLLOW SUN: SUNSHARD INVASION ────────────────────
     // Normal ranked dungeons only; 8% per stage (16% in FRACTURED dungeons).
     // The shard's light throws every hunter's reflection back at them: each
     // player must beat THEIR OWN mirror (which uses their moveset) before they
@@ -1136,7 +1136,7 @@ async function advanceStage(dungeonId, nextStage, client = null) {
                         await client.sendMessage(getDungeonGroup(dungeonId), { text: sunshardInvasionText() }).catch(() => {});
                         await client.sendMessage(getDungeonGroup(dungeonId), {
                             text:
-                                '╔══〘 🪞 REFLECTIONS 〙══╗\n' +
+                                '╔══〘 ☄️ SUNSHARD INVASION 〙══╗\n' +
                                 '┃★ The shard\'s light throws you back\n' +
                                 '┃★ at yourselves.\n' +
                                 '┃★\n' +
