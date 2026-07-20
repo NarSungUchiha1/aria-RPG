@@ -1142,10 +1142,13 @@ async function advanceStage(dungeonId, nextStage, client = null) {
                                 '┃★\n' +
                                 spawned.map(s => `┃★ 🪞 *${s.nickname}* vs their reflection — ${s.hp.toLocaleString()} HP`).join('\n') + '\n' +
                                 '┃★\n' +
-                                '┃★ It knows every move you know.\n' +
-                                '┃★ It can heal. It can shield.\n' +
-                                '┃★ ⚔️ !skill <move> — no one can help you.\n' +
-                                '┃★ Beat yours to move on. *+25 Resonance*\n' +
+                                '┃★ They know every move you know.\n' +
+                                '┃★ They can heal. They can shield.\n' +
+                                '┃★\n' +
+                                '┃★ ⚔️ !skill <move> — fight your own\n' +
+                                '┃★ 🤝 !skill <move> <name> — help an ally\n' +
+                                '┃★ (it will strike back at YOU)\n' +
+                                '┃★ Break yours to move on. *+25 Resonance*\n' +
                                 '╚═══════════════════════════╝'
                         }).catch(() => {});
                     }

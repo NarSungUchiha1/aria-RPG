@@ -85,6 +85,7 @@ module.exports = {
                         `┃◆\n` +
                         `┃◆ There is no way past yourself.\n` +
                         `┃◆ ⚔️ !skill <move> to fight it.\n` +
+                        `┃◆ 🤝 Allies can help: !skill <move> ${myRefl.nickname || 'you'}\n` +
                         `╚═══════════════════════════╝`
                     );
                 }

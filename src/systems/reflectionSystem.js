@@ -94,6 +94,24 @@ async function hasLivingReflection(playerId, dungeonId) {
     return !!(await getReflection(playerId, dungeonId));
 }
 
+/**
+ * Find a living reflection in this dungeon by its owner's name, so teammates
+ * can call the target: !skill <move> <name>. Matches exact nickname first,
+ * then a partial (case-insensitive) match.
+ */
+async function getReflectionByName(dungeonId, nameArg) {
+    await ensureReflectionTable();
+    const q = String(nameArg || '').replace(/^@/, '').trim().toLowerCase();
+    if (!q) return null;
+    const [rows] = await db.execute(
+        'SELECT * FROM dungeon_reflections WHERE dungeon_id=? AND defeated=0',
+        [dungeonId]
+    ).catch(() => [[]]);
+    const exact = rows.find(r => String(r.nickname || '').toLowerCase() === q);
+    if (exact) return exact;
+    return rows.find(r => String(r.nickname || '').toLowerCase().includes(q)) || null;
+}
+
 // How many reflections are still standing in this dungeon.
 async function livingReflectionCount(dungeonId) {
     await ensureReflectionTable();
@@ -109,6 +127,11 @@ async function livingReflectionCount(dungeonId) {
  */
 async function damageReflection(playerId, dungeonId, damage) {
     const refl = await getReflection(playerId, dungeonId);
+    return damageReflectionRow(refl, damage);
+}
+
+// Core: damage a specific reflection row (used when a teammate calls the target).
+async function damageReflectionRow(refl, damage) {
     if (!refl) return null;
 
     let dmg = Math.max(0, Math.floor(damage));
@@ -133,7 +156,16 @@ async function damageReflection(playerId, dungeonId, damage) {
  */
 async function reflectionTurn(playerId, dungeonId, playerMoves) {
     const refl = await getReflection(playerId, dungeonId);
+    return reflectionTurnRow(refl, playerMoves);
+}
+
+// Core: a specific reflection takes its turn. It strikes whoever engaged it,
+// so helping a teammate means drawing their mirror's attention onto you.
+async function reflectionTurnRow(refl, playerMoves) {
     if (!refl) return null;
+    // Re-read so HP/shield reflect the hit that just landed.
+    const [fresh] = await db.execute('SELECT * FROM dungeon_reflections WHERE id=? AND defeated=0', [refl.id]).catch(() => [[]]);
+    refl = fresh[0] || refl;
 
     const hpPct = refl.current_hp / Math.max(1, refl.max_hp);
     const heals   = (playerMoves || []).filter(m => m.type === 'heal');
@@ -168,6 +200,8 @@ async function clearReflections(dungeonId) {
 }
 
 module.exports = {
-    ensureReflectionTable, spawnReflections, getReflection, hasLivingReflection,
-    livingReflectionCount, damageReflection, reflectionTurn, clearReflections
+    ensureReflectionTable, spawnReflections, getReflection, getReflectionByName,
+    hasLivingReflection, livingReflectionCount,
+    damageReflection, damageReflectionRow, reflectionTurn, reflectionTurnRow,
+    clearReflections
 };
