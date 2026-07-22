@@ -14,16 +14,17 @@
  */
 const db = require('../database/db');
 
-// Reflection buff by dungeon rank — deeper dungeon, stronger mirror.
-const RANK_SCALE = {
-    F: 1.15, E: 1.25, D: 1.35, C: 1.45, B: 1.55, A: 1.7, S: 1.9,
-    PF: 2.0, PE: 2.1, PD: 2.2, PC: 2.3, PB: 2.4, PA: 2.5, PS: 2.6
+// Mirror tuning is anchored at S (owner-calibrated): 15k HP, ~450k damage per
+// attack (varies with the move it mirrors). Lower ranks scale DOWN from there;
+// prestige scales up. Shards only crash in D+ so F/E entries are just floors.
+const REFLECTION_HP = {
+    D: 6000,  C: 8000,  B: 10500, A: 12500, S: 15000,
+    PF: 17000, PE: 19000, PD: 21000, PC: 23000, PB: 25000, PA: 27500, PS: 30000
 };
-
-// Every mirror starts at 15k HP and grows with the original's CURRENT stats —
-// the stronger the hunter, the deadlier the thing wearing their face.
-const REFLECTION_BASE_HP = 15000;
-const HP_PER_STAT        = 15;
+const REFLECTION_DMG = {
+    D: 80000,  C: 140000, B: 220000, A: 320000, S: 450000,
+    PF: 520000, PE: 580000, PD: 650000, PC: 730000, PB: 820000, PA: 910000, PS: 1000000
+};
 
 // Break your mirror within 5 minutes or it kills you.
 const REFLECTION_TIME_LIMIT_MS = 5 * 60 * 1000;
@@ -51,9 +52,6 @@ async function ensureReflectionTable() {
     _tableReady = true;
 }
 
-function scaleFor(rank) {
-    return RANK_SCALE[rank] || 1.4;
-}
 
 /**
  * Spawn a reflection for every living player in the dungeon.
@@ -77,18 +75,13 @@ async function spawnReflections(dungeonId, rank) {
     ).catch(() => [[]]);
     const stillFighting = new Set(busy.map(b => String(b.player_id)));
 
-    const scale = scaleFor(rank);
     const spawned = [];
     for (const p of players) {
         if (stillFighting.has(String(p.player_id))) continue;
-        // 15k floor + the original's CURRENT stats, then rank-scaled: a weak
-        // hunter meets a 15k wall, a monster meets a monster.
-        const statPower = (Number(p.strength) || 0) + (Number(p.agility) || 0)
-                        + (Number(p.intelligence) || 0) + (Number(p.stamina) || 0);
-        const hp  = Math.floor((REFLECTION_BASE_HP + statPower * HP_PER_STAT) * scale);
-        const atk = Math.max(10, Math.floor(Math.max(
-            Number(p.strength) || 0, Number(p.agility) || 0, Number(p.intelligence) || 0
-        ) * scale * 0.45));
+        // Rank-anchored tuning (see tables above). `atk` stores the mirror's
+        // BASE damage for this rank; the move it uses varies the final hit.
+        const hp  = REFLECTION_HP[rank]  || REFLECTION_HP.C;
+        const atk = REFLECTION_DMG[rank] || REFLECTION_DMG.C;
         await db.execute(
             `INSERT INTO dungeon_reflections (dungeon_id, player_id, nickname, max_hp, current_hp, shield, atk, defeated)
              VALUES (?, ?, ?, ?, ?, 0, ?, 0)
@@ -220,8 +213,11 @@ async function reflectionTurnRow(refl, playerMoves) {
     }
 
     const mv = attacks.length ? attacks[Math.floor(Math.random() * attacks.length)] : null;
-    const mult = mv?.multiplier || 1.0;
-    const dmg = Math.max(1, Math.floor(refl.atk * mult * (0.85 + Math.random() * 0.3)));
+    // refl.atk is the rank's BASE damage (~450k at S). The mirrored move bends
+    // it: light moves swing under the base, heavy moves over it — never a
+    // fixed number, always "around" the rank's anchor.
+    const mult = Math.min(Number(mv?.multiplier) || 1.0, 4);
+    const dmg = Math.max(1, Math.floor(refl.atk * (0.8 + mult * 0.1) * (0.9 + Math.random() * 0.2)));
     return { text: `🪞 Your reflection used *${mv?.name || 'Mirror Strike'}* — ${dmg.toLocaleString()} damage!`, damage: dmg };
 }
 
