@@ -429,6 +429,14 @@ module.exports = {
                     ).catch(() => {});
                 }
 
+                // A clear is exactly when a milestone can come due — check here,
+                // because both clear paths below return before the stage-advance
+                // check further down ever runs.
+                try {
+                    const { checkStoryProgress } = require('../systems/loreSystem');
+                    checkStoryProgress(client, getRaidGroup()).catch(() => {});
+                } catch(e) {}
+
                 const [remain] = await db.execute(
                     'SELECT COUNT(*) as cnt FROM dungeon_players WHERE dungeon_id=?',
                     [dungeon.id]
