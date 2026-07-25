@@ -1,8 +1,11 @@
 /**
  * THE HOLLOW SUN — bestiary.
  * Something hollowed out the sun. In the eternal twilight that followed, the
- * dark grew teeth. Stats are identical to the previous era (balance preserved);
- * only the world changed.
+ * dark grew teeth.
+ *
+ * BALANCE: F–S hp/atk/def reduced 30% (dungeons were too punishing).
+ * Story-mode chapter bosses below are admin-staged and tuned separately —
+ * they are NOT part of that reduction. exp/gold rewards unchanged.
  *
  * NOTE: the 'HOLLOWKING' key is an INTERNAL rank id used across the engine —
  * players only ever see boss/mob names. The world boss of this era is
@@ -64,58 +67,58 @@ module.exports = {
 
     F: {
         miniBosses: [
-            { name: "Duskling",        hp: 140,  atk: 18,  def: 5,  exp: 20,  gold: 15,  moves: [{ name: "Nip",          damage: 1.0 }] },
-            { name: "Gloom Moth",      hp: 160,  atk: 20,  def: 6,  exp: 25,  gold: 20,  moves: [{ name: "Dust Wing",    damage: 1.2 }] },
-            { name: "Ashen Crawler",   hp: 120,  atk: 15,  def: 4,  exp: 18,  gold: 12,  moves: [{ name: "Scuttle Claw", damage: 0.9 }] }
+            { name: "Duskling",        hp: 98,  atk: 12,  def: 3,  exp: 20,  gold: 15,  moves: [{ name: "Nip",          damage: 1.0 }] },
+            { name: "Gloom Moth",      hp: 112,  atk: 14,  def: 4,  exp: 25,  gold: 20,  moves: [{ name: "Dust Wing",    damage: 1.2 }] },
+            { name: "Ashen Crawler",   hp: 84,  atk: 10,  def: 2,  exp: 18,  gold: 12,  moves: [{ name: "Scuttle Claw", damage: 0.9 }] }
         ],
-        boss: { name: "The Lantern Thief", hp: 500, atk: 28, def: 10, exp: 100, gold: 150, moves: [{ name: "Snuff Out", damage: 1.5 }] }
+        boss: { name: "The Lantern Thief", hp: 350, atk: 19, def: 7, exp: 100, gold: 150, moves: [{ name: "Snuff Out", damage: 1.5 }] }
     },
     E: {
         miniBosses: [
-            { name: "Umbral Spider",   hp: 280,  atk: 32,  def: 11, exp: 40,  gold: 35,  moves: [{ name: "Shadowsilk",  stun: true }] },
-            { name: "Twilight Bandit", hp: 340,  atk: 38,  def: 14, exp: 50,  gold: 45,  moves: [{ name: "Dirk Swing",  damage: 1.5 }] },
-            { name: "Shale Basilisk",  hp: 310,  atk: 30,  def: 16, exp: 45,  gold: 40,  moves: [{ name: "Stone Gaze",  damage: 1.3 }] }
+            { name: "Umbral Spider",   hp: 196,  atk: 22,  def: 7, exp: 40,  gold: 35,  moves: [{ name: "Shadowsilk",  stun: true }] },
+            { name: "Twilight Bandit", hp: 237,  atk: 26,  def: 9, exp: 50,  gold: 45,  moves: [{ name: "Dirk Swing",  damage: 1.5 }] },
+            { name: "Shale Basilisk",  hp: 217,  atk: 21,  def: 11, exp: 45,  gold: 40,  moves: [{ name: "Stone Gaze",  damage: 1.3 }] }
         ],
-        boss: { name: "The Mothking", hp: 1100, atk: 58, def: 20, exp: 250, gold: 300, moves: [{ name: "Wing Eclipse", damage: 2.0 }] }
+        boss: { name: "The Mothking", hp: 770, atk: 40, def: 14, exp: 250, gold: 300, moves: [{ name: "Wing Eclipse", damage: 2.0 }] }
     },
     D: {
         miniBosses: [
-            { name: "Hollow Hound",    hp: 560,  atk: 55,  def: 18, exp: 70,  gold: 60,  moves: [{ name: "Gloom Bite",   damage: 1.7 }] },
-            { name: "Grave Cantor",    hp: 660,  atk: 65,  def: 24, exp: 90,  gold: 75,  moves: [{ name: "Dirge",        damage: 1.8 }] },
-            { name: "Sootwing Imp",    hp: 500,  atk: 50,  def: 16, exp: 65,  gold: 55,  moves: [{ name: "Cinder Bolt",  damage: 1.6 }] }
+            { name: "Hollow Hound",    hp: 392,  atk: 38,  def: 12, exp: 70,  gold: 60,  moves: [{ name: "Gloom Bite",   damage: 1.7 }] },
+            { name: "Grave Cantor",    hp: 461,  atk: 45,  def: 16, exp: 90,  gold: 75,  moves: [{ name: "Dirge",        damage: 1.8 }] },
+            { name: "Sootwing Imp",    hp: 350,  atk: 35,  def: 11, exp: 65,  gold: 55,  moves: [{ name: "Cinder Bolt",  damage: 1.6 }] }
         ],
-        boss: { name: "The Unlit Beast", hp: 1800, atk: 85, def: 30, exp: 400, gold: 500, moves: [{ name: "Lightless Howl", damage: 2.2 }] }
+        boss: { name: "The Unlit Beast", hp: 1260, atk: 59, def: 21, exp: 400, gold: 500, moves: [{ name: "Lightless Howl", damage: 2.2 }] }
     },
     C: {
         miniBosses: [
-            { name: "Wick Wraith",     hp: 900,  atk: 85,  def: 28, exp: 110, gold: 90,  moves: [{ name: "Wax Scald",     damage: 2.1 }] },
-            { name: "Vesper Golem",    hp: 1100, atk: 95,  def: 40, exp: 130, gold: 110, moves: [{ name: "Dusk Punch",    damage: 2.3 }] },
-            { name: "Cindershade",     hp: 820,  atk: 80,  def: 25, exp: 100, gold: 85,  moves: [{ name: "Ember Slash",   damage: 2.0 }] }
+            { name: "Wick Wraith",     hp: 630,  atk: 59,  def: 19, exp: 110, gold: 90,  moves: [{ name: "Wax Scald",     damage: 2.1 }] },
+            { name: "Vesper Golem",    hp: 770, atk: 66,  def: 28, exp: 130, gold: 110, moves: [{ name: "Dusk Punch",    damage: 2.3 }] },
+            { name: "Cindershade",     hp: 574,  atk: 56,  def: 17, exp: 100, gold: 85,  moves: [{ name: "Ember Slash",   damage: 2.0 }] }
         ],
-        boss: { name: "The Candle Warden", hp: 3800, atk: 120, def: 50, exp: 600, gold: 700, moves: [{ name: "Last Flame", damage: 2.8 }] }
+        boss: { name: "The Candle Warden", hp: 2660, atk: 84, def: 35, exp: 600, gold: 700, moves: [{ name: "Last Flame", damage: 2.8 }] }
     },
     B: {
         miniBosses: [
-            { name: "Gloamfrost Wraith", hp: 1450, atk: 115, def: 42, exp: 160, gold: 130, moves: [{ name: "Cold Vigil",   damage: 2.5 }] },
-            { name: "Eclipse Golem",     hp: 1700, atk: 108, def: 65, exp: 190, gold: 160, moves: [{ name: "Umbral Slam",  damage: 2.7 }] },
-            { name: "Nightgale",         hp: 1300, atk: 122, def: 34, exp: 155, gold: 125, moves: [{ name: "Screaming Dive", damage: 2.6 }] }
+            { name: "Gloamfrost Wraith", hp: 1014, atk: 80, def: 29, exp: 160, gold: 130, moves: [{ name: "Cold Vigil",   damage: 2.5 }] },
+            { name: "Eclipse Golem",     hp: 1190, atk: 75, def: 45, exp: 190, gold: 160, moves: [{ name: "Umbral Slam",  damage: 2.7 }] },
+            { name: "Nightgale",         hp: 909, atk: 85, def: 23, exp: 155, gold: 125, moves: [{ name: "Screaming Dive", damage: 2.6 }] }
         ],
-        boss: { name: "The Penumbra Hydra", hp: 6500, atk: 158, def: 62, exp: 1000, gold: 1200, moves: [{ name: "Sevenfold Shadow", damage: 3.2 }] }
+        boss: { name: "The Penumbra Hydra", hp: 4550, atk: 110, def: 43, exp: 1000, gold: 1200, moves: [{ name: "Sevenfold Shadow", damage: 3.2 }] }
     },
     A: {
         miniBosses: [
-            { name: "Umbral Reaper",   hp: 2200, atk: 160, def: 55, exp: 230, gold: 190, moves: [{ name: "Harvest of Dusk", damage: 3.1 }] },
-            { name: "Dawnless Guard",  hp: 2600, atk: 148, def: 80, exp: 260, gold: 220, moves: [{ name: "Oathbreak Smite", damage: 2.9 }] },
-            { name: "Midnight Knight", hp: 2000, atk: 168, def: 50, exp: 240, gold: 200, moves: [{ name: "Zenith Cut",      damage: 3.2 }] }
+            { name: "Umbral Reaper",   hp: 1540, atk: 112, def: 38, exp: 230, gold: 190, moves: [{ name: "Harvest of Dusk", damage: 3.1 }] },
+            { name: "Dawnless Guard",  hp: 1819, atk: 103, def: 56, exp: 260, gold: 220, moves: [{ name: "Oathbreak Smite", damage: 2.9 }] },
+            { name: "Midnight Knight", hp: 1400, atk: 117, def: 35, exp: 240, gold: 200, moves: [{ name: "Zenith Cut",      damage: 3.2 }] }
         ],
-        boss: { name: "The Noon Wraith", hp: 11000, atk: 210, def: 85, exp: 1800, gold: 2500, moves: [{ name: "Where the Sun Was", damage: 4.0 }] }
+        boss: { name: "The Noon Wraith", hp: 7699, atk: 147, def: 59, exp: 1800, gold: 2500, moves: [{ name: "Where the Sun Was", damage: 4.0 }] }
     },
     S: {
         miniBosses: [
-            { name: "Horror of the Last Hour", hp: 3600, atk: 218, def: 74, exp: 350, gold: 280, moves: [{ name: "Hour Hand",        damage: 3.6 }] },
-            { name: "Elder Gloamlich",         hp: 4200, atk: 205, def: 96, exp: 400, gold: 320, moves: [{ name: "Candlesnuff",      damage: 4.2 }] },
-            { name: "Umbra Titan",             hp: 3900, atk: 232, def: 85, exp: 380, gold: 300, moves: [{ name: "Weight of Night",  damage: 3.9 }] }
+            { name: "Horror of the Last Hour", hp: 2520, atk: 152, def: 51, exp: 350, gold: 280, moves: [{ name: "Hour Hand",        damage: 3.6 }] },
+            { name: "Elder Gloamlich",         hp: 2940, atk: 143, def: 67, exp: 400, gold: 320, moves: [{ name: "Candlesnuff",      damage: 4.2 }] },
+            { name: "Umbra Titan",             hp: 2730, atk: 162, def: 59, exp: 380, gold: 300, moves: [{ name: "Weight of Night",  damage: 3.9 }] }
         ],
-        boss: { name: "The Umbral Shepherd", hp: 18000, atk: 290, def: 125, exp: 3500, gold: 5000, moves: [{ name: "Flock of Shadows", damage: 5.0 }] }
+        boss: { name: "The Umbral Shepherd", hp: 12600, atk: 203, def: 87, exp: 3500, gold: 5000, moves: [{ name: "Flock of Shadows", damage: 5.0 }] }
     }
 };

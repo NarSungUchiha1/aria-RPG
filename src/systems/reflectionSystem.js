@@ -21,9 +21,20 @@ const REFLECTION_HP = {
     D: 6000,  C: 8000,  B: 10500, A: 12500, S: 15000,
     PF: 17000, PE: 19000, PD: 21000, PC: 23000, PB: 25000, PA: 27500, PS: 30000
 };
-const REFLECTION_DMG = {
-    D: 80000,  C: 140000, B: 220000, A: 320000, S: 450000,
-    PF: 520000, PE: 580000, PD: 650000, PC: 730000, PB: 820000, PA: 910000, PS: 1000000
+// Mirror damage is a SHARE OF THE ORIGINAL'S MAX HP, not a flat number: it
+// hits for what you are, so it stays lethal at every rank and survives the
+// prestige HP reset without retuning. S = 18% of your max HP per hit, so a
+// mirror kills in ~6 unanswered hits — enough room for heals, shields and an
+// ally to matter inside the 5-minute clock.
+//
+// NOTE: a flat 450k was requested for S. Left as-is that one-shots every
+// character in the game (top max_hp is 18,000 — Ascendant Tank), and because
+// the mirror retaliates on your first attack, no mirror could ever be broken.
+// Percentages keep the "it hits like a truck" feel and stay winnable. To go
+// flat anyway, put numbers here and drop the `* maxHp` in reflectionTurnRow.
+const REFLECTION_DMG_PCT = {
+    D: 0.10, C: 0.12, B: 0.14, A: 0.16, S: 0.18,
+    PF: 0.19, PE: 0.20, PD: 0.21, PC: 0.22, PB: 0.23, PA: 0.24, PS: 0.25
 };
 
 // Break your mirror within 5 minutes or it kills you.
@@ -79,9 +90,11 @@ async function spawnReflections(dungeonId, rank) {
     for (const p of players) {
         if (stillFighting.has(String(p.player_id))) continue;
         // Rank-anchored tuning (see tables above). `atk` stores the mirror's
-        // BASE damage for this rank; the move it uses varies the final hit.
-        const hp  = REFLECTION_HP[rank]  || REFLECTION_HP.C;
-        const atk = REFLECTION_DMG[rank] || REFLECTION_DMG.C;
+        // BASE damage for this rank — a share of the original's max HP — and
+        // the move it mirrors varies the final hit around that anchor.
+        const hp  = REFLECTION_HP[rank] || REFLECTION_HP.C;
+        const pct = REFLECTION_DMG_PCT[rank] || REFLECTION_DMG_PCT.C;
+        const atk = Math.max(1, Math.floor((Number(p.max_hp) || 1000) * pct));
         await db.execute(
             `INSERT INTO dungeon_reflections (dungeon_id, player_id, nickname, max_hp, current_hp, shield, atk, defeated)
              VALUES (?, ?, ?, ?, ?, 0, ?, 0)
