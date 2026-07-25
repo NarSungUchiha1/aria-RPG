@@ -279,5 +279,9 @@ module.exports = {
     setChapter,
     getChapterData,
     getRandomDungeonLore,
+    // Was missing: callers did `const { checkStoryProgress } = require(...)`,
+    // got undefined, threw, and the surrounding try/catch swallowed it — so
+    // the story engine never ran at all. Keep it exported.
+    checkStoryProgress,
     ensureTables
 };

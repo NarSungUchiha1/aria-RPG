@@ -168,8 +168,11 @@ module.exports = {
 
                         // Lock dungeon so attackers must now fight through the guards
                         await db.execute('UPDATE dungeon SET locked=1 WHERE id=?', [dungeonId]).catch(() => {});
-                        const { lockDungeon, beginDungeon } = require('../engine/dungeon');
-                        await beginDungeon(dungeonId, client).catch(() => {});
+                        // beginDungeon lives in enter.js, not the engine — the old
+                        // require returned undefined and threw, so an unanswered
+                        // territory assault never actually started.
+                        const { beginDungeon } = require('./enter');
+                        await beginDungeon(dungeonId, client);
 
                         await client.sendMessage(RAID_GROUP, {
                             text:

@@ -250,7 +250,10 @@ async function triggerBlessingIfReady(trigger, playerId, dungeonId, player, dung
 module.exports = {
     name: 'skill',
     triggerBlessingIfReady,
-    triggerBlessingIfReady,
+    // dungeon.js reads this to redirect enemy retaliation onto a taunting tank.
+    // It was never exported, so the require got undefined and taunt redirect
+    // silently did nothing.
+    tauntState,
     async execute(msg, args, { userId, client }) {
       try {
         if (isPlayerInDuel(userId)) {

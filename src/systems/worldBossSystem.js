@@ -247,7 +247,10 @@ async function distributeWorldBossRewards(bossId) {
     }
 
     // Announce in GC
-    const { RAID_GROUP: rg } = require('../engine/dungeon');
+    // dungeon.js exports getRaidGroup(), never a RAID_GROUP constant — the old
+    // destructure yielded undefined and this announcement went nowhere.
+    const { getRaidGroup } = require('../engine/dungeon');
+    const rg = getRaidGroup();
     const db2 = require('../database/db');
 
     let announcement =

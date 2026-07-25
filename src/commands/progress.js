@@ -18,8 +18,47 @@ function bar(current, target, len = 10) {
 module.exports = {
     name: 'progress',
     aliases: ['worldstatus'],
-    async execute(msg, args, { userId, isAdmin }) {
+    async execute(msg, args, { userId, isAdmin, client }) {
         if (!isOwner(userId) && !isAdmin) return msg.reply('❌ Admin only.');
+
+        // !progress fire — force the milestone check now instead of waiting for
+        // the next clear. Idempotent: each event sets its flag once, so this can
+        // only ever post events that are genuinely due.
+        if ((args[0] || '').toLowerCase() === 'fire') {
+            if (!isOwner(userId)) return msg.reply('❌ Owner only.');
+            try {
+                const { getFlag } = require('../systems/gameFlags');
+                const { getCurrentChapter } = require('../systems/loreSystem');
+                const { CHAPTER_EVENTS, countTotalClears, runStoryMilestones } = require('../systems/storyEvents');
+
+                const chapter = await getCurrentChapter().catch(() => 1);
+                const clears  = await countTotalClears().catch(() => 0);
+                const before = [];
+                for (const ev of (CHAPTER_EVENTS[chapter] || [])) {
+                    if ((await getFlag(ev.flag)) !== '1') before.push(ev);
+                }
+
+                const { getRaidGroup } = require('../utils/raidContext');
+                await runStoryMilestones(client, getRaidGroup());
+
+                const fired = [];
+                for (const ev of before) {
+                    if ((await getFlag(ev.flag)) === '1') fired.push(ev.title || ev.flag);
+                }
+                return msg.reply(
+                    `◆═══〘 📖 MILESTONE CHECK 〙═══◆\n` +
+                    `┃◈ Chapter ${chapter} · ${clears} clears\n` +
+                    (fired.length
+                        ? `┃◈ ✅ Fired: ${fired.join(', ')}\n┃◈ Announcement posted to the raid group.\n`
+                        : `┃◈ ⏳ Nothing due — no event fired.\n`) +
+                    `◆═══════════════════════◆`
+                );
+            } catch (e) {
+                console.error('progress fire error:', e);
+                return msg.reply('❌ Milestone check failed: ' + e.message);
+            }
+        }
+
         try {
             const { getCurrentChapter, CHAPTERS } = require('../systems/loreSystem');
             const { CHAPTER_EVENTS, countTotalClears } = require('../systems/storyEvents');
