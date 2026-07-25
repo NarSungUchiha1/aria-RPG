@@ -115,6 +115,16 @@ function startPrestigeLobbyTimer(dungeonId, client, RAID_GROUP, remaining = null
 // ── WEIGHTED PRESTIGE RANK ───────────────────────────────
 async function getWeightedPrestigeRank() {
     const ranks = ['PF', 'PE', 'PD', 'PC', 'PB', 'PA', 'PS'];
+    // While the Blue Flame burns, the low prestige halls tear open far more
+    // often — weight PF/PE/PD 3x so the event is actually where the play is.
+    try {
+        const { duskspawnActive, isDuskspawnRank } = require('../systems/storyEvents');
+        if (await duskspawnActive()) {
+            const pool = [];
+            for (const r of ranks) pool.push(...Array(isDuskspawnRank(r) ? 3 : 1).fill(r));
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+    } catch (e) {}
     return ranks[Math.floor(Math.random() * ranks.length)];
 }
 

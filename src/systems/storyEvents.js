@@ -29,7 +29,9 @@ const CHAPTER_EVENTS = {
                 '┃★\n' +
                 '┃★ ⚠️ Something young and hungry has\n' +
                 '┃★ begun slipping into the low halls.\n' +
-                '┃★ *DUSKSPAWN* may invade F–D dungeons.\n' +
+                '┃★ *DUSKSPAWN* may invade F–D and\n' +
+                '┃★ PF–PD dungeons — and those gates\n' +
+                '┃★ are tearing open far more often.\n' +
                 '┃★ Kill them. Do not let them grow.\n' +
                 '┃★\n' +
                 '╚═══════════════════════════╝'
@@ -162,6 +164,24 @@ async function runStoryMilestones(client, raidGroup) {
     } catch (e) { console.error('Story milestone error:', e.message); }
 }
 
+// Where the whelps hunt: the low halls of BOTH ladders. They teethe on the
+// weakest dungeons, normal and prestige alike.
+const DUSKSPAWN_RANKS = ['F', 'E', 'D', 'PF', 'PE', 'PD'];
+function duskspawnRanks() { return DUSKSPAWN_RANKS; }
+function isDuskspawnRank(rank) { return DUSKSPAWN_RANKS.includes(rank); }
+
+// Blue-Flame flavour for the spawn announcement of an affected dungeon, so the
+// event is visible the moment a portal opens — not only when one invades.
+function blueFlameSpawnNote() {
+    const lines = [
+        'The candle at this gate is burning BLUE.',
+        'Blue flame at the mouth. Nobody puts it out anymore.',
+        'The candle guttered blue before anyone stepped through.',
+        'Blue light on the threshold. Something young is nesting deep.'
+    ];
+    return `┃◆ 🕯️ ${lines[Math.floor(Math.random() * lines.length)]}\n┃◆ \n`;
+}
+
 // Duskspawn invasions are live only between The Blue Flame and boss-ready.
 async function duskspawnActive() {
     try {
@@ -178,4 +198,8 @@ async function duskspawnChance() {
     return (await getFlag('ch1_whelps')) === '1' ? 0.14 : 0.08;
 }
 
-module.exports = { CHAPTER_EVENTS, CHAPTER_EPILOGUE, countTotalClears, runStoryMilestones, duskspawnActive, duskspawnChance };
+module.exports = {
+    CHAPTER_EVENTS, CHAPTER_EPILOGUE, countTotalClears, runStoryMilestones,
+    duskspawnActive, duskspawnChance, duskspawnRanks, isDuskspawnRank,
+    blueFlameSpawnNote
+};

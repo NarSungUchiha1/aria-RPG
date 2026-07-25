@@ -71,6 +71,15 @@ async function getWeightedDungeonRank() {
         if (idx < rankOrder.length - 1) weights[rankOrder[idx + 1]] += base * 0.2;
     }
 
+    // While the Blue Flame burns, the low halls open far more often — that is
+    // where the whelps are nesting, so that is where the gates tear.
+    try {
+        const { duskspawnActive, isDuskspawnRank } = require('../systems/storyEvents');
+        if (await duskspawnActive()) {
+            rankOrder.forEach(r => { if (isDuskspawnRank(r)) weights[r] *= 3; });
+        }
+    } catch (e) {}
+
     const weightSum = rankOrder.reduce((s, r) => s + weights[r], 0);
     rankOrder.forEach(r => { weights[r] /= weightSum; });
 
@@ -280,6 +289,33 @@ function startLobbyTimer(dungeonId, client) {
     lobbyTimers.set(dungeonId, { warning, timeout });
 }
 
+/**
+ * A Duskspawn's stats are DERIVED from whatever natives inhabit that rank, so
+ * they stay correct through any balance pass instead of living in a second
+ * table that silently drifts. It is young: much less HP and armour than a
+ * native, but it bites nearly as hard.
+ */
+function duskspawnStatsFor(rank) {
+    const data = String(rank).startsWith('P')
+        ? require('../data/prestigeEnemies')[rank]
+        : enemiesData[rank];
+    const minis = data?.miniBosses || [];
+    if (!minis.length) return null;
+    const avg = k => minis.reduce((s, m) => s + (Number(m[k]) || 0), 0) / minis.length;
+    // Tougher and meaner than the natives it nests among, but nowhere near a
+    // boss — and thin-skinned, because it is still young. Multipliers are
+    // relative to that rank's own minibosses, so a balance pass carries over.
+    // Hard ceiling at 60% of the rank's boss so it can never out-tank the thing
+    // it invaded. This matters at PE/PD, where the minibosses in the data are
+    // beefier than their own bosses.
+    const bossHp = Number(data?.boss?.hp) || Infinity;
+    return {
+        hp:  Math.max(200, Math.min(Math.floor(avg('hp') * 1.5), Math.floor(bossHp * 0.6))),
+        atk: Math.max(12,  Math.floor(avg('atk') * 1.1)),
+        def: Math.max(5,   Math.floor(avg('def') * 0.7))
+    };
+}
+
 async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
     groupJid = groupJid || getRaidGroup();
     let mentions = [];
@@ -296,8 +332,14 @@ async function sendDungeonAnnouncement(client, rank, boss, maxStage, groupJid) {
         const { getCurrentChapter, getRandomDungeonLore } = require('../systems/loreSystem');
         const chapter = await getCurrentChapter();
         loreText = `┃◆ 〝${getRandomDungeonLore(chapter)}〞
-┃◆ 
+┃◆
 `;
+    } catch (e) {}
+
+    // While the Blue Flame burns, affected dungeons announce it on sight.
+    try {
+        const { duskspawnActive, isDuskspawnRank, blueFlameSpawnNote } = require('../systems/storyEvents');
+        if (isDuskspawnRank(rank) && await duskspawnActive()) loreText += blueFlameSpawnNote();
     } catch (e) {}
 
 
@@ -1169,11 +1211,11 @@ async function advanceStage(dungeonId, nextStage, client = null) {
     // Active between "The Blue Flame" and the Vesperion unlock; chance rises
     // after "The Whelps". Content/gates: src/systems/storyEvents.js
     try {
-        if (['F', 'E', 'D'].includes(rank)) {
-            const { duskspawnActive, duskspawnChance } = require('../systems/storyEvents');
+        const { duskspawnActive, duskspawnChance, isDuskspawnRank } = require('../systems/storyEvents');
+        if (isDuskspawnRank(rank)) {
             if (await duskspawnActive() && Math.random() < await duskspawnChance()) {
-                const SPAWN_STATS = { F: { hp: 700, atk: 26, def: 10 }, E: { hp: 1100, atk: 42, def: 16 }, D: { hp: 1700, atk: 62, def: 24 } };
-                const s = SPAWN_STATS[rank];
+                const s = duskspawnStatsFor(rank);
+                if (!s) return;
                 await db.execute(
                     "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Duskspawn', ?, ?, ?, ?, ?, ?, 12, ?)",
                     [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 5), Math.floor(s.hp / 4),
