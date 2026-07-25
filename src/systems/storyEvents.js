@@ -110,6 +110,35 @@ const CHAPTER_EPILOGUE = {
         '╚═══════════════════════════════╝'
 };
 
+/**
+ * THE authoritative count of completed dungeons. Everything that reports or
+ * gates on clears must call this — the milestone engine and !progress both do,
+ * so they can never drift apart.
+ *
+ * `dungeon.clear_announced` is set once when a dungeon is actually completed
+ * (onward.js). We can't key off `locked`, which was the original bug: closing a
+ * dungeon sets locked=0, so the old `is_active=0 AND locked=1` matched nothing
+ * and the count sat at 0 forever — no milestone could ever fire.
+ */
+let _clearsBackfilled = false;
+async function countTotalClears(sinceHours = null) {
+    await db.execute('ALTER TABLE dungeon ADD COLUMN clear_announced TINYINT DEFAULT 0').catch(() => {});
+    if (!_clearsBackfilled) {
+        // One-time: credit dungeons completed before the flag existed. A party
+        // that wiped ON the final stage is indistinguishable here and may be
+        // counted; only affects pre-flag history.
+        await db.execute(
+            'UPDATE dungeon SET clear_announced=1 WHERE clear_announced=0 AND is_active=0 AND stage >= max_stage'
+        ).catch(() => {});
+        _clearsBackfilled = true;
+    }
+    const sql = sinceHours
+        ? 'SELECT COUNT(*) as cnt FROM dungeon WHERE clear_announced=1 AND created_at > DATE_SUB(NOW(), INTERVAL ? HOUR)'
+        : 'SELECT COUNT(*) as cnt FROM dungeon WHERE clear_announced=1';
+    const [rows] = await db.execute(sql, sinceHours ? [sinceHours] : []).catch(() => [[{ cnt: 0 }]]);
+    return Number(rows[0]?.cnt || 0);
+}
+
 // Runs on dungeon clears (called from loreSystem.checkStoryProgress).
 async function runStoryMilestones(client, raidGroup) {
     try {
@@ -118,8 +147,7 @@ async function runStoryMilestones(client, raidGroup) {
         const events = CHAPTER_EVENTS[chapter];
         if (!events) return;
 
-        const [rows] = await db.execute('SELECT COUNT(*) as cnt FROM dungeon WHERE is_active=0 AND locked=1');
-        const totalClears = rows[0]?.cnt || 0;
+        const totalClears = await countTotalClears();
 
         for (const ev of events) {
             if (totalClears < ev.at) continue;
@@ -150,4 +178,4 @@ async function duskspawnChance() {
     return (await getFlag('ch1_whelps')) === '1' ? 0.14 : 0.08;
 }
 
-module.exports = { CHAPTER_EVENTS, CHAPTER_EPILOGUE, runStoryMilestones, duskspawnActive, duskspawnChance };
+module.exports = { CHAPTER_EVENTS, CHAPTER_EPILOGUE, countTotalClears, runStoryMilestones, duskspawnActive, duskspawnChance };

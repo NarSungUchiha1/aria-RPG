@@ -22,14 +22,15 @@ module.exports = {
         if (!isOwner(userId) && !isAdmin) return msg.reply('❌ Admin only.');
         try {
             const { getCurrentChapter, CHAPTERS } = require('../systems/loreSystem');
-            const { CHAPTER_EVENTS } = require('../systems/storyEvents');
+            const { CHAPTER_EVENTS, countTotalClears } = require('../systems/storyEvents');
             const { getFlag } = require('../systems/gameFlags');
 
             // ── Story position ────────────────────────────────────────────
             const chapter = await getCurrentChapter().catch(() => 1);
             const chapterInfo = (CHAPTERS || []).find(c => c.id === chapter);
-            // Same count storyEvents uses to fire milestones — keep in sync.
-            const totalClears = num(await q("SELECT COUNT(*) as cnt FROM dungeon WHERE is_active=0 AND locked=1"));
+            // Literally the same helper the milestone engine gates on, so the
+            // countdown here can never disagree with when events actually fire.
+            const totalClears = await countTotalClears().catch(() => 0);
             const events = CHAPTER_EVENTS[chapter] || [];
 
             let storyLines = '';
@@ -67,7 +68,7 @@ module.exports = {
             const liveDungeons = await q("SELECT id, dungeon_rank, stage, max_stage, modifier, locked FROM dungeon WHERE is_active=1 ORDER BY id DESC LIMIT 3");
             const inDungeon    = num(await q("SELECT COUNT(*) as cnt FROM dungeon_players WHERE is_alive=1"));
             const mirrors      = num(await q("SELECT COUNT(*) as cnt FROM dungeon_reflections WHERE defeated=0"));
-            const clears24     = num(await q("SELECT COUNT(*) as cnt FROM dungeon WHERE is_active=0 AND locked=1 AND created_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)"));
+            const clears24     = await countTotalClears(24).catch(() => 0);
 
             let liveLines = liveDungeons.length
                 ? liveDungeons.map(dg =>
