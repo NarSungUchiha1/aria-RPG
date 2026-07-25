@@ -14,7 +14,7 @@ const { getFlag, setFlag } = require('./gameFlags');
 const CHAPTER_EVENTS = {
     1: [
         {
-            at: 30, flag: 'ch1_blue_flame',
+            at: 30, flag: 'ch1_blue_flame', title: 'The Blue Flame',
             text:
                 '╔══〘 🕯️ THE BLUE FLAME 〙══╗\n' +
                 '┃★\n' +
@@ -35,7 +35,7 @@ const CHAPTER_EVENTS = {
                 '╚═══════════════════════════╝'
         },
         {
-            at: 60, flag: 'ch1_whelps',
+            at: 60, flag: 'ch1_whelps', title: 'The Whelps',
             text:
                 '╔══〘 🐾 THE WHELPS 〙══╗\n' +
                 '┃★\n' +
@@ -58,7 +58,7 @@ const CHAPTER_EVENTS = {
                 '╚═══════════════════════════╝'
         },
         {
-            at: 100, flag: 'ch1_boss_ready', bossReady: true,
+            at: 100, flag: 'ch1_boss_ready', bossReady: true, title: 'The Firstborn Stirs',
             text:
                 '╔══〘 🌑 THE FIRSTBORN STIRS 〙══╗\n' +
                 '┃★\n' +

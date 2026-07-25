@@ -232,7 +232,7 @@ module.exports = {
                     if (participants.length) {
                         const ids = participants.map(p => p.player_id);
                         const [nb] = await db.execute(
-                            `SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(',')}) AND created_at > DATE_SUB(NOW(), INTERVAL 3 DAY)`,
+                            `SELECT id FROM players WHERE id IN (${ids.map(() => '?').join(',')}) AND registered_at > DATE_SUB(NOW(), INTERVAL 3 DAY)`,
                             ids
                         );
                         newbieIds = new Set(nb.map(r => r.id));
