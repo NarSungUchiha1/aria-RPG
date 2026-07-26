@@ -193,9 +193,11 @@ async function duskspawnActive() {
     } catch (e) { return false; }
 }
 
-// Invasion chance rises after The Whelps event.
+// Per-stage invasion chance. Rolled on EVERY stage (including stage 1), so a
+// 50% base means most runs meet at least one whelp — the event should be the
+// thing players notice, not a rare curiosity. Rises after The Whelps.
 async function duskspawnChance() {
-    return (await getFlag('ch1_whelps')) === '1' ? 0.14 : 0.08;
+    return (await getFlag('ch1_whelps')) === '1' ? 0.65 : 0.50;
 }
 
 module.exports = {

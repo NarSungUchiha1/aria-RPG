@@ -1207,37 +1207,50 @@ async function advanceStage(dungeonId, nextStage, client = null) {
         }
     } catch(e) { console.error('Sunshard reflection error:', e.message); }
 
-    // ── CHAPTER 1 EVENT: DUSKSPAWN INVASIONS (F–D dungeons) ──────────────────
-    // Active between "The Blue Flame" and the Vesperion unlock; chance rises
-    // after "The Whelps". Content/gates: src/systems/storyEvents.js
+    // Chapter 1 event — rolls on every stage including this one.
+    await maybeSpawnDuskspawn(dungeonId, rank, client);
+}
+
+/**
+ * CHAPTER 1 EVENT: DUSKSPAWN INVASION.
+ * Rolls once for the stage that is currently being populated. Called from BOTH
+ * advanceStage and beginDungeon — stage 1 used to be skipped entirely because
+ * its enemies are spawned by beginDungeon, not advanceStage, so short dungeons
+ * barely ever rolled.
+ * Active between "The Blue Flame" and the Vesperion unlock; gates live in
+ * src/systems/storyEvents.js.
+ */
+async function maybeSpawnDuskspawn(dungeonId, rank, client) {
     try {
         const { duskspawnActive, duskspawnChance, isDuskspawnRank } = require('../systems/storyEvents');
-        if (isDuskspawnRank(rank)) {
-            if (await duskspawnActive() && Math.random() < await duskspawnChance()) {
-                const s = duskspawnStatsFor(rank);
-                if (!s) return;
-                await db.execute(
-                    "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Duskspawn', ?, ?, ?, ?, ?, ?, 12, ?)",
-                    [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 5), Math.floor(s.hp / 4),
-                     JSON.stringify([{ name: 'Newborn Fang', damage: 1.4 }, { name: 'Hungry Dark', damage: 1.1 }])]
-                );
-                if (client) {
-                    await client.sendMessage(getDungeonGroup(dungeonId), {
-                        text:
-                            '╔══〘 🐾 DUSKSPAWN 〙══╗\n' +
-                            '┃★ The candle at the entrance\n' +
-                            '┃★ just turned blue.\n' +
-                            '┃★ Something young slipped in\n' +
-                            '┃★ with you. It is hungry.\n' +
-                            '┃★ ⚔️ Kill the *Duskspawn* —\n' +
-                            '┃★ bonus Lumens on its corpse.\n' +
-                            '╚═══════════════════════╝'
-                    }).catch(() => {});
-                }
-                console.log(`🐾 Duskspawn invaded dungeon ${dungeonId} (rank ${rank}).`);
-            }
+        if (!isDuskspawnRank(rank)) return false;
+        if (!(await duskspawnActive())) return false;
+        if (Math.random() >= await duskspawnChance()) return false;
+
+        const s = duskspawnStatsFor(rank);
+        if (!s) return false;
+
+        await db.execute(
+            "INSERT INTO dungeon_enemies (dungeon_id, name, max_hp, current_hp, atk, def, exp, gold, evasion, moves) VALUES (?, 'Duskspawn', ?, ?, ?, ?, ?, ?, 12, ?)",
+            [dungeonId, s.hp, s.hp, s.atk, s.def, Math.floor(s.hp / 5), Math.floor(s.hp / 4),
+             JSON.stringify([{ name: 'Newborn Fang', damage: 1.4 }, { name: 'Hungry Dark', damage: 1.1 }])]
+        );
+        if (client) {
+            await client.sendMessage(getDungeonGroup(dungeonId), {
+                text:
+                    '╔══〘 🐾 DUSKSPAWN 〙══╗\n' +
+                    '┃★ The candle at the entrance\n' +
+                    '┃★ just turned blue.\n' +
+                    '┃★ Something young slipped in\n' +
+                    '┃★ with you. It is hungry.\n' +
+                    '┃★ ⚔️ Kill the *Duskspawn* —\n' +
+                    '┃★ bonus Lumens on its corpse.\n' +
+                    '╚═══════════════════════╝'
+            }).catch(() => {});
         }
-    } catch(e) { console.error('Duskspawn invasion error:', e.message); }
+        console.log(`🐾 Duskspawn invaded dungeon ${dungeonId} (rank ${rank}).`);
+        return true;
+    } catch(e) { console.error('Duskspawn invasion error:', e.message); return false; }
 }
 
 async function addPlayerToDungeon(playerId, dungeonId) {
@@ -1450,6 +1463,7 @@ module.exports = {
     demoteAllRaiders,
     autoStartTimers,
     announceDungeonModifier,
+    maybeSpawnDuskspawn,
     clearLobbyTimer,
     dungeonLocks,
     clearDungeonTimers,

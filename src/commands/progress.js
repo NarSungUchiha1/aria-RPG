@@ -139,6 +139,20 @@ module.exports = {
 
             const eraLive = (await getFlag('hollow_sun_active')) === '1';
 
+            // Live event state — so "why aren't Duskspawn showing up?" is
+            // answerable at a glance instead of by guessing.
+            let eventLine = '';
+            try {
+                const { duskspawnActive, duskspawnChance, duskspawnRanks } = require('../systems/storyEvents');
+                const armed = await duskspawnActive();
+                eventLine =
+                    `┃◈━━━━━━━━━━━━━\n` +
+                    `┃◈ 🕯️ Duskspawn: ${armed ? '✅ ARMED' : '❌ off'}\n` +
+                    (armed
+                        ? `┃◈ ${Math.round((await duskspawnChance()) * 100)}% per stage in ${duskspawnRanks().join('/')}\n`
+                        : `┃◈ (needs Blue Flame fired, chapter 1,\n┃◈  boss not yet unlocked)\n`);
+            } catch (e) {}
+
             return msg.reply(
                 `◆═══〘 🌑 WORLD PROGRESS 〙═══◆\n` +
                 `┃◈ 📖 Chapter ${chapter}${chapterInfo ? ` — *${chapterInfo.title}*` : ''}\n` +
@@ -154,6 +168,7 @@ module.exports = {
                 `┃◈━━━━━━━━━━━━━\n` +
                 liveLines +
                 `┃◈ 🧍 In dungeon: ${inDungeon}${mirrors ? `  🪞 Mirrors alive: ${mirrors}` : ''}\n` +
+                eventLine +
                 (factionLine ? `┃◈━━━━━━━━━━━━━\n┃◈ ⚔️ Faction war (this week)\n` + factionLine : '') +
                 (terrLine ? `┃◈━━━━━━━━━━━━━\n` + terrLine : '') +
                 `┃◈━━━━━━━━━━━━━\n` +

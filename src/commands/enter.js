@@ -95,6 +95,14 @@ async function beginDungeon(dungeonId, client) {
             );
         }
 
+        // Chapter 1 event: stage 1 gets an invasion roll too. advanceStage only
+        // covers stages 2+, so without this a 3-stage dungeon rolled twice and
+        // short runs almost never saw a Duskspawn.
+        try {
+            const { maybeSpawnDuskspawn } = require('../engine/dungeon');
+            await maybeSpawnDuskspawn(dungeonId, dungeonData.dungeon_rank, client);
+        } catch(e) {}
+
         // CURSED modifier: stage-1 enemies also hit/soak +50% (advanceStage
         // already buffs stages 2+; this makes the "+50% stronger" warning true
         // from the very first fight).
