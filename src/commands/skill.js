@@ -356,6 +356,32 @@ module.exports = {
             player.mana = currentMana - manaCost;
         }
 
+        // ── VESPERION RAID ───────────────────────────────────────────────
+        // A world raid isn't a dungeon, so damage moves are routed here before
+        // the dungeon-only branches below. Same movesets, multipliers, weapons,
+        // mana and cooldowns as fighting anything else — you just happen to be
+        // swinging at something with a million HP. Heals/shields/buffs fall
+        // through and resolve on players exactly as they normally would.
+        if (move.type === 'damage') {
+            try {
+                const { getActiveRaid, applyAttack, getParticipant } = require('../systems/vesperionRaid');
+                const raid = await getActiveRaid();
+                if (raid) {
+                    const me = await getParticipant(raid.id, userId);
+                    if (me && !me.is_dead) {
+                        // Vesperion's hide, run through the normal damage formula.
+                        const dmg = calculateMoveDamage(player, move, { def: 220, name: 'Vesperion' }, items);
+                        const r = await applyAttack(userId, dmg, { raid, player });
+                        const cd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
+                        if (r.error) return msg.reply('❌ Could not strike Vesperion.');
+
+                        const { finishVesperionRound } = require('../systems/vesperionRound');
+                        return finishVesperionRound(msg, client, r, move, player, cd);
+                    }
+                }
+            } catch (vErr) { console.error('[Vesperion skill]', vErr.message); }
+        }
+
         const dungeon = await getActiveDungeon();
 
         async function resolvePlayerTarget(targetArg) {

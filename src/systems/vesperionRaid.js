@@ -18,6 +18,14 @@ const VESPERION_HP   = 1_000_000;
 const STRIKES_PER_HIT = 5;      // hunter attacks between each retaliation
 const ATTACK_COOLDOWN_MS = 10_000;
 
+// Ordinary move damage is balanced against dungeon enemies with hundreds of HP
+// — unscaled, a 1,000,000 HP boss would need thousands of blows. Every hit
+// landed on Vesperion is amplified so the fight lands around 160 blows.
+// Single knob: raise it to shorten the fight, lower it to lengthen.
+// Simulated at 18: a 20-30 hunter group wins losing 3-5, a weak group (half
+// stats) is dragged to ~420 blows and loses ~25 — a genuine near-wipe.
+const RAID_DAMAGE_MULT = 18;
+
 const lastAttack = new Map();   // playerId -> ts
 
 let _ready = false;
@@ -150,10 +158,37 @@ async function attack(playerId, client) {
 
     lastAttack.set(playerId, Date.now());
 
-    // Damage scales off the hunter's best offensive stat.
+    // Basic swing — raw damage off the hunter's best offensive stat. applyAttack
+    // applies the raid multiplier, same as it does for skill hits.
     const best = Math.max(Number(player.strength) || 0, Number(player.agility) || 0, Number(player.intelligence) || 0);
-    const damage = Math.max(500, Math.floor(best * 15 * (0.85 + Math.random() * 0.3)));
+    const raw = Math.max(50, Math.floor(best * 1.5 * (0.85 + Math.random() * 0.3)));
+    return applyAttack(playerId, raw, { raid, player });
+}
 
+/**
+ * Land a pre-computed amount of damage — this is what !skill drives, so raid
+ * hits run through the same move multipliers, weapons and stats as a dungeon.
+ */
+async function applyAttack(playerId, damage, ctx = {}) {
+    const raid = ctx.raid || await getActiveRaid();
+    if (!raid) return { error: 'no_raid' };
+
+    let player = ctx.player;
+    if (!player) {
+        const [pRows] = await db.execute(
+            'SELECT nickname, hp, max_hp FROM players WHERE id=?', [playerId]
+        ).catch(() => [[]]);
+        player = pRows[0];
+        if (!player) return { error: 'not_registered' };
+    }
+
+    let me = await getParticipant(raid.id, playerId);
+    if (!me) me = await enrol(raid.id, playerId, player.nickname);
+    if (me?.is_dead) return { error: 'dead' };
+
+    // One place scales every source of raid damage — skill hits and basic
+    // swings alike — so the two can't be balanced against each other by accident.
+    damage = Math.max(1, Math.floor(damage * RAID_DAMAGE_MULT));
     const newHp = Math.max(0, Number(raid.current_hp) - damage);
     const totalAttacks = Number(raid.total_attacks) + 1;
     await db.execute('UPDATE vesperion_raid SET current_hp=?, total_attacks=? WHERE id=?', [newHp, totalAttacks, raid.id]);
@@ -258,7 +293,7 @@ async function distributeRewards(raidId, client, groupJid) {
 }
 
 module.exports = {
-    VESPERION_HP, STRIKES_PER_HIT,
-    ensureTables, getActiveRaid, spawnVesperion, attack, retaliate,
+    VESPERION_HP, STRIKES_PER_HIT, RAID_DAMAGE_MULT,
+    ensureTables, getActiveRaid, spawnVesperion, attack, applyAttack, retaliate,
     distributeRewards, hpBar, getParticipant, enrol
 };
