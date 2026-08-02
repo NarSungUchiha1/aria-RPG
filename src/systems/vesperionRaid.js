@@ -28,14 +28,6 @@ const ATTACK_COOLDOWN_MS = 10_000;
 // stats) is dragged to ~420 blows and loses ~25 — a genuine near-wipe.
 const RAID_DAMAGE_MULT = 18;
 
-// No single blow may remove more than this share of Vesperion's health. Player
-// power varies enormously — a prestige hunter swinging an 11x weapon ultimate
-// hits orders of magnitude harder than a fresh one — so without a ceiling the
-// fight length is decided entirely by whoever is best geared. This guarantees
-// at least 1/PER_HIT_CAP_PCT blows (50) no matter who shows up, while weaker
-// hunters still land their full uncapped damage.
-const PER_HIT_CAP_PCT = 0.02;
-
 const lastAttack = new Map();   // playerId -> ts
 
 let _ready = false;
@@ -198,10 +190,8 @@ async function applyAttack(playerId, damage, ctx = {}) {
 
     // One place scales every source of raid damage — skill hits and basic
     // swings alike — so the two can't be balanced against each other by accident.
-    const cap = Math.floor(Number(raid.max_hp) * PER_HIT_CAP_PCT);
-    const scaled = Math.max(1, Math.floor(damage * RAID_DAMAGE_MULT));
-    const capped = scaled > cap;
-    damage = Math.min(scaled, cap);
+    // No ceiling: hit as hard as your build allows.
+    damage = Math.max(1, Math.floor(damage * RAID_DAMAGE_MULT));
     const newHp = Math.max(0, Number(raid.current_hp) - damage);
     const totalAttacks = Number(raid.total_attacks) + 1;
     await db.execute('UPDATE vesperion_raid SET current_hp=?, total_attacks=? WHERE id=?', [newHp, totalAttacks, raid.id]);
@@ -211,7 +201,7 @@ async function applyAttack(playerId, damage, ctx = {}) {
     ).catch(() => {});
 
     const result = {
-        damage, capped, nickname: player.nickname,
+        damage, nickname: player.nickname,
         bossHp: newHp, bossMax: Number(raid.max_hp),
         bar: hpBar(newHp, Number(raid.max_hp)),
         totalAttacks, defeated: newHp <= 0, retaliation: null, raidId: raid.id

@@ -123,7 +123,6 @@ async function finishVesperionRound(msg, client, r, move, player, cooldown) {
         `╔══〘 🌑 VESPERION 〙══╗\n` +
         `┃★ ${r.nickname}${move ? ` used *${move.name}*` : ' swings'}\n` +
         `┃★ 💥 *${r.damage.toLocaleString()}* damage\n` +
-        (r.capped ? `┃★ 🛡️ Its hide swallows the rest.\n` : '') +
         `┃★ ${r.bar}\n` +
         `┃★ ${r.bossHp.toLocaleString()} / ${r.bossMax.toLocaleString()} (${pct}%)\n`;
 
