@@ -254,7 +254,7 @@ module.exports = {
     // It was never exported, so the require got undefined and taunt redirect
     // silently did nothing.
     tauntState,
-    async execute(msg, args, { userId, client }) {
+    async execute(msg, args, { userId, client, isDM }) {
       try {
         if (isPlayerInDuel(userId)) {
             return msg.reply("❌ In a duel, use !attack <move> instead.");
@@ -354,6 +354,31 @@ module.exports = {
             }
             await db.execute("UPDATE players SET mana = mana - ? WHERE id=?", [manaCost, userId]);
             player.mana = currentMana - manaCost;
+        }
+
+        // ── CINDERMAW SOLO HUNT (DMs only) ───────────────────────────────
+        // Chapter 2's finale is fought alone in a private chat. Gated on isDM
+        // so a hunter with a live beast can still run dungeons in the group
+        // without their swings being stolen by it.
+        if (isDM && move.type === 'damage') {
+            try {
+                const { getHunt, getInstance, exchange, rewardKill, KILLS_TO_ADVANCE } = require('../systems/cindermawHunt');
+                const hunt = await getHunt();
+                if (hunt) {
+                    const inst = await getInstance(hunt.id, userId);
+                    if (inst && !inst.defeated) {
+                        const dmg = calculateMoveDamage(player, move, { def: 180, name: 'Cindermaw' }, items);
+                        const r = await exchange(userId, dmg);
+                        const cd = setMoveCooldown(userId, move.name, move.cooldown || 2, player.rank);
+
+                        if (r.error === 'you_are_down') return msg.reply('☠️ You are down. Use !respawn.');
+                        if (r.error) return msg.reply('❌ Could not strike Cindermaw.');
+
+                        const { finishCindermawRound } = require('../systems/cindermawRound');
+                        return finishCindermawRound(msg, client, r, move, cd, userId);
+                    }
+                }
+            } catch (cErr) { console.error('[Cindermaw skill]', cErr.message); }
         }
 
         // ── VESPERION RAID ───────────────────────────────────────────────

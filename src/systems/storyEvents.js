@@ -109,6 +109,32 @@ const CHAPTER_EPILOGUE = {
         '┃★ 〘 CHAPTER II — SHARDFALL 〙\n' +
         '┃★ begins.\n' +
         '┃★\n' +
+        '╚═══════════════════════════════╝',
+
+    2:
+        '╔══〘 📖 CHAPTER II — COMPLETE 〙══╗\n' +
+        '┃★\n' +
+        '┃★ The Cindermaws are dead.\n' +
+        '┃★ Every one of you killed your own.\n' +
+        '┃★\n' +
+        '┃★ They cut the beasts open expecting\n' +
+        '┃★ light. What they found was a shard\n' +
+        '┃★ gone COLD — spent, like something\n' +
+        '┃★ had already drunk it.\n' +
+        '┃★\n' +
+        '┃★ The shards were never falling.\n' +
+        '┃★ They were being PULLED down.\n' +
+        '┃★ Something below has been eating\n' +
+        '┃★ the sun a piece at a time, and it\n' +
+        '┃★ used the beasts to carry them.\n' +
+        '┃★\n' +
+        '┃★ That night the dark did something\n' +
+        '┃★ it had never done before.\n' +
+        '┃★ It moved with a purpose.\n' +
+        '┃★\n' +
+        '┃★ 〘 CHAPTER III — THE UMBRAL TIDE 〙\n' +
+        '┃★ begins.\n' +
+        '┃★\n' +
         '╚═══════════════════════════════╝'
 };
 

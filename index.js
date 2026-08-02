@@ -1234,7 +1234,9 @@ async function startBot() {
                                 // cmdName = the alias actually typed, so commands
                                 // registered under several names (e.g. !vip / !vvip)
                                 // can behave differently per alias.
-                                command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock, cmdName })
+                                // isDM lets a command behave differently in a private
+                                // chat — the solo Cindermaw hunt is fought there.
+                                command.execute(fakeMsg, args, { userId: effectiveUserId, isAdmin, client: sock, cmdName, isDM })
                             ),
                             // Safety valve: never let one hung command hold a slot forever
                             // and deadlock the limiter. Release after 60s and move on.
