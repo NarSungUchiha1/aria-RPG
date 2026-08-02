@@ -38,8 +38,14 @@ module.exports = {
             const r = await spawnVesperion(client, groupJid);
             if (!r.ok) return msg.reply('❌ Vesperion is already awake.');
 
-            // The hunt is called in the raid group, everyone tagged.
-            const mentions = r.enrolled.map(p => `${p.player_id || p.id}@s.whatsapp.net`);
+            // The hunt is called in the raid group — everyone in it gets pinged,
+            // registered or not, so nobody misses the start of the event.
+            let mentions = [];
+            try {
+                const { tagAll } = require('../utils/tagAll');
+                mentions = (await tagAll(client, groupJid)).mentions || [];
+            } catch (e) {}
+            if (!mentions.length) mentions = r.enrolled.map(p => `${p.id}@s.whatsapp.net`);
             await client.sendMessage(groupJid, {
                 text:
                     `╔══〘 🌑 THE FIRSTBORN RISES 〙══╗\n` +

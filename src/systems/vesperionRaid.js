@@ -14,7 +14,9 @@
  */
 const db = require('../database/db');
 
-const VESPERION_HP   = 1_000_000;
+// 15M, not 1M: at 1M a single prestige hunter swinging a heavy weapon move
+// landed ~80% of the boss's health in one blow and the fight ended instantly.
+const VESPERION_HP   = 15_000_000;
 const STRIKES_PER_HIT = 5;      // hunter attacks between each retaliation
 const ATTACK_COOLDOWN_MS = 10_000;
 
@@ -25,6 +27,14 @@ const ATTACK_COOLDOWN_MS = 10_000;
 // Simulated at 18: a 20-30 hunter group wins losing 3-5, a weak group (half
 // stats) is dragged to ~420 blows and loses ~25 — a genuine near-wipe.
 const RAID_DAMAGE_MULT = 18;
+
+// No single blow may remove more than this share of Vesperion's health. Player
+// power varies enormously — a prestige hunter swinging an 11x weapon ultimate
+// hits orders of magnitude harder than a fresh one — so without a ceiling the
+// fight length is decided entirely by whoever is best geared. This guarantees
+// at least 1/PER_HIT_CAP_PCT blows (50) no matter who shows up, while weaker
+// hunters still land their full uncapped damage.
+const PER_HIT_CAP_PCT = 0.02;
 
 const lastAttack = new Map();   // playerId -> ts
 
@@ -188,7 +198,10 @@ async function applyAttack(playerId, damage, ctx = {}) {
 
     // One place scales every source of raid damage — skill hits and basic
     // swings alike — so the two can't be balanced against each other by accident.
-    damage = Math.max(1, Math.floor(damage * RAID_DAMAGE_MULT));
+    const cap = Math.floor(Number(raid.max_hp) * PER_HIT_CAP_PCT);
+    const scaled = Math.max(1, Math.floor(damage * RAID_DAMAGE_MULT));
+    const capped = scaled > cap;
+    damage = Math.min(scaled, cap);
     const newHp = Math.max(0, Number(raid.current_hp) - damage);
     const totalAttacks = Number(raid.total_attacks) + 1;
     await db.execute('UPDATE vesperion_raid SET current_hp=?, total_attacks=? WHERE id=?', [newHp, totalAttacks, raid.id]);
@@ -198,7 +211,7 @@ async function applyAttack(playerId, damage, ctx = {}) {
     ).catch(() => {});
 
     const result = {
-        damage, nickname: player.nickname,
+        damage, capped, nickname: player.nickname,
         bossHp: newHp, bossMax: Number(raid.max_hp),
         bar: hpBar(newHp, Number(raid.max_hp)),
         totalAttacks, defeated: newHp <= 0, retaliation: null, raidId: raid.id
@@ -289,11 +302,41 @@ async function distributeRewards(raidId, client, groupJid) {
         await db.execute('UPDATE players SET hp = max_hp WHERE id=?', [p.player_id]).catch(() => {});
         lines.push(`┃★ ${p.nickname} — ${Number(p.damage_dealt).toLocaleString()} dmg · +${lumens.toLocaleString()}L`);
     }
+
+    // The hunt is over — everyone conscripted for it loses the admin they were
+    // given when it spawned. Enrolment is dropped, not just the promotion.
+    await demoteAll(raidId, client, groupJid);
+
     return { lines, count: parts.length, top: parts[0] };
+}
+
+/** Strip admin from everyone this raid promoted. */
+async function demoteAll(raidId, client, groupJid) {
+    try {
+        if (!client || !groupJid) return 0;
+        const [parts] = await db.execute(
+            'SELECT player_id FROM vesperion_participants WHERE raid_id=?', [raidId]
+        ).catch(() => [[]]);
+        if (!parts.length) return 0;
+
+        const { normalizeId } = require('../utils/identity');
+        const ids = new Set(parts.map(p => String(p.player_id)));
+        const meta = await client.groupMetadata(groupJid);
+        // Never demote the bot or the group owner — only the conscripts.
+        const targets = (meta.participants || [])
+            .filter(p => ids.has(normalizeId(p.id)) && p.admin !== 'superadmin')
+            .map(p => p.id);
+
+        if (targets.length) {
+            await client.groupParticipantsUpdate(groupJid, targets, 'demote').catch(() => {});
+            console.log(`👋 Vesperion raid ${raidId}: demoted ${targets.length} hunter(s).`);
+        }
+        return targets.length;
+    } catch (e) { console.error('[Vesperion] demote error:', e.message); return 0; }
 }
 
 module.exports = {
     VESPERION_HP, STRIKES_PER_HIT, RAID_DAMAGE_MULT,
     ensureTables, getActiveRaid, spawnVesperion, attack, applyAttack, retaliate,
-    distributeRewards, hpBar, getParticipant, enrol
+    distributeRewards, demoteAll, hpBar, getParticipant, enrol
 };

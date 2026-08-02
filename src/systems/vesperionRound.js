@@ -12,12 +12,27 @@ function raidGroup() {
     return process.env.RAID_GROUP_JID || getRaidGroup();
 }
 
+/**
+ * Every Vesperion announcement pings the whole group — this is a server-wide
+ * event and nobody should be able to sleep through a phase of it.
+ */
+async function tagEveryone(client, groupJid) {
+    try {
+        const { tagAll } = require('../utils/tagAll');
+        const { mentions } = await tagAll(client, groupJid);
+        return mentions || [];
+    } catch (e) { return []; }
+}
+
 async function announceKill(client, r) {
     const groupJid = raidGroup();
+    const mentions = await tagEveryone(client, groupJid);
+    // distributeRewards also strips the admin everyone was given at spawn.
     const rewards = await distributeRewards(r.raidId, client, groupJid);
     const top = rewards.lines.slice(0, 10).join('\n');
 
     await client.sendMessage(groupJid, {
+        mentions,
         text:
             `╔══〘 🌑 VESPERION HAS FALLEN 〙══╗\n` +
             `┃★\n` +
@@ -31,6 +46,7 @@ async function announceKill(client, r) {
             (top ? top + '\n' : '') +
             (rewards.lines.length > 10 ? `┃★ …and ${rewards.lines.length - 10} more.\n` : '') +
             `┃★\n` +
+            `┃★ 👋 The hunt is over — admin rescinded.\n` +
             `╚═══════════════════════════════╝`
     }).catch(() => {});
 
@@ -41,7 +57,7 @@ async function announceKill(client, r) {
         if ((await getCurrentChapter()) < 2) {
             await setChapter(2);
             if (CHAPTER_EPILOGUE[1]) {
-                await client.sendMessage(groupJid, { text: CHAPTER_EPILOGUE[1] }).catch(() => {});
+                await client.sendMessage(groupJid, { text: CHAPTER_EPILOGUE[1], mentions }).catch(() => {});
             }
             console.log('📖 Vesperion slain — story advanced to chapter 2.');
         }
@@ -50,6 +66,10 @@ async function announceKill(client, r) {
 
 async function announceRetaliation(client, t, bossHp, raidId) {
     const groupJid = raidGroup();
+    const everyone = await tagEveryone(client, groupJid);
+    // Ping the whole group, and make sure the victim is in the list either way.
+    const mentions = [...new Set([...everyone, `${t.playerId}@s.whatsapp.net`])];
+
     await client.sendMessage(groupJid, {
         text:
             `╔══〘 👁️ VESPERION STRIKES 〙══╗\n` +
@@ -59,11 +79,17 @@ async function announceRetaliation(client, t, bossHp, raidId) {
                 ? `┃★ ☠️ *${t.nickname} has fallen.* (3/3)\n`
                 : `┃★ ❤️ ${t.hp.toLocaleString()} HP · strike ${t.strike}/3\n`) +
             `╚═══════════════════════════╝`,
-        mentions: [`${t.playerId}@s.whatsapp.net`]
+        mentions
     }).catch(() => {});
 
     if (t.wipe) {
+        // Nobody left standing — release the admin the raid handed out.
+        try {
+            const { demoteAll } = require('./vesperionRaid');
+            await demoteAll(raidId, client, groupJid);
+        } catch (e) {}
         await client.sendMessage(groupJid, {
+            mentions,
             text:
                 `╔══〘 ☠️ THE HUNT IS OVER 〙══╗\n` +
                 `┃★\n` +
@@ -97,6 +123,7 @@ async function finishVesperionRound(msg, client, r, move, player, cooldown) {
         `╔══〘 🌑 VESPERION 〙══╗\n` +
         `┃★ ${r.nickname}${move ? ` used *${move.name}*` : ' swings'}\n` +
         `┃★ 💥 *${r.damage.toLocaleString()}* damage\n` +
+        (r.capped ? `┃★ 🛡️ Its hide swallows the rest.\n` : '') +
         `┃★ ${r.bar}\n` +
         `┃★ ${r.bossHp.toLocaleString()} / ${r.bossMax.toLocaleString()} (${pct}%)\n`;
 
