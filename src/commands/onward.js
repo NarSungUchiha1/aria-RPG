@@ -156,7 +156,10 @@ module.exports = {
                 // finish after the leader walks out), so world-level effects —
                 // announcements, territory claim, story advance, MVP — must
                 // fire only on the FIRST completion.
-                await db.execute('ALTER TABLE dungeon ADD COLUMN clear_announced TINYINT DEFAULT 0').catch(() => {});
+                // countTotalClears() already ensures this column once per
+                // process; running the ALTER again on every clear was pure
+                // remote-DB overhead.
+                await require('../systems/storyEvents').countTotalClears().catch(() => 0);
                 const [caRow] = await db.execute('SELECT clear_announced FROM dungeon WHERE id=?', [dungeon.id]).catch(() => [[]]);
                 const firstClear = !(caRow[0]?.clear_announced);
                 if (firstClear) await db.execute('UPDATE dungeon SET clear_announced=1 WHERE id=?', [dungeon.id]).catch(() => {});

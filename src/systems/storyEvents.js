@@ -150,8 +150,12 @@ const CHAPTER_EPILOGUE = {
  */
 let _clearsBackfilled = false;
 async function countTotalClears(sinceHours = null) {
-    await db.execute('ALTER TABLE dungeon ADD COLUMN clear_announced TINYINT DEFAULT 0').catch(() => {});
+    // Migration guarded: this runs on every stage advance, every clear and
+    // every !progress. An ALTER per call is a metadata lock plus a round-trip
+    // to a remote DB — it belongs behind the once-per-process flag, not in
+    // front of it.
     if (!_clearsBackfilled) {
+        await db.execute('ALTER TABLE dungeon ADD COLUMN clear_announced TINYINT DEFAULT 0').catch(() => {});
         // One-time: credit dungeons completed before the flag existed. A party
         // that wiped ON the final stage is indistinguishable here and may be
         // counted; only affects pre-flag history.

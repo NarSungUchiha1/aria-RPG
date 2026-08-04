@@ -49,6 +49,8 @@ function getDungeonMvpContributions(dungeonId) {
     try { return getMvpContributions(`dungeon_${dungeonId}`); } catch(e) { return {}; }
 }
 
+let _modifierColumnReady = false;
+
 async function getWeightedDungeonRank() {
     const rankOrder = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
     const [rows] = await db.execute(
@@ -155,7 +157,10 @@ async function spawnDungeon(rank, client = null) {
         // ── DUNGEON MODIFIERS — ~30% of spawns roll one ──────────────────────
         // GOLDEN: gold rewards ×3 · CURSED: enemies +50%, rewards ×2 ·
         // FRACTURED: the Hollow King's Echo invasion chance doubled (Chapter 6+)
-        await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
+        if (!_modifierColumnReady) {
+            await db.execute('ALTER TABLE dungeon ADD COLUMN modifier VARCHAR(20) DEFAULT NULL').catch(() => {});
+            _modifierColumnReady = true;
+        }
         let modifier = null;
         if (!['HOLLOWKING','VESPERION','CINDERMAW','UMBRYSS'].includes(rank) && Math.random() < 0.30) {
             modifier = ['GOLDEN', 'CURSED', 'FRACTURED'][Math.floor(Math.random() * 3)];
@@ -447,12 +452,18 @@ async function isDungeonLockedDB(dungeonId) {
     return locked;
 }
 
+// Schema migrations only need to happen ONCE per process. These sat on hot
+// paths (every player entering, every spawn) and each one is a metadata-locking
+// round-trip to a remote database — a real source of lag under load.
+let _sessionColumnsReady = false;
 async function ensureSessionColumns() {
+    if (_sessionColumnsReady) return;
     await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_gold INT DEFAULT 0').catch(() => {});
     await db.execute('ALTER TABLE dungeon_players ADD COLUMN IF NOT EXISTS session_xp INT DEFAULT 0').catch(() => {});
     // Per-group dungeon isolation
     await db.execute('ALTER TABLE dungeon ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL').catch(() => {});
     await db.execute('ALTER TABLE dungeon_spawn_lock ADD COLUMN IF NOT EXISTS group_jid VARCHAR(80) DEFAULT NULL').catch(() => {});
+    _sessionColumnsReady = true;
 }
 
 async function lockDungeon(dungeonId) {

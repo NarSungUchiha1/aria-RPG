@@ -340,7 +340,7 @@ if (fs.existsSync(ADMIN_FILE)) {
 const BLOCKED_USERS = new Set([]);
 
 // Identity handling lives in ONE place now — src/utils/identity.js.
-const { normalizeId, normalizeDMJid } = require('./src/utils/identity');
+const { normalizeId, normalizeDMJid, isOwner } = require('./src/utils/identity');
 
 const DUNGEON_GC_ONLY = new Set([
     'dungeon', 'begin', 'onward',
@@ -818,6 +818,36 @@ async function startBot() {
                 } catch (e) {
                     console.error('Startup dungeon cleanup error:', e.message);
                 }
+
+                // ── ADMIN SWEEP ──────────────────────────────────────────
+                // Raids and dungeons hand out admin and take it back when they
+                // end. A crash or redeploy mid-event skips the taking-back, so
+                // promotions pile up permanently. Nobody keeps admin across a
+                // reboot except the owner (and the bot, which needs it to
+                // promote/demote at all).
+                try {
+                    const sweepGroup = process.env.RAID_GROUP_JID;
+                    if (sweepGroup) {
+                        const meta = await sock.groupMetadata(sweepGroup);
+                        const botNum = normalizeId(sock.user?.id || '');
+                        const botLid = normalizeId(BOT_LID || '');
+                        const strip = (meta.participants || []).filter(p => {
+                            if (!p.admin) return false;                 // not an admin — skip
+                            if (p.admin === 'superadmin') return false; // group creator — untouchable
+                            const n = normalizeId(p.id);
+                            if (isOwner(n)) return false;               // you keep it
+                            if (n === botNum || (botLid && n === botLid)) return false;
+                            return true;
+                        }).map(p => p.id);
+
+                        if (strip.length) {
+                            await sock.groupParticipantsUpdate(sweepGroup, strip, 'demote');
+                            console.log(`🧹 Admin sweep: demoted ${strip.length} leftover admin(s) on boot.`);
+                        } else {
+                            console.log('🧹 Admin sweep: nothing to demote.');
+                        }
+                    }
+                } catch (e) { console.error('Admin sweep error:', e.message); }
 
                 if (ADMINS.length === 0 && sock.user) {
                     const myJid = normalizeId(sock.user.id);
