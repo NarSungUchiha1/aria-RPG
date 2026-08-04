@@ -86,6 +86,11 @@ let lastWas401 = false;
 let sock = null;
 let BOT_NUMBER = '';
 let BOT_LID    = '';
+
+// Group metadata cache — shared by the Baileys send path and our own lookups.
+// Invalidated on membership/admin changes, so promote/demote stay correct.
+const groupMetaCache = new Map(); // jid -> { data, ts }
+const GROUP_META_TTL_MS = 5 * 60 * 1000;
 let lastConnectedAt = null;
 
 // Watchdog — if bot claims to be running but hasn't connected in 3 minutes, force reset
@@ -539,6 +544,36 @@ async function startBot() {
             // pattern that gets a number flagged. 60s matches the known-stable
             // reference bot's setting.
             connectTimeoutMs: 60000,
+            // Without this Baileys queries WhatsApp for a group's metadata on
+            // EVERY group send — a network round-trip per message. Under raid
+            // load that is the main source of lag, and when the query hangs or
+            // comes back malformed you get "missing <group> node" and send
+            // timeouts. Serve it from cache instead; returning undefined lets
+            // Baileys fetch normally.
+            cachedGroupMetadata: async (jid) => {
+                const hit = groupMetaCache.get(jid);
+                if (hit && Date.now() - hit.ts < GROUP_META_TTL_MS) return hit.data;
+                return undefined;
+            },
+        });
+
+        // Populate that cache from every metadata lookup we make ourselves
+        // (tagAll, promote/demote, the admin sweep), so the send path usually
+        // finds it warm.
+        const _rawGroupMetadata = sock.groupMetadata.bind(sock);
+        sock.groupMetadata = async (jid) => {
+            const hit = groupMetaCache.get(jid);
+            if (hit && Date.now() - hit.ts < GROUP_META_TTL_MS) return hit.data;
+            const data = await _rawGroupMetadata(jid);
+            groupMetaCache.set(jid, { data, ts: Date.now() });
+            return data;
+        };
+
+        // Membership and admin changes must invalidate immediately — a stale
+        // participant list would break promote/demote and mention targeting.
+        sock.ev.on('group-participants.update', (u) => { if (u?.id) groupMetaCache.delete(u.id); });
+        sock.ev.on('groups.update', (updates) => {
+            for (const u of (updates || [])) if (u?.id) groupMetaCache.delete(u.id);
         });
 
         // ── OUTBOUND SEND THROTTLE ─────────────────────────────────────────
