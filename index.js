@@ -552,18 +552,46 @@ async function startBot() {
         const _rawSendMessage = sock.sendMessage.bind(sock);
         const _sendQueues = new Map(); // jid -> promise chain
         const _lastSendAt  = new Map(); // jid -> ts of last actual send
+        const _queueDepth  = new Map(); // jid -> messages waiting behind the chain
         const SEND_MIN_GAP_MS = 600;
+        // A hung send used to wedge its jid's chain forever while every later
+        // message piled up behind it, each closure pinning its content — image
+        // posters are ~300KB apiece. That is what exhausted the heap. Two
+        // guards: nothing may block the chain indefinitely, and the backlog is
+        // bounded so a burst sheds load instead of growing without limit.
+        const SEND_HARD_TIMEOUT_MS = 15000;
+        const MAX_QUEUE_DEPTH = 20;
+
+        const withTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
+            const t = setTimeout(() => reject(new Error(label)), ms);
+            promise.then(
+                v => { clearTimeout(t); resolve(v); },
+                e => { clearTimeout(t); reject(e); }
+            );
+        });
+
         sock.sendMessage = (jid, content, options) => {
+            const depth = _queueDepth.get(jid) || 0;
+            if (depth >= MAX_QUEUE_DEPTH) {
+                console.warn(`[SEND DROP] backlog ${depth} for ${jid} — shedding message`);
+                return Promise.resolve(null);
+            }
+            _queueDepth.set(jid, depth + 1);
+
             const prevChain = _sendQueues.get(jid) || Promise.resolve();
             const nextChain = prevChain.then(async () => {
                 const wait = SEND_MIN_GAP_MS - (Date.now() - (_lastSendAt.get(jid) || 0));
                 if (wait > 0) await new Promise(r => setTimeout(r, wait + Math.floor(Math.random() * 250)));
                 _lastSendAt.set(jid, Date.now());
-                return _rawSendMessage(jid, content, options);
+                return withTimeout(_rawSendMessage(jid, content, options), SEND_HARD_TIMEOUT_MS, 'raw send timeout');
             });
-            // Detach the queue from this send's own outcome so one failed/rejected
-            // send doesn't wedge every later message to the same jid.
-            _sendQueues.set(jid, nextChain.catch(() => {}));
+
+            // Always decrement, and always let the chain move on — a failed or
+            // timed-out send must never hold the queue hostage.
+            const settled = nextChain
+                .catch(() => {})
+                .finally(() => _queueDepth.set(jid, Math.max(0, (_queueDepth.get(jid) || 1) - 1)));
+            _sendQueues.set(jid, settled);
             return nextChain;
         };
 
@@ -1140,12 +1168,10 @@ async function startBot() {
                     const isMedia = messageContent && (messageContent.image || messageContent.video || messageContent.document || messageContent.sticker);
                     const sendOpts = (isDM || isMedia) ? {} : { quoted: msg };
                     try {
-                        // Cap the send so a flaky connection / metadata stall can't
-                        // tie up the command slot for the whole 60s timeout.
-                        return await Promise.race([
-                            sock.sendMessage(jid, messageContent, sendOpts),
-                            new Promise((_, rej) => setTimeout(() => rej(new Error('send timeout 20s')), 20000))
-                        ]);
+                        // The send layer already caps each attempt and bounds its
+                        // backlog, so no race is needed here. The old one never
+                        // cleared its timer, leaking a live 20s timeout per reply.
+                        return await sock.sendMessage(jid, messageContent, sendOpts);
                     } catch(e) {
                         console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
                     }

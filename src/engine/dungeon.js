@@ -1304,6 +1304,7 @@ async function checkAndCloseEmptyDungeon(dungeonId, client = null) {
             autoStartTimers.delete(dungeonId);
         }
         try { await require('../systems/reflectionSystem').clearReflections(dungeonId); } catch(e) {}
+        try { require('../systems/territoryBonusSystem').clearTerritoryRevives(dungeonId); } catch(e) {}
         console.log(`🏰 Dungeon ${dungeonId} closed (empty).`);
         const [dRank] = await db.execute('SELECT dungeon_rank FROM dungeon WHERE id=?', [dungeonId]).catch(() => [[{}]]);
         if (client && !dRank[0]?.dungeon_rank?.startsWith('P')) {

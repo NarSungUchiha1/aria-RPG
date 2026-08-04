@@ -90,6 +90,15 @@ async function tryTerritoryRevive(playerId, dungeonId) {
     } catch(e) { return false; }
 }
 
+// Called when a dungeon closes — without this the set grows for the life of
+// the process, one entry per hunter per dungeon, forever.
+function clearTerritoryRevives(dungeonId) {
+    const prefix = `${dungeonId}_`;
+    for (const key of territoryRevives) {
+        if (key.startsWith(prefix)) territoryRevives.delete(key);
+    }
+}
+
 module.exports = {
     getPlayerTerritoryBonuses,
     clearBonusCache,
@@ -97,5 +106,6 @@ module.exports = {
     applyXpBonus,
     getDamageBonusMultiplier,
     getBonusLabel,
-    tryTerritoryRevive
+    tryTerritoryRevive,
+    clearTerritoryRevives
 };
