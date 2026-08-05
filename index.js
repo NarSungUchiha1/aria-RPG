@@ -588,6 +588,8 @@ async function startBot() {
         const _sendQueues = new Map(); // jid -> promise chain
         const _lastSendAt  = new Map(); // jid -> ts of last actual send
         const _queueDepth  = new Map(); // jid -> messages waiting behind the chain
+        const _sendFails   = new Map(); // jid -> consecutive failures
+        const _deadJids    = new Map(); // jid -> muted-until timestamp
         const SEND_MIN_GAP_MS = 600;
         // A hung send used to wedge its jid's chain forever while every later
         // message piled up behind it, each closure pinning its content — image
@@ -596,6 +598,8 @@ async function startBot() {
         // bounded so a burst sheds load instead of growing without limit.
         const SEND_HARD_TIMEOUT_MS = 15000;
         const MAX_QUEUE_DEPTH = 20;
+        const DEAD_JID_THRESHOLD = 3;               // consecutive failures before muting
+        const DEAD_JID_COOLDOWN_MS = 10 * 60 * 1000; // then retry after this long
 
         const withTimeout = (promise, ms, label) => new Promise((resolve, reject) => {
             const t = setTimeout(() => reject(new Error(label)), ms);
@@ -606,6 +610,15 @@ async function startBot() {
         });
 
         sock.sendMessage = (jid, content, options) => {
+            // Circuit breaker. A chat that keeps timing out (bot removed, or a
+            // restricted/broken group) otherwise costs 15s PER attempt, and
+            // because the reply layer awaits the send, each attempt pins one of
+            // the 6 command slots for that long. A handful of them starves the
+            // limiter and every group goes slow. Trip the breaker and fail
+            // instantly instead.
+            const dead = _deadJids.get(jid);
+            if (dead && Date.now() < dead) return Promise.resolve(null);
+
             const depth = _queueDepth.get(jid) || 0;
             if (depth >= MAX_QUEUE_DEPTH) {
                 console.warn(`[SEND DROP] backlog ${depth} for ${jid} — shedding message`);
@@ -618,7 +631,20 @@ async function startBot() {
                 const wait = SEND_MIN_GAP_MS - (Date.now() - (_lastSendAt.get(jid) || 0));
                 if (wait > 0) await new Promise(r => setTimeout(r, wait + Math.floor(Math.random() * 250)));
                 _lastSendAt.set(jid, Date.now());
-                return withTimeout(_rawSendMessage(jid, content, options), SEND_HARD_TIMEOUT_MS, 'raw send timeout');
+                try {
+                    const res = await withTimeout(_rawSendMessage(jid, content, options), SEND_HARD_TIMEOUT_MS, 'raw send timeout');
+                    _sendFails.delete(jid); // it works — reset the breaker
+                    return res;
+                } catch (err) {
+                    const fails = (_sendFails.get(jid) || 0) + 1;
+                    _sendFails.set(jid, fails);
+                    if (fails >= DEAD_JID_THRESHOLD) {
+                        _deadJids.set(jid, Date.now() + DEAD_JID_COOLDOWN_MS);
+                        _sendFails.delete(jid);
+                        console.error(`[SEND BREAKER] ${jid} failed ${fails}x — muting it for ${DEAD_JID_COOLDOWN_MS / 60000}min so it stops stalling command slots.`);
+                    }
+                    throw err;
+                }
             });
 
             // Always decrement, and always let the chain move on — a failed or
@@ -1202,14 +1228,15 @@ async function startBot() {
                     // ("missing <group> node") and stalls image sends like !vip.
                     const isMedia = messageContent && (messageContent.image || messageContent.video || messageContent.document || messageContent.sticker);
                     const sendOpts = (isDM || isMedia) ? {} : { quoted: msg };
-                    try {
-                        // The send layer already caps each attempt and bounds its
-                        // backlog, so no race is needed here. The old one never
-                        // cleared its timer, leaking a live 20s timeout per reply.
-                        return await sock.sendMessage(jid, messageContent, sendOpts);
-                    } catch(e) {
-                        console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`);
-                    }
+                    // Hand the message to the send queue and return immediately —
+                    // do NOT await delivery. Awaiting meant every command held
+                    // one of the 6 concurrency slots for at least the 600ms
+                    // pacing gap, and up to 15s when a chat was timing out, so
+                    // one bad group throttled commands everywhere. The queue
+                    // still guarantees per-jid ordering, so replies stay in
+                    // sequence; only the waiting is gone.
+                    sock.sendMessage(jid, messageContent, sendOpts)
+                        .catch(e => console.error(`[SEND ERROR] jid="${jid}" ${e?.message}`));
                 },
 
                 get mentionedIds() {
